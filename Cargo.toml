@@ -1,0 +1,6 @@
+[package]
+name = "as2015-rs"
+version = "0.2.0"
+edition = "2024"
+description = "AS2015A:n staattiseen analyysiin perustuva suomenkielinen tulostyökalu"
+[dependencies]

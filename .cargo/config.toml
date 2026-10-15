@@ -1,0 +1,4 @@
+# Sisällytä C-ajonaikaiskirjasto Windowsin MSVC-ohjelmatiedostoon, jotta käyttäjä
+# ei tarvitse erillistä Visual C++ Redistributable -asennusta tälle sovellukselle.
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

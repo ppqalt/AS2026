@@ -1,0 +1,37 @@
+name: Linux ja Windows
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Alustakohtaiset tarkistukset (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Nouda lähdekoodi
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Asenna Rustin tarkistustyökalut
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Tarkista muotoilu
+        run: cargo +stable fmt --all -- --check
+      - name: Tarkista kääntyminen
+        run: cargo +stable check --offline --locked --all-targets
+      - name: Suorita testit
+        run: cargo +stable test --offline --locked --all-targets
+      - name: Tarkista varoitukset
+        run: cargo +stable clippy --offline --locked --all-targets -- -D warnings
+      - name: Käännä alustakohtainen julkaisuversio
+        run: cargo +stable build --offline --locked --release
+      - name: Suorita ohjelman sisäinen esimerkki
+        run: cargo +stable run --offline --locked --release -- demo
