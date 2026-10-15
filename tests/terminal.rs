@@ -147,7 +147,7 @@ fn pasted_paths_preserve_windows_separators_and_literal_characters() {
 #[test]
 fn choice_yes_no_and_clock_validation_are_explicit() {
     assert_eq!(parse_choice("  DEMO "), Some(MenuChoice::Demo));
-    assert_eq!(parse_choice("6"), None);
+    assert_eq!(parse_choice("6"), Some(MenuChoice::ReadLive));
     assert_eq!(parse_yes_no(" kyllä "), Some(true));
     assert_eq!(parse_yes_no("EI"), Some(false));
     assert_eq!(parse_yes_no(""), None);
@@ -156,4 +156,21 @@ fn choice_yes_no_and_clock_validation_are_explicit() {
     for value in ["24:00:00", "12:60:00", "12:00:60", "1:02:03", "a:b:c"] {
         assert!(parse_clock(value).is_err(), "{value}");
     }
+}
+
+#[test]
+fn live_reader_choice_accepts_default_and_custom_port() {
+    assert_eq!(choose("6\n\n").0, Action::ReadLive { port: None });
+    assert_eq!(
+        choose("6\n/dev/ttyUSB0\n").0,
+        Action::ReadLive {
+            port: Some("/dev/ttyUSB0".into())
+        }
+    );
+    assert_eq!(
+        choose("6\nCOM3\n").0,
+        Action::ReadLive {
+            port: Some("COM3".into())
+        }
+    );
 }

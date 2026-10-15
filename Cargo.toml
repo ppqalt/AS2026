@@ -4,3 +4,5 @@ version = "0.2.0"
 edition = "2024"
 description = "AS2015A:n staattiseen analyysiin perustuva suomenkielinen tulostyökalu"
 [dependencies]
+# Linuxissa ei tarvita libudev-kehityspakettia. Toimii myös Windowsin COM-porteilla.
+serialport = { version = "4.8", default-features = false }

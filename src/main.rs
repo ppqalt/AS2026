@@ -1,7 +1,7 @@
 use as2015_rs::{
     ClockTime, CoreError, MatchKind, application, emit, io_message,
     legacy::{self, Archive, Encoding},
-    matching, ranking, report, scoring, terminal,
+    matching, ranking, reader, report, scoring, terminal,
     timing::{self, CalculationPolicy, LiveCalculationOptions, TimingMethod},
 };
 use std::{
@@ -28,12 +28,13 @@ fn help() {
            as2015-rs laske KANSIO [--utf8] [--vaiheet] [--raportti TIEDOSTO.html]\n\
            as2015-rs tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html]\n\
            as2015-rs pura KEHYSTIEDOSTO [HH:MM:SS]\n\
-           as2015-rs esimerkki\n\n\
+           as2015-rs esimerkki\n\
+           as2015-rs lue [SARJAPORTTI]\n\n\
          Tuloslaskenta näyttää korttiaineiston laskennan esikatselun.\n\
          Tulosluettelot perustuvat kilpailutiedostoon tallennettuihin pisteisiin.\n\
          Tasatulokset säilytetään jaettuina. --ratkaise-tasatulokset ottaa käyttöön\n\
          asematietoihin perustuvan vertailun, kun tarvittavat tiedot ovat saatavilla.\n\
-         Kilpailutiedostoja ei muuteta. Sarjaporttia ei vielä avata."
+         Kilpailutiedostoja ei muuteta. Emit-kortin voi lukea suoraan sarjaportista."
     );
 }
 fn inspect(directory: &Path, encoding: Encoding) -> Result<()> {
@@ -108,6 +109,33 @@ fn decode_file(path: &Path, readout_clock: Option<ClockTime>) -> Result<()> {
     }
     Ok(())
 }
+fn read_card(port: Option<&str>) -> Result<()> {
+    let port = reader::port_name(port).map_err(invalid)?;
+    println!("Emit-lukija: {port}");
+    println!("Aseta Emit-kortti lukijaan (odotus enintään 30 sekuntia).");
+    let frame = reader::read_one(&port).map_err(invalid)?;
+    println!(
+        "Emit-kortti: {}. Kehys {} tavua; 50 tietuetta.",
+        frame.card_number,
+        frame.raw.len()
+    );
+    if let Some(index) = frame.records.iter().position(|p| p.code == 250) {
+        println!(
+            "Ensimmäinen lukumerkki: tietue {index}. Sisäleimauksia: {}",
+            index.saturating_sub(1)
+        );
+        for (number, punch) in frame.records[1..index].iter().enumerate() {
+            println!(
+                "  {}: leima {}, nollauksesta {} s",
+                number + 1,
+                punch.code,
+                punch.elapsed_seconds
+            );
+        }
+    }
+    Ok(())
+}
+
 fn print_calculation(result: &timing::LiveCalculation, show_trace: bool) {
     println!(
         "Aikavirhepisteet: {} | Muut virhepisteet: {} | Virhepisteet yhteensä: {} (asemarivit)",
@@ -391,6 +419,7 @@ fn menu() -> Result<()> {
                 readout_clock,
             } => decode_file(&path, readout_clock).map(|()| None),
             terminal::Action::Demo => demo().map(|()| None),
+            terminal::Action::ReadLive { port } => read_card(port.as_deref()).map(|()| None),
         };
         match result {
             Ok(Some(html)) => {
@@ -454,6 +483,9 @@ fn run() -> Result<()> {
             Ok(())
         }
         Some("esimerkki" | "demo") if args.len() == 1 => demo(),
+        Some("lue" | "read") if (1..=2).contains(&args.len()) => {
+            read_card(args.get(1).and_then(|s| s.to_str()))
+        }
         Some("tarkista" | "inspect")
             if args.len() == 2 || (args.len() == 3 && args[2] == "--utf8") =>
         {

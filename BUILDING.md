@@ -1,6 +1,6 @@
 # Kääntäminen Linuxille ja Windowsille
 
-Sovellus käyttää Rustin vakiokirjastoa, eikä sillä ole **yhtään Cargo-riippuvuutta**.
+Laskentakoodi käyttää Rustin vakiokirjastoa. Sarjaporttiluvussa käytetään yhtä suoraa Cargo-riippuvuutta (`serialport`, ilman oletusominaisuuksia).
 Käyttäjän ei tarvitse asentaa Pythonia, Javaa, Ghidraa, selainta,
 tietokantapalvelinta tai käyttöliittymäkirjastoa. Valmis ohjelma toimii ilman
 lähdekoodihakemistoa. Esimerkkikilpailun tiedot ovat ohjelman sisällä, ja omat
@@ -44,11 +44,11 @@ kehityskoneella.
 ## Kääntäminen Linuxilla
 
 Tarvitset vakaan Rust-työkaluketjun ja käyttöjärjestelmän C-linkittäjän.
-Erillisiä tätä sovellusta varten asennettavia järjestelmäkirjastoja ei tarvita.
+Sarjaporttikirjasto rakennetaan ilman Linuxin libudev-kehityspakettia. Ensimmäinen käännös tarvitsee verkkoyhteyden Cargo-riippuvuuksien lataamiseen.
 Avaa pääte hakemistossa, jossa `Cargo.toml` sijaitsee, ja suorita:
 
 ```sh
-cargo build --offline --locked --release
+cargo build --release
 ./target/release/as2015-rs
 ```
 
@@ -68,7 +68,7 @@ työkalujen hankinnassa:
 Avaa PowerShell hakemistossa, jossa `Cargo.toml` sijaitsee, ja suorita:
 
 ```powershell
-cargo build --offline --locked --release
+cargo build --release
 .\target\release\as2015-rs.exe
 ```
 
@@ -81,9 +81,9 @@ Linuxissa käännetty ohjelmatiedosto ei toimi Windows-ohjelmana.
 
 ```sh
 cargo fmt --all -- --check
-cargo check --offline --locked --all-targets
-cargo test --offline --locked --all-targets
-cargo clippy --offline --locked --all-targets -- -D warnings
+cargo check --all-targets
+cargo test --all-targets
+cargo clippy --all-targets -- -D warnings
 ```
 
 Tiedosto `.github/workflows/ci.yml` määrittelee nämä tarkistukset,

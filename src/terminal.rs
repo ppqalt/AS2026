@@ -28,6 +28,9 @@ pub enum Action {
         readout_clock: Option<ClockTime>,
     },
     Demo,
+    ReadLive {
+        port: Option<String>,
+    },
     Quit,
 }
 
@@ -38,6 +41,7 @@ pub enum MenuChoice {
     RankStored,
     Decode,
     Demo,
+    ReadLive,
     Quit,
 }
 
@@ -48,6 +52,7 @@ pub fn parse_choice(value: &str) -> Option<MenuChoice> {
         "3" | "rank-stored" | "tulokset" => Some(MenuChoice::RankStored),
         "4" | "decode" | "pura" => Some(MenuChoice::Decode),
         "5" | "demo" => Some(MenuChoice::Demo),
+        "6" | "lue" | "read" => Some(MenuChoice::ReadLive),
         "0" | "q" | "quit" | "lopeta" => Some(MenuChoice::Quit),
         _ => None,
     }
@@ -159,18 +164,32 @@ fn menu_inner<R: BufRead, W: Write>(input: &mut R, output: &mut W) -> io::Result
              3  Tulosluettelot — tallennetut pisteet\n\
              4  Pura Emit-kortin kehystiedosto\n\
              5  Kokeile esimerkkikilpailua\n\
+             6  Lue Emit-kortti\n\
              0  Lopeta"
         )?;
-        let Some(value) = line(input, output, "Valitse 0–5: ")? else {
+        let Some(value) = line(input, output, "Valitse 0–6: ")? else {
             return Ok(Action::Quit);
         };
         let Some(choice) = parse_choice(&value) else {
-            writeln!(output, "Valintaa ei tunnistettu. Anna numero 0–5.")?;
+            writeln!(output, "Valintaa ei tunnistettu. Anna numero 0–6.")?;
             continue;
         };
         match choice {
             MenuChoice::Quit => return Ok(Action::Quit),
             MenuChoice::Demo => return Ok(Action::Demo),
+            MenuChoice::ReadLive => {
+                let Some(value) = line(
+                    input,
+                    output,
+                    "Sarjaportti (tyhjä = tunnista automaattisesti): ",
+                )?
+                else {
+                    return Ok(Action::Quit);
+                };
+                return Ok(Action::ReadLive {
+                    port: (!value.trim().is_empty()).then(|| value.trim().to_owned()),
+                });
+            }
             MenuChoice::Inspect | MenuChoice::Calculate | MenuChoice::RankStored => {
                 writeln!(
                     output,

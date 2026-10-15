@@ -26,12 +26,12 @@ jobs:
       - name: Tarkista muotoilu
         run: cargo +stable fmt --all -- --check
       - name: Tarkista kääntyminen
-        run: cargo +stable check --offline --locked --all-targets
+        run: cargo +stable check --locked --all-targets
       - name: Suorita testit
-        run: cargo +stable test --offline --locked --all-targets
+        run: cargo +stable test --locked --all-targets
       - name: Tarkista varoitukset
-        run: cargo +stable clippy --offline --locked --all-targets -- -D warnings
+        run: cargo +stable clippy --locked --all-targets -- -D warnings
       - name: Käännä alustakohtainen julkaisuversio
-        run: cargo +stable build --offline --locked --release
+        run: cargo +stable build --locked --release
       - name: Suorita ohjelman sisäinen esimerkki
-        run: cargo +stable run --offline --locked --release -- demo
+        run: cargo +stable run --locked --release -- demo

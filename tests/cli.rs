@@ -119,7 +119,7 @@ fn example_labels_synthetic_data_and_shows_recovered_full_scoring() {
 #[test]
 fn finnish_ohje_command_explains_supported_operations() {
     let text = successful_text(run(["ohje"]));
-    for command in ["tarkista", "laske", "tulokset", "pura", "esimerkki"] {
+    for command in ["tarkista", "laske", "tulokset", "pura", "esimerkki", "lue"] {
         assert!(text.contains(&format!("as2015-rs {command}")));
     }
     assert!(text.contains("Tuloslaskenta näyttää korttiaineiston laskennan esikatselun"));

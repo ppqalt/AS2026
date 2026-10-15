@@ -7,6 +7,7 @@ pub mod application;
 pub mod emit;
 pub mod legacy;
 pub mod matching;
+pub mod reader;
 pub mod scoring;
 
 use std::fmt;
