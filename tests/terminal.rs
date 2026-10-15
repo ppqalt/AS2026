@@ -159,18 +159,26 @@ fn choice_yes_no_and_clock_validation_are_explicit() {
 }
 
 #[test]
-fn live_reader_choice_accepts_default_and_custom_port() {
-    assert_eq!(choose("6\n\n").0, Action::ReadLive { port: None });
+fn live_reader_choice_starts_automatic_detection_without_prompt() {
+    let (action, output) = choose("6\n");
+    assert_eq!(action, Action::ReadLive { port: None });
+    assert!(!output.contains("Sarjaportti ("));
+}
+
+#[test]
+fn create_competition_menu_preserves_name() {
     assert_eq!(
-        choose("6\n/dev/ttyUSB0\n").0,
-        Action::ReadLive {
-            port: Some("/dev/ttyUSB0".into())
+        choose("7\n/tmp/Harjoitus\nSyysajo\n").0,
+        Action::Create {
+            directory: PathBuf::from("/tmp/Harjoitus"),
+            name: "Syysajo".into()
         }
     );
     assert_eq!(
-        choose("6\nCOM3\n").0,
-        Action::ReadLive {
-            port: Some("COM3".into())
+        choose("7\n/tmp/Harjoitus\n\n").0,
+        Action::Create {
+            directory: PathBuf::from("/tmp/Harjoitus"),
+            name: "Uusi kilpailu".into()
         }
     );
 }

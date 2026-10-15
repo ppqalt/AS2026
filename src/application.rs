@@ -1,6 +1,7 @@
 //! Portable application operations. Imported records remain separate from previews.
 use crate::{
-    ClockTime, CoreError, StationKind,
+    ClockTime, CoreError, Punch, StationKind,
+    emit::EmitFrame,
     legacy::{Archive, Competitor, parse_saved_emit},
     matching, ranking,
     timing::{self, CalculationPolicy, LiveCalculation, LiveCalculationOptions, TimingMethod},
@@ -117,7 +118,13 @@ pub fn calculate(a: &Archive) -> Result<CalculationReport, CoreError> {
             let routes = a
                 .routes
                 .iter()
-                .filter(|r| r.name == class.route)
+                .filter(|r| {
+                    if let Ok(number) = class.route.trim().parse::<u32>() {
+                        r.index == number
+                    } else {
+                        r.name == class.route
+                    }
+                })
                 .collect::<Vec<_>>();
             if routes.len() != 1 {
                 return Err(invalid(format!(
@@ -200,6 +207,116 @@ pub fn calculate(a: &Archive) -> Result<CalculationReport, CoreError> {
         competition_name: competition_name(a),
         competitors,
         warnings: a.warnings.clone(),
+    })
+}
+
+/// Yhden suoraan luetun Emit-kortin laskennan esikatselu.
+/// Kilpailutiedostoihin tai kilpailijan tallennettuihin tuloksiin ei kirjoiteta.
+#[derive(Debug)]
+pub struct LiveCardPreview {
+    pub card_number: u32,
+    pub competitor_number: u32,
+    pub driver: String,
+    pub navigator: String,
+    pub class_code: String,
+    pub route_name: String,
+    pub calculation: LiveCalculation,
+}
+
+/// Kohdistaa kortin yksiselitteiseen kilpailijaan ja laskee tämän radan.
+/// Lukukelloa ei arvata: käytetään Kilp.txt:n lähtöaikaa ja nollauskorjausta.
+pub fn calculate_live_frame(
+    archive: &Archive,
+    frame: &EmitFrame,
+) -> Result<LiveCardPreview, CoreError> {
+    let candidates: Vec<_> = archive
+        .competitors
+        .iter()
+        .filter(|c| c.emit_card.trim().parse::<u32>().ok() == Some(frame.card_number))
+        .collect();
+    let competitor = match candidates.as_slice() {
+        [] => {
+            return Err(invalid(format!(
+                "Emit-korttia {} ei löydy kilpailijoista",
+                frame.card_number
+            )));
+        }
+        [competitor] => *competitor,
+        _ => {
+            return Err(invalid(format!(
+                "Emit-kortti {} kuuluu usealle kilpailijalle; kohdistusta ei arvata",
+                frame.card_number
+            )));
+        }
+    };
+
+    let marker = frame
+        .records
+        .iter()
+        .position(|p| p.code == 250)
+        .ok_or(CoreError::MissingMarker)?;
+    if marker == 0 {
+        return Err(CoreError::MarkerAtStart);
+    }
+    let punches: &[Punch] = &frame.records[1..marker];
+    let class = class_for(archive, &competitor.class_code)?;
+    let routes: Vec<_> = archive
+        .routes
+        .iter()
+        .filter(|route| {
+            if let Ok(number) = class.route.trim().parse::<u32>() {
+                route.index == number
+            } else {
+                route.name == class.route
+            }
+        })
+        .collect();
+    let route = match routes.as_slice() {
+        [route] => *route,
+        _ => {
+            return Err(invalid(format!(
+                "Luokan {} rata {:?} puuttuu tai on moniselitteinen",
+                competitor.class_code, class.route
+            )));
+        }
+    };
+    let official_start = start(competitor)?;
+    let rows = matching::match_route(
+        &route.to_core().map_err(|e| invalid(e.to_string()))?,
+        punches,
+        official_start,
+    )?;
+    let method = TimingMethod::from_legacy(integer(
+        archive
+            .basic
+            .identity
+            .get(7)
+            .ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
+        "ajanottotapa",
+    )?)?;
+    let options = LiveCalculationOptions {
+        official_start,
+        reset_correction_seconds: competitor.correction_seconds,
+        timing_method: method,
+        last_punch_elapsed_seconds: frame.records[marker - 1].elapsed_seconds,
+        cumulative_limit_minutes: optional_nonnegative(
+            class.fields.get(7),
+            "Luokan kokonaismyöhästymisraja",
+        )?,
+        parameters: archive
+            .scoring_parameters()
+            .map_err(|e| invalid(e.to_string()))?,
+        policy: CalculationPolicy::RecoveredLiveV1,
+    };
+    let calculation = timing::calculate_live(&rows, &options)?;
+    Ok(LiveCardPreview {
+        card_number: frame.card_number,
+        competitor_number: competitor.number,
+        driver: competitor.driver.clone(),
+        navigator: competitor.navigator.clone(),
+        class_code: competitor.class_code.clone(),
+        route_name: route.name.clone(),
+        calculation,
     })
 }
 

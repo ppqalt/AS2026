@@ -1,0 +1,66 @@
+# Täysin synteettinen kilpailu — ei oikeita henkilötietoja.
+versio = 1
+[kilpailu]
+numero = 1
+nimi = "Esimerkkikilpailu"
+ajanottotapa = 1
+
+[[luokat]]
+tunnus = "A"
+nimi = "Esimerkki"
+rata = 1
+ensimmainen_numero = 7
+lahtoaika = "12:00:00"
+lahtovali_minuutteina = 1
+myohastymisraja_minuutteina = 60
+
+[[radat]]
+numero = 1
+nimi = "DEMO"
+
+[[radat.asemat]]
+tyyppi = "L"
+nimi = "lähtö"
+emit_koodi = 0
+tavoiteaika_sekuntia = 0
+
+[[radat.asemat]]
+tyyppi = "AT"
+nimi = "AT31"
+emit_koodi = 31
+tavoiteaika_sekuntia = 300
+jakso_minuutteina = 5
+
+[[radat.asemat]]
+tyyppi = "AT"
+nimi = "AT32"
+emit_koodi = 32
+tavoiteaika_sekuntia = 600
+jakso_minuutteina = 5
+
+[[radat.asemat]]
+tyyppi = "M"
+nimi = "maali"
+emit_koodi = 0
+tavoiteaika_sekuntia = 600
+jakso_minuutteina = 10
+
+[[kilpailijat]]
+numero = 7
+luokka = "A"
+kuljettaja = "Esimerkkikuljettaja"
+kartanlukija = "Esimerkkikartanlukija"
+emit = 123456
+lahtoaika = "12:00:00"
+emit_korjaus_sekuntia = 120
+
+[[leimaluvut]]
+emit = 123456
+lukukello = "12:11:00"
+leimat = [
+  { koodi = 0, aika_sekuntia = 0 },
+  { koodi = 31, aika_sekuntia = 395 },
+  { koodi = 90, aika_sekuntia = 450 },
+  { koodi = 32, aika_sekuntia = 720 },
+  { koodi = 250, aika_sekuntia = 780 },
+]

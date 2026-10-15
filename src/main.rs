@@ -1,7 +1,7 @@
 use as2015_rs::{
     ClockTime, CoreError, MatchKind, application, emit, io_message,
     legacy::{self, Archive, Encoding},
-    matching, ranking, reader, report, scoring, terminal,
+    matching, native, ranking, reader, report, scoring, terminal,
     timing::{self, CalculationPolicy, LiveCalculationOptions, TimingMethod},
 };
 use std::{
@@ -17,7 +17,12 @@ fn io_error(error: io::Error) -> CoreError {
     invalid(io_message(&error))
 }
 fn load(directory: &Path, encoding: Encoding) -> Result<Archive> {
-    Archive::load(directory, encoding).map_err(|e| invalid(e.to_string()))
+    let config = directory.join(native::FILE_NAME);
+    if config.is_file() {
+        native::load(&config)
+    } else {
+        Archive::load(directory, encoding).map_err(|e| invalid(e.to_string()))
+    }
 }
 fn help() {
     println!(
@@ -29,7 +34,8 @@ fn help() {
            as2015-rs tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html]\n\
            as2015-rs pura KEHYSTIEDOSTO [HH:MM:SS]\n\
            as2015-rs esimerkki\n\
-           as2015-rs lue [SARJAPORTTI]\n\n\
+           as2015-rs lue [SARJAPORTTI]\n\
+           as2015-rs uusi KANSIO [KILPAILUN_NIMI]\n\n\
          Tuloslaskenta näyttää korttiaineiston laskennan esikatselun.\n\
          Tulosluettelot perustuvat kilpailutiedostoon tallennettuihin pisteisiin.\n\
          Tasatulokset säilytetään jaettuina. --ratkaise-tasatulokset ottaa käyttöön\n\
@@ -109,7 +115,16 @@ fn decode_file(path: &Path, readout_clock: Option<ClockTime>) -> Result<()> {
     }
     Ok(())
 }
-fn read_card(port: Option<&str>) -> Result<()> {
+fn create(directory: &Path, name: &str) -> Result<()> {
+    native::create(directory, name)?;
+    println!(
+        "Kilpailu luotu: {}",
+        directory.join(native::FILE_NAME).display()
+    );
+    println!("Voit avata kilpailun valikon valinnalla 1 ja muokata tietoja tekstieditorissa.");
+    Ok(())
+}
+fn read_card(port: Option<&str>) -> Result<emit::EmitFrame> {
     let port = reader::port_name(port).map_err(invalid)?;
     println!("Emit-lukija: {port}");
     println!("Aseta Emit-kortti lukijaan (odotus enintään 30 sekuntia).");
@@ -133,6 +148,44 @@ fn read_card(port: Option<&str>) -> Result<()> {
             );
         }
     }
+    Ok(frame)
+}
+
+/// Valikon korttiluku: kilpailukansion voi antaa vasta onnistuneen lukemisen jälkeen.
+fn read_card_menu<R: BufRead, W: Write>(
+    input: &mut R,
+    output: &mut W,
+    port: Option<&str>,
+) -> Result<()> {
+    let frame = read_card(port)?;
+    let Some(value) = prompt(
+        input,
+        output,
+        "\nKilpailukansion polku tuloslaskentaa varten (tyhjä = takaisin): ",
+    )?
+    else {
+        return Ok(());
+    };
+    let directory = terminal::clean_path(&value);
+    if directory.as_os_str().is_empty() {
+        return Ok(());
+    }
+    let archive = load(&directory, Encoding::Windows1252)?;
+    let preview = application::calculate_live_frame(&archive, &frame)?;
+    println!(
+        "\nTuloslaskennan esikatselu — kortti {}\nKilpailija {}: {} / {}\nLuokka {} | Rata {}",
+        preview.card_number,
+        preview.competitor_number,
+        preview.driver,
+        preview.navigator,
+        preview.class_code,
+        preview.route_name,
+    );
+    print_calculation(&preview.calculation, false);
+    println!("Tämä on esikatselu. Kilpailutiedostoja eikä tallennettuja tuloksia muutettu.");
+    println!(
+        "Laskenta käyttää kilpailijan tallennettua lähtöaikaa ja nollauskorjausta; lukukellonaikaa ei mitattu."
+    );
     Ok(())
 }
 
@@ -419,7 +472,12 @@ fn menu() -> Result<()> {
                 readout_clock,
             } => decode_file(&path, readout_clock).map(|()| None),
             terminal::Action::Demo => demo().map(|()| None),
-            terminal::Action::ReadLive { port } => read_card(port.as_deref()).map(|()| None),
+            terminal::Action::Create { directory, name } => {
+                create(&directory, &name).map(|()| None)
+            }
+            terminal::Action::ReadLive { port } => {
+                read_card_menu(&mut input, &mut output, port.as_deref()).map(|()| None)
+            }
         };
         match result {
             Ok(Some(html)) => {
@@ -483,8 +541,15 @@ fn run() -> Result<()> {
             Ok(())
         }
         Some("esimerkki" | "demo") if args.len() == 1 => demo(),
+        Some("uusi") if (2..=3).contains(&args.len()) => {
+            let name = args
+                .get(2)
+                .map(|value| value.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Uusi kilpailu".to_owned());
+            create(Path::new(&args[1]), &name)
+        }
         Some("lue" | "read") if (1..=2).contains(&args.len()) => {
-            read_card(args.get(1).and_then(|s| s.to_str()))
+            read_card(args.get(1).and_then(|s| s.to_str())).map(|_| ())
         }
         Some("tarkista" | "inspect")
             if args.len() == 2 || (args.len() == 3 && args[2] == "--utf8") =>

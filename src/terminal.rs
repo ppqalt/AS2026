@@ -28,6 +28,10 @@ pub enum Action {
         readout_clock: Option<ClockTime>,
     },
     Demo,
+    Create {
+        directory: PathBuf,
+        name: String,
+    },
     ReadLive {
         port: Option<String>,
     },
@@ -41,6 +45,7 @@ pub enum MenuChoice {
     RankStored,
     Decode,
     Demo,
+    Create,
     ReadLive,
     Quit,
 }
@@ -53,6 +58,7 @@ pub fn parse_choice(value: &str) -> Option<MenuChoice> {
         "4" | "decode" | "pura" => Some(MenuChoice::Decode),
         "5" | "demo" => Some(MenuChoice::Demo),
         "6" | "lue" | "read" => Some(MenuChoice::ReadLive),
+        "7" | "uusi" => Some(MenuChoice::Create),
         "0" | "q" | "quit" | "lopeta" => Some(MenuChoice::Quit),
         _ => None,
     }
@@ -165,35 +171,47 @@ fn menu_inner<R: BufRead, W: Write>(input: &mut R, output: &mut W) -> io::Result
              4  Pura Emit-kortin kehystiedosto\n\
              5  Kokeile esimerkkikilpailua\n\
              6  Lue Emit-kortti\n\
+             7  Uusi kilpailu\n\
              0  Lopeta"
         )?;
-        let Some(value) = line(input, output, "Valitse 0–6: ")? else {
+        let Some(value) = line(input, output, "Valitse 0–7: ")? else {
             return Ok(Action::Quit);
         };
         let Some(choice) = parse_choice(&value) else {
-            writeln!(output, "Valintaa ei tunnistettu. Anna numero 0–6.")?;
+            writeln!(output, "Valintaa ei tunnistettu. Anna numero 0–7.")?;
             continue;
         };
         match choice {
             MenuChoice::Quit => return Ok(Action::Quit),
             MenuChoice::Demo => return Ok(Action::Demo),
-            MenuChoice::ReadLive => {
-                let Some(value) = line(
-                    input,
-                    output,
-                    "Sarjaportti (tyhjä = tunnista automaattisesti): ",
-                )?
+            MenuChoice::ReadLive => return Ok(Action::ReadLive { port: None }),
+            MenuChoice::Create => {
+                let Some(value) =
+                    line(input, output, "Uuden kilpailun kansio (tyhjä = takaisin): ")?
                 else {
                     return Ok(Action::Quit);
                 };
-                return Ok(Action::ReadLive {
-                    port: (!value.trim().is_empty()).then(|| value.trim().to_owned()),
+                let directory = clean_path(&value);
+                if directory.as_os_str().is_empty() {
+                    continue;
+                }
+                let Some(name) = line(input, output, "Kilpailun nimi (tyhjä = Uusi kilpailu): ")?
+                else {
+                    return Ok(Action::Quit);
+                };
+                return Ok(Action::Create {
+                    directory,
+                    name: if name.trim().is_empty() {
+                        "Uusi kilpailu".to_owned()
+                    } else {
+                        name
+                    },
                 });
             }
             MenuChoice::Inspect | MenuChoice::Calculate | MenuChoice::RankStored => {
                 writeln!(
                     output,
-                    "Valitse kansio, jossa ovat Aspara.txt, Asperus.txt, Radat.txt ja Kilp.txt.\n\
+                    "Valitse kilpailukansio (kilpailu.toml tai vanhat kilpailutiedostot).\n\
                      Voit liittää tai vetää kansion polun tähän. Tyhjä vastaus palaa valikkoon."
                 )?;
                 let Some(value) = line(input, output, "Kilpailukansion polku: ")? else {
@@ -203,8 +221,13 @@ fn menu_inner<R: BufRead, W: Write>(input: &mut R, output: &mut W) -> io::Result
                 if directory.as_os_str().is_empty() {
                     continue;
                 }
-                let Some(encoding) = encoding(input, output)? else {
-                    return Ok(Action::Quit);
+                let encoding = if directory.join("kilpailu.toml").is_file() {
+                    Encoding::Utf8
+                } else {
+                    let Some(encoding) = encoding(input, output)? else {
+                        return Ok(Action::Quit);
+                    };
+                    encoding
                 };
                 return Ok(match choice {
                     MenuChoice::Inspect => Action::Inspect {

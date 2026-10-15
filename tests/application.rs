@@ -1,5 +1,5 @@
 //! Synteettisiä sovelluspolkuja, jotka eivät suorita vanhaa ohjelmaa tai avaa laitteita.
-use as2015_rs::application::{calculate, rank_stored};
+use as2015_rs::application::{calculate, calculate_live_frame, rank_stored};
 use as2015_rs::emit::parse_frame;
 use as2015_rs::legacy::{Archive, Encoding, parse_document, parse_saved_emit};
 use as2015_rs::ranking::{GroupKind, TiePolicy};
@@ -289,4 +289,40 @@ fn custom_series_method_requires_a_table_then_uses_its_first_place_value() {
         .find(|g| g.kind == GroupKind::Ordinary)
         .unwrap();
     assert_eq!(group.entries[0].series_points, 101);
+}
+
+#[test]
+fn live_card_from_reader_can_use_existing_competition_and_calculate_645() {
+    let a = archive();
+    let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
+    let before = format!("{a:?}");
+    let preview = calculate_live_frame(&a, &frame).unwrap();
+    assert_eq!(preview.card_number, 123456);
+    assert_eq!(preview.competitor_number, 7);
+    assert_eq!(preview.route_name, "DEMO");
+    assert_eq!(preview.calculation.totals.total_points, 645);
+    assert_eq!(format!("{a:?}"), before);
+}
+
+#[test]
+fn live_card_requires_a_unique_competitor() {
+    let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
+    let mut a = archive();
+    a.competitors[0].emit_card = "888888".into();
+    assert!(
+        calculate_live_frame(&a, &frame)
+            .unwrap_err()
+            .to_string()
+            .contains("ei löydy")
+    );
+    a.competitors[0].emit_card = "123456".into();
+    let mut duplicate = a.competitors[0].clone();
+    duplicate.number = 8;
+    a.competitors.push(duplicate);
+    assert!(
+        calculate_live_frame(&a, &frame)
+            .unwrap_err()
+            .to_string()
+            .contains("usealle")
+    );
 }

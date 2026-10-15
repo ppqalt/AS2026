@@ -216,6 +216,8 @@ pub struct MatchedRow {
     pub clock: Option<ClockTime>,
 }
 
+pub mod native;
+
 pub mod terminal;
 
 pub mod ranking;

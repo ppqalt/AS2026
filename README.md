@@ -2,7 +2,7 @@
 
 Suomenkielinen Rust-sovellus, jonka pohjana on vanhan AS2015A-ohjelman staattinen tutkimus. Käyttöliittymän tutut termit ja asemahuomiot on poimittu alkuperäisestä ohjelmasta. Uusille esikatselu- ja tarkistustoiminnoille on kirjoitettu suomenkieliset ohjeet.
 
-Tämä on vielä kehitysversio. Vanhaa Windows-ohjelmaa ei ole suoritettu. Uuden laskennan vastaavuus oikeisiin vanhoihin kilpailutuloksiin on vielä varmistettava.
+Tämä on kehitysversio. Alkuperäistä ohjelmaa on kokeiltu erillisenä Wine-harjoitusasennuksena. Uuden laskennan vastaavuus oikeisiin vanhoihin kilpailutuloksiin on vielä varmistettava.
 
 ## Käynnistäminen
 
@@ -21,7 +21,8 @@ Valikon toiminnot:
 3. **Tulosluettelot** näyttää luokka-, yhdistettyjen luokkien ja ratakohtaiset sijoitukset tallennetuista pisteistä. Nousu- ja sarjapisteet noudattavat kilpailun valintoja.
 4. **Emit-kehystiedoston purku** lukee yhden 217 tavun tiedoston.
 5. **Esimerkkikilpailu** näyttää koko toteutetun korttilaskennan. Käsin laaditun esimerkin tulos on 645 pistettä.
-6. **Lue Emit-kortti** etsii FTDI-lukijan, odottaa yhtä korttia ja näyttää numeron sekä leimaukset. Portin voi myös antaa itse (Linuxissa esimerkiksi `/dev/ttyUSB0`, Windowsissa `COM3`).
+6. **Lue Emit-kortti** tunnistaa FTDI-lukijan automaattisesti ja näyttää leimaukset. Sen jälkeen voi antaa kilpailukansion polun tuloslaskennan esikatseluun. Portin voi yhä antaa komentorivillä (esimerkiksi `COM3`).
+7. **Uusi kilpailu** luo UTF-8-muotoisen `kilpailu.toml`-tiedoston.
 
 Tuloslaskennan ja tulosluettelon jälkeen voit tallentaa raportin HTML-tiedostoksi. Sen voi avata tavallisella selaimella ja tulostaa selaimen tulostustoiminnolla. Verkkoa tai erillistä palvelinta ei tarvita. Olemassa olevaa tiedostoa ei korvata.
 
@@ -85,7 +86,16 @@ Testiaineisto on käsin laadittua. Testit tarkistavat palautetun laskentamallin 
 
 Valitse **6 — Lue Emit-kortti** tai suorita `cargo run --release -- lue`.
 Linuxissa FTDI-lukija tunnistetaan ensisijaisesti `/dev/serial/by-id/`-hakemistosta.
-Jos lukija ei löydy, anna portti itse. Windowsissa voit antaa esimerkiksi `COM3`.
+Jos lukijaa ei löydy, portin voi antaa komentorivillä (esimerkiksi `cargo run --release -- lue COM3`).
 Yksi luku näyttää yhden kortin tiedot ja palaa valikkoon; toiminto ei muokkaa kilpailutiedostoja.
 Kortin täytyy olla lukijassa korkeintaan 30 sekunnin kuluessa.
 Tämä ominaisuus ei vielä siirrä korttia suoraan kilpailun laskentaan.
+
+
+## Uusi kilpailumuoto (TOML)
+
+Luo uusi kilpailu komennolla `as2015-rs uusi KANSIO "Kilpailun nimi"` tai käyttövalikon kohdasta **7 — Uusi kilpailu**. Ohjelma luo UTF-8-muotoisen `kilpailu.toml`-tiedoston. Se sisältää kilpailun, luokan, radan sekä asemien esimerkit. Muokkaa sitä Zedissä. Lisää kilpailijat toistamalla `[[kilpailijat]]`-lohko. Voit määritellä kilpailun virhepisteet `[virhepisteet]`-osiossa.
+
+`as2015-rs tarkista KANSIO`, `as2015-rs laske KANSIO` ja `as2015-rs tulokset KANSIO` tunnistavat `kilpailu.toml`-tiedoston automaattisesti ja käyttävät samaa laskentaydintä kuin alkuperäisten tiedostojen tuonti. `tulokset` ei vielä muodosta virallisia uusia pistetuloksia, sillä uusia tuloksia ei tallenneta. TOML-tiedostossa numerolla valittava rata toimii riippumatta radan nimestä. Vanhojen tiedostojen luku säilyy muuttumattomana, jos kansiossa ei ole TOML-tiedostoa.
+
+Tässä kehitysvaiheessa TOML-kilpailun tiedot muokataan editorissa, eikä ohjelma vielä tallenna kortin lukua automaattisesti TOML-tiedostoon. Valmiita tulospisteitä ei tallenneta TOML-muotoon eikä niitä pidä pitää vahvistettuina. `[[leimaluvut]]`-lohkoon voi lisätä purkuvaiheessa tallennetut korttitiedot manuaalisesti (esimerkki `fixtures/native-demo/kilpailu.toml`). Virallisten tulosten vastaavuus edellyttää edelleen vanhan ohjelman vertailutuloksia.

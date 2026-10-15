@@ -117,3 +117,6 @@ löytynyt. Windows-kääntämistä tai ohjelman toimintaa Windowsissa **ei ole
 varmistettu paikallisesti**. Windows-työnkulku on ajettava ennen kuin
 Windows-käännöstä voi sanoa testatuksi. Näiden muutosten yhteydessä ei ole
 asennettu järjestelmäpaketteja, Rustin käännöskohteita tai työkaluketjuja.
+
+
+TOML-kilpailujen käsittelyyn käytetään `serde`- ja `toml`-Rust-kirjastoja. Ne linkitetään valmiiseen ohjelmaan, eivätkä vaadi erillisiä käyttäjän asentamia sovelluksia.
