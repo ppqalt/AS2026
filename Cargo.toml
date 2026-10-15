@@ -1,8 +1,9 @@
 [package]
 name = "as2026"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.89"
+default-run = "as2026"
 description = "AS2026 — autosuunnistuksen kilpailunhallinta ja tuloslaskenta"
 [dependencies]
 # Linuxissa ei tarvita libudev-kehityspakettia. Toimii myös Windowsin COM-porteilla.
@@ -11,3 +12,35 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 ctrlc = "3"
+
+[features]
+default = []
+gui = ["dep:slint", "dep:slint-build", "dep:rfd", "dep:image"]
+
+[dependencies.slint]
+version = "=1.16.0"
+optional = true
+default-features = false
+features = ["std", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+
+[dependencies.rfd]
+version = "0.15"
+optional = true
+
+[dependencies.image]
+version = "0.25"
+optional = true
+default-features = false
+features = ["png"]
+
+[build-dependencies]
+slint-build = { version = "=1.16.0", optional = true }
+
+[[bin]]
+name = "as2026"
+path = "src/main.rs"
+
+[[bin]]
+name = "as2026-gui"
+path = "src/bin/as2026-gui.rs"
+required-features = ["gui"]

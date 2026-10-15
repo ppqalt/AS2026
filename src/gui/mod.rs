@@ -1,0 +1,994 @@
+//! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
+slint::include_modules!();
+mod forms;
+mod smoke;
+mod tables;
+
+use as2026::{
+    ClockTime, CoreError, application, emit, io_message,
+    live_reader::{ReaderEvent, ReaderWorker},
+    native::{self, Project},
+    report,
+    storage::ProjectStore,
+    workspace::Workspace,
+};
+use chrono::Timelike;
+use forms::Selection;
+use slint::{ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::mpsc::Receiver,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+type GuiResult<T> = Result<T, CoreError>;
+type SharedState = Rc<RefCell<State>>;
+
+#[derive(Default)]
+struct State {
+    workspace: Option<Workspace>,
+    page: i32,
+    selected: i32,
+    detail: i32,
+    selection: Selection,
+    draft: BTreeMap<i32, String>,
+    invalid_field: bool,
+    invalid_fields: BTreeSet<i32>,
+    edit_draft: BTreeMap<i32, String>,
+    filter: String,
+    worker: Option<ReaderWorker>,
+    receiver: Option<Receiver<ReaderEvent>>,
+    unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
+}
+
+fn invalid(message: &str) -> CoreError {
+    CoreError::InvalidInput(message.into())
+}
+fn model<T: Clone + 'static>(values: Vec<T>) -> ModelRc<T> {
+    Rc::new(VecModel::from(values)).into()
+}
+fn status(app: &AppWindow, text: impl Into<SharedString>, error: bool) {
+    app.set_status_text(text.into());
+    app.set_status_error(error);
+}
+fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
+    if let Err(error) = operation() {
+        status(app, error.to_string(), true);
+    }
+}
+
+fn is_new(selection: &Selection) -> bool {
+    matches!(
+        selection,
+        Selection::NewDriver
+            | Selection::NewClass
+            | Selection::NewTrack
+            | Selection::NewStation { .. }
+    )
+}
+fn can_leave(state: &mut State, app: &AppWindow) -> bool {
+    if !is_new(&state.selection) {
+        let pending = state.edit_draft.clone();
+        for (key, value) in pending {
+            if !commit_field(state, app, key, &value) {
+                return false;
+            }
+        }
+    }
+    if state.invalid_field || is_new(&state.selection) {
+        status(
+            app,
+            "Hyväksy tai peruuta keskeneräinen muutos. Virheellisen kentän voi korjata tai palauttaa tallennetut tiedot.",
+            true,
+        );
+        return false;
+    }
+    true
+}
+fn can_switch(state: &mut State, app: &AppWindow) -> bool {
+    if !can_leave(state, app) {
+        return false;
+    }
+    if state.worker.is_some() || !state.unsaved.is_empty() {
+        status(
+            app,
+            "Pysäytä lukija ja tallenna odottavat lukemat ennen kilpailun vaihtamista.",
+            true,
+        );
+        return false;
+    }
+    true
+}
+
+fn current_workspace(state: &mut State) -> GuiResult<&mut Workspace> {
+    state
+        .workspace
+        .as_mut()
+        .ok_or_else(|| invalid("Avaa ensin kilpailu"))
+}
+
+fn update_header(state: &State, app: &AppWindow) -> GuiResult<()> {
+    let Some(ws) = &state.workspace else {
+        return Ok(());
+    };
+    app.set_opened(true);
+    app.set_editable(ws.is_editable());
+    app.set_competition_name(ws.name().into());
+    app.set_competition_path(ws.path().display().to_string().into());
+    let archive = ws.archive()?;
+    app.set_driver_count(archive.competitors.len() as i32);
+    app.set_class_count(archive.basic.classes.len() as i32);
+    app.set_track_count(archive.routes.len() as i32);
+    app.set_read_count(ws.project().map_or(0, |p| p.leimaluvut.len()) as i32);
+    app.set_unsaved_count(state.unsaved.len() as i32);
+    Ok(())
+}
+
+fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
+    let Some(ws) = &state.workspace else {
+        return Ok(());
+    };
+    let view = tables::data(ws, state.page, state.selected, &state.filter)?;
+    app.set_rows(model(view.rows));
+    app.set_headers(model(view.headers));
+    app.set_weights(model(view.weights));
+    app.set_detail_rows(model(view.detail_rows));
+    app.set_detail_headers(model(view.detail_headers));
+    app.set_detail_weights(model(view.detail_weights));
+    app.set_detail_title(view.detail_title.into());
+    app.set_calculation_notes(view.notes.into());
+    app.set_selected_key(state.selected);
+    app.set_detail_key(state.detail);
+    update_header(state, app)
+}
+
+fn update_form(state: &State, app: &AppWindow) {
+    let new = is_new(&state.selection);
+    let visible = !matches!(state.selection, Selection::None) && state.page != 6;
+    app.set_editor_visible(visible);
+    app.set_new_record(new);
+    app.set_form_blocked(state.invalid_field);
+    let title = match &state.selection {
+        Selection::Driver(_) => "Kilpailijan tiedot",
+        Selection::Class(_) => "Luokan tiedot",
+        Selection::Track(_) => "Radan tiedot",
+        Selection::Station { .. } => "Aseman tiedot",
+        Selection::Settings => "Kilpailun asetukset",
+        Selection::NewDriver => "Uusi kilpailija",
+        Selection::NewClass => "Uusi luokka",
+        Selection::NewTrack => "Uusi rata",
+        Selection::NewStation { .. } => "Uusi asema",
+        Selection::None => "",
+    };
+    app.set_editor_title(title.into());
+    app.set_editor_description(
+        if new {
+            "Täytä tiedot ja valitse Lisää. Kilpailu tallentuu automaattisesti."
+        } else {
+            "Hyväksy kenttä Enterillä tai siirtymällä seuraavaan. Muutos tallentuu automaattisesti."
+        }
+        .into(),
+    );
+    let fields = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .map_or_else(Vec::new, |p| forms::fields(p, &state.selection));
+    app.set_fields(model(fields));
+}
+
+fn choose_row(state: &mut State, key: i32) -> GuiResult<()> {
+    state.selected = key;
+    state.detail = -1;
+    state.selection = Selection::None;
+    let Some(project) = state.workspace.as_ref().and_then(Workspace::project) else {
+        return Ok(());
+    };
+    let index = usize::try_from(key).ok();
+    state.selection = match state.page {
+        1 => index
+            .and_then(|i| project.kilpailijat.get(i))
+            .map_or(Selection::None, |d| Selection::Driver(d.numero)),
+        4 => index
+            .and_then(|i| project.luokat.get(i))
+            .map_or(Selection::None, |c| Selection::Class(c.tunnus.clone())),
+        5 => index
+            .and_then(|i| project.radat.get(i))
+            .map_or(Selection::None, |t| Selection::Track(t.numero)),
+        6 => Selection::Settings,
+        _ => Selection::None,
+    };
+    Ok(())
+}
+
+fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
+    if !(0..=6).contains(&page) || !can_leave(state, app) {
+        return Ok(());
+    }
+    state.page = page;
+    state.filter.clear();
+    state.draft.clear();
+    app.set_page(page);
+    app.set_filter("".into());
+    choose_row(state, -1)?;
+    if let Some(ws) = &state.workspace {
+        let first = tables::data(ws, page, -1, "")?
+            .rows
+            .first()
+            .map(|row| row.key);
+        if let Some(key) = first {
+            choose_row(state, key)?;
+        }
+    }
+    update_tables(state, app)?;
+    update_form(state, app);
+    app.window().request_redraw();
+    Ok(())
+}
+
+fn open_workspace(state: &mut State, app: &AppWindow, path: &Path, demo: bool) -> GuiResult<()> {
+    let ws = Workspace::open(path)?;
+    let message = if demo {
+        "Esimerkkikilpailu avattu väliaikaisena kokeilukopiona. Muutokset tallentuvat vain tähän kopioon."
+    } else if ws.is_editable() {
+        "Kilpailu avattu. Muutokset tallentuvat automaattisesti."
+    } else {
+        "AS2015A-kilpailu avattu vain katseltavaksi. Alkuperäistä aineistoa ei muokata."
+    };
+    state.workspace = Some(ws);
+    state.selection = Selection::None;
+    state.draft.clear();
+    state.invalid_field = false;
+    state.invalid_fields.clear();
+    state.edit_draft.clear();
+    app.set_demo(demo);
+    app.set_last_card("Odotetaan lukua".into());
+    app.set_last_card_detail("Kortti tunnistetaan kilpailijan Emit-numerosta.".into());
+    navigate(state, app, 0)?;
+    status(app, message, false);
+    Ok(())
+}
+
+fn demo_path() -> GuiResult<PathBuf> {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| invalid("Järjestelmän kello on virheellinen"))?
+        .as_nanos();
+    let directory =
+        std::env::temp_dir().join(format!("as2026-kokeilu-{}-{stamp}", std::process::id()));
+    std::fs::create_dir(&directory).map_err(|e| invalid(&io_message(&e)))?;
+    let project = Project::from_toml(include_str!("../../fixtures/native-demo/kilpailu.toml"))?;
+    let path = directory.join(native::FILE_NAME);
+    ProjectStore::create(&path, project)?;
+    Ok(path)
+}
+
+fn add_record(state: &mut State, app: &AppWindow, station: bool) -> GuiResult<()> {
+    if !can_leave(state, app) {
+        return Ok(());
+    }
+    let project = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Avaa muokattava AS2026-kilpailu"))?;
+    let selection = if station {
+        let track = project
+            .radat
+            .get(state.selected as usize)
+            .ok_or_else(|| invalid("Valitse ensin rata"))?;
+        Selection::NewStation {
+            track: track.numero,
+        }
+    } else {
+        match state.page {
+            1 if project.luokat.is_empty() => {
+                return Err(invalid("Lisää ensin kilpailijan luokka Luokat-näkymässä"));
+            }
+            1 => Selection::NewDriver,
+            4 if project.radat.is_empty() => {
+                return Err(invalid("Lisää ensin rata Radat ja asemat -näkymässä"));
+            }
+            4 => Selection::NewClass,
+            5 => Selection::NewTrack,
+            _ => return Ok(()),
+        }
+    };
+    state.draft = forms::fields(project, &selection)
+        .iter()
+        .map(|f| (f.key, f.value.to_string()))
+        .collect();
+    state.selection = selection;
+    update_form(state, app);
+    status(
+        app,
+        "Uusi tietue on luonnos. Täytä tiedot ja valitse Lisää tai Peruuta.",
+        false,
+    );
+    Ok(())
+}
+
+fn sync_selected_key(state: &mut State) {
+    let Some(project) = state.workspace.as_ref().and_then(Workspace::project) else {
+        return;
+    };
+    let index = match &state.selection {
+        Selection::Driver(number) => project.kilpailijat.iter().position(|d| d.numero == *number),
+        Selection::Class(code) => project.luokat.iter().position(|c| c.tunnus == *code),
+        Selection::Track(number) => project.radat.iter().position(|t| t.numero == *number),
+        Selection::Station { track, index } => {
+            state.detail = *index as i32;
+            project.radat.iter().position(|t| t.numero == *track)
+        }
+        _ => None,
+    };
+    if let Some(index) = index {
+        state.selected = index as i32;
+    }
+}
+
+fn update_station_rules(state: &State, app: &AppWindow) {
+    if !matches!(
+        state.selection,
+        Selection::Station { .. } | Selection::NewStation { .. }
+    ) {
+        return;
+    }
+    let Some(project) = state.workspace.as_ref().and_then(Workspace::project) else {
+        return;
+    };
+    let fields = forms::fields(project, &state.selection);
+    let value = |key| {
+        state.draft.get(&key).cloned().unwrap_or_else(|| {
+            fields
+                .iter()
+                .find(|f| f.key == key)
+                .map_or_else(String::new, |f| f.value.to_string())
+        })
+    };
+    let model = app.get_fields();
+    if let Some(index) = model.iter().position(|field| field.key == 4) {
+        model.set_row_data(index, forms::station_rule_field(&value(0), &value(4)));
+    }
+}
+
+fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bool {
+    if is_new(&state.selection) {
+        state.draft.insert(key, value.into());
+        if key == 0 {
+            update_station_rules(state, app);
+        }
+        return true;
+    }
+    let selection = state.selection.clone();
+    let result =
+        current_workspace(state).and_then(|ws| forms::apply_field(ws, &selection, key, value));
+    match result {
+        Ok(selection) => {
+            state.selection = selection;
+            state.invalid_fields.remove(&key);
+            state.edit_draft.remove(&key);
+            state.invalid_field = !state.invalid_fields.is_empty();
+            app.set_form_blocked(state.invalid_field);
+            sync_selected_key(state);
+            if key == 0 {
+                update_station_rules(state, app);
+            }
+            if let Err(error) = update_tables(state, app) {
+                status(app, error.to_string(), true);
+            } else {
+                status(
+                    app,
+                    if state.invalid_field {
+                        "Kenttä tallennettu. Korjaa myös aiempi virheellinen kenttä."
+                    } else {
+                        "Muutos tallennettu."
+                    },
+                    state.invalid_field,
+                );
+            }
+            // Lomaketta ei rakenneta uudelleen joka kentällä: kohdistus ja luonnokset säilyvät.
+            true
+        }
+        Err(error) => {
+            state.invalid_field = true;
+            state.invalid_fields.insert(key);
+            app.set_form_blocked(true);
+            status(app, format!("Muutosta ei tallennettu: {error}"), true);
+            false
+        }
+    }
+}
+
+fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool {
+    match event {
+        ReaderEvent::Connected { port } => {
+            app.set_reader_status(format!("Yhdistetty: {port} · 9600 8N2").into());
+            false
+        }
+        ReaderEvent::Frame { frame, read_clock } => {
+            match current_workspace(state).and_then(|ws| ws.record_frame(&frame, read_clock)) {
+                Ok(outcome) => {
+                    let competitor = state
+                        .workspace
+                        .as_ref()
+                        .and_then(Workspace::project)
+                        .and_then(|p| p.kilpailijat.iter().find(|d| d.emit == outcome.card_number));
+                    let identity = competitor.map_or_else(
+                        || {
+                            "Ei vielä ilmoittautunutta kilpailijaa. Kortin voi yhdistää myöhemmin."
+                                .into()
+                        },
+                        |d| {
+                            format!(
+                                "#{} {} / {} · luokka {}",
+                                d.numero, d.kuljettaja, d.kartanlukija, d.luokka
+                            )
+                        },
+                    );
+                    app.set_last_card(format!("Emit {}", outcome.card_number).into());
+                    app.set_last_card_detail(
+                        format!(
+                            "{identity} · {}",
+                            if outcome.content_changed {
+                                "Uudet leimaukset tallennettu"
+                            } else {
+                                "Samat leimaukset, lukema tallennettu"
+                            }
+                        )
+                        .into(),
+                    );
+                    if let Err(error) = update_tables(state, app) {
+                        status(app, error.to_string(), true);
+                    } else {
+                        status(
+                            app,
+                            "Kortin lukema tallennettu. Lukija odottaa seuraavaa korttia.",
+                            false,
+                        );
+                    }
+                    false
+                }
+                Err(error) => {
+                    state.unsaved.push((frame, read_clock));
+                    app.set_unsaved_count(state.unsaved.len() as i32);
+                    status(
+                        app,
+                        format!(
+                            "Lukemaa ei tallennettu: {error}. Lukija pysäytetään; lukema säilyy muistissa uudelleenyritystä varten."
+                        ),
+                        true,
+                    );
+                    true
+                }
+            }
+        }
+        ReaderEvent::Error(error) => {
+            app.set_reader_status(error.clone().into());
+            status(app, error, true);
+            true
+        }
+        ReaderEvent::Stopped => false,
+    }
+}
+
+fn stop_reader(state: &mut State, app: &AppWindow) -> GuiResult<()> {
+    let pending = if let Some(mut worker) = state.worker.take() {
+        worker.stop().map_err(|e| invalid(&e))?
+    } else {
+        Vec::new()
+    };
+    let queued: Vec<_> = state
+        .receiver
+        .take()
+        .map_or_else(Vec::new, |r| r.try_iter().collect());
+    for event in queued.into_iter().chain(pending) {
+        handle_event(state, app, event);
+    }
+    app.set_reader_running(false);
+    if state.unsaved.is_empty() {
+        app.set_reader_status("Lukija pysäytetty.".into());
+    }
+    Ok(())
+}
+
+fn poll_reader(state: &mut State, app: &AppWindow, timer: &Timer) {
+    let events: Vec<_> = state
+        .receiver
+        .as_ref()
+        .map_or_else(Vec::new, |r| r.try_iter().collect());
+    let mut stop = false;
+    for event in events {
+        if matches!(event, ReaderEvent::Stopped) {
+            stop = true;
+        }
+        stop |= handle_event(state, app, event);
+    }
+    if stop {
+        if let Err(error) = stop_reader(state, app) {
+            status(app, error.to_string(), true);
+        }
+        timer.stop();
+    }
+}
+
+fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
+    macro_rules! action {
+        ($method:ident, |$s:ident, $a:ident $(, $arg:ident)*| $body:expr) => {{
+            let state = state.clone(); let weak = app.as_weak();
+            app.$method(move |$($arg),*| {
+                if let Some($a) = weak.upgrade() {
+                    let mut borrowed = state.borrow_mut(); let $s = &mut *borrowed;
+                    run_action(&$a, || $body);
+                }
+            });
+        }}
+    }
+    action!(on_navigate, |s, a, page| navigate(s, &a, page));
+    action!(on_open_path, |s, a, path| {
+        if can_switch(s, &a) {
+            let path = as2026::terminal::clean_path(&path);
+            open_workspace(s, &a, &path, false)?;
+        }
+        Ok(())
+    });
+    action!(on_open_file, |s, a| {
+        if can_switch(s, &a)
+            && let Some(path) = rfd::FileDialog::new()
+                .set_title("Avaa AS2026-kilpailutiedosto")
+                .add_filter("Kilpailutiedosto", &["toml"])
+                .pick_file()
+        {
+            open_workspace(s, &a, &path, false)?;
+        }
+        Ok(())
+    });
+    action!(on_open_demo, |s, a| {
+        if can_switch(s, &a) {
+            open_workspace(s, &a, &demo_path()?, true)?;
+        }
+        Ok(())
+    });
+    action!(on_create_project, |s, a, path, name| {
+        if can_switch(s, &a) {
+            if path.trim().is_empty() {
+                return Err(invalid("Valitse kilpailun kansio"));
+            }
+            let ws = Workspace::create(&as2026::terminal::clean_path(&path), &name)?;
+            s.workspace = Some(ws);
+            s.selection = Selection::None;
+            a.set_demo(false);
+            a.set_dialog_open(false);
+            navigate(s, &a, 0)?;
+            status(
+                &a,
+                "Kilpailu luotu. Voit lisätä kilpailijat ja tarkistaa radan.",
+                false,
+            );
+        }
+        Ok(())
+    });
+    action!(on_browse_new_path, |_s, a| {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Valitse uuden kilpailun kansio")
+            .pick_folder()
+        {
+            a.set_new_path(path.display().to_string().into());
+        }
+        Ok(())
+    });
+    action!(on_reload, |s, a| {
+        if can_switch(s, &a) {
+            current_workspace(s)?.reload()?;
+            choose_row(s, s.selected)?;
+            if s.page == 6 {
+                s.selection = Selection::Settings;
+            }
+            update_tables(s, &a)?;
+            update_form(s, &a);
+            status(&a, "Kilpailun tiedot päivitetty levyltä.", false);
+        }
+        Ok(())
+    });
+    action!(on_filter_changed, |s, a, text| {
+        s.filter = text.to_string();
+        update_tables(s, &a)
+    });
+    action!(on_select_row, |s, a, key| {
+        if can_leave(s, &a) {
+            choose_row(s, key)?;
+            update_tables(s, &a)?;
+            update_form(s, &a);
+        }
+        Ok(())
+    });
+    action!(on_select_detail, |s, a, key| {
+        if can_leave(s, &a) && s.page == 5 {
+            let project = s
+                .workspace
+                .as_ref()
+                .and_then(Workspace::project)
+                .ok_or_else(|| invalid("Aineisto on vain katseltavissa"))?;
+            if let Some(track) = project.radat.get(s.selected as usize)
+                && key >= 0
+                && (key as usize) < track.asemat.len()
+            {
+                s.detail = key;
+                s.selection = Selection::Station {
+                    track: track.numero,
+                    index: key as usize,
+                };
+                a.set_detail_key(key);
+                update_form(s, &a);
+            }
+        }
+        Ok(())
+    });
+    action!(on_add_record, |s, a| add_record(s, &a, false));
+    action!(on_add_station, |s, a| add_record(s, &a, true));
+    action!(on_move_station, |s, a, delta| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let project = s
+            .workspace
+            .as_ref()
+            .and_then(Workspace::project)
+            .ok_or_else(|| invalid("Valitse rata"))?;
+        let track = project
+            .radat
+            .get(s.selected as usize)
+            .ok_or_else(|| invalid("Valitse rata"))?;
+        let track_number = track.numero;
+        let target = s.detail + delta;
+        if s.detail >= 0 && target >= 0 && (target as usize) < track.asemat.len() {
+            let from = s.detail as usize;
+            current_workspace(s)?.move_station(track_number, from, target as usize)?;
+            s.detail = target;
+            s.selection = Selection::Station {
+                track: track_number,
+                index: target as usize,
+            };
+            update_tables(s, &a)?;
+            update_form(s, &a);
+            status(&a, "Asemajärjestys tallennettu.", false);
+        }
+        Ok(())
+    });
+    {
+        let state = state.clone();
+        let weak = app.as_weak();
+        app.on_field_commit(move |key, value| {
+            weak.upgrade()
+                .is_some_and(|app| commit_field(&mut state.borrow_mut(), &app, key, &value))
+        });
+    }
+    action!(on_field_draft, |s, a, key, value| {
+        if is_new(&s.selection) {
+            s.draft.insert(key, value.to_string());
+            if key == 0 {
+                update_station_rules(s, &a);
+            }
+        } else {
+            s.edit_draft.insert(key, value.to_string());
+        }
+        Ok(())
+    });
+    action!(on_add_commit, |s, a| {
+        let selection = s.selection.clone();
+        let draft = s.draft.clone();
+        let added = forms::add(current_workspace(s)?, &selection, &draft)?;
+        s.selection = added;
+        s.draft.clear();
+        s.invalid_field = false;
+        sync_selected_key(s);
+        update_tables(s, &a)?;
+        update_form(s, &a);
+        status(&a, "Tietue lisätty ja tallennettu.", false);
+        Ok(())
+    });
+    action!(on_cancel_edit, |s, a| {
+        s.invalid_field = false;
+        s.invalid_fields.clear();
+        s.edit_draft.clear();
+        s.draft.clear();
+        choose_row(s, s.selected)?;
+        if s.page == 6 {
+            s.selection = Selection::Settings;
+        }
+        update_form(s, &a);
+        status(&a, "Tallennetut tiedot palautettu näkymään.", false);
+        Ok(())
+    });
+    action!(on_export_report, |s, a| {
+        let ws = s
+            .workspace
+            .as_ref()
+            .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
+        let archive = ws.results()?;
+        let ranking =
+            application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
+        let html = if ws.is_editable() {
+            report::project_ranking_html(&archive, &ranking)
+        } else {
+            report::ranking_html(&archive, &ranking)
+        };
+        let weak = a.as_weak();
+        std::thread::Builder::new()
+            .name("as2026-raportti".into())
+            .spawn(move || {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_title("Vie tulokset uutena HTML-tiedostona")
+                    .set_file_name("tulokset.html")
+                    .add_filter("HTML-raportti", &["html"])
+                    .save_file()
+                {
+                    let result = report::save_new(&path, &html);
+                    let message = match &result {
+                        Ok(()) => format!("Raportti tallennettu: {}", path.display()),
+                        Err(error) => error.to_string(),
+                    };
+                    let failed = result.is_err();
+                    let _ = weak.upgrade_in_event_loop(move |app| status(&app, message, failed));
+                }
+            })
+            .map_err(|e| invalid(&io_message(&e)))?;
+        Ok(())
+    });
+    action!(on_import_frame, |s, a| {
+        if s.worker.is_some() || !can_leave(s, &a) {
+            return Ok(());
+        }
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Lue Emit-kehystiedosto")
+            .add_filter("217 tavun Emit-kehys", &["raw", "bin"])
+            .pick_file()
+        {
+            let bytes = std::fs::read(path).map_err(|e| invalid(&io_message(&e)))?;
+            let frame = emit::parse_frame(&bytes)?;
+            let now = chrono::Local::now();
+            handle_event(
+                s,
+                &a,
+                ReaderEvent::Frame {
+                    frame: Box::new(frame),
+                    read_clock: ClockTime::new(now.hour(), now.minute(), now.second())?,
+                },
+            );
+        }
+        Ok(())
+    });
+    {
+        let state = state.clone();
+        let weak = app.as_weak();
+        let timer = reader_timer.clone();
+        app.on_reader_start(move |port| {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            let mut s = state.borrow_mut();
+            if !can_switch(&mut s, &app)
+                || !s.workspace.as_ref().is_some_and(Workspace::is_editable)
+            {
+                return;
+            }
+            match ReaderWorker::start((!port.trim().is_empty()).then(|| port.to_string())) {
+                Ok((worker, receiver)) => {
+                    s.worker = Some(worker);
+                    s.receiver = Some(receiver);
+                    app.set_reader_running(true);
+                    app.set_reader_status("Etsitään ja avataan lukijaa…".into());
+                    let tick_state = state.clone();
+                    let tick_weak = app.as_weak();
+                    let tick_timer = Rc::downgrade(&timer);
+                    timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
+                        if let (Some(app), Some(timer)) =
+                            (tick_weak.upgrade(), tick_timer.upgrade())
+                        {
+                            poll_reader(&mut tick_state.borrow_mut(), &app, &timer);
+                        }
+                    });
+                }
+                Err(error) => status(&app, error, true),
+            }
+        });
+    }
+    {
+        let state = state.clone();
+        let weak = app.as_weak();
+        let timer = reader_timer.clone();
+        app.on_reader_stop(move || {
+            timer.stop();
+            if let Some(app) = weak.upgrade()
+                && let Err(error) = stop_reader(&mut state.borrow_mut(), &app)
+            {
+                status(&app, error.to_string(), true);
+            }
+        });
+    }
+    action!(on_retry_readouts, |s, a| {
+        if s.worker.is_some() {
+            return Err(invalid("Pysäytä lukija ennen uutta tallennusyritystä"));
+        }
+        current_workspace(s)?.reload()?;
+        let pending = std::mem::take(&mut s.unsaved);
+        for (frame, read_clock) in pending {
+            handle_event(s, &a, ReaderEvent::Frame { frame, read_clock });
+        }
+        update_tables(s, &a)?;
+        if s.unsaved.is_empty() {
+            status(&a, "Odottavat lukemat tallennettu.", false);
+        }
+        Ok(())
+    });
+    {
+        let state = state.clone();
+        let weak = app.as_weak();
+        let timer = reader_timer.clone();
+        app.window().on_close_requested(move || {
+            let Some(app) = weak.upgrade() else { return slint::CloseRequestResponse::HideWindow; };
+            let mut s = state.borrow_mut();
+            if !can_leave(&mut s, &app) { return slint::CloseRequestResponse::KeepWindowShown; }
+            timer.stop();
+            if let Err(error) = stop_reader(&mut s, &app) { status(&app, error.to_string(), true); return slint::CloseRequestResponse::KeepWindowShown; }
+            if !s.unsaved.is_empty() {
+                status(&app, "Lukemia odottaa tallennusta. Käytä Emit-näkymän uudelleenyritystä ennen sulkemista.", true);
+                return slint::CloseRequestResponse::KeepWindowShown;
+            }
+            slint::CloseRequestResponse::HideWindow
+        });
+    }
+}
+
+fn capture_views(
+    app: &AppWindow,
+    state: SharedState,
+    directory: PathBuf,
+    keyboard_test: bool,
+) -> GuiResult<()> {
+    std::fs::create_dir_all(&directory).map_err(|e| invalid(&io_message(&e)))?;
+    let weak = app.as_weak();
+    let timer = Rc::new(Timer::default());
+    let tick_timer = Rc::downgrade(&timer);
+    // Leaked owner is unnecessary: callback keeps the timer alive until the last snapshot.
+    let owner = Rc::new(RefCell::new(Some(timer.clone())));
+    let phase = Rc::new(RefCell::new(0usize));
+    timer.start(TimerMode::Repeated, Duration::from_millis(900), move || {
+        let Some(app) = weak.upgrade() else {
+            return;
+        };
+        let current = *phase.borrow();
+        if current >= if keyboard_test { 25 } else { 21 } {
+            if let Some(timer) = tick_timer.upgrade() {
+                timer.stop();
+            }
+            owner.borrow_mut().take();
+            let _ = slint::quit_event_loop();
+            return;
+        }
+        if current == 21 {
+            smoke::open_dialog(&app);
+        } else if current == 22 {
+            smoke::fill_dialog(&app);
+        } else if current == 24 {
+            smoke::key(&app, slint::platform::Key::Escape);
+            assert!(!app.get_dialog_open(), "Esc sulkee valintaikkunan");
+            println!("GUI-näppäimistökoe hyväksytty: Ctrl+N, tekstisyöte, Tab ja Esc.");
+        }
+        if current >= 21 && current != 23 {
+            *phase.borrow_mut() += 1;
+            return;
+        }
+        if current.is_multiple_of(3) {
+            if let Err(error) = navigate(&mut state.borrow_mut(), &app, (current / 3) as i32) {
+                eprintln!("{error}");
+            }
+        } else if current % 3 == 1 {
+            app.window().request_redraw();
+        } else {
+            let index = current / 3;
+            let names = [
+                "yleiskatsaus",
+                "kilpailijat",
+                "emit",
+                "tulokset",
+                "luokat",
+                "radat",
+                "asetukset",
+                "uusi-kilpailu",
+            ];
+            let result = app
+                .window()
+                .take_snapshot()
+                .map_err(|e| e.to_string())
+                .and_then(|buffer| {
+                    image::save_buffer(
+                        directory.join(format!("{index}-{}.png", names[index])),
+                        buffer.as_bytes(),
+                        buffer.width(),
+                        buffer.height(),
+                        image::ColorType::Rgba8,
+                    )
+                    .map_err(|e| e.to_string())
+                });
+            if let Err(error) = result {
+                eprintln!("Kuvakaappaus epäonnistui: {error}");
+            }
+        }
+        *phase.borrow_mut() += 1;
+    });
+    Ok(())
+}
+
+pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let mut initial_path = None;
+    let mut demo = false;
+    let mut smoke_test = false;
+    let mut captures = None;
+    let mut args = std::env::args_os().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.to_str() {
+            Some("--demo") => demo = true,
+            Some("--smoke-test") => smoke_test = true,
+            Some("--capture-dir") => {
+                captures = Some(PathBuf::from(
+                    args.next().ok_or("Kuvakansion polku puuttuu")?,
+                ))
+            }
+            Some("--help" | "ohje") => {
+                println!(
+                    "AS2026-käyttöliittymä\n  as2026-gui [kilpailu.toml tai kilpailukansio]\n  as2026-gui --demo\n  as2026-gui --demo --capture-dir KANSIO"
+                );
+                return Ok(());
+            }
+            _ if initial_path.is_none() => initial_path = Some(PathBuf::from(arg)),
+            _ => return Err("Tuntematon lisävalinta".into()),
+        }
+    }
+    if demo && initial_path.is_some() {
+        return Err("Valitse joko esimerkkikilpailu tai oma kilpailu".into());
+    }
+    if smoke_test && !demo {
+        return Err("Työnkulkukoe tarvitsee --demo-valinnan".into());
+    }
+    if captures.is_some() {
+        // Kuvataan nykyinen näkymä suoraan ohjelmistorenderöinnistä, ei edellistä GL-puskuria.
+        slint::BackendSelector::new()
+            .backend_name("winit".into())
+            .renderer_name("software".into())
+            .select()?;
+    }
+    let app = AppWindow::new()?;
+    slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
+    let state = Rc::new(RefCell::new(State {
+        selected: -1,
+        detail: -1,
+        ..Default::default()
+    }));
+    let reader_timer = Rc::new(Timer::default());
+    bind(&app, &state, &reader_timer);
+    let path = if demo {
+        Some(demo_path()?)
+    } else {
+        initial_path
+    };
+    if let Some(path) = path
+        && let Err(error) = open_workspace(&mut state.borrow_mut(), &app, &path, demo)
+    {
+        status(&app, error.to_string(), true);
+    }
+    app.show()?;
+    if smoke_test {
+        smoke::run(&app, &state)?;
+    }
+    if let Some(directory) = captures {
+        capture_views(&app, state.clone(), directory, smoke_test)?;
+    }
+    slint::run_event_loop()?;
+    reader_timer.stop();
+    stop_reader(&mut state.borrow_mut(), &app)?;
+    Ok(())
+}

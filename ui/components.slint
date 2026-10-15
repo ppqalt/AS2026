@@ -1,0 +1,257 @@
+import { Button, LineEdit, ScrollView, ComboBox, ListView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { TableRow, EditorField } from "types.slint";
+
+export component Heading inherits Text {
+    color: Theme.ink;
+    font-size: Theme.heading-font-size;
+    font-weight: 700;
+}
+
+export component Note inherits Text {
+    color: Theme.muted;
+    font-size: 13px;
+    wrap: word-wrap;
+}
+
+export component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <string> marker;
+    in property <bool> active;
+    callback chosen();
+    height: 42px;
+    border-radius: 5px;
+    border-width: focus.has-focus ? 2px : 0px;
+    border-color: #b2ebe0;
+    forward-focus: focus;
+    background: root.active ? Theme.accent-fill : touch.has-hover ? Theme.sidebar-hover : transparent;
+    HorizontalLayout {
+        padding-left: 14px; padding-right: 12px; spacing: 10px;
+        Text { text: root.marker; width: 20px; color: root.active ? #c2eee5 : #8ba4b4; font-size: 12px; vertical-alignment: center; }
+        Text { text: root.label; color: white; font-size: 14px; font-weight: root.active ? 600 : 400; vertical-alignment: center; }
+    }
+    touch := TouchArea { clicked => { focus.focus(); root.chosen(); } }
+    focus := FocusScope {
+        width: 0px;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.chosen();
+                return accept;
+            }
+            reject
+        }
+    }
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.chosen(); }
+}
+
+// Vain luonnos elää tässä komponentissa; hyväksytty arvo tulee kilpailumallista.
+export component FormField inherits VerticalLayout {
+    height: 64px; vertical-stretch: 0;
+    in property <string> label;
+    in property <string> value;
+    in property <string> hint;
+    in property <bool> writable: true;
+    in property <[string]> options;
+    in property <[string]> values;
+    in property <int> choice;
+    callback commit(string) -> bool;
+    callback draft(string);
+    property <bool> dirty: false;
+    property <bool> invalid: false;
+    spacing: 5px;
+    Text { height: 16px; text: root.label; color: Theme.ink; font-size: 12px; font-weight: 600; }
+    Rectangle {
+        height: 40px;
+        border-width: root.invalid ? 1px : 0px;
+        border-color: Theme.danger;
+        border-radius: 5px;
+        choice := ComboBox {
+            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+            visible: root.options.length > 0;
+            model: root.options; current-index: root.choice;
+            enabled: root.writable && root.options.length > 0;
+            accessible-label: root.label;
+            selected => {
+                root.draft(root.values[self.current-index]);
+                root.invalid = !root.commit(root.values[self.current-index]);
+                root.dirty = root.invalid;
+            }
+        }
+        input := LineEdit {
+            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+            visible: root.options.length == 0;
+            text: root.value;
+            placeholder-text: root.hint;
+            enabled: root.writable && root.options.length == 0;
+            accessible-label: root.label;
+            edited => {
+                root.dirty = true; root.invalid = false;
+                root.draft(self.text);
+            }
+            accepted => {
+                if root.dirty {
+                    root.invalid = !root.commit(self.text);
+                    root.dirty = root.invalid;
+                }
+            }
+            changed has-focus => {
+                if !self.has-focus && root.dirty {
+                    root.invalid = !root.commit(self.text);
+                    root.dirty = root.invalid;
+                }
+            }
+        }
+    }
+}
+
+export component DataTable inherits Rectangle {
+    in property <[TableRow]> rows;
+    in property <[string]> headers;
+    in property <[float]> weights;
+    in property <int> selected-key: -1;
+    in property <string> empty-text: "Ei tietoja.";
+    callback selected(int);
+    property <int> current-index: -1;
+    min-width: 0px;
+    min-height: 100px;
+    background: Theme.surface;
+    border-color: focus.has-focus ? Theme.accent : Theme.line;
+    border-width: focus.has-focus ? 2px : 1px;
+    border-radius: Theme.radius;
+    forward-focus: focus;
+    clip: true;
+    function choose-index(index: int) {
+        if root.rows.length > 0 {
+            root.current-index = max(0, min(root.rows.length - 1, index));
+            root.selected(root.rows[root.current-index].key);
+            if root.current-index * Theme.row-height + list.viewport-y < 0px {
+                list.viewport-y = -root.current-index * Theme.row-height;
+            } else if (root.current-index + 1) * Theme.row-height + list.viewport-y > list.height {
+                list.viewport-y = list.height - (root.current-index + 1) * Theme.row-height;
+            }
+        }
+    }
+    focus := FocusScope {
+        width: 0px;
+        key-pressed(event) => {
+            if event.text == Key.DownArrow {
+                root.choose-index(root.current-index + 1);
+                return accept;
+            } else if event.text == Key.UpArrow {
+                root.choose-index(max(0, root.current-index - 1));
+                return accept;
+            } else if event.text == Key.Home {
+                root.choose-index(0);
+                return accept;
+            } else if event.text == Key.End {
+                root.choose-index(root.rows.length - 1);
+                return accept;
+            } else if event.text == Key.PageDown {
+                root.choose-index(root.current-index + 10);
+                return accept;
+            } else if event.text == Key.PageUp {
+                root.choose-index(root.current-index - 10);
+                return accept;
+            } else if event.text == Key.Return || event.text == Key.Space {
+                root.choose-index(max(0, root.current-index));
+                return accept;
+            }
+            reject
+        }
+    }
+    VerticalLayout {
+        padding: 1px; spacing: 0px;
+        Rectangle {
+            height: 36px; background: #23313b;
+            HorizontalLayout {
+                padding-left: 12px; padding-right: 12px; spacing: 0px;
+                for title[i] in root.headers: Text {
+                    text: title; horizontal-stretch: root.weights[i];
+                    min-width: 0px; preferred-width: 0px;
+                    font-size: 11px; font-weight: 700; color: Theme.muted;
+                    vertical-alignment: center; overflow: elide;
+                }
+            }
+        }
+        body := Rectangle {
+            vertical-stretch: 1;
+            list := ListView {
+            for row[index] in root.rows: Rectangle {
+                property <bool> active: row.key == root.selected-key;
+                init => { if self.active { root.current-index = index; } }
+                changed active => { if self.active { root.current-index = index; } }
+                height: Theme.row-height;
+                background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? #1c2b35 : Theme.surface;
+                HorizontalLayout {
+                    padding-left: 12px; padding-right: 12px; spacing: 0px;
+                    for value[i] in row.cells: Text {
+                        text: value; horizontal-stretch: root.weights[i];
+                        min-width: 0px; preferred-width: 0px;
+                        color: i == 0 ? Theme.accent : Theme.ink;
+                        font-weight: i == 0 ? 600 : 400;
+                        font-size: 13px; vertical-alignment: center; overflow: elide;
+                    }
+                }
+                Rectangle { y: parent.height - 1px; height: 1px; background: #23313b; }
+                touch := TouchArea { clicked => { focus.focus(); root.choose-index(index); } }
+                accessible-role: list-item;
+                accessible-label: row.cells[0] + " " + row.cells[1];
+                accessible-action-default => { root.selected(row.key); }
+            }
+            }
+            if root.rows.length == 0: Text {
+                text: root.empty-text; color: Theme.muted; font-size: 14px;
+                horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
+            }
+        }
+    }
+}
+
+export component Editor inherits Rectangle {
+    in property <string> heading;
+    in property <string> description;
+    in property <[EditorField]> fields;
+    in property <bool> writable;
+    in property <bool> new-record;
+    in property <bool> blocked;
+    callback field-commit(int, string) -> bool;
+    callback field-draft(int, string);
+    callback add();
+    callback cancel();
+    background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+    VerticalLayout {
+        padding: 18px; spacing: 12px;
+        Text { text: root.heading; color: Theme.ink; font-size: 17px; font-weight: 700; wrap: word-wrap; }
+        Note { text: root.description; }
+        ScrollView {
+            VerticalLayout {
+                spacing: 12px; padding-right: 8px;
+                for field in root.fields: FormField {
+                    label: field.label; value: field.value; hint: field.hint; writable: root.writable;
+                    options: field.options; values: field.values; choice: field.choice;
+                    commit(value) => { root.field-commit(field.key, value) }
+                    draft(value) => { root.field-draft(field.key, value); }
+                }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        if root.new-record: HorizontalLayout {
+            Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.cancel(); } }
+            Button { height: Theme.control-height; text: "Lisää"; primary: true; enabled: root.writable; clicked => { root.add(); } }
+        }
+        if root.blocked && !root.new-record: Button { height: Theme.control-height;
+            text: "Palauta tallennetut tiedot";
+            clicked => { root.cancel(); }
+        }
+    }
+}
+
+export component Metric inherits VerticalLayout {
+    in property <string> label;
+    in property <int> count;
+    spacing: 6px;
+    Text { text: root.count; color: Theme.ink; font-size: 28px; font-weight: 700; }
+    Note { text: root.label; }
+}

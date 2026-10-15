@@ -23,6 +23,11 @@ jobs:
           persist-credentials: false
       - name: Asenna Rustin tarkistustyökalut
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Asenna Linuxin käyttöliittymäkirjastojen kehitystiedostot
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libfontconfig1-dev libxkbcommon-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev
       - name: Tarkista muotoilu
         run: cargo +stable fmt --all -- --check
       - name: Tarkista kääntyminen
@@ -34,4 +39,12 @@ jobs:
       - name: Käännä alustakohtainen julkaisuversio
         run: cargo +stable build --release
       - name: Suorita ohjelman sisäinen esimerkki
-        run: cargo +stable run --release -- demo
+        run: cargo +stable run --release --bin as2026 -- esimerkki
+      - name: Tarkista myös graafinen käyttöliittymä
+        run: cargo +stable check --all-targets --features gui
+      - name: Suorita käyttöliittymän ja yhteisen sovelluslogiikan testit
+        run: cargo +stable test --all-targets --features gui
+      - name: Tarkista myös käyttöliittymän varoitukset
+        run: cargo +stable clippy --all-targets --features gui -- -D warnings
+      - name: Käännä graafisen ohjelman julkaisuversio
+        run: cargo +stable build --release --features gui --bin as2026-gui

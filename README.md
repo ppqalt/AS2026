@@ -1,10 +1,32 @@
 # AS2026 — autosuunnistuksen kilpailunhallinta
 
-AS2026 on suomenkielinen Rust-ohjelma Linuxille ja Windowsille. Se jatkaa olemassa olevaa AS2015A-ohjelman tutkimukseen perustuvaa laskentatoteutusta. Mukana ovat vanhojen kilpailuaineistojen luku, uusi TOML-kilpailumuoto, kilpailutietojen muokkaus, jatkuva Emit-luku, automaattinen tallennus ja tulosten esikatselu.
+AS2026 on suomenkielinen Rust-ohjelma Linuxille ja Windowsille. Se jatkaa olemassa olevaa AS2015A-ohjelman tutkimukseen perustuvaa laskentatoteutusta. Mukana ovat graafinen käyttöliittymä, komentorivikäyttö, vanhojen kilpailuaineistojen luku, uusi TOML-kilpailumuoto, kilpailutietojen muokkaus, jatkuva Emit-luku, automaattinen tallennus ja tulosten esikatselu.
 
 Ohjelma on kehitysversio. Laskennan täydellistä vastaavuutta AS2015A:n kilpailutuloksiin ei ole varmennettu. Synteettiset regressiotestit ja oikean lukijan kokeet eivät korvaa tätä vertailua. Julkaisu ja lopullinen lisenssin valinta tehdään erikseen.
 
-## Käynnistäminen
+## Graafinen käyttöliittymä
+
+```sh
+cargo run --features gui --bin as2026-gui
+cargo run --features gui --bin as2026-gui -- --demo
+cargo run --features gui --bin as2026-gui -- oma-kilpailu
+cargo build --release --features gui --bin as2026-gui
+./target/release/as2026-gui
+```
+
+Windowsissa ohjelmatiedosto on `as2026-gui.exe`. Käyttöliittymä toteutetaan Slintillä. Sen seitsemän näkymää ovat **Yleiskatsaus**, **Kilpailijat**, **Emit-lukeminen**, **Tulokset**, **Luokat**, **Radat ja asemat** sekä **Kilpailun asetukset**. Uuden kilpailun voi perustaa ja aiemman avata tiedostonvalinnalla. Vanhoja AS2015A-aineistoja voi tarkastella muuttamatta lähdetiedostoja.
+
+Kilpailun voi avata myös antamalla käynnistyksessä kansion tai `kilpailu.toml`-tiedoston polun. `--demo` avaa synteettisestä kilpailusta erillisen muokattavan väliaikaiskopion; lähdekoodin esimerkkitiedostot säilyvät ennallaan.
+
+Uuden TOML-kilpailun kilpailijoita, luokkia, ratoja ja asemia muokataan yhteisessä kilpailumallissa. Olemassa olevan tietueen muutos tallentuu, kun kenttä hyväksytään Enterillä tai kentästä siirrytään pois. Uusi tietue täytetään ensin kokonaan ja lisätään **Lisää**-toiminnolla. Virheellinen tai vielä keskeneräinen syöte ei korvaa tallennettua kilpailua. Näkymän tallennustila kertoo, onnistuiko tallennus.
+
+Kilpailijoita voi hakea luettelosta. Luokka, rata, asematyyppi ja laskentasääntö valitaan nimetyistä vaihtoehdoista, jotta sisäisiä koodeja ei tarvitse muistaa.
+
+Emit-näkymässä valitaan automaattisesti tunnistettu tai itse annettu portti ja käynnistetään jatkuva luku. Lukija toimii taustalla, joten muut näkymät säilyvät käytettävissä. Korttien hyväksytyt lukemat tallentuvat samaan kilpailuun. Tulokset muodostetaan ajantasaisista tiedoista ja raportin voi tallentaa HTML-tiedostoksi.
+
+Ulkoasua, komponentteja ja muokkausperiaatteita käsittelee [UI.md](UI.md). Alustojen käännös- ja käynnistysvaatimukset ovat tiedostossa [BUILDING.md](BUILDING.md). GUI on ensimmäinen käyttökelpoinen versio: se ei lisää vielä puuttuvia laskentasääntöjä tai kaikkia AS2015A:n erikoistoimintoja.
+
+## Komentorivin käynnistäminen
 
 Tarvitset kääntämiseen Rustin version 1.89 tai uudemman. Tarkemmat alustakohtaiset ohjeet ovat tiedostossa [BUILDING.md](BUILDING.md).
 
@@ -15,7 +37,7 @@ cargo build --release
 ./target/release/as2026
 ```
 
-Ilman argumentteja avautuu suomenkielinen käyttövalikko. Siinä voi tarkastaa kilpailun, laskea esikatselun, näyttää tulokset, purkaa kehystiedoston, kokeilla esimerkkikilpailua, avata jatkuvan Emit-luvun tai perustaa uuden kilpailun. Valinta 0 sulkee ohjelman. Tulosraportin voi tallentaa HTML-tiedostoksi ja tulostaa selaimesta. Olemassa olevaa raporttitiedostoa ei korvata.
+`as2026` avaa ilman argumentteja suomenkielisen päätekäyttövalikon. Siinä voi tarkastaa kilpailun, laskea esikatselun, näyttää tulokset, purkaa kehystiedoston, kokeilla esimerkkikilpailua, avata jatkuvan Emit-luvun tai perustaa uuden kilpailun. Valinta 0 sulkee ohjelman. Tulosraportin voi tallentaa HTML-tiedostoksi ja tulostaa selaimesta. Olemassa olevaa raporttitiedostoa ei korvata. CLI voidaan kääntää myös ilman `gui`-ominaisuutta ja sen riippuvuuksia.
 
 Windowsin ohjelmatiedosto on `as2026.exe`. Valmis ohjelma ei tarvitse Rustia tai erillistä palvelinta. Sarjaportin käyttö toteutetaan samalla Rust-rajapinnalla molemmilla alustoilla; Windows-käännös, testit, Clippy ja ohjelman sisäinen esimerkki on varmennettu [GitHubin Windows-ajossa](https://github.com/ppqalt/AS2026/actions/runs/38806074766). Fyysistä Windows-lukijaa ei ole testattu.
 
@@ -66,7 +88,7 @@ Muutostiedoston osioiden merkitys:
 | `[kilpailu]` | Korvaa koko kilpailun perustieto-osion. |
 | `[virhepisteet]` | Korvaa koko kilpailukohtaisten virhepisteasetusten osion. |
 
-Vain mukana olevat tietueet ja osiot vaihdetaan. Muut kilpailijat, luokat ja radat säilyvät. Yksittäisen mukana olevan tietueen kenttiä ei yhdistetä vanhoihin: anna kaikki tarvittavat arvot. Jos jätät vapaaehtoisen kentän pois korvattavasta tietueesta, sen oletusarvo tulee käyttöön. Esimerkiksi tyhjä `[virhepisteet]` palauttaa kilpailukohtaiset poikkeukset laskentaytimen oletuksiin. Toistuvat tunnisteet saman muutostiedoston sisällä ja tuntemattomat kentät hylätään. Poistotoimintoa ei vielä ole.
+Vain mukana olevat tietueet ja osiot vaihdetaan. Muut kilpailijat, luokat ja radat säilyvät. Yksittäisen mukana olevan tietueen kenttiä ei yhdistetä vanhoihin: anna kaikki tarvittavat arvot. Jos jätät vapaaehtoisen kentän pois korvattavasta tietueesta, sen oletusarvo tulee käyttöön. Esimerkiksi tyhjä `[virhepisteet]` palauttaa kilpailukohtaiset poikkeukset laskentaytimen oletuksiin. Toistuvat tunnisteet saman muutostiedoston sisällä ja tuntemattomat kentät hylätään. Muutostiedostolla ei poisteta tietueita.
 
 Rataa muuttaessa ilmoita myös kaikki säilytettävät asemat. Esimerkiksi uuden kilpailupohjan rata voidaan korvata näin:
 
@@ -176,16 +198,16 @@ Alkuperäisen AS2015A:n kahdeksan päätoimintoa ohjaavat kattavuutta, eivät uu
 
 | Alkuperäinen toiminto | Nykyinen toteutus ja jäljellä oleva työ |
 | --- | --- |
-| Parametrit ja perustiedot | Vanhojen tietojen luku, TOML-perustiedot ja virhepisteasetukset. Kaikkien alkuperäisten asetusten kattavuus ja muokkausnäkymä puuttuvat. |
+| Parametrit ja perustiedot | Vanhojen tietojen luku, TOML-perustiedot ja virhepisteasetukset sekä kilpailun asetusten GUI-näkymä. Kaikkien alkuperäisten asetusten kattavuus puuttuu. |
 | Luokkien tiedot | Luokan lisäys ja korvaus sekä yksiselitteinen rataviittaus. Kaikkia vanhoja luokka-, yhdistely- ja pisteasetuksia ei voi määrittää TOML-muodossa. |
-| Ratatiedot | Ratojen ja asemien luku sekä kokonaisen radan muutos. Ohjattu rataeditori ja poistot puuttuvat. |
+| Ratatiedot | Ratojen ja asemien luku, kokonaisen radan muutos sekä graafinen rata- ja asemaeditori. Kaikkien vanhojen poikkeussääntöjen kattavuus on kesken. |
 | Emit-leimantarkastus | Kehyksen purku, jatkuva lukija, historia ja kohdistus. Laajemmat fyysiset laitekokeet ja laskennan vastaavuusvertailu jatkuvat. |
 | Asemakohtaiset tiedot | Laskennan asemarivit, huomautukset ja HTML-raportti. Käsin syötettyjen asemakellojen ja kaikkien korjausten työnkulku puuttuu. |
 | Tuloslaskenta | Laskentaydin ja luettelot olemassa. Kattava AS2015A-vertailu, ajanottotapa 2 ja erilliset lisävirhepisteet ovat kesken. |
-| Ilmoittautumiset | Kilpailijan lisäys ja korvaus yhteiseen malliin, auto sekä Emit-kohdistus. Poistot, ohjattu muokkaus ja lähtöaikojen arvonta puuttuvat. |
+| Ilmoittautumiset | Kilpailijan lisäys ja korvaus yhteiseen malliin, auto, Emit-kohdistus ja graafinen kilpailijaeditori. Lähtöaikojen arvonta puuttuu. |
 | Emit-rivin teko | Kehyksestä muodostetaan yhteisen mallin lukutapahtuma. Vanhan ohjelman koko erillistä rivinmuodostus- ja vientitoimintoa ei ole toteutettu. |
 
-Seuraavien ominaisuuksien tulee käyttää `ProjectStore::update`-rajapintaa ja samaa kilpailumallia. Graafista käyttöliittymää, verkkopalvelinta tai monen koneen synkronointia ei ole toteutettu. Nykyinen komentorivikäyttö toimii jatkokehityksen pohjana.
+Seuraavien ominaisuuksien tulee käyttää `ProjectStore::update`-rajapintaa ja samaa kilpailumallia kuten GUI:ssa ja komentorivillä nyt. Verkkopalvelinta tai monen koneen synkronointia ei ole toteutettu.
 
 ## Tarkistukset
 
@@ -194,6 +216,9 @@ cargo fmt --all -- --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo build --release
+cargo test --all-targets --features gui
+cargo clippy --all-targets --features gui -- -D warnings
+cargo build --release --features gui --bin as2026-gui
 ```
 
 Testit kattavat vanhojen tiedostojen lukua, TOML-yhteensopivuutta, kohdistuksia, laskentaa ja järjestystä, uusintalukuja, jatkuvan lukijan tavupuskurointia sekä tallennuksen epäonnistumista ja paikallisia ristiriitoja. Testiaineisto on synteettistä. Erillisessä Linux-laitetestissä oikea kortti 538747 luettiin toistuvasti samassa jatkuvassa istunnossa, historia tallentui ja kilpailu avautui uudelleen. Tämä ei varmista kaikkia laite- ja kilpailutilanteita eikä laskennan täydellistä vastaavuutta alkuperäisiin kilpailutuloksiin.

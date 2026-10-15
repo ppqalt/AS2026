@@ -138,6 +138,13 @@ impl<R: Read> CardReader<R> {
         }
     }
 
+    /// Palauttaa jo kokonaan luetun kehyksen ilman uutta sarjaportin odotusta.
+    /// Pysäytettävä taustalukija voi näin toimittaa myös saman laiteluvun loput
+    /// kehykset tallennettaviksi ennen portin sulkemista.
+    pub fn buffered_frame(&mut self) -> Option<EmitFrame> {
+        self.scanner.next_frame()
+    }
+
     /// Palauttaa yhden kehyksen tai None, kun kokonainen kehys ei ole vielä saapunut.
     /// Fyysisen portin yksittäinen odotus on enintään 250 millisekuntia.
     pub fn poll(&mut self) -> Result<Option<EmitFrame>, String> {

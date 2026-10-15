@@ -1,0 +1,398 @@
+import { Button, LineEdit, Palette } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { TableRow, EditorField } from "types.slint";
+import { Heading, Note, NavItem, DataTable, Editor, Metric } from "components.slint";
+export { TableRow, EditorField }
+
+export component AppWindow inherits Window {
+    init => { Palette.color-scheme = Theme.color-scheme; }
+    title: "AS2026 — kilpailunhallinta";
+    preferred-width: 1320px; preferred-height: 860px;
+    min-width: 1080px; min-height: 680px;
+    background: Theme.canvas;
+    default-font-size: Theme.body-font-size;
+    forward-focus: keyboard;
+    in-out property <int> page: 0;
+    in-out property <bool> opened;
+    in-out property <bool> editable;
+    in-out property <bool> demo;
+    in-out property <string> competition-name: "Ei avointa kilpailua";
+    in-out property <string> competition-path;
+    in-out property <string> status-text: "Avaa kilpailu tai perusta uusi.";
+    in-out property <bool> status-error;
+    in-out property <int> driver-count;
+    in-out property <int> class-count;
+    in-out property <int> track-count;
+    in-out property <int> read-count;
+    in-out property <int> unsaved-count;
+    in-out property <string> filter;
+    in-out property <[TableRow]> rows;
+    in-out property <[string]> headers;
+    in-out property <[float]> weights;
+    in-out property <int> selected-key: -1;
+    in-out property <[TableRow]> detail-rows;
+    in-out property <[string]> detail-headers;
+    in-out property <[float]> detail-weights;
+    in-out property <int> detail-key: -1;
+    in-out property <string> detail-title;
+    in-out property <bool> editor-visible;
+    in-out property <bool> new-record;
+    in-out property <bool> form-blocked;
+    in-out property <string> editor-title;
+    in-out property <string> editor-description;
+    in-out property <[EditorField]> fields;
+    in-out property <bool> reader-running;
+    in-out property <string> reader-status: "Lukijaa ei ole käynnistetty.";
+    in-out property <string> reader-port;
+    in-out property <string> last-card: "Odotetaan lukua";
+    in-out property <string> last-card-detail: "Kortti tunnistetaan kilpailijan Emit-numerosta.";
+    in-out property <string> calculation-notes;
+    in-out property <bool> dialog-open;
+    in-out property <string> new-name;
+    in-out property <string> new-path;
+    in-out property <string> path-input;
+    callback navigate(int);
+    callback open-file();
+    callback open-path(string);
+    callback create-project(string, string);
+    callback browse-new-path();
+    callback open-demo();
+    callback reload();
+    callback filter-changed(string);
+    callback select-row(int);
+    callback select-detail(int);
+    callback add-record();
+    callback add-station();
+    callback move-station(int);
+    callback field-commit(int, string) -> bool;
+    callback field-draft(int, string);
+    callback add-commit();
+    callback cancel-edit();
+    callback export-report();
+    callback reader-start(string);
+    callback reader-stop();
+    callback retry-readouts();
+    callback import-frame();
+
+    // Pikanäppäimet toimivat myös kentän tai taulukon ollessa kohdistettuna.
+    keyboard := FocusScope {
+    focus-on-click: false;
+    focus-on-tab-navigation: false;
+    capture-key-pressed(event) => {
+        if event.text == Key.Escape {
+            if root.dialog-open {
+                root.dialog-open = false;
+                return accept;
+            } else if root.new-record || root.form-blocked {
+                root.cancel-edit();
+                return accept;
+            }
+        }
+        if event.modifiers.control && !root.reader-running && !root.form-blocked && !root.new-record && !root.dialog-open {
+            if event.text == "o" || event.text == "O" {
+                root.open-file();
+                return accept;
+            } else if event.text == "n" || event.text == "N" {
+                root.dialog-open = true;
+                return accept;
+            }
+        }
+        reject
+    }
+    // Yksi navigaatiorakenne ja samat komponentit jokaiselle näkymälle.
+    HorizontalLayout {
+        spacing: 0px;
+        Rectangle {
+            width: Theme.sidebar-width; background: Theme.sidebar;
+            VerticalLayout {
+                padding: 14px; spacing: 5px;
+                Rectangle {
+                    height: 76px;
+                    VerticalLayout {
+                        padding-left: 12px; padding-top: 10px; spacing: 4px;
+                        Text { text: "AS2026"; color: white; font-size: 25px; font-weight: 800; letter-spacing: 1px; }
+                        Text { text: "KILPAILUNHALLINTA"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; }
+                    }
+                }
+                for label[index] in ["Yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"]: NavItem {
+                    label: label;
+                    marker: ["01", "02", "03", "04", "05", "06", "07"][index];
+                    active: root.page == index;
+                    chosen => { root.navigate(index); }
+                }
+                Rectangle { vertical-stretch: 1; }
+                Rectangle {
+                    height: 84px; background: #1b3343; border-radius: 5px;
+                    VerticalLayout {
+                        padding: 12px; spacing: 6px;
+                        Text { text: root.reader-running ? "●  Emit-lukija käynnissä" : "○  Emit-lukija pysäytetty"; color: root.reader-running ? #80d6bb : #a8bdc9; font-size: 11px; }
+                        Text { text: "Kehitysversio 0.4"; color: #8ba4b4; font-size: 11px; }
+                    }
+                }
+            }
+        }
+        VerticalLayout {
+            spacing: 0px;
+            Rectangle {
+                height: 70px; background: Theme.surface;
+                HorizontalLayout {
+                    padding-left: Theme.gutter; padding-right: Theme.gutter; padding-top: 18px; padding-bottom: 18px; spacing: 16px;
+                    VerticalLayout {
+                        spacing: 3px;
+                        Text { text: root.competition-name; color: Theme.ink; font-size: 17px; font-weight: 700; overflow: elide; }
+                        Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.demo ? "Esimerkkikilpailu · väliaikainen kokeilukopio" : root.editable ? "Kilpailu avoinna · automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: 11px; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { height: Theme.control-height; text: "Avaa kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
+                    Button { height: Theme.control-height; text: "+ Uusi kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.dialog-open = true; } }
+                }
+                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+            }
+            VerticalLayout {
+                padding: Theme.gutter; spacing: 16px;
+                HorizontalLayout {
+                    VerticalLayout {
+                        spacing: 5px;
+                        Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Kilpailun asetukset"][root.page]; }
+                        Note { text: ["Kilpailun tiedot ja tärkeimmät työvaiheet yhdessä paikassa.", "Ilmoittautumiset, lähtöajat ja korttien kohdistus.", "Aseta kortti lukijaan. Tiedot kohdistuvat ja tallentuvat automaattisesti.", "Ajantasaiset tulokset ja kilpailijan asemakohtainen tarkastelu.", "Luokkien ratavalinnat ja lähtötiedot.", "Valitse rata ja tarkastele sen asemia järjestyksessä.", "Perustiedot ja kilpailukohtaiset virhepisteasetukset."][root.page]; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    if root.opened: Button { height: Theme.control-height; text: "Päivitä tiedot"; enabled: !root.reader-running && !root.new-record && !root.form-blocked; clicked => { root.reload(); } }
+                }
+                if root.page == 0: VerticalLayout {
+                    spacing: 18px;
+                    if !root.opened: Rectangle {
+                        background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                        VerticalLayout {
+                            padding: 32px; spacing: 16px;
+                            Text { text: "Valmis kilpailupäivään"; font-size: 26px; font-weight: 700; color: Theme.ink; }
+                            Note { text: "Avaa olemassa oleva kilpailu tai perusta uusi. Voit myös tutustua ohjelmaan turvallisella esimerkkikilpailulla."; max-width: 580px; }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Button { height: Theme.control-height; text: "Avaa kilpailutiedosto…"; primary: true; clicked => { root.open-file(); } }
+                                Button { height: Theme.control-height; text: "Kokeile esimerkillä"; clicked => { root.open-demo(); } }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            Rectangle { height: 12px; }
+                            Text { text: "Kilpailutiedoston tai vanhan kilpailukansion polku"; color: Theme.ink; font-size: 12px; font-weight: 600; }
+                            HorizontalLayout {
+                                LineEdit { text <=> root.path-input; placeholder-text: "Liitä tiedoston tai kansion polku"; accepted => { root.open-path(self.text); } }
+                                Button { height: Theme.control-height; text: "Avaa polku"; clicked => { root.open-path(root.path-input); } }
+                            }
+                        }
+                    }
+                    if root.opened: Rectangle {
+                        height: 112px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                        HorizontalLayout {
+                            padding: 20px; spacing: 30px;
+                            Metric { label: "Kilpailijaa"; count: root.driver-count; }
+                            Metric { label: "Luokkaa"; count: root.class-count; }
+                            Metric { label: "Rataa"; count: root.track-count; }
+                            Metric { label: "Tallennettua lukemaa"; count: root.read-count; }
+                        }
+                    }
+                    if root.opened: Rectangle {
+                        height: 240px;
+                        background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                        VerticalLayout {
+                            padding: 22px; spacing: 14px;
+                            Text { text: "Kilpailun työvaiheet"; font-size: 17px; font-weight: 700; color: Theme.ink; }
+                            Note { text: "Tarkista luokat ja radat, lisää kilpailijat ja käynnistä kortinluku. Tuloslaskenta käyttää samoja tietoja kaikkialla."; }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Button { height: Theme.control-height; text: "Kilpailijat →"; clicked => { root.navigate(1); } }
+                                Button { height: Theme.control-height; text: "Radat ja asemat →"; clicked => { root.navigate(5); } }
+                                Button { height: Theme.control-height; text: "Emit-lukeminen →"; primary: true; enabled: root.editable; clicked => { root.navigate(2); } }
+                                Button { height: Theme.control-height; text: "Tulokset →"; clicked => { root.navigate(3); } }
+                            }
+                            Rectangle { height: 8px; }
+                            Note { text: "Kilpailun sijainti"; }
+                            Text { text: root.competition-path; color: Theme.ink; font-size: 12px; wrap: word-wrap; }
+                            Rectangle { vertical-stretch: 1; }
+                        }
+                    }
+                    Note { text: "Laskennan vastaavuus AS2015A:n kaikkiin tuloksiin on vielä varmistamatta. Kehitysversio näyttää laskennan huomautukset tulosten yhteydessä."; }
+                    Rectangle { vertical-stretch: 1; }
+                }
+                if root.page > 0 && !root.opened: Rectangle {
+                    Text { text: "Avaa kilpailu aloittaaksesi."; color: Theme.muted; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                if root.opened && root.page == 2: VerticalLayout {
+                    spacing: 14px;
+                    Rectangle {
+                        height: 105px; background: Theme.surface; border-width: 1px; border-color: Theme.line; border-radius: Theme.radius;
+                        HorizontalLayout {
+                            padding: 18px; spacing: 12px;
+                            VerticalLayout {
+                                spacing: 7px;
+                                Text { text: root.reader-running ? "●  Lukija odottaa korttia" : "Kortinluku"; color: Theme.accent; font-size: 17px; font-weight: 700; }
+                                Note { text: root.reader-status; }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            VerticalLayout {
+                                spacing: 7px;
+                                Text { text: "Sarjaportti"; color: Theme.muted; font-size: 11px; }
+                                LineEdit { width: 200px; text <=> root.reader-port; placeholder-text: "Automaattinen / COM3"; enabled: !root.reader-running; }
+                            }
+                            Button { height: Theme.control-height; text: root.reader-running ? "Pysäytä luku" : "Käynnistä lukija"; primary: true; enabled: root.editable; clicked => { if root.reader-running { root.reader-stop(); } else { root.reader-start(root.reader-port); } } }
+                        }
+                    }
+                    Rectangle {
+                        height: 86px; background: Theme.accent-soft; border-radius: Theme.radius;
+                        VerticalLayout {
+                            padding: 18px; spacing: 5px;
+                            Text { text: root.last-card; color: Theme.ink; font-size: 22px; font-weight: 700; }
+                            Note { text: root.last-card-detail; }
+                        }
+                    }
+                    if root.unsaved-count > 0: HorizontalLayout {
+                        Text { text: root.unsaved-count + " lukemaa odottaa tallennusta"; color: Theme.danger; vertical-alignment: center; }
+                        Button { height: Theme.control-height; text: "Päivitä ja yritä tallentaa"; enabled: !root.reader-running; clicked => { root.retry-readouts(); } }
+                    }
+                    HorizontalLayout {
+                        Text { text: "Lukuhistoria"; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { height: Theme.control-height; text: "Lue kehystiedosto…"; enabled: root.editable && !root.reader-running; clicked => { root.import-frame(); } }
+                    }
+                    DataTable { rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: "Tallennetut korttiluvut tulevat tähän."; selected(key) => { root.select-row(key); } }
+                    if root.detail-rows.length > 0: DataTable {
+                        height: 190px;
+                        rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
+                        empty-text: "Valitse lukutapahtuma.";
+                    }
+                    Note { text: "Sama leimaussisältö ei luo uutta kilpailijatulosta. Lukumerkin 250 aika saa muuttua."; }
+                }
+                if root.opened && (root.page == 1 || root.page == 3 || root.page == 4 || root.page == 5): VerticalLayout {
+                    spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 12px;
+                        search := LineEdit { text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
+                        if root.page != 3: Button { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; primary: true; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
+                        if root.page == 3: Button { height: Theme.control-height; text: "Vie HTML-raportti…"; clicked => { root.export-report(); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 16px;
+                        VerticalLayout {
+                            spacing: 12px;
+                            DataTable { rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: root.filter == "" ? "Luettelo on tyhjä. Lisää ensimmäinen tietue." : "Haulla ei löytynyt tietoja."; selected(key) => { root.select-row(key); } }
+                            if root.page == 5 || root.page == 3: VerticalLayout {
+                                spacing: 10px;
+                                HorizontalLayout {
+                                    Text { text: root.detail-title; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    if root.page == 5: Button { height: Theme.control-height; text: "+ Asema"; enabled: root.editable && root.selected-key >= 0 && !root.new-record; clicked => { root.add-station(); } }
+                                    if root.page == 5: Button { height: Theme.control-height; text: "↑"; enabled: root.editable && root.detail-key > 0 && !root.new-record; clicked => { root.move-station(-1); } }
+                                    if root.page == 5: Button { height: Theme.control-height; text: "↓"; enabled: root.editable && root.detail-key >= 0 && !root.new-record; clicked => { root.move-station(1); } }
+                                }
+                                DataTable { rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; empty-text: "Valitse ensin rivi yllä olevasta luettelosta."; selected(key) => { root.select-detail(key); } }
+                            }
+                        }
+                        if root.editor-visible: Editor {
+                            width: 310px;
+                            heading: root.editor-title; description: root.editor-description;
+                            fields: root.fields; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                            field-commit(key, value) => { root.field-commit(key, value) }
+                            field-draft(key, value) => { root.field-draft(key, value); }
+                            add => { root.add-commit(); } cancel => { root.cancel-edit(); }
+                        }
+                    }
+                    if root.page == 3: Note { text: root.calculation-notes; }
+                }
+                if root.opened && root.page == 6: HorizontalLayout {
+                    spacing: 24px;
+                    Editor {
+                        width: 420px;
+                        heading: "Perustiedot ja virhepisteet"; description: "Muutokset tallentuvat kentän hyväksymisen jälkeen.";
+                        fields: root.fields; writable: root.editable; blocked: root.form-blocked;
+                        field-commit(key, value) => { root.field-commit(key, value) }
+                        field-draft(key, value) => { root.field-draft(key, value); }
+                        cancel => { root.cancel-edit(); }
+                    }
+                    VerticalLayout {
+                        spacing: 12px;
+                        Text { text: "Yksi kilpailu, yhteiset tiedot"; color: Theme.ink; font-size: 17px; font-weight: 700; }
+                        Note { text: "Asetukset vaikuttavat kaikkien kilpailijoiden seuraavaan laskentaan. Tyhjä virhepistekenttä käyttää laskentaytimen oletusarvoa."; }
+                        Note { text: "Alkuperäisen laskennan kaikkia poikkeuksia ei ole vielä varmennettu. Ajanottotapa 2 ei ole tuettu uudessa laskennassa."; }
+                        Note { text: "Kilpailutiedosto"; }
+                        Text { text: root.competition-path; color: Theme.ink; font-size: 12px; wrap: word-wrap; }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+            }
+            Rectangle {
+                height: root.status-error ? 62px : 38px;
+                background: root.status-error ? Theme.danger-soft : Theme.surface;
+                HorizontalLayout {
+                    padding-left: Theme.gutter; padding-right: Theme.gutter; spacing: 12px;
+                    Text { text: root.status-error ? "!" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : Theme.accent; font-weight: 700; width: 14px; vertical-alignment: center; }
+                    Text { text: root.status-text; color: root.status-error ? Theme.danger : Theme.muted; font-size: 12px; vertical-alignment: center; wrap: word-wrap; }
+                }
+            }
+        }
+    }
+    if root.dialog-open: Rectangle {
+        background: #13273580;
+        TouchArea { }
+        FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { dialog-name.focus(); }
+        // Pidä tabulaattorikierto avoimessa valintaikkunassa.
+        capture-key-pressed(event) => {
+            if event.text == Key.Tab {
+                if event.modifiers.shift {
+                    if dialog-name.has-focus { dialog-create.focus(); }
+                    else if dialog-path.has-focus { dialog-name.focus(); }
+                    else if dialog-browse.has-focus { dialog-path.focus(); }
+                    else if dialog-cancel.has-focus { dialog-browse.focus(); }
+                    else { dialog-cancel.focus(); }
+                } else {
+                    if dialog-name.has-focus { dialog-path.focus(); }
+                    else if dialog-path.has-focus { dialog-browse.focus(); }
+                    else if dialog-browse.has-focus { dialog-cancel.focus(); }
+                    else if dialog-cancel.has-focus { dialog-create.focus(); }
+                    else { dialog-name.focus(); }
+                }
+                return accept;
+            }
+            reject
+        }
+        Rectangle {
+            width: 540px; height: 340px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            border-radius: 8px; background: Theme.surface; border-color: Theme.line; border-width: 1px;
+            VerticalLayout {
+                padding: 26px; spacing: 16px;
+                Heading { text: "Uusi kilpailu"; }
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Kilpailun nimi"; color: Theme.ink; font-size: 12px; font-weight: 600; }
+                    dialog-name := LineEdit {
+                        text <=> root.new-name; placeholder-text: "Esimerkiksi Syysajo 2026";
+                        accessible-label: "Kilpailun nimi";
+                        accepted => { dialog-path.focus(); }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Kilpailun kansio"; color: Theme.ink; font-size: 12px; font-weight: 600; }
+                    HorizontalLayout {
+                        dialog-path := LineEdit {
+                            text <=> root.new-path; placeholder-text: "Valitse kansio tai anna uuden kansion polku";
+                            accessible-label: "Kilpailun kansio";
+                            accepted => { root.create-project(root.new-path, root.new-name); }
+                        }
+                        dialog-browse := Button { height: Theme.control-height; text: "Selaa…"; clicked => { root.browse-new-path(); } }
+                    }
+                }
+                Note { text: "Kilpailu tallennetaan kansioon. Olemassa olevaa kilpailua ei korvata."; }
+                HorizontalLayout {
+                    Rectangle { horizontal-stretch: 1; }
+                    dialog-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.dialog-open = false; } }
+                    dialog-create := Button { height: Theme.control-height; text: "Luo kilpailu"; primary: true; clicked => { root.create-project(root.new-path, root.new-name); } }
+                }
+            }
+        }
+        }
+    }
+    }
+}

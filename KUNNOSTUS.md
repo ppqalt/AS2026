@@ -1,5 +1,7 @@
 # AS2026:n kunnostuksen tarkastusraportti
 
+Alkuosa kuvaa CLI-kunnostuksen valmistumishetkeä. Sen jälkeen toteutettu GUI-vaihe ja sen tarkistukset ovat tämän raportin lopussa. Ajantasaiset käyttöohjeet ovat README-, BUILDING- ja UI-tiedostoissa.
+
 Työ tehtiin olemassa olevaan `dev`-työpuuhun. Lähtötila oli puhdas commit `5f869c4` (TOML-kilpailutuki), ei aiemmin mainittu `1bfc541`. Valmisteilla ollutta kunnostuspatchia ei käytetty. `main` ja `codex-original` säilyvät alkuperäisessä commitissa `944ee4f`.
 
 Ennen muutoksia tehtiin Git-bundle ja lähdekoodiarkisto työpuiden viereiseen `as2026-palautus-20261015`-hakemistoon. Laitetestin oikeat lukemat ja lokit säilyvät sen alihakemistossa `fyysinen-laitetesti`; ne eivät kuulu Git-repositorioon.
@@ -80,3 +82,31 @@ Edelleen puuttuvat tai ovat rajattuja:
 Alkuperäisten kahdeksan toiminnon kattavuustaulukko on README:ssä. Paikallinen TOML-tallennus ei ole usean koneen tietokanta. Ulkoinen editori ei noudata sovelluksen lukkoa. Uuden tiedoston atominen luonti tarvitsee kovat linkit sallivan tiedostojärjestelmän, joten FAT/exFAT ei sovellu tähän luontipolkuun.
 
 Seuraava perusteltu työ on kerätä alkuperäisellä AS2015A:lla muodostettu anonymisoitu vertailukilpailu ja sen vahvistetut tulokset. Sen avulla voidaan testata koko laskentaketjua ja toteuttaa erilliset lisäpisteet muuttamatta sääntöjä oletuksilla. Tämän jälkeen ohjattu kilpailija- ja rataeditori voi käyttää nykyistä tallennusrajapintaa.
+
+## GUI-vaihe 16.10.2026
+
+Versio 0.4.0 lisää erillisen `as2026-gui`-ohjelman ja seitsemän suomenkielistä näkymää. Käyttäjän kuvassa näkyneet valkoiset pinnat muutettiin lähes mustiksi ja Slintin vakiokentille asetettiin sama tumma värimaailma. Tekstit, syötteet, valinnat ja painikkeet tarkastettiin oikeasta Linux-ikkunasta. Värit ja mitat ovat yhteisessä `ui/theme.slint`-tiedostossa, komponentit `ui/components.slint`-tiedostossa ja näkymät `ui/app.slint`-tiedostossa.
+
+Tämän vaiheen Rust-muutokset:
+
+| Tiedosto | Tarkoitus |
+| --- | --- |
+| `build.rs` (uusi) | Valinnaisen Slint-käyttöliittymän ja sen suomennosten käännös. |
+| `src/bin/as2026-gui.rs` (uusi) | Graafisen ohjelman käynnistys ja suomenkielinen virheilmoitus. |
+| `src/gui/mod.rs` (uusi) | Ikkunan tapahtumat, luonnosten hyväksyminen, tallennuksen tilailmoitukset, jatkuvan lukijan käsittely, tallentamattomien kehysten uudelleenyritys ja raportin vienti. |
+| `src/gui/forms.rs` (uusi) | Lomakkeet, nimetyt valinnat ja kenttäkohtaiset muutokset yhteiseen kilpailuun. ULA-valinnat seuraavat asematyyppiä. |
+| `src/gui/tables.rs` (uusi) | Haettavat taulukot, lukuhistoria, tulosjärjestys ja asemakohtaiset laskentatiedot. Ilmoittautuneelle ilman tulosta ei näytetä nollapistettä valmiina tuloksena. |
+| `src/gui/smoke.rs` (uusi) | Oikean GUI-sovittimen työnkulkukoe ja ikkunan näppäintapahtumakoe synteettisellä kopiolla. |
+| `src/workspace.rs` (uusi) | Kilpailun avaus ja kenttämuutokset ProjectStore-rajapinnalla. Luokka- ja ratatunnisteen muutos säilyttää viittaukset. Väliasema lisätään ennen maalia. |
+| `src/live_reader.rs` (uusi) | Yksi jatkuvasti avoin lukija taustasäikeessä, rajattu tapahtumajono ja jo luettujen kehysten hallittu tyhjennys pysäytyksessä. |
+| `src/reader.rs` | Puskuroidun kokonaisen kehyksen nouto ilman uutta laiteodotusta. |
+| `src/legacy.rs` | Arkiston Clone-tuki. Vanhaa tiedostomuotoa ja laskentasääntöjä ei muutettu. |
+| `src/lib.rs` | Uusien yhteisten moduulien vienti. |
+
+Lisäksi `tests/workspace.rs` sisältää 14 tallennuksen, viittausten ja asemamuutosten testiä ja `tests/live_reader.rs` kuusi taustalukijan testiä. GUI:n taulukoita suojaa kolme testiä. Cargo-riippuvuudet ovat GUI:n osalta valinnaisia; CLI pysyy käännettävänä erikseen. TOML-muodon versio säilyy ennallaan.
+
+Paikallisesti hyväksyttiin muotoilu, 158 testiä ilman GUI-ominaisuutta, 161 testiä GUI-ominaisuudella, Clippy GUI-ominaisuudella ilman varoituksia sekä CLI:n ja GUI:n release-käännös. Release-ohjelman työnkulkukoe tarkisti automaattitallennuksen, keskeneräisen syötteen, viittausten muutokset, aseman vaikutuksen laskentaan, ULA-valinnat ja tallennusvirheen jälkeisen Emit-uudelleenyrityksen. Näppäimistökokeessa toimivat Ctrl+N, tekstin syöttäminen, Tab ja Esc. Seitsemästä näkymästä sekä uuden kilpailun ikkunasta otettiin kuvat.
+
+Fyysistä Emit-lukijaa ei avattu GUI-vaiheessa. Windowsin visuaalinen käyttö ja fyysinen lukija ovat edelleen erikseen testattavia. Laskentaytimen tunnetut rajat ja AS2015A-vastaavuuden puuttuva kattava varmennus säilyvät. Poistoja, lähtöaikojen arvontaa tai monen koneen järjestelmää ei toteutettu. Ohjatut kilpailija-, luokka-, rata- ja asemaeditorit ovat nyt käytettävissä.
+
+Seuraava kehitysaskel on kokeilla kilpailun perustamisen ja tulostuksen kokonainen työnkulku järjestäjän kanssa sekä kerätä alkuperäisellä AS2015A:lla vahvistettu vertailukilpailu laskentaytimen varmennukseen.

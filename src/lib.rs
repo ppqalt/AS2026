@@ -7,9 +7,11 @@ pub mod application;
 pub mod changes;
 pub mod emit;
 pub mod legacy;
+pub mod live_reader;
 pub mod matching;
 pub mod reader;
 pub mod scoring;
+pub mod workspace;
 
 use std::fmt;
 

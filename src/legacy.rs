@@ -398,7 +398,7 @@ pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
     Ok(result)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Archive {
     pub documents: BTreeMap<String, Document>,
     pub parameters: Vec<Option<i64>>,
