@@ -1,13 +1,18 @@
-use as2015_rs::{
+use as2026::{
     ClockTime, CoreError, MatchKind, application, emit, io_message,
     legacy::{self, Archive, Encoding},
-    matching, native, ranking, reader, report, scoring, terminal,
+    matching, native, ranking, reader, report, scoring, storage, terminal,
     timing::{self, CalculationPolicy, LiveCalculationOptions, TimingMethod},
 };
+use chrono::Timelike;
 use std::{
     ffi::OsString,
     io::{self, BufRead, IsTerminal, Write},
     path::{Path, PathBuf},
+    sync::{
+        OnceLock,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 type Result<T> = std::result::Result<T, CoreError>;
 fn invalid(message: impl Into<String>) -> CoreError {
@@ -26,24 +31,30 @@ fn load(directory: &Path, encoding: Encoding) -> Result<Archive> {
 }
 fn help() {
     println!(
-        "AS2015 — autosuunnistuksen tulostyökalu\n\n\
+        "AS2026 — autosuunnistuksen kilpailunhallinta\n\n\
          Käynnistä ilman lisävalintoja, niin saat käyttövalikon.\n\n\
          Komennot:\n\
-           as2015-rs tarkista KANSIO [--utf8]\n\
-           as2015-rs laske KANSIO [--utf8] [--vaiheet] [--raportti TIEDOSTO.html]\n\
-           as2015-rs tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html]\n\
-           as2015-rs pura KEHYSTIEDOSTO [HH:MM:SS]\n\
-           as2015-rs esimerkki\n\
-           as2015-rs lue [SARJAPORTTI]\n\
-           as2015-rs uusi KANSIO [KILPAILUN_NIMI]\n\n\
+           as2026 tarkista KANSIO [--utf8]\n\
+           as2026 laske KANSIO [--utf8] [--vaiheet] [--raportti TIEDOSTO.html]\n\
+           as2026 tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html]\n\
+           as2026 pura KEHYSTIEDOSTO [HH:MM:SS]\n\
+           as2026 esimerkki\n\
+           as2026 lue KANSIO [SARJAPORTTI]\n\
+           as2026 lue [SARJAPORTTI] (kertaluvun laitetarkistus)\n\
+           as2026 tallenna-kehys KANSIO KEHYSTIEDOSTO HH:MM:SS\n\
+           as2026 paivita KANSIO MUUTOKSET.toml\n\
+           as2026 uusi KANSIO [KILPAILUN_NIMI]\n\n\
          Tuloslaskenta näyttää korttiaineiston laskennan esikatselun.\n\
-         Tulosluettelot perustuvat kilpailutiedostoon tallennettuihin pisteisiin.\n\
+         TOML-kilpailun tulokset lasketaan ajantasaisista tiedoista.\n\
+         Vanhan kilpailun tulosluettelot perustuvat tallennettuihin pisteisiin.\n\
          Tasatulokset säilytetään jaettuina. --ratkaise-tasatulokset ottaa käyttöön\n\
          asematietoihin perustuvan vertailun, kun tarvittavat tiedot ovat saatavilla.\n\
-         Kilpailutiedostoja ei muuteta. Emit-kortin voi lukea suoraan sarjaportista."
+         Emit-luku ja paivita tallentavat TOML-kilpailun automaattisesti.\n\
+         Tarkastus ja esikatselu säilyttävät lähdetiedostot. Lopeta jatkuva luku Ctrl+C:llä."
     );
 }
 fn inspect(directory: &Path, encoding: Encoding) -> Result<()> {
+    let is_native = directory.join(native::FILE_NAME).is_file();
     let a = load(directory, encoding)?;
     println!("\nTarkastus");
     println!(
@@ -69,14 +80,21 @@ fn inspect(directory: &Path, encoding: Encoding) -> Result<()> {
         println!("Rata {} {}: {} asemaa", r.index, r.name, r.stations.len());
     }
     for c in &a.competitors {
-        println!(
-            "#{} {}: tallennettu {} p, tila {}, {} riviä",
-            c.number,
-            c.driver,
-            c.total_penalties,
-            c.status,
-            c.results.len()
-        );
+        if is_native {
+            println!(
+                "#{} {} | Luokka {} | Emit {}. Tulos muodostetaan tuloslaskennassa.",
+                c.number, c.driver, c.class_code, c.emit_card
+            );
+        } else {
+            println!(
+                "#{} {}: tallennettu {} p, tila {}, {} riviä",
+                c.number,
+                c.driver,
+                c.total_penalties,
+                c.status,
+                c.results.len()
+            );
+        }
     }
     for warning in &a.warnings {
         println!("Huomio: {warning}");
@@ -121,7 +139,9 @@ fn create(directory: &Path, name: &str) -> Result<()> {
         "Kilpailu luotu: {}",
         directory.join(native::FILE_NAME).display()
     );
-    println!("Voit avata kilpailun valikon valinnalla 1 ja muokata tietoja tekstieditorissa.");
+    println!(
+        "Avaa kilpailu valikon valinnalla 1. Lisää tiedot paivita-komennolla tai tekstieditorissa."
+    );
     Ok(())
 }
 fn read_card(port: Option<&str>) -> Result<emit::EmitFrame> {
@@ -151,17 +171,91 @@ fn read_card(port: Option<&str>) -> Result<emit::EmitFrame> {
     Ok(frame)
 }
 
-/// Valikon korttiluku: kilpailukansion voi antaa vasta onnistuneen lukemisen jälkeen.
+static READING: AtomicBool = AtomicBool::new(false);
+static STOP_READING: AtomicBool = AtomicBool::new(false);
+static SIGNAL_HANDLER: OnceLock<std::result::Result<(), String>> = OnceLock::new();
+
+fn save_frame(directory: &Path, frame: &emit::EmitFrame, clock: ClockTime) -> Result<()> {
+    // Avaaminen joka tapahtumalla ottaa mukaan myös toisessa paikallisessa näkymässä tehdyt muutokset.
+    let mut store = storage::ProjectStore::open(&directory.join(native::FILE_NAME))?;
+    let outcome = store.update(|project| project.record_frame(frame, clock))?;
+    println!(
+        "Tallennettu: Emit {} | {} | kilpailija {}",
+        outcome.card_number,
+        if outcome.content_changed {
+            "uudet leimaukset"
+        } else {
+            "samat leimaukset, uusi lukutapahtuma"
+        },
+        outcome.competitor_number.map_or_else(
+            || "ei vielä ilmoittautunutta kilpailijaa".into(),
+            |n| n.to_string()
+        ),
+    );
+    if let Some(number) = outcome.competitor_number {
+        let archive = store.project().to_archive()?;
+        let report = application::calculate(&archive)?;
+        if let Some(entry) = report.competitors.iter().find(|c| c.number == number) {
+            match &entry.calculation {
+                Ok(result) => print_calculation(result, false),
+                Err(error) => println!("Lukema säilytetty; laskenta ei onnistunut: {error}"),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn read_continuously(directory: &Path, requested: Option<&str>) -> Result<()> {
+    storage::ProjectStore::open(&directory.join(native::FILE_NAME))?;
+    let port = reader::port_name(requested).map_err(invalid)?;
+    let mut reader = reader::CardReader::open(&port).map_err(invalid)?;
+    SIGNAL_HANDLER
+        .get_or_init(|| {
+            ctrlc::set_handler(|| {
+                if READING.load(Ordering::SeqCst) {
+                    STOP_READING.store(true, Ordering::SeqCst);
+                } else {
+                    std::process::exit(130);
+                }
+            })
+            .map_err(|_| "Keskeytyskäsittelijän asettaminen epäonnistui".to_owned())
+        })
+        .as_ref()
+        .map_err(|e| invalid(e.clone()))?;
+    STOP_READING.store(false, Ordering::SeqCst);
+    READING.store(true, Ordering::SeqCst);
+    println!("Emit-lukija: {port} (9600 8N2). Automaattinen tallennus käytössä.");
+    println!(
+        "Aseta kortti lukijaan. Seuraavaa korttia odotetaan samassa portissa. Lopeta Ctrl+C:llä."
+    );
+    println!("Laskenta on kehitysversio; vastaavuus AS2015A-tuloksiin on vielä varmistamatta.");
+    let result = (|| {
+        while !STOP_READING.load(Ordering::SeqCst) {
+            if let Some(frame) = reader.poll().map_err(invalid)? {
+                let now = chrono::Local::now();
+                save_frame(
+                    directory,
+                    &frame,
+                    ClockTime::new(now.hour(), now.minute(), now.second())?,
+                )?;
+                println!("Odotetaan seuraavaa korttia.");
+            }
+        }
+        Ok(())
+    })();
+    READING.store(false, Ordering::SeqCst);
+    result
+}
+
 fn read_card_menu<R: BufRead, W: Write>(
     input: &mut R,
     output: &mut W,
     port: Option<&str>,
 ) -> Result<()> {
-    let frame = read_card(port)?;
     let Some(value) = prompt(
         input,
         output,
-        "\nKilpailukansion polku tuloslaskentaa varten (tyhjä = takaisin): ",
+        "Kilpailukansion polku automaattista tallennusta varten (tyhjä = takaisin): ",
     )?
     else {
         return Ok(());
@@ -170,22 +264,29 @@ fn read_card_menu<R: BufRead, W: Write>(
     if directory.as_os_str().is_empty() {
         return Ok(());
     }
-    let archive = load(&directory, Encoding::Windows1252)?;
-    let preview = application::calculate_live_frame(&archive, &frame)?;
-    println!(
-        "\nTuloslaskennan esikatselu — kortti {}\nKilpailija {}: {} / {}\nLuokka {} | Rata {}",
-        preview.card_number,
-        preview.competitor_number,
-        preview.driver,
-        preview.navigator,
-        preview.class_code,
-        preview.route_name,
-    );
-    print_calculation(&preview.calculation, false);
-    println!("Tämä on esikatselu. Kilpailutiedostoja eikä tallennettuja tuloksia muutettu.");
-    println!(
-        "Laskenta käyttää kilpailijan tallennettua lähtöaikaa ja nollauskorjausta; lukukellonaikaa ei mitattu."
-    );
+    let Some(value) = prompt(
+        input,
+        output,
+        "Sarjaportti (tyhjä = automaattinen tunnistus): ",
+    )?
+    else {
+        return Ok(());
+    };
+    let selected = if value.trim().is_empty() {
+        port
+    } else {
+        Some(value.trim())
+    };
+    read_continuously(&directory, selected)
+}
+
+fn update_project(directory: &Path, change_path: &Path) -> Result<()> {
+    let text = std::fs::read_to_string(change_path).map_err(io_error)?;
+    let changes: as2026::changes::Changes = toml::from_str(&text)
+        .map_err(|_| invalid("Muutostiedoston TOML-rakenne tai kenttä on virheellinen"))?;
+    let mut store = storage::ProjectStore::open(&directory.join(native::FILE_NAME))?;
+    store.update(|project| changes.apply(project))?;
+    println!("Kilpailun muutokset tallennettu. Laskenta käyttää päivitettyjä tietoja.");
     Ok(())
 }
 
@@ -235,6 +336,7 @@ fn print_calculation(result: &timing::LiveCalculation, show_trace: bool) {
     }
 }
 fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<String> {
+    let is_native = directory.join(native::FILE_NAME).is_file();
     let a = load(directory, encoding)?;
     let result = application::calculate(&a)?;
     println!("\nTuloslaskennan esikatselu — {}", result.competition_name);
@@ -245,10 +347,17 @@ fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<S
         println!("Huomio: {warning}");
     }
     for entry in &result.competitors {
-        println!(
-            "\nNo. {} | {} | Luokka {} | Tallennettu tulos {} p",
-            entry.number, entry.driver, entry.class_code, entry.imported_total
-        );
+        if is_native {
+            println!(
+                "\nNro. {} | {} | Luokka {}",
+                entry.number, entry.driver, entry.class_code
+            );
+        } else {
+            println!(
+                "\nNro. {} | {} | Luokka {} | Tallennettu tulos {} p",
+                entry.number, entry.driver, entry.class_code, entry.imported_total
+            );
+        }
         match &entry.calculation {
             Ok(calculation) => print_calculation(calculation, show_trace),
             Err(error) => println!("Laskentaa ei tehty: {error}"),
@@ -266,17 +375,34 @@ fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<S
         "\nLaskettu {count}/{} kilpailijaa. Tallennetut tulokset säilyvät ennallaan.",
         result.competitors.len()
     );
-    Ok(report::calculation_html(&result))
+    Ok(if is_native {
+        report::project_calculation_html(&result)
+    } else {
+        report::calculation_html(&result)
+    })
 }
 fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String> {
-    let a = load(directory, encoding)?;
+    let native_path = directory.join(native::FILE_NAME);
+    let is_native = native_path.is_file();
+    let a = if is_native {
+        application::calculated_project(storage::ProjectStore::open(&native_path)?.project())?
+    } else {
+        load(directory, encoding)?
+    };
     let policy = if break_ties {
         ranking::TiePolicy::BestRowsWithExplicitCounts
     } else {
         ranking::TiePolicy::KeepSharedAndFlag
     };
     let result = application::rank_stored(&a, policy)?;
-    println!("\nLuokkakohtaiset tulokset — tallennetut pisteet");
+    println!(
+        "\nLuokkakohtaiset tulokset — {}",
+        if is_native {
+            "ajantasainen asemalaskenta (kehitysversio)"
+        } else {
+            "tallennetut pisteet"
+        }
+    );
     for group in &result.groups {
         println!(
             "\nLuokka {} | Lähteneitä {}{}",
@@ -288,7 +414,7 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
                 ""
             }
         );
-        println!("Sij. | No. | Kuljettaja | Kartanlukija | Tulos | Tila | Np | Sp");
+        println!("Sij. | Nro. | Kuljettaja | Kartanlukija | Tulos | Tila | Np | Sp");
         for entry in &group.entries {
             let c = &a.competitors[entry.source_index - 1];
             let position = if entry.primary_position < 25_000 {
@@ -327,7 +453,7 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
                 "—".to_owned()
             };
             println!(
-                "  {position} | No. {} | {} | {} p | {}",
+                "  {position} | Nro. {} | {} | {} p | {}",
                 c.number,
                 c.driver,
                 c.total_penalties,
@@ -347,7 +473,11 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
             result.omitted_source_indices.len()
         );
     }
-    Ok(report::ranking_html(&a, &result))
+    Ok(if is_native {
+        report::project_ranking_html(&a, &result)
+    } else {
+        report::ranking_html(&a, &result)
+    })
 }
 fn demo() -> Result<()> {
     println!("SYNTEETTINEN ESIMERKKI — ei alkuperäisohjelman tai lukijalaitteen tuottama tulos.");
@@ -547,6 +677,20 @@ fn run() -> Result<()> {
                 .map(|value| value.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "Uusi kilpailu".to_owned());
             create(Path::new(&args[1]), &name)
+        }
+        Some("paivita") if args.len() == 3 => {
+            update_project(Path::new(&args[1]), Path::new(&args[2]))
+        }
+        Some("tallenna-kehys") if args.len() == 4 => {
+            let bytes = std::fs::read(Path::new(&args[2])).map_err(io_error)?;
+            let frame = emit::parse_frame(&bytes)?;
+            let clock = terminal::parse_clock(args[3].to_str().unwrap_or(""))?;
+            save_frame(Path::new(&args[1]), &frame, clock)
+        }
+        Some("lue" | "read")
+            if args.len() == 3 || (args.len() == 2 && Path::new(&args[1]).is_dir()) =>
+        {
+            read_continuously(Path::new(&args[1]), args.get(2).and_then(|s| s.to_str()))
         }
         Some("lue" | "read") if (1..=2).contains(&args.len()) => {
             read_card(args.get(1).and_then(|s| s.to_str())).map(|_| ())

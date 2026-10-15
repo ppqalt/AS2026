@@ -9,11 +9,10 @@ use crate::{
     },
     terminal::parse_clock,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
-    fs::{self, OpenOptions},
-    io::Write,
+    fs,
     path::Path,
 };
 
@@ -23,7 +22,7 @@ fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::InvalidInput(message.into())
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Project {
     pub versio: u32,
@@ -40,7 +39,7 @@ pub struct Project {
     pub leimaluvut: Vec<Readout>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Competition {
     pub numero: u32,
@@ -52,7 +51,7 @@ fn default_method() -> u32 {
     1
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Overrides {
     pub vapaa_aika_sekunteina: Option<i64>,
@@ -85,7 +84,7 @@ impl Overrides {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Class {
     pub tunnus: String,
@@ -110,7 +109,7 @@ fn default_lateness() -> u32 {
     60
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Track {
     pub numero: u32,
@@ -118,7 +117,7 @@ pub struct Track {
     #[serde(default)]
     pub asemat: Vec<Station>,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Station {
     pub tyyppi: String,
@@ -130,7 +129,7 @@ pub struct Station {
     pub jakso_minuutteina: Option<u32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Driver {
     pub numero: u32,
@@ -138,19 +137,24 @@ pub struct Driver {
     pub kuljettaja: String,
     pub kartanlukija: String,
     pub emit: u32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub auto: String,
     pub lahtoaika: String,
     #[serde(default)]
     pub emit_korjaus_sekuntia: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Readout {
     pub emit: u32,
     pub lukukello: String,
     pub leimat: Vec<ReadPunch>,
+    /// Fyysisen lukutapahtuman aika; puuttuu vanhoista version 1 tiedostoista.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub luettu_unix_ms: Option<u64>,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadPunch {
     pub koodi: u32,
@@ -160,21 +164,41 @@ pub struct ReadPunch {
 pub fn load(path: &Path) -> Result<Archive, CoreError> {
     let text = fs::read_to_string(path)
         .map_err(|e| invalid(format!("{}: {}", path.display(), crate::io_message(&e))))?;
-    let project: Project = toml::from_str(&text).map_err(|e: toml::de::Error| {
-        let line = e
-            .span()
-            .map(|s| text[..s.start].bytes().filter(|b| *b == b'\n').count() + 1);
-        match line {
-            Some(line) => invalid(format!(
-                "kilpailu.toml: virheellinen kenttä tai arvo rivillä {line}"
-            )),
-            None => invalid("kilpailu.toml: virheellinen TOML-rakenne tai kenttä"),
-        }
-    })?;
-    project.into_archive()
+    Project::from_toml(&text)?.into_archive()
 }
 
 impl Project {
+    pub fn from_toml(text: &str) -> Result<Self, CoreError> {
+        let project: Self = toml::from_str(text).map_err(|e: toml::de::Error| {
+            let line = e
+                .span()
+                .map(|s| text[..s.start].bytes().filter(|b| *b == b'\n').count() + 1);
+            match line {
+                Some(line) => invalid(format!(
+                    "kilpailu.toml: virheellinen kenttä tai arvo rivillä {line}"
+                )),
+                None => invalid("kilpailu.toml: virheellinen TOML-rakenne tai kenttä"),
+            }
+        })?;
+        project.validate()?;
+        Ok(project)
+    }
+
+    pub fn to_toml(&self) -> Result<String, CoreError> {
+        self.validate()?;
+        toml::to_string_pretty(self)
+            .map_err(|_| invalid("Kilpailutietojen muodostaminen TOML-muotoon epäonnistui"))
+    }
+
+    /// Sama ajantasainen malli validoidaan ja sovitetaan laskennan syötteeksi.
+    pub fn validate(&self) -> Result<(), CoreError> {
+        self.to_archive().map(|_| ())
+    }
+
+    pub fn to_archive(&self) -> Result<Archive, CoreError> {
+        self.clone().into_archive()
+    }
+
     pub fn into_archive(self) -> Result<Archive, CoreError> {
         if self.versio != 1 {
             return Err(invalid("Kilpailutiedoston versiota ei tueta (tuettu: 1)"));
@@ -287,6 +311,7 @@ impl Project {
             fields[4] = driver.kartanlukija.clone();
             fields[5] = String::new();
             fields[6] = String::new();
+            fields[9] = driver.auto.clone();
             fields[10] = time.hour.to_string();
             fields[11] = time.minute.to_string();
             fields[12] = time.second.to_string();
@@ -308,13 +333,26 @@ impl Project {
             });
         }
         let mut documents: BTreeMap<String, Document> = BTreeMap::new();
-        if !self.leimaluvut.is_empty() {
-            let mut source = String::new();
-            for read in &self.leimaluvut {
-                let time = parse_clock(&read.lukukello)?;
-                if read.leimat.is_empty() || read.leimat.len() > 50 {
-                    return Err(invalid("Emit-lukemassa pitää olla 1–50 tietuetta"));
+        let mut warnings = Vec::new();
+        // Fyysiset tapahtumat säilyvät Projectissa. Laskennan syötteeksi valitaan
+        // jokaisen kortin viimeisin kelvollinen lukema, ei erillisiä kilpailijatietoja.
+        let mut active = BTreeMap::new();
+        for (index, read) in self.leimaluvut.iter().enumerate() {
+            match read.validate() {
+                Ok(()) => {
+                    active.insert(read.emit, read);
                 }
+                Err(error) => warnings.push(format!(
+                    "Kortin {} historian lukema {} ohitettiin: {error}",
+                    read.emit,
+                    index + 1
+                )),
+            }
+        }
+        if !active.is_empty() {
+            let mut source = String::new();
+            for read in active.values() {
+                let time = parse_clock(&read.lukukello)?;
                 source.push_str(&format!("999;{};{};", read.emit, read.leimat.len()));
                 for record in &read.leimat {
                     source.push_str(&format!("{};{};", record.koodi, record.aika_sekuntia));
@@ -347,7 +385,7 @@ impl Project {
             basic,
             routes,
             competitors,
-            warnings: Vec::new(),
+            warnings,
         };
         archive
             .scoring_parameters()
@@ -356,79 +394,159 @@ impl Project {
     }
 }
 
-/// Luo selkeän kilpailupohjan. Ei koskaan korvaa olemassa olevaa tiedostoa.
-pub fn create(directory: &Path, name: &str) -> Result<(), CoreError> {
-    if name.trim().is_empty() {
-        return Err(invalid("Kilpailun nimi ei voi olla tyhjä"));
+/// Luo uuden kilpailun samaan tietomalliin, jota tallennus ja laskenta käyttävät.
+impl Project {
+    pub fn new(name: &str) -> Result<Self, CoreError> {
+        let project = Self {
+            versio: 1,
+            kilpailu: Competition {
+                numero: 1,
+                nimi: name.trim().into(),
+                ajanottotapa: default_method(),
+            },
+            virhepisteet: Overrides::default(),
+            luokat: vec![Class {
+                tunnus: "H".into(),
+                nimi: "Harjoitus".into(),
+                rata: 1,
+                ensimmainen_numero: 1,
+                lahtoaika: "15:00:00".into(),
+                lahtovali_minuutteina: 2,
+                myohastymisraja_minuutteina: default_lateness(),
+            }],
+            radat: vec![Track {
+                numero: 1,
+                nimi: "Harjoitusrata".into(),
+                asemat: vec![
+                    Station {
+                        tyyppi: "L".into(),
+                        nimi: "Lähtö".into(),
+                        emit_koodi: 0,
+                        tavoiteaika_sekuntia: 0,
+                        saanto: 0,
+                        jakso_minuutteina: None,
+                    },
+                    Station {
+                        tyyppi: "M".into(),
+                        nimi: "Maali".into(),
+                        emit_koodi: 0,
+                        tavoiteaika_sekuntia: 300,
+                        saanto: 0,
+                        jakso_minuutteina: Some(5),
+                    },
+                ],
+            }],
+            kilpailijat: Vec::new(),
+            leimaluvut: Vec::new(),
+        };
+        project.validate()?;
+        Ok(project)
     }
+}
+
+/// Luo kilpailukansion ja tallentaa valmiin tiedoston korvaamatta olemassa olevaa.
+pub fn create(directory: &Path, name: &str) -> Result<(), CoreError> {
+    let project = Project::new(name)?;
     fs::create_dir_all(directory).map_err(|e| invalid(crate::io_message(&e)))?;
-    let quoted_name = toml::Value::String(name.to_owned()).to_string();
-    let content = format!(
-        r#"# AS2015 — kilpailun tiedot. Tallennusmuoto UTF-8, versio 1.
-# Muokkaa Zedissä tai muussa tekstieditorissa.
-versio = 1
+    crate::storage::ProjectStore::create(&directory.join(FILE_NAME), project).map(|_| ())
+}
 
-[kilpailu]
-numero = 1
-nimi = {quoted_name}
-ajanottotapa = 1 # 0 = manuaalinen, 1 = Emit, 2 = vanha ajanottotapa 2
+/// Yhden fyysisen lukemisen tulos. Laskentatuloksia ei kopioida historiaan.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadOutcome {
+    pub card_number: u32,
+    pub competitor_number: Option<u32>,
+    pub content_changed: bool,
+}
 
-# Kilpailukohtaiset virhepisteet ovat vapaaehtoisia.
-# Tyhjä osio käyttää vanhasta ohjelmasta palautettuja oletusarvoja.
-[virhepisteet]
-# vapaa_aika_sekunteina = 10
-# ennakon_pisteet_sekunnilta = 3
-# myohastymisen_pisteet_sekunnilta = 1
+impl Readout {
+    fn punches(&self) -> Vec<crate::Punch> {
+        self.leimat
+            .iter()
+            .map(|p| crate::Punch {
+                code: p.koodi,
+                elapsed_seconds: p.aika_sekuntia,
+            })
+            .collect()
+    }
 
-[[luokat]]
-tunnus = "H"
-nimi = "Harjoitus"
-rata = 1
-ensimmainen_numero = 1
-lahtoaika = "15:00:00"
-lahtovali_minuutteina = 2
-myohastymisraja_minuutteina = 60
+    pub fn validate(&self) -> Result<(), CoreError> {
+        if self.emit == 0 {
+            return Err(invalid("Emit-kortin numero ei voi olla nolla"));
+        }
+        if self.leimat.is_empty() || self.leimat.len() > 50 {
+            return Err(invalid("Emit-lukemassa pitää olla 1–50 tietuetta"));
+        }
+        crate::emit::accepted_records(&self.punches(), parse_clock(&self.lukukello)?)?;
+        Ok(())
+    }
 
-[[radat]]
-numero = 1
-nimi = "Harjoitusrata"
+    /// Varsinainen korttisisältö ei sisällä lukumerkkiä eikä sen muuttuvaa aikaa.
+    pub fn content(&self) -> Result<Vec<crate::Punch>, CoreError> {
+        self.validate()?;
+        let punches = self.punches();
+        Ok(crate::emit::punches_before_reader_marker(&punches)?.to_vec())
+    }
+}
 
-[[radat.asemat]]
-tyyppi = "L"
-nimi = "lähtö"
-emit_koodi = 0
-tavoiteaika_sekuntia = 0
+impl Project {
+    pub fn active_readout(&self, card_number: u32) -> Option<&Readout> {
+        self.leimaluvut
+            .iter()
+            .rev()
+            .find(|read| read.emit == card_number && read.validate().is_ok())
+    }
 
-[[radat.asemat]]
-tyyppi = "M"
-nimi = "maali"
-emit_koodi = 0
-tavoiteaika_sekuntia = 300
-jakso_minuutteina = 5
+    /// Täydentää yhteistä mallia vasta, kun lukema on kokonaan kelvollinen.
+    /// Kilpailijaa vailla oleva kortti kohdistuu myöhemmin Emit-numeron perusteella.
+    pub fn record_readout(&mut self, read: Readout) -> Result<ReadOutcome, CoreError> {
+        let content = read.content()?;
+        let previous = self.active_readout(read.emit);
+        let content_changed = match previous {
+            Some(previous) => previous.content()? != content,
+            None => true,
+        };
+        let competitors = self
+            .kilpailijat
+            .iter()
+            .filter(|driver| driver.emit == read.emit)
+            .collect::<Vec<_>>();
+        if competitors.len() > 1 {
+            return Err(invalid(format!(
+                "Emit-kortti {} kuuluu usealle kilpailijalle",
+                read.emit
+            )));
+        }
+        let outcome = ReadOutcome {
+            card_number: read.emit,
+            competitor_number: competitors.first().map(|driver| driver.numero),
+            content_changed,
+        };
+        self.leimaluvut.push(read);
+        Ok(outcome)
+    }
 
-# Kilpailijan voi lisätä toistamalla tämän rakenteen:
-# [[kilpailijat]]
-# numero = 1
-# luokka = "H"
-# kuljettaja = "Koe"
-# kartanlukija = "Testi"
-# emit = 538747
-# lahtoaika = "15:00:00"
-
-# Kortin lukutiedot voidaan myöhemmin tallentaa automaattisesti.
-# [[leimaluvut]]
-# emit = 538747
-# lukukello = "21:10:17"
-# leimat = [{{ koodi = 0, aika_sekuntia = 0 }}, {{ koodi = 250, aika_sekuntia = 5122 }}]
-"#
-    );
-    let path = directory.join(FILE_NAME);
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)
-        .map_err(|e| invalid(format!("{}: {}", path.display(), crate::io_message(&e))))?;
-    file.write_all(content.as_bytes())
-        .map_err(|e| invalid(crate::io_message(&e)))?;
-    Ok(())
+    pub fn record_frame(
+        &mut self,
+        frame: &crate::emit::EmitFrame,
+        clock: crate::ClockTime,
+    ) -> Result<ReadOutcome, CoreError> {
+        let accepted = frame.accepted_readout(clock)?;
+        let read = Readout {
+            emit: frame.card_number,
+            lukukello: format!("{:02}:{:02}:{:02}", clock.hour, clock.minute, clock.second),
+            leimat: frame.records[..=accepted.marker_index]
+                .iter()
+                .map(|p| ReadPunch {
+                    koodi: p.code,
+                    aika_sekuntia: p.elapsed_seconds,
+                })
+                .collect(),
+            luettu_unix_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|duration| duration.as_millis().try_into().ok()),
+        };
+        self.record_readout(read)
+    }
 }

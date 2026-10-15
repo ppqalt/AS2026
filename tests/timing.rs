@@ -1,10 +1,10 @@
 //! Synteettisiä kokonaispolkuja; ei AS2015A:n tai fyysisen lukijan suoritusta.
-use as2015_rs::emit::parse_frame;
-use as2015_rs::legacy::{Encoding, parse_document, parse_routes};
-use as2015_rs::matching::match_route;
-use as2015_rs::scoring::ScoringParameters;
-use as2015_rs::timing::*;
-use as2015_rs::{ClockTime, CoreError, Punch, RouteStation, Rule, StationKind};
+use as2026::emit::parse_frame;
+use as2026::legacy::{Encoding, parse_document, parse_routes};
+use as2026::matching::match_route;
+use as2026::scoring::ScoringParameters;
+use as2026::timing::*;
+use as2026::{ClockTime, CoreError, Punch, RouteStation, Rule, StationKind};
 
 fn clock() -> ClockTime {
     ClockTime::new(12, 0, 0).unwrap()

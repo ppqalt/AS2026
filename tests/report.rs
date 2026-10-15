@@ -5,7 +5,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use as2015_rs::{
+use as2026::{
     CoreError, MatchKind, MatchedRow, RouteStation, Rule, StationKind,
     application::{CalculationReport, CompetitorPreview},
     legacy::{Archive, BasicSettings, Competitor},
@@ -84,6 +84,7 @@ fn safe_html(html: &str) {
     assert!(html.starts_with("<!doctype html>"));
     assert!(html.contains("<html lang=\"fi\">"));
     assert!(html.contains("<meta charset=\"utf-8\">"));
+    assert!(html.contains("<p class=\"brand\">AS2026</p>"));
     assert!(html.contains("@media print"));
     assert!(html.contains("@media(max-width:600px)"));
     assert!(html.contains("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &#39;Ää&#39;"));
@@ -103,7 +104,7 @@ fn ranking_html_escapes_imported_identity_names_route_and_diagnostics() {
         "Luokkakohtaiset tulokset",
         "Ratakohtaiset tulokset",
         "Sij.",
-        "No.",
+        "Nro",
         "Kuljettaja",
         "Kartanlukija",
         "Luokka",

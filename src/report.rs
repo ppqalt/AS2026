@@ -47,7 +47,7 @@ tbody tr:nth-child(even){{background:#f8fafc}}.muted{{color:#536879}}ul{{padding
 section{{border:0;border-radius:0;padding:.5rem 0;margin:0 0 1rem}}.table-wrap{{overflow:visible}}table{{font-size:9pt}}
 thead{{display:table-header-group}}tr{{break-inside:avoid}}h2,h3{{break-after:avoid}}.notice{{background:white;border:1px solid #999}}
 th{{background:#eee}}}}
-</style></head><body><header><p class="brand">AS2015</p><h1>{title}</h1><p class="subtitle">{competition}</p></header><main>
+</style></head><body><header><p class="brand">AS2026</p><h1>{title}</h1><p class="subtitle">{competition}</p></header><main>
 "#,
         title = escape(title),
         competition = escape(competition)
@@ -73,16 +73,37 @@ fn warnings(html: &mut String, warnings: &[String]) {
 /// Raakaleimauksista johdettu erillinen esikatselu, joka säilyttää tallennetut
 /// tulokset vertailuarvoina ja näyttää myös osittaiset tai epäonnistuneet laskut.
 pub fn calculation_html(report: &CalculationReport) -> String {
+    calculation_html_with_source(report, false)
+}
+
+pub fn project_calculation_html(report: &CalculationReport) -> String {
+    calculation_html_with_source(report, true)
+}
+
+fn calculation_html_with_source(report: &CalculationReport, native: bool) -> String {
     let mut html = document("Tuloslaskennan esikatselu", &report.competition_name);
-    html.push_str("<section class=\"notice\"><p>Tallennettu tulos säilyy ennallaan. Esikatselu lasketaan raakaleimauksista, eikä sitä käytetä luokka- tai ratatulosten sijoituksiin. Alkuperäisillä kilpailutuloksilla tehtävä vertailu on vielä tarpeen.</p></section>\n");
+    if native {
+        html.push_str("<section class=\"notice\"><p>AS2026:n kehitysversio: esikatselu ja tulosluettelo lasketaan samoista ajantasaisista kilpailutiedoista ja leimauksista. Alkuperäisillä kilpailutuloksilla tehtävä vertailu on vielä tarpeen.</p></section>\n");
+    } else {
+        html.push_str("<section class=\"notice\"><p>Tallennettu tulos säilyy ennallaan. Esikatselu lasketaan raakaleimauksista, eikä sitä käytetä luokka- tai ratatulosten sijoituksiin. Alkuperäisillä kilpailutuloksilla tehtävä vertailu on vielä tarpeen.</p></section>\n");
+    }
     html.push_str("<section class=\"notice warning\"><p><strong>Esikatselu sisältää vain asemarivien virhepisteet.</strong> Erillisiä puuttuvien ja ylimääräisten RT-asemien lisäyksiä sekä muita kilpailijakohtaisia virhepisteitä ei vielä yhdistetä esikatseluun.</p></section>\n");
     warnings(&mut html, &report.warnings);
     if report.competitors.is_empty() {
         html.push_str("<section><p>Ei kilpailijoita.</p></section>\n");
     }
     for competitor in &report.competitors {
-        html.push_str(&format!("<section><h2>No. {} — {}</h2><p>Luokka: {}. Tallennettu tulos: <strong>{} p</strong>.</p>\n",
+        if native {
+            html.push_str(&format!(
+                "<section><h2>Nro {} — {}</h2><p>Luokka: {}.</p>\n",
+                competitor.number,
+                escape(&competitor.driver),
+                escape(&competitor.class_code)
+            ));
+        } else {
+            html.push_str(&format!("<section><h2>Nro {} — {}</h2><p>Luokka: {}. Tallennettu tulos: <strong>{} p</strong>.</p>\n",
             competitor.number, escape(&competitor.driver), escape(&competitor.class_code), competitor.imported_total));
+        }
         if !competitor.notes.is_empty() {
             html.push_str("<ul>");
             for note in &competitor.notes {
@@ -153,7 +174,7 @@ fn place(position: u32, status: &Status) -> String {
 }
 
 fn ranking_heading(html: &mut String, points: bool) {
-    html.push_str("<div class=\"table-wrap\"><table><thead><tr><th scope=\"col\">Sij.</th><th scope=\"col\">No.</th><th scope=\"col\">Kuljettaja</th><th scope=\"col\">Kartanlukija</th><th scope=\"col\">Luokka</th><th scope=\"col\" class=\"numeric\">Tulos</th>");
+    html.push_str("<div class=\"table-wrap\"><table><thead><tr><th scope=\"col\">Sij.</th><th scope=\"col\">Nro</th><th scope=\"col\">Kuljettaja</th><th scope=\"col\">Kartanlukija</th><th scope=\"col\">Luokka</th><th scope=\"col\" class=\"numeric\">Tulos</th>");
     if points {
         html.push_str("<th scope=\"col\" class=\"numeric\" title=\"nousupisteet\">Np</th><th scope=\"col\" class=\"numeric\" title=\"sarjapisteet\">Sp</th>");
     }
@@ -190,8 +211,21 @@ fn ranking_row(
 /// Luokka- ja ratatulokset perustuvat tallennettuihin tuloksiin. Raportti ei
 /// korvaa niitä korttilaskennan esikatselulla eikä muuta lähdetiedostoja.
 pub fn ranking_html(archive: &Archive, report: &RankingReport) -> String {
+    ranking_html_with_source(archive, report, false)
+}
+
+/// AS2026-kilpailun nykyisestä mallista johdetut asematulokset.
+pub fn project_ranking_html(archive: &Archive, report: &RankingReport) -> String {
+    ranking_html_with_source(archive, report, true)
+}
+
+fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculated: bool) -> String {
     let mut html = document("Luokkakohtaiset tulokset", competition_name(archive));
-    html.push_str("<section class=\"notice\"><p>Sijoitukset ja pisteet perustuvat tuodun Kilp.txt-tiedoston tallennettuihin tuloksiin. Korttilaskennan esikatselu ei muuta näitä tuloksia. Tasapisteiden esitysjärjestys ei ratkaise jaettua sijaa.</p></section>\n");
+    if calculated {
+        html.push_str("<section class=\"notice\"><p>AS2026:n kehitysversio: pisteet ovat ajantasaisista kilpailutiedoista ja Emit-leimauksista laskettuja asematuloksia. Vastaavuus AS2015A-tuloksiin on vielä varmistamatta. Erilliset kilpailijakohtaiset RT- ja muut lisäpisteet eivät sisälly summaan. Tasapisteiden esitysjärjestys ei ratkaise jaettua sijaa.</p></section>\n");
+    } else {
+        html.push_str("<section class=\"notice\"><p>Sijoitukset ja pisteet perustuvat tuodun Kilp.txt-tiedoston tallennettuihin tuloksiin. Korttilaskennan esikatselu ei muuta näitä tuloksia. Tasapisteiden esitysjärjestys ei ratkaise jaettua sijaa.</p></section>\n");
+    }
     warnings(&mut html, &archive.warnings);
     if !report.diagnostics.is_empty() {
         html.push_str("<section class=\"notice warning\"><h2>Tulosten huomautukset</h2><ul>");

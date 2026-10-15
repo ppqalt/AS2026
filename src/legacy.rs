@@ -374,8 +374,15 @@ pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
             "Y" => result.combined_classes.push(record.fields[1..].to_vec()),
             _ => {
                 let f = fields(&record.fields, 10, record.line)?;
+                let code = text(&f[0]);
+                if result.classes.iter().any(|class| class.code == code) {
+                    return Err(error(format!(
+                        "Rivi {}: toistuva luokkakoodi {code:?}; luokan rataa ei voi valita yksiselitteisesti",
+                        record.line
+                    )));
+                }
                 result.classes.push(ClassDefinition {
-                    code: text(&f[0]),
+                    code,
                     name: text(&f[1]),
                     route: text(&f[2]),
                     fields: f.to_vec(),

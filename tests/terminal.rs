@@ -1,4 +1,4 @@
-use as2015_rs::{
+use as2026::{
     ClockTime,
     legacy::Encoding,
     terminal::{Action, MenuChoice, clean_path, menu, parse_choice, parse_clock, parse_yes_no},
@@ -24,7 +24,7 @@ fn menu_eof_exits_at_every_prompt_without_waiting() {
 
 #[test]
 fn application_exits_successfully_when_stdin_is_closed() {
-    let output = Command::new(env!("CARGO_BIN_EXE_as2015-rs"))
+    let output = Command::new(env!("CARGO_BIN_EXE_as2026"))
         .stdin(Stdio::null())
         .output()
         .expect("Rust application starts");

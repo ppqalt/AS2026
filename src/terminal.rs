@@ -164,7 +164,7 @@ fn menu_inner<R: BufRead, W: Write>(input: &mut R, output: &mut W) -> io::Result
     loop {
         writeln!(
             output,
-            "\nAS2015 — autosuunnistuksen tulostyökalu\n\n\
+            "\nAS2026 — autosuunnistuksen kilpailunhallinta\n\n\
              1  Tarkastus — kilpailun tiedot\n\
              2  Tuloslaskenta — esikatselu korttiaineistosta\n\
              3  Tulosluettelot — tallennetut pisteet\n\

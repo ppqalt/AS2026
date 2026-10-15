@@ -23,6 +23,13 @@ impl FrameScanner {
 
     pub fn push(&mut self, bytes: &[u8]) -> Option<EmitFrame> {
         self.buffer.extend_from_slice(bytes);
+        self.next_frame()
+    }
+
+    /// Palauttaa seuraavan jo puskuroidun kehyksen ilman uutta laitelukua.
+    /// Sisäinen synkkatavupari voi kuulua myös hyötydataan, joten se ei katkaise kehystä.
+    /// Varmennettua tarkistussummaa ei tunneta: kaikkia tavuhäviöitä ei voida tunnistaa.
+    pub fn next_frame(&mut self) -> Option<EmitFrame> {
         loop {
             let start = self
                 .buffer
@@ -43,23 +50,9 @@ impl FrameScanner {
             if self.buffer.len() < FRAME_LENGTH {
                 return None;
             }
-            // Jos ennen kehyksen loppua alkaa uusi kehys, ensimmäinen jäi kesken.
-            if let Some(next) = self.buffer[2..FRAME_LENGTH]
-                .windows(2)
-                .position(|pair| pair == FRAME_START.as_slice())
-            {
-                self.buffer.drain(..next + 2);
-                continue;
-            }
             if let Ok(frame) = emit::parse_frame(&self.buffer[..FRAME_LENGTH]) {
                 // Pelkkä 0x20 0x20 ei riitä: hyväksytään vain lukumerkin sisältävä kehys.
-                if frame.card_number != 0
-                    && frame
-                        .records
-                        .iter()
-                        .skip(1)
-                        .any(|record| record.code == 250)
-                {
+                if frame.card_number != 0 && frame.punches_before_reader_marker().is_ok() {
                     self.buffer.drain(..FRAME_LENGTH);
                     return Some(frame);
                 }
@@ -93,13 +86,13 @@ pub fn port_name(requested: Option<&str>) -> Result<String, String> {
             }
         }
     }
-    if let Ok(ports) = serialport::available_ports() {
-        if let Some(port) = ports.iter().find(|p| {
+    if let Ok(ports) = serialport::available_ports()
+        && let Some(port) = ports.iter().find(|p| {
             matches!(&p.port_type,
             serialport::SerialPortType::UsbPort(info) if info.vid == 0x0403 && info.pid == 0x6001)
-        }) {
-            return Ok(port.port_name.clone());
-        }
+        })
+    {
+        return Ok(port.port_name.clone());
     }
     #[cfg(target_os = "linux")]
     if std::path::Path::new("/dev/ttyUSB0").exists() {
@@ -108,10 +101,16 @@ pub fn port_name(requested: Option<&str>) -> Result<String, String> {
     Err("Emit-lukijaa ei löytynyt automaattisesti. Anna sarjaportti itse (esimerkiksi /dev/ttyUSB0 tai COM3).".into())
 }
 
-/// Lukee yhden kortin ja palauttaa heti ensimmäisen kokonaisen hyväksyttävän kehyksen.
-/// Näin saman paikallaan olevan kortin jatkuvat kehykset eivät näy monena lukuna.
-pub fn read_one(port: &str) -> Result<EmitFrame, String> {
-    let mut device = serialport::new(port, 9600)
+/// Jatkuva lukija säilyttää saman portin ja keskeneräisen kehyksen lukukertojen välillä.
+/// Sisältöjen uusintalukujen vertailu kuuluu kilpailumallille, ei sarjaportille.
+pub struct CardReader<R = Box<dyn serialport::SerialPort>> {
+    device: R,
+    scanner: FrameScanner,
+}
+
+impl CardReader {
+    pub fn open(port: &str) -> Result<Self, String> {
+        let device = serialport::new(port, 9600)
         .data_bits(serialport::DataBits::Eight)
         .parity(serialport::Parity::None)
         .stop_bits(serialport::StopBits::Two)
@@ -126,28 +125,52 @@ pub fn read_one(port: &str) -> Result<EmitFrame, String> {
                 _ => "Sarjaportin avaaminen epäonnistui. Tarkista portin nimi ja ettei toinen ohjelma käytä lukijaa".to_owned(),
             }
         })?;
-    let mut scanner = FrameScanner::new();
-    let mut buffer = [0u8; 512];
-    let started = Instant::now();
-    while started.elapsed() < READ_WAIT {
-        match device.read(&mut buffer) {
-            Ok(count) if count > 0 => {
-                if let Some(frame) = scanner.push(&buffer[..count]) {
-                    return Ok(frame);
-                }
-            }
-            Ok(_) => {}
+        Ok(Self::from_reader(device))
+    }
+}
+
+impl<R: Read> CardReader<R> {
+    /// Mahdollistaa saman virtapolun testaamisen ilman fyysistä sarjaporttia.
+    pub fn from_reader(device: R) -> Self {
+        Self {
+            device,
+            scanner: FrameScanner::new(),
+        }
+    }
+
+    /// Palauttaa yhden kehyksen tai None, kun kokonainen kehys ei ole vielä saapunut.
+    /// Fyysisen portin yksittäinen odotus on enintään 250 millisekuntia.
+    pub fn poll(&mut self) -> Result<Option<EmitFrame>, String> {
+        if let Some(frame) = self.scanner.next_frame() {
+            return Ok(Some(frame));
+        }
+        let mut buffer = [0u8; 512];
+        match self.device.read(&mut buffer) {
+            Ok(count) if count > 0 => Ok(self.scanner.push(&buffer[..count])),
+            Ok(_) => Ok(None),
             Err(error)
                 if matches!(
                     error.kind(),
                     io::ErrorKind::TimedOut | io::ErrorKind::Interrupted
-                ) => {}
-            Err(error) => {
-                return Err(format!(
-                    "Sarjaportin lukeminen epäonnistui: {}",
-                    crate::io_message(&error)
-                ));
+                ) =>
+            {
+                Ok(None)
             }
+            Err(error) => Err(format!(
+                "Sarjaportin lukeminen epäonnistui: {}",
+                crate::io_message(&error)
+            )),
+        }
+    }
+}
+
+/// Kertalukukomennon yhteensopivuusrajapinta. Jatkuva toiminto käyttää CardReaderia.
+pub fn read_one(port: &str) -> Result<EmitFrame, String> {
+    let mut reader = CardReader::open(port)?;
+    let started = Instant::now();
+    while started.elapsed() < READ_WAIT {
+        if let Some(frame) = reader.poll()? {
+            return Ok(frame);
         }
     }
     Err("Korttia ei saatu luettua 30 sekunnissa. Tarkista lukija ja kokeile uudelleen".into())

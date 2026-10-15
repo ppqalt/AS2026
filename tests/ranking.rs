@@ -1,4 +1,4 @@
-use as2015_rs::{StationKind, ranking::*};
+use as2026::{StationKind, ranking::*};
 
 fn competitor(id: usize, total: i64) -> CompetitorInput {
     CompetitorInput {

@@ -75,6 +75,67 @@ fn class_for<'a>(
     }
     Ok(found[0])
 }
+fn route_for<'a>(a: &'a Archive, c: &Competitor) -> Result<&'a crate::legacy::Route, CoreError> {
+    let class = class_for(a, &c.class_code)?;
+    // AS2015A:n luokan sarake 2 vertautuu R-tietueen nimeen (0x41553e).
+    // Uuden TOML-muodon luokan rata on sen sijaan eksplisiittinen numero.
+    let imported = a.documents.contains_key("Radat.txt");
+    let routes: Vec<_> = a
+        .routes
+        .iter()
+        .filter(|route| {
+            if imported {
+                route.name == class.route
+            } else {
+                class.route.trim().parse::<u32>().ok() == Some(route.index)
+            }
+        })
+        .collect();
+    match routes.as_slice() {
+        [route] => Ok(route),
+        _ => Err(invalid(format!(
+            "Luokan {} rata {:?} puuttuu tai on moniselitteinen",
+            c.class_code, class.route
+        ))),
+    }
+}
+
+fn calculate_punches(
+    a: &Archive,
+    c: &Competitor,
+    punches: &[Punch],
+    last_punch_elapsed_seconds: u32,
+) -> Result<LiveCalculation, CoreError> {
+    let class = class_for(a, &c.class_code)?;
+    let official_start = start(c)?;
+    let rows = matching::match_route(
+        &route_for(a, c)?
+            .to_core()
+            .map_err(|e| invalid(e.to_string()))?,
+        punches,
+        official_start,
+    )?;
+    let options = LiveCalculationOptions {
+        official_start,
+        reset_correction_seconds: c.correction_seconds,
+        timing_method: TimingMethod::from_legacy(integer(
+            a.basic
+                .identity
+                .get(7)
+                .ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
+            "ajanottotapa",
+        )?)?,
+        last_punch_elapsed_seconds,
+        cumulative_limit_minutes: optional_nonnegative(
+            class.fields.get(7),
+            "Luokan kokonaismyöhästymisraja",
+        )?,
+        parameters: a.scoring_parameters().map_err(|e| invalid(e.to_string()))?,
+        policy: CalculationPolicy::RecoveredLiveV1,
+    };
+    timing::calculate_live(&rows, &options)
+}
+
 fn optional_nonnegative(value: Option<&String>, label: &str) -> Result<Option<i64>, CoreError> {
     let Some(value) = value else {
         return Err(invalid(format!("{label} puuttuu")));
@@ -92,8 +153,8 @@ fn optional_nonnegative(value: Option<&String>, label: &str) -> Result<Option<i6
 /// Rebuild supported live-card calculations from the saved raw log. Never uses stored
 /// station penalties as new calculation inputs and never overwrites imported totals.
 pub fn calculate(a: &Archive) -> Result<CalculationReport, CoreError> {
-    let params = a.scoring_parameters().map_err(|e| invalid(e.to_string()))?;
-    let method = TimingMethod::from_legacy(integer(
+    a.scoring_parameters().map_err(|e| invalid(e.to_string()))?;
+    TimingMethod::from_legacy(integer(
         a.basic
             .identity
             .get(7)
@@ -112,24 +173,6 @@ pub fn calculate(a: &Archive) -> Result<CalculationReport, CoreError> {
                 return Err(CoreError::Unsupported(format!(
                     "Tilaa {} ei lasketa korttiesikatselussa",
                     c.status
-                )));
-            }
-            let class = class_for(a, &c.class_code)?;
-            let routes = a
-                .routes
-                .iter()
-                .filter(|r| {
-                    if let Ok(number) = class.route.trim().parse::<u32>() {
-                        r.index == number
-                    } else {
-                        r.name == class.route
-                    }
-                })
-                .collect::<Vec<_>>();
-            if routes.len() != 1 {
-                return Err(invalid(format!(
-                    "Luokan {} rata {:?} puuttuu tai on moniselitteinen",
-                    c.class_code, class.route
                 )));
             }
             let card: u32 = c.emit_card.trim().parse().map_err(|_| {
@@ -165,28 +208,18 @@ pub fn calculate(a: &Archive) -> Result<CalculationReport, CoreError> {
                 ));
             }
             let read = log.accepted()?;
-            let official = start(c)?;
-            let rows = matching::match_route(
-                &routes[0].to_core().map_err(|e| invalid(e.to_string()))?,
+            let result = calculate_punches(
+                a,
+                c,
                 &read.interior_punches,
-                official,
+                read.last_punch_elapsed_seconds,
             )?;
-            let cumulative_limit =
-                optional_nonnegative(class.fields.get(7), "Luokan kokonaismyöhästymisraja")?;
-            let options = LiveCalculationOptions {
-                official_start: official,
-                reset_correction_seconds: c.correction_seconds,
-                timing_method: method,
-                last_punch_elapsed_seconds: read.last_punch_elapsed_seconds,
-                cumulative_limit_minutes: cumulative_limit,
-                parameters: params.clone(),
-                policy: CalculationPolicy::RecoveredLiveV1,
-            };
-            let result = timing::calculate_live(&rows, &options)?;
             if result.finish_clock_seconds != read.finish_clock_seconds {
                 notes.push(format!("Nollauskorjaukseen perustuva maalikello {} s ja lukukelloon perustuva arvio {} s eroavat",result.finish_clock_seconds,read.finish_clock_seconds));
             }
-            if result.totals.total_points != c.total_penalties {
+            if a.documents.contains_key("Kilp.txt")
+                && result.totals.total_points != c.total_penalties
+            {
                 notes.push(format!(
                     "Asemarivien summa {} p poikkeaa tallennetusta kokonaistuloksesta {} p",
                     result.totals.total_points, c.total_penalties
@@ -250,65 +283,14 @@ pub fn calculate_live_frame(
         }
     };
 
-    let marker = frame
-        .records
-        .iter()
-        .position(|p| p.code == 250)
-        .ok_or(CoreError::MissingMarker)?;
-    if marker == 0 {
-        return Err(CoreError::MarkerAtStart);
-    }
-    let punches: &[Punch] = &frame.records[1..marker];
-    let class = class_for(archive, &competitor.class_code)?;
-    let routes: Vec<_> = archive
-        .routes
-        .iter()
-        .filter(|route| {
-            if let Ok(number) = class.route.trim().parse::<u32>() {
-                route.index == number
-            } else {
-                route.name == class.route
-            }
-        })
-        .collect();
-    let route = match routes.as_slice() {
-        [route] => *route,
-        _ => {
-            return Err(invalid(format!(
-                "Luokan {} rata {:?} puuttuu tai on moniselitteinen",
-                competitor.class_code, class.route
-            )));
-        }
-    };
-    let official_start = start(competitor)?;
-    let rows = matching::match_route(
-        &route.to_core().map_err(|e| invalid(e.to_string()))?,
-        punches,
-        official_start,
+    let records = frame.punches_before_reader_marker()?;
+    let route = route_for(archive, competitor)?;
+    let calculation = calculate_punches(
+        archive,
+        competitor,
+        &records[1..],
+        records[records.len() - 1].elapsed_seconds,
     )?;
-    let method = TimingMethod::from_legacy(integer(
-        archive
-            .basic
-            .identity
-            .get(7)
-            .ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
-        "ajanottotapa",
-    )?)?;
-    let options = LiveCalculationOptions {
-        official_start,
-        reset_correction_seconds: competitor.correction_seconds,
-        timing_method: method,
-        last_punch_elapsed_seconds: frame.records[marker - 1].elapsed_seconds,
-        cumulative_limit_minutes: optional_nonnegative(
-            class.fields.get(7),
-            "Luokan kokonaismyöhästymisraja",
-        )?,
-        parameters: archive
-            .scoring_parameters()
-            .map_err(|e| invalid(e.to_string()))?,
-        policy: CalculationPolicy::RecoveredLiveV1,
-    };
-    let calculation = timing::calculate_live(&rows, &options)?;
     Ok(LiveCardPreview {
         card_number: frame.card_number,
         competitor_number: competitor.number,
@@ -444,4 +426,64 @@ pub fn rank_stored(
         });
     }
     ranking::rank(&input)
+}
+
+/// Rakentaa uuden kilpailun tulosnäkymän nykyisistä lähtötiedoista.
+/// Johdettuja pisteitä ei tallenneta toiseksi totuudeksi TOML-tiedostoon.
+/// Tämä kehitysversion asemalaskenta ei vahvista AS2015A-vastaavuutta.
+pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, CoreError> {
+    let mut archive = project.to_archive()?;
+    let calculations = calculate(&archive)?;
+    for (competitor, preview) in archive.competitors.iter_mut().zip(calculations.competitors) {
+        match preview.calculation {
+            Ok(result) => {
+                for diagnostic in &result.diagnostics {
+                    archive.warnings.push(format!(
+                        "Kilpailija {}: {}",
+                        competitor.number, diagnostic.message
+                    ));
+                }
+                competitor.total_penalties = result.totals.total_points;
+                competitor.status = result.status.as_legacy().into();
+                competitor.results = result
+                    .rows
+                    .into_iter()
+                    .map(|row| {
+                        let station = row.source.station.as_ref();
+                        crate::legacy::StationResult {
+                            output_index: row.source.output_index as u32,
+                            sequence: station.map_or(0, |s| s.sequence),
+                            station_type: station
+                                .map_or(StationKind::At, |s| s.kind)
+                                .as_legacy()
+                                .into(),
+                            name: station
+                                .map_or("Ylimääräinen asema", |s| s.label.as_str())
+                                .into(),
+                            elapsed_seconds: row.derived_elapsed_seconds,
+                            expected_code: station.map_or(0, |s| s.expected_code),
+                            received_code: row.received_code,
+                            target_seconds: row.target_seconds,
+                            actual_seconds: row.actual_seconds,
+                            clock: [0; 3],
+                            rule: row.effective_rule as i64,
+                            section_text: station
+                                .map_or("", |s| s.section_time_text.as_str())
+                                .into(),
+                            signed_time_penalty: row.signed_time_points,
+                            other_penalty: row.other_points,
+                            total_penalty: row.total_points,
+                            note: row.note,
+                        }
+                    })
+                    .collect();
+                competitor.declared_row_count = competitor.results.len() as u32;
+            }
+            Err(error) => archive.warnings.push(format!(
+                "Kilpailijan {} tulos puuttuu: {error}",
+                competitor.number
+            )),
+        }
+    }
+    Ok(archive)
 }

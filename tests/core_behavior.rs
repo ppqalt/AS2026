@@ -1,10 +1,10 @@
 //! Kaikki tapaukset ovat synteettisiä, raporteista johdettuja odotusarvoja.
 //! AS2015A:ta tai sarjaporttia ei käynnistetä eikä tuloksia väitetä historialliseksi vertailuksi.
 
-use as2015_rs::emit::{FRAME_LENGTH, XOR_MASK, calculated_reset_advance, parse_frame};
-use as2015_rs::matching::match_route;
-use as2015_rs::scoring::*;
-use as2015_rs::{ClockTime, CoreError, MatchKind, Punch, RouteStation, Rule, StationKind};
+use as2026::emit::{FRAME_LENGTH, XOR_MASK, calculated_reset_advance, parse_frame};
+use as2026::matching::match_route;
+use as2026::scoring::*;
+use as2026::{ClockTime, CoreError, MatchKind, Punch, RouteStation, Rule, StationKind};
 
 fn clock(hour: u32, minute: u32, second: u32) -> ClockTime {
     ClockTime::new(hour, minute, second).unwrap()
@@ -438,4 +438,32 @@ fn unsupported_station_names_and_rules_are_errors() {
     assert!(StationKind::from_legacy("JAT-erikois").is_err());
     assert!(Rule::from_legacy(8).is_err());
     assert!(Rule::from_legacy(-1).is_err());
+}
+
+#[test]
+fn legacy_duplicate_class_codes_do_not_choose_a_route_by_file_order() {
+    use as2026::legacy::{Encoding, parse_basic, parse_document};
+
+    let input = b"PE;1;Harjoitus;0;Seura;2;15.10.2026;0;1;\r\n\
+H;Harjoitus;1;1;15.00.00;1;0;60;0;0;\r\n\
+H   ;Toinen rata;2;1;15.00.00;1;0;60;0;0;\r\n";
+    let document = parse_document(input, Encoding::Windows1252).unwrap();
+    let error = parse_basic(&document).unwrap_err().to_string();
+    assert!(error.contains("toistuva luokkakoodi"));
+    assert!(error.contains("Rivi 3"));
+    assert_eq!(document.raw, input, "ristiriita ei muuta lähdeaineistoa");
+}
+
+#[test]
+fn legacy_class_codes_with_a_shared_prefix_stay_distinct() {
+    use as2026::legacy::{Encoding, parse_basic, parse_document};
+
+    let input = b"PE;1;Harjoitus;0;Seura;2;15.10.2026;0;1;\n\
+H;Harjoitus;1;1;15.00.00;1;0;60;0;0;\n\
+HH;Toinen rata;2;1;15.00.00;1;0;60;0;0;\n";
+    let settings = parse_basic(&parse_document(input, Encoding::Windows1252).unwrap()).unwrap();
+    assert_eq!(settings.classes[0].code, "H");
+    assert_eq!(settings.classes[0].route, "1");
+    assert_eq!(settings.classes[1].code, "HH");
+    assert_eq!(settings.classes[1].route, "2");
 }

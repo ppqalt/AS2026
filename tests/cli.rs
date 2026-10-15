@@ -22,7 +22,7 @@ fn fixture() -> PathBuf {
 }
 
 fn command() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_as2015-rs"))
+    Command::new(env!("CARGO_BIN_EXE_as2026"))
 }
 
 fn run<I, S>(args: I) -> Output
@@ -120,7 +120,7 @@ fn example_labels_synthetic_data_and_shows_recovered_full_scoring() {
 fn finnish_ohje_command_explains_supported_operations() {
     let text = successful_text(run(["ohje"]));
     for command in ["tarkista", "laske", "tulokset", "pura", "esimerkki", "lue"] {
-        assert!(text.contains(&format!("as2015-rs {command}")));
+        assert!(text.contains(&format!("as2026 {command}")));
     }
     assert!(text.contains("Tuloslaskenta näyttää korttiaineiston laskennan esikatselun"));
     assert!(text.contains("--raportti TIEDOSTO.html"));
@@ -173,7 +173,7 @@ fn piped_menu_runs_example_and_exits_without_keyboard_input() {
     assert!(text.contains("SYNTEETTINEN ESIMERKKI"));
     assert!(text.contains("Virhepisteet yhteensä: 645"));
     assert!(
-        text.matches("AS2015 — autosuunnistuksen tulostyökalu")
+        text.matches("AS2026 — autosuunnistuksen kilpailunhallinta")
             .count()
             >= 2
     );
@@ -264,4 +264,152 @@ fn invalid_arguments_and_invalid_clock_fail_explicitly() {
     ]);
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("Virheellinen syöte"));
+}
+
+fn native_directory(temporary: &TemporaryDirectory) -> PathBuf {
+    let directory = temporary.0.join("TOML-kilpailu");
+    std::fs::create_dir(&directory).unwrap();
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/native-demo/kilpailu.toml"),
+        directory.join("kilpailu.toml"),
+    )
+    .unwrap();
+    directory
+}
+
+#[test]
+fn native_updates_autosave_and_current_results_follow_names_classes_and_station_edits() {
+    let temporary = TemporaryDirectory::new();
+    let directory = native_directory(&temporary);
+    let changes = temporary.0.join("muutokset.toml");
+    let original = std::fs::read(directory.join("kilpailu.toml")).unwrap();
+    let mut project =
+        as2026::native::Project::from_toml(std::str::from_utf8(&original).unwrap()).unwrap();
+    project.kilpailijat[0].kuljettaja = "Korjattu kuljettaja".into();
+    let mut track = project.radat[0].clone();
+    track.numero = 2;
+    track.nimi = "Uusi rata".into();
+    track.asemat[1].tavoiteaika_sekuntia = 275;
+    project.radat.push(track);
+    project.luokat[0].rata = 2;
+    // Changes accepts only explicit edit sections; histories stay owned by the store.
+    let mut edits = toml::Value::try_from(&project).unwrap();
+    let table = edits.as_table_mut().unwrap();
+    table.remove("versio");
+    table.remove("leimaluvut");
+    std::fs::write(&changes, toml::to_string_pretty(&edits).unwrap()).unwrap();
+    successful_text(run([
+        OsStr::new("paivita"),
+        directory.as_os_str(),
+        changes.as_os_str(),
+    ]));
+    assert_eq!(
+        std::fs::read(directory.join("kilpailu.toml.bak")).unwrap(),
+        original
+    );
+    let reopened = as2026::storage::ProjectStore::open(&directory.join("kilpailu.toml")).unwrap();
+    assert_eq!(
+        reopened.project().kilpailijat[0].kuljettaja,
+        "Korjattu kuljettaja"
+    );
+    assert_eq!(reopened.project().leimaluvut.len(), 1);
+    let current = as2026::application::calculated_project(reopened.project()).unwrap();
+    assert_eq!(current.competitors[0].total_penalties, 600);
+    let html_path = temporary.0.join("ajantasaiset.html");
+    let text = successful_text(run([
+        OsStr::new("tulokset"),
+        directory.as_os_str(),
+        OsStr::new("--raportti"),
+        html_path.as_os_str(),
+    ]));
+    assert!(text.contains("ajantasainen asemalaskenta"));
+    assert!(text.contains("Korjattu kuljettaja"));
+    assert!(text.contains("600"));
+    let html = std::fs::read_to_string(html_path).unwrap();
+    assert!(html.contains("kehitysversio"));
+    assert!(!html.contains("tuodun Kilp.txt-tiedoston"));
+}
+
+#[test]
+fn invalid_native_edit_does_not_change_saved_data() {
+    let temporary = TemporaryDirectory::new();
+    let directory = native_directory(&temporary);
+    let changes = temporary.0.join("virhe.toml");
+    std::fs::write(
+        &changes,
+        "[[luokat]]\ntunnus = \"A\"\nnimi = \"Virhe\"\nrata = 999\n",
+    )
+    .unwrap();
+    let before = std::fs::read(directory.join("kilpailu.toml")).unwrap();
+    let result = run([
+        OsStr::new("paivita"),
+        directory.as_os_str(),
+        changes.as_os_str(),
+    ]);
+    assert_eq!(result.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&result.stderr).contains("rataa 999 ei löydy"));
+    assert_eq!(
+        std::fs::read(directory.join("kilpailu.toml")).unwrap(),
+        before
+    );
+    assert!(!directory.join("kilpailu.toml.bak").exists());
+}
+
+#[test]
+fn stored_frames_keep_reread_history_without_duplicate_results_and_reject_bad_readings() {
+    let temporary = TemporaryDirectory::new();
+    let directory = native_directory(&temporary);
+    let raw_path = temporary.0.join("kortti.raw");
+    let raw = include_bytes!("../fixtures/synthetic/emit-frame.raw");
+    let mut decoded = raw.map(|b| b ^ 0xdf);
+    for marker in [800u16, 900u16] {
+        decoded[23..25].copy_from_slice(&marker.to_le_bytes());
+        std::fs::write(&raw_path, decoded.map(|b| b ^ 0xdf)).unwrap();
+        successful_text(run([
+            OsStr::new("tallenna-kehys"),
+            directory.as_os_str(),
+            raw_path.as_os_str(),
+            OsStr::new("12:11:00"),
+        ]));
+    }
+    let store = as2026::storage::ProjectStore::open(&directory.join("kilpailu.toml")).unwrap();
+    assert_eq!(store.project().leimaluvut.len(), 3);
+    let archive = as2026::application::calculated_project(store.project()).unwrap();
+    assert_eq!(archive.competitors.len(), 1);
+    assert_eq!(archive.competitors[0].total_penalties, 645);
+    // Change the actual AT time, then check the derived result after reopening.
+    decoded[14..16].copy_from_slice(&420u16.to_le_bytes());
+    std::fs::write(&raw_path, decoded.map(|b| b ^ 0xdf)).unwrap();
+    successful_text(run([
+        OsStr::new("tallenna-kehys"),
+        directory.as_os_str(),
+        raw_path.as_os_str(),
+        OsStr::new("12:11:00"),
+    ]));
+    let store = as2026::storage::ProjectStore::open(&directory.join("kilpailu.toml")).unwrap();
+    assert_eq!(
+        as2026::application::calculated_project(store.project())
+            .unwrap()
+            .competitors[0]
+            .total_penalties,
+        600
+    );
+    let before = std::fs::read(directory.join("kilpailu.toml")).unwrap();
+    decoded[22] = 0; // Remove the only reader marker.
+    std::fs::write(&raw_path, decoded.map(|b| b ^ 0xdf)).unwrap();
+    assert_eq!(
+        run([
+            OsStr::new("tallenna-kehys"),
+            directory.as_os_str(),
+            raw_path.as_os_str(),
+            OsStr::new("12:11:00")
+        ])
+        .status
+        .code(),
+        Some(2)
+    );
+    assert_eq!(
+        std::fs::read(directory.join("kilpailu.toml")).unwrap(),
+        before
+    );
 }

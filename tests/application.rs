@@ -1,10 +1,10 @@
 //! Synteettisiä sovelluspolkuja, jotka eivät suorita vanhaa ohjelmaa tai avaa laitteita.
-use as2015_rs::application::{calculate, calculate_live_frame, rank_stored};
-use as2015_rs::emit::parse_frame;
-use as2015_rs::legacy::{Archive, Encoding, parse_document, parse_saved_emit};
-use as2015_rs::ranking::{GroupKind, TiePolicy};
-use as2015_rs::timing::CalculationStatus;
-use as2015_rs::{ClockTime, CoreError};
+use as2026::application::{calculate, calculate_live_frame, rank_stored};
+use as2026::emit::parse_frame;
+use as2026::legacy::{Archive, Encoding, parse_document, parse_saved_emit};
+use as2026::ranking::{GroupKind, TiePolicy};
+use as2026::timing::CalculationStatus;
+use as2026::{ClockTime, CoreError};
 use std::path::{Path, PathBuf};
 
 fn fixture() -> PathBuf {
@@ -325,4 +325,45 @@ fn live_card_requires_a_unique_competitor() {
             .to_string()
             .contains("usealle")
     );
+}
+
+#[test]
+fn legacy_numeric_route_name_is_not_confused_with_another_route_index() {
+    let mut a = archive();
+    // Luokan rata on vanhassa aineistossa nimen tarkka viite, myös numeron näköisenä.
+    let mut wrong_route = a.routes[0].clone();
+    wrong_route.name = "Toinen".into();
+    wrong_route.stations[1].seconds = 275;
+    a.routes[0].index = 2;
+    a.routes[0].name = "1".into();
+    a.routes.push(wrong_route);
+    a.basic.classes[0].route = "1".into();
+    let report = calculate(&a).unwrap();
+    assert_eq!(
+        report.competitors[0]
+            .calculation
+            .as_ref()
+            .unwrap()
+            .totals
+            .total_points,
+        645
+    );
+    let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
+    let live = calculate_live_frame(&a, &frame).unwrap();
+    assert_eq!(live.route_name, "1");
+    assert_eq!(live.calculation.totals.total_points, 645);
+}
+
+#[test]
+fn native_numeric_route_reference_ignores_a_colliding_route_name() {
+    let mut project =
+        as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+            .unwrap();
+    let mut wrong = project.radat[0].clone();
+    wrong.numero = 2;
+    wrong.nimi = "1".into();
+    wrong.asemat[1].tavoiteaika_sekuntia = 275;
+    project.radat.push(wrong);
+    let archive = as2026::application::calculated_project(&project).unwrap();
+    assert_eq!(archive.competitors[0].total_penalties, 645);
 }

@@ -57,26 +57,33 @@ pub fn parse_frame(raw: &[u8]) -> Result<EmitFrame, CoreError> {
 }
 
 impl EmitFrame {
+    /// Kortin sisältö ennen lukijan 250-merkkiä, ensimmäinen ankkurileima mukaan lukien.
+    /// Lukumerkin vaihtuva aika ja kehyksen loppupehmusteet eivät kuulu tähän sisältöön.
+    pub fn punches_before_reader_marker(&self) -> Result<&[Punch], CoreError> {
+        punches_before_reader_marker(&self.records)
+    }
+
     /// Kehys voi olla rakenteellisesti kelvollinen mutta vailla hyväksyttävää lukumerkkiä.
     pub fn accepted_readout(&self, readout_clock: ClockTime) -> Result<EmitReadout, CoreError> {
         accepted_records(&self.records, readout_clock)
     }
 }
 
-/// Shared interpretation for a decoded frame and an imported emit.txt record.
-/// Caller retains its raw source; manually edited log codes can be wider than U8.
+/// Kehysten ja tallennettujen leimalistojen yhteinen sisältövertailu.
+/// Lukumerkin vaihtuva aika ja sen jälkeiset kentät eivät kuulu kortin sisältöön.
+pub fn punches_before_reader_marker(records: &[Punch]) -> Result<&[Punch], CoreError> {
+    let marker_index = reader_marker_index(records)?;
+    Ok(&records[..marker_index])
+}
+
+/// Dekoodatun kehyksen ja tuodun emit.txt-rivin yhteinen tulkinta.
+/// Kutsuja säilyttää alkuperäisen aineiston; tekstitiedoston koodi voi ylittää tavun arvon.
 pub fn accepted_records(
     records: &[Punch],
     readout_clock: ClockTime,
 ) -> Result<EmitReadout, CoreError> {
     let readout_seconds = readout_clock.seconds_since_midnight()?;
-    let marker_index = records
-        .iter()
-        .position(|record| record.code == 250)
-        .ok_or(CoreError::MissingMarker)?;
-    if marker_index == 0 {
-        return Err(CoreError::MarkerAtStart);
-    }
+    let marker_index = reader_marker_index(records)?;
     let last_punch_elapsed_seconds = records[marker_index - 1].elapsed_seconds;
     let reader_elapsed_seconds = records[marker_index].elapsed_seconds;
     let lag = i64::from(reader_elapsed_seconds) - i64::from(last_punch_elapsed_seconds);
@@ -91,6 +98,17 @@ pub fn accepted_records(
         reader_elapsed_seconds,
         finish_clock_seconds,
     })
+}
+
+fn reader_marker_index(records: &[Punch]) -> Result<usize, CoreError> {
+    let marker_index = records
+        .iter()
+        .position(|record| record.code == 250)
+        .ok_or(CoreError::MissingMarker)?;
+    if marker_index == 0 {
+        return Err(CoreError::MarkerAtStart);
+    }
+    Ok(marker_index)
 }
 
 /// Raportin yhden keskiyön korjaus. Ei tulkitse ajanottotapaa eikä muuta syötettyä korjausta.

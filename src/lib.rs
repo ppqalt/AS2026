@@ -1,9 +1,10 @@
-//! Rajattu, laitteita avaamaton AS2015A-malli.
+//! AS2026:n yhteinen kilpailu- ja laskentakirjasto.
 //!
 //! Emit-aineiston tuonti, kohdistus, rajattu jaksolaskenta ja sijoitukset.
 //! Alkuperäisellä ohjelmalla tehtävää vertailua ei ole suoritettu.
 
 pub mod application;
+pub mod changes;
 pub mod emit;
 pub mod legacy;
 pub mod matching;
@@ -217,6 +218,7 @@ pub struct MatchedRow {
 }
 
 pub mod native;
+pub mod storage;
 
 pub mod terminal;
 

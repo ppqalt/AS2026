@@ -1,10 +1,13 @@
 [package]
-name = "as2015-rs"
-version = "0.2.0"
+name = "as2026"
+version = "0.3.0"
 edition = "2024"
-description = "AS2015A:n staattiseen analyysiin perustuva suomenkielinen tulostyökalu"
+rust-version = "1.89"
+description = "AS2026 — autosuunnistuksen kilpailunhallinta ja tuloslaskenta"
 [dependencies]
 # Linuxissa ei tarvita libudev-kehityspakettia. Toimii myös Windowsin COM-porteilla.
 serialport = { version = "4.8", default-features = false }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+ctrlc = "3"
