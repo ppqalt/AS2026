@@ -1,122 +1,102 @@
-# Kääntäminen Linuxille ja Windowsille
+# AS2026:n kääntäminen ja tarkistaminen
 
-Laskentakoodi käyttää Rustin vakiokirjastoa. Sarjaporttiluvussa käytetään yhtä suoraa Cargo-riippuvuutta (`serialport`, ilman oletusominaisuuksia).
-Käyttäjän ei tarvitse asentaa Pythonia, Javaa, Ghidraa, selainta,
-tietokantapalvelinta tai käyttöliittymäkirjastoa. Valmis ohjelma toimii ilman
-lähdekoodihakemistoa. Esimerkkikilpailun tiedot ovat ohjelman sisällä, ja omat
-kilpailutiedostot luetaan käyttäjän valitsemasta kansiosta.
+AS2026:n ohjelmatiedosto on Linuxissa `as2026` ja Windowsissa `as2026.exe`. Laskenta, kilpailumalli ja komentorivitoiminnot ovat yhteistä Rust-koodia. Graafista käyttöliittymää tai palvelinta ei tarvitse asentaa.
 
-## Käyttäjälle
+## Tarvittavat työkalut
 
-Valitse omalle käyttöjärjestelmällesi käännetty ohjelma:
+Kääntäminen tarvitsee Rustin version **1.89 tai uudemman**, C-linkittäjän ja kohdealustan kehitystyökalut. Ensimmäinen käännös tarvitsee verkkoyhteyden Cargo-riippuvuuksien lataamiseen. `Cargo.lock` pidetään versionhallinnassa sovelluksen riippuvuuksien toistettavuutta varten.
 
-- Linux: `as2015-rs`
-- Windows: `as2015-rs.exe`
+Riippuvuuksien tehtävät ovat rajattuja: `serialport` avaa lukijan Linuxissa ja Windowsissa, `serde` ja `toml` käsittelevät kilpailutiedostot, `chrono` antaa paikallisen lukukellon ja `ctrlc` lopettaa jatkuvan lukemisen hallitusti. Sarjaporttikirjaston Linuxin oletusominaisuudet on poistettu käytöstä, joten libudev-kehityspakettia ei tarvita.
 
-Käynnistä ohjelma päätteessä ilman lisävalintoja. Suomenkielinen valikko opastaa
-eteenpäin. Windowsissa voit myös avata `as2015-rs.exe`-tiedoston, jolloin valikko
-avautuu pääteikkunaan. Liitä kilpailukansion polku pyydettäessä. Polussa saa olla
-välilyöntejä ja ääkkösiä, ja polun ympärillä saa olla lainausmerkit. Kansion voi
-vetää päätteeseen, jos käyttämäsi pääte osaa liittää sen polun. Alkuperäisten
-AS2015-tiedostojen merkistökysymykseen voi vastata oletuksen mukaisesti ei.
-Valitse UTF-8 vain, jos tiedät tiedostojen olevan siinä muodossa.
+Valmiin ohjelman käyttäjä ei tarvitse Rustia, Pythonia, Javaa, Ghidraa tai tietokantapalvelinta. HTML-raportin katseluun ja tulostamiseen voi käyttää selainta. Omat kilpailukansiot säilytetään erillään ohjelmatiedostosta.
 
-Valinta 0 sulkee ohjelman. Tuloksen jälkeen voit valita uuden toiminnon.
-Komentorivitoiminnot ovat edelleen käytettävissä esimerkiksi toistuvien tehtävien
-ajamiseen. Ne on esitelty tiedostossa `README.md`.
+## Linux
 
-Rustia ja käännöstyökaluja tarvitaan vain ohjelman kääntämiseen. Tavallinen
-Linux-versio käyttää käyttöjärjestelmän C-ajonaikaiskirjastoa, joten se ei ole
-kokonaan staattinen ohjelma. Käännä ohjelma vanhimmalla tukemallasi
-Linux-jakelulla tai varmista toiminta erikseen jokaisella kohdejakelulla ennen
-jakelua.
-
-Windowsin MSVC-käännöksissä `.cargo/config.toml` ottaa käyttöön Rustin
-`+crt-static`-valinnan. Sen tarkoitus on sisällyttää C-ajonaikaiskirjasto
-ohjelmatiedostoon, jotta käyttäjä ei tarvitse erillistä Visual C++
-Redistributable -asennusta tätä sovellusta varten. Windowsin omia
-järjestelmäkirjastoja käytetään silti. Menetelmä on kuvattu
-[Rustin linkitysohjeessa](https://doc.rust-lang.org/reference/linkage.html#static-and-dynamic-c-runtimes).
-Tarkista valmiin ohjelman tarvitsemat DLL-kirjastot ja kokeile ohjelmaa
-tukemillasi Windows-versioilla. Windows-käännöstä ei ole vielä tehty tällä
-kehityskoneella.
-
-## Kääntäminen Linuxilla
-
-Tarvitset vakaan Rust-työkaluketjun ja käyttöjärjestelmän C-linkittäjän.
-Sarjaporttikirjasto rakennetaan ilman Linuxin libudev-kehityspakettia. Ensimmäinen käännös tarvitsee verkkoyhteyden Cargo-riippuvuuksien lataamiseen.
-Avaa pääte hakemistossa, jossa `Cargo.toml` sijaitsee, ja suorita:
+Avaa pääte projektihakemistossa, jossa `Cargo.toml` sijaitsee:
 
 ```sh
 cargo build --release
-./target/release/as2015-rs
+./target/release/as2026
+./target/release/as2026 esimerkki
 ```
 
-Valmis ohjelma on `target/release/as2015-rs`. Jos ympäristömuuttuja
-`CARGO_TARGET_DIR` on asetettu, tuloshakemisto määräytyy sen mukaan.
+Kehitysversion voi käynnistää myös suoraan:
 
-## Kääntäminen Windowsilla
+```sh
+cargo run
+cargo run -- tarkista fixtures/native-demo
+cargo run -- laske fixtures/native-demo --vaiheet
+```
 
-Tarvitset vakaan Rust-työkaluketjun ja käännöskohteen
-`x86_64-pc-windows-msvc`. MSVC-kääntäminen tarvitsee myös Microsoftin C++
-Build Tools -työkalut ja Windows SDK:n, mukaan lukien C++-kääntäjän ja
-linkittäjän. Nämä ovat kehittäjän työkaluja. Valmiin ohjelman käyttäjä ei
-tarvitse Rustia eikä käännöstyökaluja. Rustin asennusohjelma neuvoo tarvittavien
-työkalujen hankinnassa:
-[Rustin virallinen asennusohje](https://doc.rust-lang.org/book/ch01-01-installation.html).
+Valmis ohjelma on `target/release/as2026`, ellei `CARGO_TARGET_DIR` ohjaa tulosta muualle. Tavallinen GNU/Linux-käännös käyttää käyttöjärjestelmän C-ajonaikaiskirjastoa. Kääntäminen CachyOS:ssa ei yksin takaa yhteensopivuutta kaikkien vanhempien Linux-jakelujen kanssa; jakeluun tarkoitettu ohjelma pitää kokeilla kohdeympäristöissä.
 
-Avaa PowerShell hakemistossa, jossa `Cargo.toml` sijaitsee, ja suorita:
+## Windows
+
+Tarvitset Windowsissa Rustin ja käännöskohteen `x86_64-pc-windows-msvc` sekä Microsoftin C++ Build Tools -työkalut ja Windows SDK:n. Avaa PowerShell projektihakemistossa:
 
 ```powershell
 cargo build --release
-.\target\release\as2015-rs.exe
+.\target\release\as2026.exe
+.\target\release\as2026.exe esimerkki
 ```
 
-Valmis ohjelma on `target\release\as2015-rs.exe`. Suorita komennot projektin
-hakemistosta, jotta Cargo lukee `.cargo/config.toml`-tiedoston
-ajonaikaiskirjastoasetuksen. Ohjelma käännetään Windowsissa Windowsille.
-Linuxissa käännetty ohjelmatiedosto ei toimi Windows-ohjelmana.
+Valmis tiedosto on `target\release\as2026.exe`. Suorita käännös projektihakemistosta, jotta Cargo lukee `.cargo/config.toml`-asetukset. MSVC-kohteelle on asetettu `+crt-static`, jolla C-ajonaikaiskirjasto pyritään sisällyttämään ohjelmatiedostoon. Windowsin omia järjestelmäkirjastoja käytetään silti. Tarkista valmiin ohjelman DLL-riippuvuudet ja toiminta tuetuilla Windows-versioilla.
 
-## Tarkistukset ja automaattinen Windows-käännös
+Linuxissa tuotettu GNU/Linux-ohjelma ei ole Windows-ohjelma. Tässä työvaiheessa ei ole varmennettu Windows-käännöstä tai fyysistä Emit-lukua Windowsissa.
+
+## Tarkistuskomennot
 
 ```sh
 cargo fmt --all -- --check
-cargo check --all-targets
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
+cargo build --release
 ```
 
-Tiedosto `.github/workflows/ci.yml` määrittelee nämä tarkistukset,
-julkaisuversion kääntämisen ja ohjelman sisäisen esimerkkiajon sekä Linuxille
-että Windowsille. GitHubin suoritusympäristöt ovat `ubuntu-latest` ja
-`windows-latest`. Työnkulku toimii, kun tätä projektihakemistoa käytetään
-GitHub-tietovaraston juurihakemistona. Lähdekoodi noudetaan
-[GitHubin virallisella toiminnolla](https://github.com/actions/checkout), ja
-Rust asennetaan suoritusympäristön Rust-asentimella.
+Muotoilun voi korjata komennolla `cargo fmt --all`. Tarvittaessa `cargo check --all-targets` tarkistaa kääntymisen ilman ohjelmatiedoston linkittämistä. Kun tarvittavat riippuvuudet ovat jo välimuistissa, Cargon komentoihin voi lisätä `--offline`; työkaluketjun asentaminen ja puuttuvien pakettien lataaminen vaativat edelleen verkon.
 
-Työnkulun määrittely on valmisteltu paikallisesti. Tämä ei tarkoita, että
-GitHubin tarkistukset olisi jo ajettu. Näitä muutoksia ei ole lähetetty
-GitHubiin eikä etäajoa ole käynnistetty.
+Tiedosto `.github/workflows/ci.yml` määrittelee muotoilu-, käännös-, testi- ja Clippy-tarkistukset, julkaisuversion käännöksen sekä ohjelman sisäisen esimerkin ajon `ubuntu-latest`- ja `windows-latest`-ympäristöissä. Työnkulku käyttää vakaata Rustia. Määrittely ei tarkoita, että GitHub-ajo tai Windows-käännös olisi jo onnistunut; Windowsin etäajoa ei ole varmennettu tässä työvaiheessa. Projektin on oltava repositorion juuressa, jotta suhteelliset polut toimivat.
 
-`--offline` koskee Cargoa: Rust-työkaluketjun asentamisen jälkeen projekti ei
-nouda Cargo-paketteja verkosta. Työkaluketjun asentaminen tai päivittäminen sekä
-GitHubin etäajot tarvitsevat verkkoyhteyden.
+## Tallennuspolun kokeilu ilman fyysistä laitetta
 
-Testeissä käytetään keinotekoista aineistoa. Niissä ei käynnistetä
-AS2015A-ohjelmaa eikä käytetä sarjaporttilaitteita. Käyttövalikkoa testataan
-muistissa olevalla syötteellä ja tulosteella. Syötteen loppuminen kokeillaan
-jokaisen kysymyksen kohdalla, joten testit eivät jää odottamaan näppäimistöä.
-Näiden testien läpäisy ei tarkoita vertailua oikeisiin vanhoihin
-kilpailutuloksiin.
+Luo kokeita varten erillinen kilpailukansio ja käytä synteettistä kehystä:
 
-## Kehityskoneella varmistettu
+```sh
+cargo run -- uusi kokeilu "Tallennuskokeilu"
+cargo run -- tallenna-kehys kokeilu fixtures/synthetic/emit-frame.raw 12:11:00
+cargo run -- tarkista kokeilu
+```
 
-Tarkistetulla kehityskoneella ovat Rust ja Cargo 1.98.1. Asennettuna on vain
-koneen oma käännöskohde `x86_64-unknown-linux-gnu`. MinGW-ristikääntäjää ei
-löytynyt. Windows-kääntämistä tai ohjelman toimintaa Windowsissa **ei ole
-varmistettu paikallisesti**. Windows-työnkulku on ajettava ennen kuin
-Windows-käännöstä voi sanoa testatuksi. Näiden muutosten yhteydessä ei ole
-asennettu järjestelmäpaketteja, Rustin käännöskohteita tai työkaluketjuja.
+Kehyksen kortti on synteettinen `123456`. Se tallentuu myös ilman ilmoittautunutta kilpailijaa. Kilpailijan voi liittää myöhemmin `paivita`-komennolla, kun luokka ja rata on määritetty. Komento käyttää samaa tallennusrajapintaa kuin jatkuva sarjaporttiluku. Se ei avaa fyysistä porttia eikä todista lukijan toimintaa.
 
+Kilpailutietojen muutoksia käsitellään näin:
 
-TOML-kilpailujen käsittelyyn käytetään `serde`- ja `toml`-Rust-kirjastoja. Ne linkitetään valmiiseen ohjelmaan, eivätkä vaadi erillisiä käyttäjän asentamia sovelluksia.
+```sh
+cargo run -- paivita kokeilu muutokset.toml
+```
+
+Muutostiedoston täydelliset tietueet korvaavat saman tunnisteen kilpailijan, luokan tai radan. Radan mukana korvataan sen kaikki asemat. `[kilpailu]` ja `[virhepisteet]` korvaavat mukana ollessaan koko vastaavan osion. Poistotoimintoa ei ole. Käyttöesimerkit ja kenttien merkitys ovat tiedostossa [README.md](README.md).
+
+## Fyysisen Emit-lukijan kokeilu
+
+Käytä kokeiluun omaa TOML-kilpailua, jotta oikeaa kilpailuaineistoa ei muuteta:
+
+```sh
+cargo run -- lue kokeilu /dev/ttyUSB0
+```
+
+Windowsissa vastaava portti voi olla `COM3`. Ilman porttiargumenttia ohjelma yrittää automaattista tunnistusta. Asetukset ovat 9600 8N2 ilman vuonohjausta. Ohjelma säilyttää portin auki ja tallentaa hyväksytyt lukutapahtumat automaattisesti. Ctrl+C lopettaa luvun. Komento `cargo run -- lue /dev/ttyUSB0` on erillinen kertaluvun laitetarkistus eikä tallenna kilpailuun.
+
+Linuxin kehityskoneella on tässä työvaiheessa varmennettu oikean kortin 538747 kertaluku sekä jatkuva luku samalla auki pysyvällä portilla. Kortti nostettiin ja asetettiin uudelleen, hyväksyttyjä kehyksiä tallentui useita ja kilpailun uudelleenavaus onnistui. Leimaukset 47/145, 48/207, 49/238, 50/267 ja 100/396 säilyivät samoina lukumerkin ajan muuttuessa; kilpailijalle muodostui yksi aktiivinen tulos. Lukija lähettää uusintakehyksiä myös kortin ollessa paikallaan, joten jokainen historiarivi kertoo hyväksytystä lukemasta, ei varmennetusta erillisestä fyysisestä nostotapahtumasta.
+
+Eri fyysiset kortit peräkkäin, muuttunut varsinainen leimaussisältö ja Windows-lukija tarvitsevat vielä omat laitekokeensa. Simuloidut testit eivät korvaa niitä. Kehyksen tunnettu rakenne ei sisällä varmennettua tarkistussummaa, joten kaikkea vioittumista ei voida tunnistaa.
+
+Linuxissa portin avaaminen vaatii käyttöoikeuden valittuun laitetiedostoon. Tarkista tarvittaessa laitteen ryhmä ja jakelun sarjaporttikäytäntö. Windowsissa portin pitää olla vapaa muiden ohjelmien käytöstä, kuten Linuxissakin.
+
+## Testien rajat ja tiedostojen säilyttäminen
+
+Automaattiset testit käyttävät synteettisiä kilpailijoita, kilpailuja ja tavujonoja. Ne eivät käynnistä AS2015A-ohjelmaa eivätkä käytä fyysistä sarjaporttia. Testit suojaavat palautetun laskentamallin regressioita, mutta täysi vastaavuus alkuperäisiin kilpailutuloksiin on varmistettava vertailuaineistolla erikseen.
+
+Pidä `kilpailu.toml`, lukuhistoria ja varmuuskopiot poissa lähdekoodirepositoriosta, jos niissä on oikeita kilpailijoiden tietoja. Lähdekoodin `fixtures`-aineisto on synteettistä. Ohjelman paikallinen `.lukko`-lukitus ja sisältövertailu eivät ole usean tietokoneen synkronointia. Ulkoiset editorimuutokset ja `.bak`-palautus tehdään sovelluksen ollessa suljettuna; tarkemmat palautusohjeet ovat README-tiedostossa.
+
+Uuden kilpailun luonti julkaisee valmiin tiedoston kovalla linkillä, jotta olemassa olevaa kilpailua ei voida korvata kilpailevalla luontiyrityksellä. Valitse kovat linkit salliva paikallinen tiedostojärjestelmä. FAT- ja exFAT-taltiot eivät tue tätä luontipolkua; niitä ei pidä käyttää suoraan kilpailun tallennuskansiona tässä toteutuksessa.
