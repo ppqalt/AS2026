@@ -42,7 +42,7 @@ cargo build --release
 
 Valmis tiedosto on `target\release\as2026.exe`. Suorita käännös projektihakemistosta, jotta Cargo lukee `.cargo/config.toml`-asetukset. MSVC-kohteelle on asetettu `+crt-static`, jolla C-ajonaikaiskirjasto pyritään sisällyttämään ohjelmatiedostoon. Windowsin omia järjestelmäkirjastoja käytetään silti. Tarkista valmiin ohjelman DLL-riippuvuudet ja toiminta tuetuilla Windows-versioilla.
 
-Linuxissa tuotettu GNU/Linux-ohjelma ei ole Windows-ohjelma. Tässä työvaiheessa ei ole varmennettu Windows-käännöstä tai fyysistä Emit-lukua Windowsissa.
+Linuxissa tuotettu GNU/Linux-ohjelma ei ole Windows-ohjelma. Windows-käännös, automaattiset testit, Clippy ja ohjelman esimerkkiajo on varmennettu GitHubin Windows-ympäristössä. Fyysistä Emit-lukua Windowsissa ei ole testattu.
 
 ## Tarkistuskomennot
 
@@ -55,7 +55,7 @@ cargo build --release
 
 Muotoilun voi korjata komennolla `cargo fmt --all`. Tarvittaessa `cargo check --all-targets` tarkistaa kääntymisen ilman ohjelmatiedoston linkittämistä. Kun tarvittavat riippuvuudet ovat jo välimuistissa, Cargon komentoihin voi lisätä `--offline`; työkaluketjun asentaminen ja puuttuvien pakettien lataaminen vaativat edelleen verkon.
 
-Tiedosto `.github/workflows/ci.yml` määrittelee muotoilu-, käännös-, testi- ja Clippy-tarkistukset, julkaisuversion käännöksen sekä ohjelman sisäisen esimerkin ajon `ubuntu-latest`- ja `windows-latest`-ympäristöissä. Työnkulku käyttää vakaata Rustia. Määrittely ei tarkoita, että GitHub-ajo tai Windows-käännös olisi jo onnistunut; Windowsin etäajoa ei ole varmennettu tässä työvaiheessa. Projektin on oltava repositorion juuressa, jotta suhteelliset polut toimivat.
+Tiedosto `.github/workflows/ci.yml` määrittelee muotoilu-, käännös-, testi- ja Clippy-tarkistukset, julkaisuversion käännöksen sekä ohjelman sisäisen esimerkin ajon `ubuntu-latest`- ja `windows-latest`-ympäristöissä. Työnkulku käyttää vakaata Rustia. [Tarkistusajo](https://github.com/ppqalt/AS2026/actions/runs/38806074766) commitille `ecf88a0` valmistui hyväksytysti sekä Linuxissa että Windowsissa: muotoilu, kääntymistarkistus, testit, Clippy, release-käännös ja esimerkkiajo onnistuivat. Paikallisen kehityskoneen Rust oli 1.98.1; CI käytti sen hetkistä vakaata Rustia. Viimeinen dokumentaatio- ja Git-ohitusmuutos ei muuttanut tätä testattua Rust-koodia eikä käynnistä samoja tarkistuksia uudelleen. Projektin on oltava repositorion juuressa, jotta suhteelliset polut toimivat.
 
 ## Tallennuspolun kokeilu ilman fyysistä laitetta
 

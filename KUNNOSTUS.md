@@ -24,7 +24,7 @@ Myös `matching.rs`, `scoring.rs`, `timing.rs` ja `ranking.rs` luettiin ja katse
 
 Testitiedostot: `application.rs`, `cli.rs`, `core_behavior.rs`, `native.rs`, `reader.rs`, `report.rs`, `storage.rs` ja `emit.rs` kattavat uusia korjauksia. `ranking.rs`, `timing.rs` ja `terminal.rs` päivitettiin myös pakettinimeen `as2026`. `tests/emit.rs` ja `tests/storage.rs` ovat uusia.
 
-Muut tiedostot: Cargo-paketin ja ohjelmatiedoston nimi on `as2026`, versio 0.3.0 ja Rustin vähimmäisversio 1.89. Riippuvuudet ovat `serialport`, `serde`, `toml`, `chrono` (paikallinen lukukello) ja `ctrlc` (hallittu keskeytys). `.gitignore`-päällekkäisyys poistettiin, README ja BUILDING vastaavat toteutusta.
+Muut tiedostot: Cargo-paketin ja ohjelmatiedoston nimi on `as2026`, versio 0.3.0 ja Rustin vähimmäisversio 1.89. Riippuvuudet ovat `serialport`, `serde`, `toml`, `chrono` (paikallinen lukukello) ja `ctrlc` (hallittu keskeytys). `.gitignore`-päällekkäisyys poistettiin ja paikalliset kilpailu-, lukko-, varmuuskopio- ja tilapäistiedostot ohitetaan synteettisiä fixtures-tiedostoja lukuun ottamatta. README ja BUILDING vastaavat toteutusta.
 
 ## Todennetut korjaukset
 
@@ -56,7 +56,13 @@ Paikallisesti CachyOS/Linuxissa, Rust 1.98.1:
 
 Fyysinen testi ei todista, että jokainen kehys olisi erillinen kortin asetus: laite lähettää kehyksiä myös kortin pysyessä paikallaan. Eri oikeiden korttien peräkkäistä lukua, muuttunutta todellista korttisisältöä tai Windowsin fyysistä lukijaa ei testattu. Näiden ohjelmallisia polkuja suojaavat simuloidut testit.
 
-Windowsin ja Linuxin GitHub-tarkistusten tila raportoidaan etäajon valmistuttua. Paikallista Windows-käännöstä ei tehty.
+[GitHub Actions -tarkistusajo](https://github.com/ppqalt/AS2026/actions/runs/38806074766) commitille `ecf88a0` hyväksyttiin sekä `ubuntu-latest`- että `windows-latest`-ympäristössä. Molemmissa onnistuivat muotoilu, `cargo check`, testit, Clippy, release-käännös ja ohjelman sisäinen esimerkki. Paikallista Windows-käännöstä ei tehty. Viimeinen dokumentaatio- ja Git-ohitusmuutos ei muuttanut tarkistettua Rust-koodia; samojen tarkistusten uusinta jätettiin siinä pois.
+
+## GitHub ja Git-tila
+
+Repositorio: [ppqalt/AS2026](https://github.com/ppqalt/AS2026), näkyvyys **PRIVATE**, oletushaara **main**. GitHub CLI:n oikea käyttäjä tarkistettiin kirjautumisen uusimisen jälkeen. Ennestään samannimistä repositoriota ei ollut.
+
+GitHubiin lähetettiin `main`, `dev` ja `codex-original`. Main ja tagi osoittavat edelleen alkuperäiseen commitiin `944ee4f`; niiden sisältöä ei muutettu. Dev sisältää kunnostuscommitin `c45911b`, dokumentaatiocommitin `ecf88a0` ja lopuksi etätarkistusten kirjauksen sekä paikallisten kilpailutiedostojen Git-ohitukset. Lähdekoodia ei lisensoitu uudelleen eikä repositoriota tehty julkiseksi.
 
 ## Keskeneräiset toiminnot ja laskennan vastaavuus
 

@@ -1,2 +1,8 @@
 /target/
 /bin/
+# Kilpailujen paikallinen tila ei kuulu lähdekoodiin.
+kilpailu.toml
+!fixtures/**/kilpailu.toml
+*.toml.bak
+*.toml.lukko
+*.as2026-*.tmp

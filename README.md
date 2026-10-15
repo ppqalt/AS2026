@@ -17,7 +17,7 @@ cargo build --release
 
 Ilman argumentteja avautuu suomenkielinen käyttövalikko. Siinä voi tarkastaa kilpailun, laskea esikatselun, näyttää tulokset, purkaa kehystiedoston, kokeilla esimerkkikilpailua, avata jatkuvan Emit-luvun tai perustaa uuden kilpailun. Valinta 0 sulkee ohjelman. Tulosraportin voi tallentaa HTML-tiedostoksi ja tulostaa selaimesta. Olemassa olevaa raporttitiedostoa ei korvata.
 
-Windowsin ohjelmatiedosto on `as2026.exe`. Valmis ohjelma ei tarvitse Rustia tai erillistä palvelinta. Sarjaportin käyttö toteutetaan samalla Rust-rajapinnalla molemmilla alustoilla; Windows-käännöstä ja fyysistä Windows-lukijaa ei ole vielä varmennettu tässä työvaiheessa.
+Windowsin ohjelmatiedosto on `as2026.exe`. Valmis ohjelma ei tarvitse Rustia tai erillistä palvelinta. Sarjaportin käyttö toteutetaan samalla Rust-rajapinnalla molemmilla alustoilla; Windows-käännös, testit, Clippy ja ohjelman sisäinen esimerkki on varmennettu [GitHubin Windows-ajossa](https://github.com/ppqalt/AS2026/actions/runs/38806074766). Fyysistä Windows-lukijaa ei ole testattu.
 
 ## Uusi kilpailu ja yhteiset tiedot
 
