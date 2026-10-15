@@ -2,7 +2,13 @@
 
 AS2026 on suomenkielinen Rust-ohjelma Linuxille ja Windowsille. Se jatkaa olemassa olevaa AS2015A-ohjelman tutkimukseen perustuvaa laskentatoteutusta. Mukana ovat graafinen käyttöliittymä, komentorivikäyttö, vanhojen kilpailuaineistojen luku, uusi TOML-kilpailumuoto, kilpailutietojen muokkaus, jatkuva Emit-luku, automaattinen tallennus ja tulosten esikatselu.
 
-Ohjelma on kehitysversio. Laskennan täydellistä vastaavuutta AS2015A:n kilpailutuloksiin ei ole varmennettu. Synteettiset regressiotestit ja oikean lukijan kokeet eivät korvaa tätä vertailua. Julkaisu ja lopullinen lisenssin valinta tehdään erikseen.
+Ohjelma on kehitysversio. Laskennan täydellistä vastaavuutta AS2015A:n kilpailutuloksiin ei ole varmennettu. Synteettiset regressiotestit ja oikean lukijan kokeet eivät korvaa tätä vertailua. Repositorio säilyy toistaiseksi yksityisenä.
+
+## Lisenssi
+
+AS2026:n oma lähdekoodi, dokumentaatio ja synteettiset esimerkit ovat [0BSD-lisenssillä](LICENSE). Se sallii käytön, kopioinnin, muokkaamisen ja jakelun myös kaupallisesti ilman tekijän mainitsemisen tai muutosten julkaisun vaatimusta. Ohjelma tarjotaan ilman takuuta. Lisenssi ei koske alkuperäistä AS2015A-ohjelmaa, kilpailuaineistoja eikä ulkopuolisia kirjastoja.
+
+Riippuvuudet säilyttävät omat lisenssinsä. Slintiä käytetään työpöytäsovelluksessa sen maksuttomalla Royalty-free 2.0 -lisenssillä, ja sen edellyttämä maininta on ohjelman **Tietoja**-ikkunassa. Katso [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Graafinen käyttöliittymä
 

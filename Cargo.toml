@@ -5,6 +5,8 @@ edition = "2024"
 rust-version = "1.89"
 default-run = "as2026"
 description = "AS2026 — autosuunnistuksen kilpailunhallinta ja tuloslaskenta"
+license = "0BSD"
+repository = "https://github.com/ppqalt/AS2026"
 [dependencies]
 # Linuxissa ei tarvita libudev-kehityspakettia. Toimii myös Windowsin COM-porteilla.
 serialport = { version = "4.8", default-features = false }

@@ -861,7 +861,11 @@ fn capture_views(
             return;
         };
         let current = *phase.borrow();
-        if current >= if keyboard_test { 25 } else { 21 } {
+        if current >= if keyboard_test { 28 } else { 21 } {
+            if keyboard_test && app.get_about_open() {
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
+            }
             if let Some(timer) = tick_timer.upgrade() {
                 timer.stop();
             }
@@ -877,19 +881,23 @@ fn capture_views(
             smoke::key(&app, slint::platform::Key::Escape);
             assert!(!app.get_dialog_open(), "Esc sulkee valintaikkunan");
             println!("GUI-näppäimistökoe hyväksytty: Ctrl+N, tekstisyöte, Tab ja Esc.");
+        } else if current == 25 {
+            app.set_about_open(true);
+        } else if current == 26 {
+            app.window().request_redraw();
         }
-        if current >= 21 && current != 23 {
+        if current >= 21 && current != 23 && current != 27 {
             *phase.borrow_mut() += 1;
             return;
         }
-        if current.is_multiple_of(3) {
+        if current < 21 && current.is_multiple_of(3) {
             if let Err(error) = navigate(&mut state.borrow_mut(), &app, (current / 3) as i32) {
                 eprintln!("{error}");
             }
-        } else if current % 3 == 1 {
+        } else if current < 21 && current % 3 == 1 {
             app.window().request_redraw();
         } else {
-            let index = current / 3;
+            let index = if current == 27 { 8 } else { current / 3 };
             let names = [
                 "yleiskatsaus",
                 "kilpailijat",
@@ -899,6 +907,7 @@ fn capture_views(
                 "radat",
                 "asetukset",
                 "uusi-kilpailu",
+                "tietoja",
             ];
             let result = app
                 .window()

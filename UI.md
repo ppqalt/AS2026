@@ -49,6 +49,7 @@ Vanhoja AS2015A-kilpailuja käsitellään lähdeaineistona. Niiden tarkastelu ei
 | Laskenta, järjestys ja raporttien sisältö | `src/application.rs`, `src/timing.rs`, `src/scoring.rs`, `src/ranking.rs` ja `src/report.rs`. |
 | Vakiokomponenttien suomennokset | `translations/fi/LC_MESSAGES/as2026.po`. |
 | Slintin käännösasetukset | `build.rs`. |
+| Projektin lisenssi ja ulkopuolisten kirjastojen ehdot | `LICENSE` ja `THIRD_PARTY.md`; Slint-maininta `ui/app.slint`-tiedoston Tietoja-ikkunassa. |
 
 Ulkoasun muutoksessa aloita yhteisistä väreistä ja komponenteista. Muuta esimerkiksi kentän tai painikkeen kokoa yhteisessä komponentissa, jotta sama muutos tulee kaikkialle. Slint vastaa esittämisestä ja käyttäjän syötteestä. Laskentasääntöjä, tiedostojen kirjoittamista tai kilpailijoiden kohdistamista ei toteuteta uudelleen Slint-tiedostoissa.
 
@@ -102,7 +103,7 @@ Laitteeton työnkulkukoe käyttää oikeita GUI-callbackeja omassa synteettisess
 cargo run --features gui --bin as2026-gui -- --demo --smoke-test --capture-dir /tmp/as2026-kuvat
 ```
 
-Kuvakaappausajoon yhdistetty koe lähettää myös näppäintapahtumat käynnissä olevalle ikkunalle: Ctrl+N avaa uuden kilpailun ikkunan, teksti menee nimi- ja polkukenttiin, Tab siirtää kentästä toiseen ja Esc sulkee ikkunan. Tämä ajo tallentaa lisäksi kuvan uuden kilpailun ikkunasta.
+Kuvakaappausajoon yhdistetty koe lähettää myös näppäintapahtumat käynnissä olevalle ikkunalle: Ctrl+N avaa uuden kilpailun ikkunan, teksti menee nimi- ja polkukenttiin, Tab siirtää kentästä toiseen ja Esc sulkee ikkunan. Tämä ajo tallentaa lisäksi kuvat uuden kilpailun ikkunasta ja Tietoja-ikkunasta. Tietoja-ikkunan alkuperäinen AboutSlint-komponentti säilytetään Slintin Royalty-free-lisenssin mainintavaatimuksen vuoksi.
 
 Koe ei avaa fyysistä lukijaa. Fyysistä Emit-testiä ei tässä GUI-vaiheessa toistettu. Aiempi CLI-laitetesti ei yksin todista GUI:n fyysistä lukijatyönkulkua.
 

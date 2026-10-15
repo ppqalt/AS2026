@@ -110,3 +110,7 @@ Paikallisesti hyväksyttiin muotoilu, 158 testiä ilman GUI-ominaisuutta, 161 te
 Fyysistä Emit-lukijaa ei avattu GUI-vaiheessa. Windowsin visuaalinen käyttö ja fyysinen lukija ovat edelleen erikseen testattavia. Laskentaytimen tunnetut rajat ja AS2015A-vastaavuuden puuttuva kattava varmennus säilyvät. Poistoja, lähtöaikojen arvontaa tai monen koneen järjestelmää ei toteutettu. Ohjatut kilpailija-, luokka-, rata- ja asemaeditorit ovat nyt käytettävissä.
 
 Seuraava kehitysaskel on kokeilla kilpailun perustamisen ja tulostuksen kokonainen työnkulku järjestäjän kanssa sekä kerätä alkuperäisellä AS2015A:lla vahvistettu vertailukilpailu laskentaytimen varmennukseen.
+
+## Lisenssivalinta
+
+Käyttäjän pyynnöstä AS2026:n oma koodi, dokumentaatio ja synteettiset esimerkit lisensoitiin 0BSD-lisenssillä. Virallinen teksti on LICENSE-tiedostossa ja Cargo-paketin SPDX-tunnus on `0BSD`. README:n aiempi avoin lisenssivalinta päivitettiin. Ulkopuoliset kirjastot säilyttävät omat ehtonsa; Slintin Royalty-free 2.0 -vaihtoehto ja Tietoja-ikkunan alkuperäinen AboutSlint-maininta dokumentoidaan THIRD_PARTY-tiedostossa. Repositorio säilyy yksityisenä, main-haaran historiaa ei muuteta.
