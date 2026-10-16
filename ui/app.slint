@@ -1,4 +1,4 @@
-import { Button, LineEdit, Palette, AboutSlint } from "std-widgets.slint";
+import { Button, LineEdit, Palette, AboutSlint, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { TableRow, EditorField } from "types.slint";
 import { Heading, Note, NavItem, DataTable, Editor, Metric } from "components.slint";
@@ -47,6 +47,27 @@ export component AppWindow inherits Window {
     in-out property <string> last-card: "Odotetaan lukua";
     in-out property <string> last-card-detail: "Kortti tunnistetaan kilpailijan Emit-numerosta.";
     in-out property <string> calculation-notes;
+    in-out property <string> app-version;
+    in-out property <string> default-root;
+    in-out property <string> update-status: "Päivityksiä ei ole tarkistettu.";
+    in-out property <string> available-version;
+    in-out property <bool> update-busy;
+    in-out property <bool> install-busy;
+    in-out property <bool> managed;
+    in-out property <bool> installable;
+    in-out property <bool> setup-open;
+    in-out property <bool> new-location-visible;
+    callback change-default-root();
+    callback reset-default-root();
+    callback check-updates();
+    callback apply-update();
+    callback install-app();
+    function begin-new() {
+        root.new-path = "";
+        root.new-name = "";
+        root.new-location-visible = false;
+        root.dialog-open = true;
+    }
     in-out property <bool> dialog-open;
     in-out property <bool> about-open;
     in-out property <string> new-name;
@@ -80,6 +101,7 @@ export component AppWindow inherits Window {
     focus-on-click: false;
     focus-on-tab-navigation: false;
     capture-key-pressed(event) => {
+        if root.install-busy { return accept; }
         if event.text == Key.Escape {
             if root.about-open {
                 root.about-open = false;
@@ -97,7 +119,7 @@ export component AppWindow inherits Window {
                 root.open-file();
                 return accept;
             } else if event.text == "n" || event.text == "N" {
-                root.dialog-open = true;
+                root.begin-new();
                 return accept;
             }
         }
@@ -131,7 +153,7 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                         padding: 12px; spacing: 6px;
                         Text { text: root.reader-running ? "●  Emit-lukija käynnissä" : "○  Emit-lukija pysäytetty"; color: root.reader-running ? #80d6bb : #a8bdc9; font-size: 11px; }
-                        Text { text: "Kehitysversio 0.4"; color: #8ba4b4; font-size: 11px; }
+                        Text { text: "AS2026 " + root.app-version; color: #8ba4b4; font-size: 11px; }
                     }
                 }
             }
@@ -145,11 +167,11 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                         spacing: 3px;
                         Text { text: root.competition-name; color: Theme.ink; font-size: 17px; font-weight: 700; overflow: elide; }
-                        Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.demo ? "Esimerkkikilpailu · väliaikainen kokeilukopio" : root.editable ? "Kilpailu avoinna · automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: 11px; }
+                        Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.editable ? "Automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: 11px; }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Button { height: Theme.control-height; text: "Avaa kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
-                    Button { height: Theme.control-height; text: "+ Uusi kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.dialog-open = true; } }
+                    Button { height: Theme.control-height; text: "+ Uusi kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.begin-new(); } }
                 }
                 Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
             }
@@ -158,8 +180,8 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     VerticalLayout {
                         spacing: 5px;
-                        Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Kilpailun asetukset"][root.page]; }
-                        Note { text: ["Kilpailun tiedot ja tärkeimmät työvaiheet yhdessä paikassa.", "Ilmoittautumiset, lähtöajat ja korttien kohdistus.", "Aseta kortti lukijaan. Tiedot kohdistuvat ja tallentuvat automaattisesti.", "Ajantasaiset tulokset ja kilpailijan asemakohtainen tarkastelu.", "Luokkien ratavalinnat ja lähtötiedot.", "Valitse rata ja tarkastele sen asemia järjestyksessä.", "Perustiedot ja kilpailukohtaiset virhepisteasetukset."][root.page]; }
+                        Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"][root.page]; }
+                        Note { text: ["Kilpailun tiedot ja tärkeimmät työvaiheet yhdessä paikassa.", "Ilmoittautumiset, lähtöajat ja korttien kohdistus.", "Aseta kortti lukijaan. Tiedot kohdistuvat ja tallentuvat automaattisesti.", "Ajantasaiset tulokset ja kilpailijan asemakohtainen tarkastelu.", "Luokkien ratavalinnat ja lähtötiedot.", "Valitse rata ja tarkastele sen asemia järjestyksessä.", "Tallennuspaikka, päivitykset ja avoimen kilpailun asetukset."][root.page]; }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     if root.opened: Button { height: Theme.control-height; text: "Päivitä tiedot"; enabled: !root.reader-running && !root.new-record && !root.form-blocked; clicked => { root.reload(); } }
@@ -216,10 +238,9 @@ export component AppWindow inherits Window {
                             Rectangle { vertical-stretch: 1; }
                         }
                     }
-                    Note { text: "Laskennan vastaavuus AS2015A:n kaikkiin tuloksiin on vielä varmistamatta. Kehitysversio näyttää laskennan huomautukset tulosten yhteydessä."; }
                     Rectangle { vertical-stretch: 1; }
                 }
-                if root.page > 0 && !root.opened: Rectangle {
+                if root.page > 0 && root.page != 6 && !root.opened: Rectangle {
                     Text { text: "Avaa kilpailu aloittaaksesi."; color: Theme.muted; horizontal-alignment: center; vertical-alignment: center; }
                 }
                 if root.opened && root.page == 2: VerticalLayout {
@@ -303,24 +324,49 @@ export component AppWindow inherits Window {
                     }
                     if root.page == 3: Note { text: root.calculation-notes; }
                 }
-                if root.opened && root.page == 6: HorizontalLayout {
-                    spacing: 24px;
-                    Editor {
-                        width: 420px;
-                        heading: "Perustiedot ja virhepisteet"; description: "Muutokset tallentuvat kentän hyväksymisen jälkeen.";
-                        fields: root.fields; writable: root.editable; blocked: root.form-blocked;
-                        field-commit(key, value) => { root.field-commit(key, value) }
-                        field-draft(key, value) => { root.field-draft(key, value); }
-                        cancel => { root.cancel-edit(); }
-                    }
-                    VerticalLayout {
-                        spacing: 12px;
-                        Text { text: "Yksi kilpailu, yhteiset tiedot"; color: Theme.ink; font-size: 17px; font-weight: 700; }
-                        Note { text: "Asetukset vaikuttavat kaikkien kilpailijoiden seuraavaan laskentaan. Tyhjä virhepistekenttä käyttää laskentaytimen oletusarvoa."; }
-                        Note { text: "Alkuperäisen laskennan kaikkia poikkeuksia ei ole vielä varmennettu. Ajanottotapa 2 ei ole tuettu uudessa laskennassa."; }
-                        Note { text: "Kilpailutiedosto"; }
-                        Text { text: root.competition-path; color: Theme.ink; font-size: 12px; wrap: word-wrap; }
-                        Rectangle { vertical-stretch: 1; }
+                if root.page == 6: ScrollView {
+                    HorizontalLayout {
+                        spacing: 24px;
+                        if root.opened: Editor {
+                            width: 420px;
+                            heading: "Kilpailun asetukset"; description: "Muutokset tallentuvat kentän hyväksymisen jälkeen.";
+                            fields: root.fields; writable: root.editable && !root.install-busy; blocked: root.form-blocked;
+                            field-commit(key, value) => { root.field-commit(key, value) }
+                            field-draft(key, value) => { root.field-draft(key, value); }
+                            cancel => { root.cancel-edit(); }
+                        }
+                        VerticalLayout {
+                            spacing: 18px;
+                            Rectangle {
+                                min-height: 190px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                                VerticalLayout {
+                                    padding: 20px; spacing: 12px;
+                                    Text { text: "Kilpailujen tallennuspaikka"; color: Theme.ink; font-size: 17px; font-weight: 700; }
+                                    Note { text: "Uusi kilpailu tallennetaan omaan kansioonsa tämän sijainnin alle."; }
+                                    Text { text: root.default-root; color: Theme.ink; wrap: word-wrap; }
+                                    HorizontalLayout {
+                                        Button { height: Theme.control-height; text: "Vaihda sijaintia…"; clicked => { root.change-default-root(); } }
+                                        Button { height: Theme.control-height; text: "Palauta oletus"; clicked => { root.reset-default-root(); } }
+                                    }
+                                    Note { text: "Sijainnin vaihtaminen koskee uusia kilpailuja. Aiemmat kilpailut säilyvät paikoillaan."; }
+                                }
+                            }
+                            Rectangle {
+                                min-height: 200px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                                VerticalLayout {
+                                    padding: 20px; spacing: 12px;
+                                    Text { text: "AS2026 " + root.app-version; color: Theme.ink; font-size: 17px; font-weight: 700; }
+                                    Note { text: root.update-status; }
+                                    HorizontalLayout {
+                                        Button { height: Theme.control-height; text: root.update-busy ? "Odota…" : "Tarkista päivitykset"; enabled: !root.update-busy && !root.install-busy; clicked => { root.check-updates(); } }
+                                        if root.available-version != "": Button { height: Theme.control-height; text: "Päivitä nyt"; primary: true; enabled: !root.update-busy && !root.install-busy; clicked => { root.apply-update(); } }
+                                    }
+                                    if root.installable && !root.managed: Button { height: Theme.control-height; text: "Asenna tälle käyttäjälle"; enabled: !root.install-busy; clicked => { root.install-app(); } }
+                                    Note { text: root.managed ? "Sovellus on asennettu tälle käyttäjälle." : ""; }
+                                }
+                            }
+                            Rectangle { vertical-stretch: 1; }
+                        }
                     }
                 }
             }
@@ -349,12 +395,14 @@ export component AppWindow inherits Window {
                     if dialog-name.has-focus { dialog-create.focus(); }
                     else if dialog-path.has-focus { dialog-name.focus(); }
                     else if dialog-browse.has-focus { dialog-path.focus(); }
-                    else if dialog-cancel.has-focus { dialog-browse.focus(); }
+                    else if dialog-location.has-focus { if root.new-location-visible { dialog-browse.focus(); } else { dialog-name.focus(); } }
+                    else if dialog-cancel.has-focus { dialog-location.focus(); }
                     else { dialog-cancel.focus(); }
                 } else {
-                    if dialog-name.has-focus { dialog-path.focus(); }
+                    if dialog-name.has-focus { if root.new-location-visible { dialog-path.focus(); } else { dialog-location.focus(); } }
                     else if dialog-path.has-focus { dialog-browse.focus(); }
-                    else if dialog-browse.has-focus { dialog-cancel.focus(); }
+                    else if dialog-browse.has-focus { dialog-location.focus(); }
+                    else if dialog-location.has-focus { dialog-cancel.focus(); }
                     else if dialog-cancel.has-focus { dialog-create.focus(); }
                     else { dialog-name.focus(); }
                 }
@@ -363,7 +411,7 @@ export component AppWindow inherits Window {
             reject
         }
         Rectangle {
-            width: 540px; height: 340px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 540px; height: root.new-location-visible ? 370px : 300px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
             border-radius: 8px; background: Theme.surface; border-color: Theme.line; border-width: 1px;
             VerticalLayout {
                 padding: 26px; spacing: 16px;
@@ -374,12 +422,14 @@ export component AppWindow inherits Window {
                     dialog-name := LineEdit {
                         text <=> root.new-name; placeholder-text: "Esimerkiksi Syysajo 2026";
                         accessible-label: "Kilpailun nimi";
-                        accepted => { dialog-path.focus(); }
+                        accepted => { root.create-project(root.new-path, root.new-name); }
                     }
                 }
                 VerticalLayout {
                     spacing: 6px;
-                    Text { text: "Kilpailun kansio"; color: Theme.ink; font-size: 12px; font-weight: 600; }
+                    visible: root.new-location-visible;
+                    height: root.new-location-visible ? 65px : 0px;
+                    Text { text: "Tallennuspaikka"; color: Theme.ink; font-size: 12px; font-weight: 600; }
                     HorizontalLayout {
                         dialog-path := LineEdit {
                             text <=> root.new-path; placeholder-text: "Valitse kansio tai anna uuden kansion polku";
@@ -389,7 +439,8 @@ export component AppWindow inherits Window {
                         dialog-browse := Button { height: Theme.control-height; text: "Selaa…"; clicked => { root.browse-new-path(); } }
                     }
                 }
-                Note { text: "Kilpailu tallennetaan kansioon. Olemassa olevaa kilpailua ei korvata."; }
+                Note { text: "Sijainti: " + (root.new-path == "" ? root.default-root : root.new-path); }
+                dialog-location := Button { height: Theme.control-height; text: "Vaihda sijaintia"; clicked => { root.new-location-visible = true; root.browse-new-path(); } }
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
                     dialog-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.dialog-open = false; } }
@@ -417,13 +468,40 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     padding: 26px; spacing: 14px;
                     Heading { text: "Tietoja AS2026:sta"; }
-                    Note { text: "Kehitysversio 0.4.0 · autosuunnistuksen kilpailunhallinta"; }
+                    Note { text: "Versio " + root.app-version + " · autosuunnistuksen kilpailunhallinta"; }
                     Text { text: "AS2026:n oma koodi: BSD-2-Clause-lisenssi"; color: Theme.ink; font-size: 14px; }
                     Note { text: "Käyttö, muokkaus ja jakelu on sallittu lisenssin ehdoin. Tekijänoikeusilmoitus ja lisenssiehdot säilytetään jaettaessa. Ei takuuta."; }
                     AboutSlint { horizontal-stretch: 1; vertical-stretch: 1; }
                     about-close := Button { height: Theme.control-height; text: "Sulje"; clicked => { root.about-open = false; } }
                 }
             }
+        }
+    }
+    if root.setup-open || root.install-busy: Rectangle {
+        background: #132735b0;
+        TouchArea { }
+        FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { setup-install.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Tab { setup-install.focus(); return accept; }
+            reject
+        }
+        Rectangle {
+            width: 480px; height: 250px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+            VerticalLayout {
+                padding: 26px; spacing: 16px;
+                Heading { text: root.install-busy ? "Asennetaan AS2026:ta" : "Asenna AS2026"; }
+                Note { text: root.install-busy ? "Ohjelma avautuu automaattisesti asennuksen valmistuttua." : "Asennus lisää AS2026:n sovellusvalikkoon ja mahdollistaa päivitykset ohjelman asetuksista."; }
+                Note { text: "Kilpailut ja asetukset säilyvät erillään ohjelmatiedostoista."; }
+                HorizontalLayout {
+                    if !root.install-busy: Button { height: Theme.control-height; text: "Myöhemmin"; clicked => { root.setup-open = false; } }
+                    setup-install := Button { height: Theme.control-height; text: root.install-busy ? "Odota…" : "Asenna ja käynnistä"; primary: true; enabled: !root.install-busy; clicked => { root.install-app(); } }
+                }
+            }
+        }
         }
     }
     }
