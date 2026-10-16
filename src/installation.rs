@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
     fs::{self, File, OpenOptions, TryLockError},
-    io::Write,
+    io::{Read, Write},
     path::{Component, Path, PathBuf},
     process::{Child, Command},
     sync::atomic::{AtomicU64, Ordering},
@@ -388,19 +388,86 @@ fn stage_bundle(
     Ok(destination)
 }
 
+fn same_file_contents(first: &Path, second: &Path) -> Result<bool, String> {
+    let mut first_file = File::open(first).map_err(|e| io_error(first, &e))?;
+    let mut second_file = File::open(second).map_err(|e| io_error(second, &e))?;
+    let mut remaining = first_file
+        .metadata()
+        .map_err(|e| io_error(first, &e))?
+        .len();
+    if second_file
+        .metadata()
+        .map_err(|e| io_error(second, &e))?
+        .len()
+        != remaining
+    {
+        return Ok(false);
+    }
+    let mut first_buffer = [0u8; 65536];
+    let mut second_buffer = [0u8; 65536];
+    while remaining > 0 {
+        let count = remaining.min(first_buffer.len() as u64) as usize;
+        first_file
+            .read_exact(&mut first_buffer[..count])
+            .map_err(|e| io_error(first, &e))?;
+        second_file
+            .read_exact(&mut second_buffer[..count])
+            .map_err(|e| io_error(second, &e))?;
+        if first_buffer[..count] != second_buffer[..count] {
+            return Ok(false);
+        }
+        remaining -= count as u64;
+    }
+    Ok(true)
+}
+
+fn replace_launcher(source: &Path, destination: &Path) -> Result<(), String> {
+    let failure = |error| {
+        format!(
+            "AS2026-käynnistimen päivittäminen epäonnistui. Sulje muut AS2026-käynnistimet ja avaa uuden puretun julkaisupaketin asennusohjelma. {error}"
+        )
+    };
+    #[cfg(windows)]
+    {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            match replace(source, destination) {
+                Ok(()) => return Ok(()),
+                Err(error) => {
+                    if Instant::now() < deadline {
+                        std::thread::sleep(Duration::from_millis(100));
+                        continue;
+                    }
+                    return Err(failure(error));
+                }
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    replace(source, destination).map_err(failure)
+}
+
 fn install_stable_launcher(root: &Path, version: &Path) -> Result<(), String> {
+    install_stable_launcher_with(root, version, replace_launcher)
+}
+
+fn install_stable_launcher_with(
+    root: &Path,
+    version: &Path,
+    replace_file: impl FnOnce(&Path, &Path) -> Result<(), String>,
+) -> Result<(), String> {
     let stable = root.join(executable("as2026-launcher"));
-    if optional_regular_file(&stable)? {
+    let source = version.join(executable("as2026-launcher"));
+    regular_file(&source)?;
+    if optional_regular_file(&stable)? && same_file_contents(&source, &stable)? {
         return Ok(());
     }
+    // Versionkansio on jo varmennettu kokonaan ennen tätä kutsua. Kopioi uusi
+    // käynnistin valmiiksi ennen atomista vaihtoa; vanha current jää voimaan,
+    // jos esimerkiksi Windowsin käynnissä oleva helper estää vaihdon.
     let temporary = Temporary(root.join(format!(".launcher-{}", unique_token())));
-    copy_regular(
-        &version.join(executable("as2026-launcher")),
-        &temporary.0,
-        true,
-    )?;
-    // Julkaise ensi kerran korvaamatta mahdollista toisen asentajan tiedostoa.
-    fs::hard_link(&temporary.0, &stable).map_err(|e| io_error(&stable, &e))?;
+    copy_regular(&source, &temporary.0, true)?;
+    replace_file(&temporary.0, &stable)?;
     sync_parent(&stable)
 }
 
@@ -475,6 +542,15 @@ fn activate(
     start: impl FnOnce(&str, &str) -> Result<(), String>,
 ) -> Result<InstallOutcome, String> {
     require_upgrade(verified, current.as_ref())?;
+    activate_verified(root, verified, current, start)
+}
+
+fn activate_verified(
+    root: &Path,
+    verified: &VerifiedBundle,
+    current: Option<Current>,
+    start: impl FnOnce(&str, &str) -> Result<(), String>,
+) -> Result<InstallOutcome, String> {
     if current
         .as_ref()
         .is_some_and(|old| old.active == verified.version && old.pending.is_none())
@@ -759,18 +835,37 @@ pub fn is_managed() -> bool {
     .is_ok_and(|expected| expected == running)
 }
 
-/// Päivityksen palautus säilyttää kilpailutiedot ennallaan.
+fn rollback_previous_version(
+    root: &Path,
+    current: Current,
+    verifier: impl FnOnce(&Path) -> Result<VerifiedBundle, String>,
+    start: impl FnOnce(&str, &str) -> Result<(), String>,
+) -> Result<InstallOutcome, String> {
+    let previous = current
+        .previous
+        .as_ref()
+        .ok_or_else(|| "Palautettavaa ohjelmaversiota ei ole".to_owned())?;
+    validate_version(previous)?;
+    // Vioittunut palautusversio ei saa korvata toimivan version osoitinta.
+    let verified = verifier(&root.join("versions").join(previous))?;
+    if verified.version != *previous {
+        return Err("Palautettavan ohjelmaversion tiedot eivät vastaa versiokansiota".into());
+    }
+    // Myös palautus valmistuu vasta käynnistyskuittauksesta. Epäonnistuminen
+    // tai keskeytyminen palauttaa tätä ennen aktiivisena olleen version.
+    activate_verified(root, &verified, Some(current), start)
+}
+
+/// Päivityksen palautus säilyttää kilpailutiedot ennallaan ja odottaa
+/// palautettavan ohjelman onnistunutta käynnistyskuittausta.
 pub fn rollback_to_previous() -> Result<(), String> {
     let root = install_root()?;
     prepare_root(&root)?;
     let _lock = installation_lock(&root)?;
     let current = read_current(&root)?.ok_or_else(|| "AS2026:n asennusta ei löydy".to_owned())?;
-    let restored = restore_previous(&root, &current)?;
-    remember_failure(
-        &root,
-        "Edellinen ohjelmaversio palautettiin käyttäjän pyynnöstä.",
-    )?;
-    spawn_gui(&root, &restored.active, None)?;
+    rollback_previous_version(&root, current, verify_bundle, |version, token| {
+        wait_for_startup(&root, version, token)
+    })?;
     Ok(())
 }
 
@@ -986,6 +1081,123 @@ mod tests {
     }
 
     #[test]
+    fn corrupted_rollback_bundle_does_not_change_active_version() {
+        let folder = Folder::new();
+        let current = Current {
+            format: 1,
+            active: "0.5.1".into(),
+            previous: Some("0.5.0".into()),
+            rollback_previous: None,
+            pending: None,
+        };
+        write_current(&folder.0, &current).unwrap();
+        let before = fs::read(folder.0.join("current.toml")).unwrap();
+        let error = rollback_previous_version(
+            &folder.0,
+            current,
+            |path| {
+                assert_eq!(path, folder.0.join("versions/0.5.0"));
+                Err("Palautusversion ohjelmatiedoston eheystarkistus epäonnistui".into())
+            },
+            |_, _| panic!("Vioittunutta palautusversiota ei saa käynnistää"),
+        )
+        .unwrap_err();
+        assert!(error.contains("eheystarkistus"));
+        assert_eq!(fs::read(folder.0.join("current.toml")).unwrap(), before);
+    }
+
+    #[test]
+    fn rollback_manifest_must_match_requested_version() {
+        let folder = Folder::new();
+        let current = Current {
+            format: 1,
+            active: "0.5.1".into(),
+            previous: Some("0.5.0".into()),
+            rollback_previous: None,
+            pending: None,
+        };
+        write_current(&folder.0, &current).unwrap();
+        let before = fs::read(folder.0.join("current.toml")).unwrap();
+        let error = rollback_previous_version(
+            &folder.0,
+            current,
+            |_| Ok(bundle("0.4.0")),
+            |_, _| panic!("Väärää palautusversiota ei saa käynnistää"),
+        )
+        .unwrap_err();
+        assert!(error.contains("eivät vastaa versiokansiota"));
+        assert_eq!(fs::read(folder.0.join("current.toml")).unwrap(), before);
+    }
+
+    #[test]
+    fn failed_rollback_startup_restores_original_pointer_and_data() {
+        let folder = Folder::new();
+        let competition = folder.0.join("kilpailu.toml");
+        fs::write(&competition, "alkuperäinen kilpailutieto").unwrap();
+        let current = Current {
+            format: 1,
+            active: "0.5.1".into(),
+            previous: Some("0.5.0".into()),
+            rollback_previous: None,
+            pending: None,
+        };
+        write_current(&folder.0, &current).unwrap();
+        let before = fs::read(folder.0.join("current.toml")).unwrap();
+        let error = rollback_previous_version(
+            &folder.0,
+            current,
+            |_| Ok(bundle("0.5.0")),
+            |version, token| {
+                assert_eq!(version, "0.5.0");
+                let pending = read_current(&folder.0)?.unwrap();
+                assert_eq!(pending.pending.as_deref(), Some(token));
+                assert_eq!(pending.previous.as_deref(), Some("0.5.1"));
+                Err("testin puuttuva käynnistyskuittaus".into())
+            },
+        )
+        .unwrap_err();
+        assert!(error.contains("käynnistyskuittaus"));
+        assert_eq!(fs::read(folder.0.join("current.toml")).unwrap(), before);
+        assert_eq!(
+            fs::read_to_string(competition).unwrap(),
+            "alkuperäinen kilpailutieto"
+        );
+    }
+
+    #[test]
+    fn successful_rollback_requires_startup_acknowledgement() {
+        let folder = Folder::new();
+        let current = Current {
+            format: 1,
+            active: "0.5.1".into(),
+            previous: Some("0.5.0".into()),
+            rollback_previous: None,
+            pending: None,
+        };
+        write_current(&folder.0, &current).unwrap();
+        let outcome = rollback_previous_version(
+            &folder.0,
+            current,
+            |_| Ok(bundle("0.5.0")),
+            |version, token| {
+                assert_eq!(version, "0.5.0");
+                validate_token(token)?;
+                let pending = read_current(&folder.0)?.unwrap();
+                assert_eq!(pending.pending.as_deref(), Some(token));
+                assert_eq!(pending.rollback_previous.as_deref(), Some("0.5.0"));
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(outcome.version, "0.5.0");
+        let current = read_current(&folder.0).unwrap().unwrap();
+        assert_eq!(current.active, "0.5.0");
+        assert_eq!(current.previous.as_deref(), Some("0.5.1"));
+        assert!(current.pending.is_none());
+        assert!(current.rollback_previous.is_none());
+    }
+
+    #[test]
     fn interrupted_update_is_rolled_back_on_next_launch() {
         let folder = Folder::new();
         let current = Current {
@@ -1075,6 +1287,63 @@ mod tests {
             fs::read_to_string(version.join("licenses/notice.txt")).unwrap(),
             "lisenssi"
         );
+    }
+
+    #[test]
+    fn newer_stable_launcher_replaces_existing_helper_atomically() {
+        let folder = Folder::new();
+        let version = folder.0.join("version");
+        fs::create_dir(&version).unwrap();
+        let helper = executable("as2026-launcher");
+        let stable = folder.0.join(&helper);
+        fs::write(&stable, "vanha-kaynnistin").unwrap();
+        fs::write(version.join(&helper), "uusi--kaynnistin").unwrap();
+        install_stable_launcher(&folder.0, &version).unwrap();
+        assert_eq!(fs::read_to_string(&stable).unwrap(), "uusi--kaynnistin");
+        // Samaa varmennettua helperiä ei korvata uudelleen, jolloin myöskään
+        // käytössä olevan identtisen Windows-käynnistimen lukitus ei haittaa.
+        install_stable_launcher_with(&folder.0, &version, |_, _| {
+            panic!("Identtistä käynnistintä ei tarvitse korvata");
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn failed_launcher_replacement_keeps_previous_helper_and_active_version() {
+        let folder = Folder::new();
+        let version = folder.0.join("version");
+        fs::create_dir(&version).unwrap();
+        let helper = executable("as2026-launcher");
+        let stable = folder.0.join(&helper);
+        fs::write(&stable, "vanha-kaynnistin").unwrap();
+        fs::write(version.join(&helper), "uusi--kaynnistin").unwrap();
+        let current = Current {
+            format: 1,
+            active: "0.5.1".into(),
+            previous: Some("0.5.0".into()),
+            rollback_previous: None,
+            pending: None,
+        };
+        write_current(&folder.0, &current).unwrap();
+        let before = fs::read(folder.0.join("current.toml")).unwrap();
+        let error = install_stable_launcher_with(&folder.0, &version, |source, destination| {
+            assert_eq!(fs::read_to_string(source).unwrap(), "uusi--kaynnistin");
+            assert_eq!(destination, stable);
+            // Mallinna esimerkiksi Windowsin vielä käynnissä olevan helperin
+            // aiheuttama atomisen vaihdon virhe.
+            Err("Käynnistin on lukittu".into())
+        })
+        .unwrap_err();
+        assert!(error.contains("lukittu"));
+        assert_eq!(fs::read_to_string(&stable).unwrap(), "vanha-kaynnistin");
+        assert_eq!(fs::read(folder.0.join("current.toml")).unwrap(), before);
+        assert!(fs::read_dir(&folder.0).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".launcher-")
+        }));
     }
 
     #[test]

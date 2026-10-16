@@ -24,10 +24,22 @@
     "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
   },
   {
+    "name": "accesskit_windows",
+    "version": "0.30.0",
+    "file": "accesskit_windows-0.30.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
     "name": "accesskit_winit",
     "version": "0.30.0",
     "file": "accesskit_winit-0.30.0.txt",
     "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
+    "name": "clipboard-win",
+    "version": "5.4.1",
+    "file": "clipboard-win-5.4.1.txt",
+    "source": "https://raw.githubusercontent.com/DoumanAsh/clipboard-win/3b27cf2bfd1adcfa6e0264eb51c1025ddaf0f342/LICENSE"
   },
   {
     "name": "const-field-offset",

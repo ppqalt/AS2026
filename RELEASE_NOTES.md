@@ -7,3 +7,5 @@ Kilpailut ja asetukset säilyvät erillään ohjelmatiedostoista. Päivitysten t
 Tämä julkaisu tuo automaattiset kilpailukansiot, viimeksi avatun kilpailun muistamisen, allekirjoitetut päivitykset ja käyttäjäkohtaisen asennuksen. Ohjelman käyttöliittymä on suomenkielinen. AS2026:n oma lisenssi on BSD-2-Clause. Sen koko teksti ja kolmannen osapuolen lisenssit sekä tekijämaininnat ovat paketissa mukana.
 
 Emit-lukuhistoria ryhmittelee peräkkäiset saman korttisisällön luvut. Pieni onnistumiskuittaus kertoo lukemisesta; kaikki lukemat säilyvät tallessa.
+
+Edellisen ohjelmaversion palautus tarkistaa sen eheyden ja käynnistymisen. Jos palautus epäonnistuu, toimiva asennus säilyy käytettävissä.
