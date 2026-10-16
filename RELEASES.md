@@ -1,4 +1,4 @@
-# AS2026:n tulevien julkaisujen tekeminen
+# AS2026:n julkaisujen tekeminen
 
 Nykyinen lisenssi on **BSD-2-Clause**. Repositorio on julkinen. Pelkkä dev-push tai tagi ei silti julkaise GitHub Releaseä: julkaisutyönkulku käynnistetään erikseen ja sen julkaisuvaihe pitää valita nimenomaisesti. Oletuksena syntyvät vain Actions-testipaketit.
 
