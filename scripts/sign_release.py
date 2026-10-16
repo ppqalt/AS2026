@@ -88,7 +88,12 @@ def load_payloads(source: Path, version: str) -> tuple[dict, dict[str, Path]]:
         if payload.is_symlink() or not payload.is_dir():
             raise ValueError("Julkaisun hyötytiedostohakemisto puuttuu.")
         files = payload_files(payload)
-        if files != descriptor["files"]:
+        # Windows- ja Linux-Path lajittelevat isot ja pienet kirjaimet eri tavoin.
+        # Vertaa täsmälleen samoja nimiä, kokoja ja SHA-256-tiivisteitä
+        # riippumatta alustalla tuotetun tiedostoluettelon järjestyksestä.
+        if sorted(files, key=lambda entry: entry["name"]) != sorted(
+            descriptor["files"], key=lambda entry: entry["name"]
+        ):
             raise ValueError("Alustan hyötytiedostot ovat muuttuneet tarkistussumman laskemisen jälkeen.")
         suffix = TARGETS[target][1]
         required = {f"{binary}{suffix}" for binary in BINARIES} | {"LICENSE", "THIRD_PARTY.md", "dependency-licenses/index.json"}
