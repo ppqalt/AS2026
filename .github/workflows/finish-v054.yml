@@ -1,3 +1,4 @@
+
 name: Viimeistele 0.5.4 allekirjoitus
 
 on:
@@ -20,16 +21,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Asenna Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+
       - name: Varmista muuttumaton julkaisutagi ja versio
         run: |
           test "$(git rev-parse 'refs/tags/v0.5.4^{}')" = "2ec492907871a98f27365508253e8c7218ce3b8c"
           git merge-base --is-ancestor v0.5.4 HEAD
           python3 scripts/package_release.py check-license
           python3 -c 'from scripts.package_release import project_version; assert project_version() == "0.5.4"'
-      - name: Asenna Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.13'
+
       - name: Nouda alkuperäisen onnistuneen Linux-rakennuksen tiedostot
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -37,6 +41,7 @@ jobs:
           run-id: 38897963081
           github-token: ${{ github.token }}
           path: release-payloads/x86_64-unknown-linux-gnu
+
       - name: Nouda alkuperäisen onnistuneen Windows-rakennuksen tiedostot
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -44,10 +49,12 @@ jobs:
           run-id: 38897963081
           github-token: ${{ github.token }}
           path: release-payloads/x86_64-pc-windows-msvc
+
       - name: Allekirjoita tarkistetut tiedostot
         env:
           AS2026_RELEASE_SIGNING_KEY: ${{ secrets.AS2026_RELEASE_SIGNING_KEY }}
         run: python3 scripts/sign_release.py --input release-payloads --output dist
+
       - name: Julkaise 0.5.4
         env:
           GH_TOKEN: ${{ github.token }}
