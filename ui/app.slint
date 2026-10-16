@@ -8,7 +8,7 @@ export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
     title: "AS2026 — kilpailunhallinta";
     preferred-width: 1320px; preferred-height: 860px;
-    min-width: 580px; min-height: 400px;
+    min-width: 480px; min-height: 320px;
     background: Theme.canvas;
     default-font-size: Theme.body-font-size;
     forward-focus: keyboard;
@@ -129,7 +129,7 @@ export component AppWindow inherits Window {
     HorizontalLayout {
         spacing: 0px;
         Rectangle {
-            width: root.width < 850px ? 158px : Theme.sidebar-width; background: Theme.sidebar;
+            width: 162px; background: Theme.sidebar;
             VerticalLayout {
                 padding: 14px; spacing: 5px;
                 Rectangle {
@@ -156,7 +156,7 @@ export component AppWindow inherits Window {
                 Text { text: "SOVELLUS"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; height: 22px; vertical-alignment: center; }
                 Button {
                     height: Theme.control-height;
-                    text: root.update-busy ? "Tarkistetaan…" : root.available-version != "" ? "Asenna " + root.available-version + " ↻" : "Tarkista päivitykset";
+                    text: root.update-busy ? "Tarkistetaan…" : root.available-version != "" ? "Asenna " + root.available-version : "Päivitykset ↻";
                     enabled: !root.update-busy && !root.install-busy;
                     clicked => {
                         if root.available-version != "" { root.apply-update(); }
@@ -169,11 +169,11 @@ export component AppWindow inherits Window {
                 }
                 Button { height: Theme.control-height; text: "Tietoja"; clicked => { root.about-open = true; } }
                 Rectangle {
-                    height: root.height < 650px ? 34px : 84px; background: #1b3343; border-radius: 5px;
+                    height: 56px; background: #1b3343; border-radius: 5px;
                     VerticalLayout {
-                        padding: root.height < 650px ? 5px : 12px; spacing: 6px;
+                        padding: 8px; spacing: 4px;
                         Text { text: root.reader-running ? "●  Emit-lukija käynnissä" : "○  Emit-lukija pysäytetty"; color: root.reader-running ? #80d6bb : #a8bdc9; font-size: 11px; }
-                        Text { visible: root.height >= 650px; text: "AS2026 " + root.app-version; color: #8ba4b4; font-size: 11px; }
+                        Text { text: "AS2026 " + root.app-version; color: #8ba4b4; font-size: 11px; }
                     }
                 }
             }
@@ -184,21 +184,21 @@ export component AppWindow inherits Window {
             Rectangle {
                 height: 70px; background: Theme.surface;
                 HorizontalLayout {
-                    padding-left: root.width < 850px ? 12px : Theme.gutter; padding-right: root.width < 850px ? 12px : Theme.gutter; padding-top: 18px; padding-bottom: 18px; spacing: 12px;
+                    padding-left: 12px; padding-right: 12px; padding-top: 18px; padding-bottom: 18px; spacing: 12px;
                     VerticalLayout {
                         spacing: 3px;
                         Text { text: root.competition-name; color: Theme.ink; font-size: 17px; font-weight: 700; overflow: elide; }
                         Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.editable ? "Automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: 11px; }
                     }
                     Rectangle { horizontal-stretch: 1; }
-                    Button { height: Theme.control-height; text: root.width < 850px ? "Avaa" : "Avaa kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
-                    Button { height: Theme.control-height; text: root.width < 850px ? "+ Uusi" : "+ Uusi kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.begin-new(); } }
+                    Button { height: Theme.control-height; text: "Avaa"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
+                    Button { height: Theme.control-height; text: "+ Uusi"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.begin-new(); } }
                 }
                 Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
             }
             VerticalLayout {
                 horizontal-stretch: 1;
-                padding: root.width < 850px ? 12px : Theme.gutter; spacing: 16px;
+                padding: 12px; spacing: 16px;
                 HorizontalLayout {
                     horizontal-stretch: 1;
                     VerticalLayout {
