@@ -1,6 +1,6 @@
 [package]
 name = "as2026"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.89"
 default-run = "as2026"
@@ -14,10 +14,20 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 ctrlc = "3"
+directories = { version = "6", optional = true }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde_json = { version = "1", optional = true }
+semver = { version = "1", optional = true }
+sha2 = { version = "0.10", optional = true }
+ed25519-dalek = { version = "2", optional = true }
+tar = { version = "0.4", optional = true }
+flate2 = { version = "1", optional = true }
+zip = { version = "2", optional = true, default-features = false, features = ["deflate"] }
 
 [features]
 default = []
-gui = ["dep:slint", "dep:slint-build", "dep:rfd", "dep:image"]
+desktop = ["dep:directories", "dep:reqwest", "dep:serde_json", "dep:semver", "dep:sha2", "dep:ed25519-dalek", "dep:tar", "dep:flate2", "dep:zip"]
+gui = ["desktop", "dep:slint", "dep:slint-build", "dep:rfd", "dep:image"]
 
 [dependencies.slint]
 version = "=1.16.0"
@@ -46,3 +56,8 @@ path = "src/main.rs"
 name = "as2026-gui"
 path = "src/bin/as2026-gui.rs"
 required-features = ["gui"]
+
+[[bin]]
+name = "as2026-launcher"
+path = "src/bin/as2026-launcher.rs"
+required-features = ["desktop"]

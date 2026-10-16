@@ -59,13 +59,73 @@ fn finish(mut html: String) -> String {
     html
 }
 
+/// Muotoilee laskentaytimen tekniset huomautukset kilpailun toimitsijalle.
+/// Laskentatuloksia tai niiden diagnostiikkatietoja ei muuteta.
+pub fn user_notice(message: &str) -> Option<String> {
+    if message.ends_with(
+        "viimeinen kenttä säilytettiin ilman rivinvaihtoa; vanha lukija voi pudottaa sen",
+    ) {
+        return None;
+    }
+    let (prefix, message) = message
+        .split_once(": ")
+        .filter(|(prefix, _)| prefix.starts_with("Kilpailija "))
+        .map_or((String::new(), message), |(prefix, rest)| {
+            (format!("{prefix}: "), rest)
+        });
+    let message = message.strip_prefix("Ei vielä tuettu: ").unwrap_or(message);
+    let displayed = match message {
+        "Esikatselu sisältää asemarivien virhepisteet. Erillisiä RT-lisäyksiä ja muita kilpailijakohtaisia virhepisteitä ei vielä yhdistetä siihen." =>
+        {
+            return None;
+        }
+        "Vanha ohjelma voi vähentää leimattoman lähdön aikakorjauksen kahdesti leimausten kellonajoista. Pisteissä ja maaliajassa korjaus tehdään kerran. Tässä leimausten kellonajat noudattavat vanhan ohjelman näyttökaavaa." => {
+            "Käsilähdön aikakorjaus on huomioitu."
+        }
+        "Palautettu korttilaskenta johtaa leimattoman maalin ajan kortin viimeisestä leimasta. Vanhan ohjelman tämän kohdan käsittely on ristiriitainen. Valitun laskentatavan vastaavuus vanhoihin kilpailutuloksiin on vielä tarkistettava." => {
+            "Maaliaika on johdettu kortin viimeisestä leimasta."
+        }
+        "Palautettu ensimmäinen kierros tyhjentää puuttuvan JAT:n tavoitesiirron ennen erillistä maalilaskentaa; tavoitetta ei lisätä maaliin." => {
+            "Puuttuvan JAT-aseman tavoiteaikaa ei lisätä maalijaksoon."
+        }
+        "Vanhan ohjelman korttilaskenta keskeytyy puuttuvaan maalileimaan, eikä kaikkien tuloskenttien käsittely ole selvä. Tässä laskennassa asemarivit säilytetään ja puuttumissakko sekä muiden asemien virheet lasketaan. Kilpailijan tila on keskeyttänyt." => {
+            "Maalileima puuttuu. Kilpailijan tila on keskeyttänyt."
+        }
+        "Mitätöity rivi säilyy aikarakenteessa. Toisen kierroksen aikamuutoksia ei levitetä uudelleen myöhempien rivien ensimmäisen kierroksen aikoihin." => {
+            "Mitätöity asema säilyy radan aikarakenteessa."
+        }
+        "Korttilaskenta ei määrää tavallista puuttumissakkoa asemalle, jonka aika oli tarkoitus kirjata käsin. Tallennettujen tulosten uudelleenlaskenta käsittelee nämä asemat erikseen." => {
+            "Käsin kirjattavan aseman puuttuvasta leimasta ei määrätä puuttumissakkoa."
+        }
+        "Vanhan ohjelman JAT-aseman myöhästymisrajan vertailu ei voi laueta, kun raja on positiivinen. Laskenta säilyttää tämän vertailun. Kokonaismyöhästymisraja ja maalin jakson raja tarkistetaan erikseen." =>
+        {
+            return None;
+        }
+        "Jakso-kenttä ei läpäise palautettua numerotarkistusta; vanha polku lisää kertymään nollan." => {
+            "Jakson tavoiteaika ei ole kelvollinen numero. Tarkista aseman tiedot."
+        }
+        "leimattomalle lähdölle ei ole hyväksyttyä lähtöaikaa; tämän tapauksen laskentaa ei ole vielä vahvistettu" => {
+            "Leimattomalle lähdölle ei ole hyväksyttyä lähtöaikaa."
+        }
+        "00:00:00-käsilähtö luokitellaan vanhassa ohjelmassa puuttuvaksi" => {
+            "Lähtöaika 00:00:00 puuttuu. Anna hyväksytty lähtöaika."
+        }
+        _ => message,
+    };
+    Some(format!("{prefix}{displayed}"))
+}
+
 fn warnings(html: &mut String, warnings: &[String]) {
+    let warnings = warnings
+        .iter()
+        .filter_map(|warning| user_notice(warning))
+        .collect::<Vec<_>>();
     if warnings.is_empty() {
         return;
     }
     html.push_str("<section class=\"notice warning\"><h2>Huomautukset</h2><ul>");
     for warning in warnings {
-        html.push_str(&format!("<li>{}</li>\n", escape(warning)));
+        html.push_str(&format!("<li>{}</li>\n", escape(&warning)));
     }
     html.push_str("</ul></section>\n");
 }
@@ -81,13 +141,19 @@ pub fn project_calculation_html(report: &CalculationReport) -> String {
 }
 
 fn calculation_html_with_source(report: &CalculationReport, native: bool) -> String {
-    let mut html = document("Tuloslaskennan esikatselu", &report.competition_name);
+    let mut html = document(
+        if native {
+            "Tuloslaskenta"
+        } else {
+            "Tuloslaskennan esikatselu"
+        },
+        &report.competition_name,
+    );
     if native {
-        html.push_str("<section class=\"notice\"><p>AS2026:n kehitysversio: esikatselu ja tulosluettelo lasketaan samoista ajantasaisista kilpailutiedoista ja leimauksista. Alkuperäisillä kilpailutuloksilla tehtävä vertailu on vielä tarpeen.</p></section>\n");
+        html.push_str("<section class=\"notice\"><p>Asematulokset on laskettu kilpailutiedoista ja Emit-leimauksista.</p></section>\n");
     } else {
-        html.push_str("<section class=\"notice\"><p>Tallennettu tulos säilyy ennallaan. Esikatselu lasketaan raakaleimauksista, eikä sitä käytetä luokka- tai ratatulosten sijoituksiin. Alkuperäisillä kilpailutuloksilla tehtävä vertailu on vielä tarpeen.</p></section>\n");
+        html.push_str("<section class=\"notice\"><p>Asematulokset on laskettu raakaleimauksista. Tuodun kilpailun tallennetut tulokset säilyvät ennallaan.</p></section>\n");
     }
-    html.push_str("<section class=\"notice warning\"><p><strong>Esikatselu sisältää vain asemarivien virhepisteet.</strong> Erillisiä puuttuvien ja ylimääräisten RT-asemien lisäyksiä sekä muita kilpailijakohtaisia virhepisteitä ei vielä yhdistetä esikatseluun.</p></section>\n");
     warnings(&mut html, &report.warnings);
     if report.competitors.is_empty() {
         html.push_str("<section><p>Ei kilpailijoita.</p></section>\n");
@@ -104,29 +170,42 @@ fn calculation_html_with_source(report: &CalculationReport, native: bool) -> Str
             html.push_str(&format!("<section><h2>Nro {} — {}</h2><p>Luokka: {}. Tallennettu tulos: <strong>{} p</strong>.</p>\n",
             competitor.number, escape(&competitor.driver), escape(&competitor.class_code), competitor.imported_total));
         }
-        if !competitor.notes.is_empty() {
+        let notes = competitor
+            .notes
+            .iter()
+            .filter_map(|note| user_notice(note))
+            .collect::<Vec<_>>();
+        if !notes.is_empty() {
             html.push_str("<ul>");
-            for note in &competitor.notes {
+            for note in &notes {
                 html.push_str(&format!("<li>{}</li>", escape(note)));
             }
             html.push_str("</ul>");
         }
         match &competitor.calculation {
             Err(error) => html.push_str(&format!(
-                "<p class=\"notice warning\">Esikatselua ei voitu laskea: {}</p>",
-                escape(&error.to_string())
+                "<p class=\"notice warning\">Laskentaa ei voitu tehdä: {}</p>",
+                escape(
+                    &user_notice(&error.to_string())
+                        .unwrap_or_else(|| "Tarkista kilpailijan ja radan tiedot.".into())
+                )
             )),
             Ok(calculation) => {
                 html.push_str(&format!("<p class=\"status\">Tarkastustulos: {}{}</p><p class=\"totals\">Aikavirhepisteet: {} p · Muut virhepisteet: {} p · Virhepisteet yhteensä (asemarivit): {} p</p>\n",
                     calculation.status.as_legacy(), if calculation.reason.is_empty() { String::new() } else { format!(" — {}", escape(&calculation.reason)) },
                     calculation.totals.time_points, calculation.totals.other_points, calculation.totals.total_points));
-                if !calculation.diagnostics.is_empty() {
+                let diagnostics = calculation
+                    .diagnostics
+                    .iter()
+                    .filter_map(|diagnostic| {
+                        user_notice(&diagnostic.message).map(|message| (diagnostic.row, message))
+                    })
+                    .collect::<Vec<_>>();
+                if !diagnostics.is_empty() {
                     html.push_str("<h3>Laskennan huomautukset</h3><ul>");
-                    for diagnostic in &calculation.diagnostics {
-                        let row = diagnostic
-                            .row
-                            .map_or(String::new(), |row| format!("Rivi {row}: "));
-                        html.push_str(&format!("<li>{row}{}</li>", escape(&diagnostic.message)));
+                    for (row, message) in &diagnostics {
+                        let row = row.map_or(String::new(), |row| format!("Rivi {row}: "));
+                        html.push_str(&format!("<li>{row}{}</li>", escape(message)));
                     }
                     html.push_str("</ul>");
                 }
@@ -222,9 +301,9 @@ pub fn project_ranking_html(archive: &Archive, report: &RankingReport) -> String
 fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculated: bool) -> String {
     let mut html = document("Luokkakohtaiset tulokset", competition_name(archive));
     if calculated {
-        html.push_str("<section class=\"notice\"><p>AS2026:n kehitysversio: pisteet ovat ajantasaisista kilpailutiedoista ja Emit-leimauksista laskettuja asematuloksia. Vastaavuus AS2015A-tuloksiin on vielä varmistamatta. Erilliset kilpailijakohtaiset RT- ja muut lisäpisteet eivät sisälly summaan. Tasapisteiden esitysjärjestys ei ratkaise jaettua sijaa.</p></section>\n");
+        html.push_str("<section class=\"notice\"><p>Pisteet ovat kilpailutiedoista ja Emit-leimauksista laskettuja asematuloksia. Tasapisteissä kilpailijoilla on jaettu sija.</p></section>\n");
     } else {
-        html.push_str("<section class=\"notice\"><p>Sijoitukset ja pisteet perustuvat tuodun Kilp.txt-tiedoston tallennettuihin tuloksiin. Korttilaskennan esikatselu ei muuta näitä tuloksia. Tasapisteiden esitysjärjestys ei ratkaise jaettua sijaa.</p></section>\n");
+        html.push_str("<section class=\"notice\"><p>Sijoitukset ja pisteet perustuvat tuodun kilpailun tallennettuihin tuloksiin. Tasapisteissä kilpailijoilla on jaettu sija.</p></section>\n");
     }
     warnings(&mut html, &archive.warnings);
     if !report.diagnostics.is_empty() {

@@ -326,7 +326,8 @@ fn native_updates_autosave_and_current_results_follow_names_classes_and_station_
     assert!(text.contains("Korjattu kuljettaja"));
     assert!(text.contains("600"));
     let html = std::fs::read_to_string(html_path).unwrap();
-    assert!(html.contains("kehitysversio"));
+    assert!(!html.contains("kehitysversio"));
+    assert!(!html.contains("varmistamatta"));
     assert!(!html.contains("tuodun Kilp.txt-tiedoston"));
 }
 

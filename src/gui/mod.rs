@@ -1,15 +1,18 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
 slint::include_modules!();
+mod desktop;
 mod forms;
 mod smoke;
 mod tables;
 
 use as2026::{
-    ClockTime, CoreError, application, emit, io_message,
+    ClockTime, CoreError, application, emit, installation, io_message,
     live_reader::{ReaderEvent, ReaderWorker},
     native::{self, Project},
+    preferences::PreferencesStore,
     report,
     storage::ProjectStore,
+    updates,
     workspace::Workspace,
 };
 use chrono::Timelike;
@@ -27,9 +30,20 @@ use std::{
 type GuiResult<T> = Result<T, CoreError>;
 type SharedState = Rc<RefCell<State>>;
 
+enum UpdateEvent {
+    Checked(Result<updates::UpdateCheck, String>),
+    Downloaded(Result<PathBuf, String>),
+    Handoff(Result<(), String>),
+}
+
 #[derive(Default)]
 struct State {
     workspace: Option<Workspace>,
+    preferences: Option<PreferencesStore>,
+    update: Option<updates::Update>,
+    update_receiver: Option<Receiver<UpdateEvent>>,
+    update_bundle: Option<PathBuf>,
+    install_bundle: Option<PathBuf>,
     page: i32,
     selected: i32,
     detail: i32,
@@ -232,7 +246,7 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
 fn open_workspace(state: &mut State, app: &AppWindow, path: &Path, demo: bool) -> GuiResult<()> {
     let ws = Workspace::open(path)?;
     let message = if demo {
-        "Esimerkkikilpailu avattu väliaikaisena kokeilukopiona. Muutokset tallentuvat vain tähän kopioon."
+        "Esimerkkikilpailu avattu."
     } else if ws.is_editable() {
         "Kilpailu avattu. Muutokset tallentuvat automaattisesti."
     } else {
@@ -249,6 +263,18 @@ fn open_workspace(state: &mut State, app: &AppWindow, path: &Path, demo: bool) -
     app.set_last_card_detail("Kortti tunnistetaan kilpailijan Emit-numerosta.".into());
     navigate(state, app, 0)?;
     status(app, message, false);
+    if !demo {
+        let path = state.workspace.as_ref().unwrap().path().to_owned();
+        if let Some(preferences) = state.preferences.as_mut()
+            && let Err(error) = preferences.remember_competition(&path)
+        {
+            status(
+                app,
+                format!("Kilpailu avattu. Viimeisimmän kilpailun muistaminen epäonnistui: {error}"),
+                true,
+            );
+        }
+    }
     Ok(())
 }
 
@@ -554,21 +580,59 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     });
     action!(on_create_project, |s, a, path, name| {
         if can_switch(s, &a) {
-            if path.trim().is_empty() {
-                return Err(invalid("Valitse kilpailun kansio"));
+            let preferences = s
+                .preferences
+                .as_ref()
+                .ok_or_else(|| invalid("Sovellusasetuksia ei voitu avata"))?;
+            let workspace = if path.trim().is_empty() {
+                preferences.create_competition(&name)
+            } else {
+                preferences.create_competition_in(&name, &as2026::terminal::clean_path(&path))
             }
-            let ws = Workspace::create(&as2026::terminal::clean_path(&path), &name)?;
-            s.workspace = Some(ws);
-            s.selection = Selection::None;
-            a.set_demo(false);
+            .map_err(|e| invalid(&e))?;
+            let path = workspace.path().to_owned();
+            open_workspace(s, &a, &path, false)?;
             a.set_dialog_open(false);
-            navigate(s, &a, 0)?;
-            status(
-                &a,
-                "Kilpailu luotu. Voit lisätä kilpailijat ja tarkistaa radan.",
-                false,
-            );
         }
+        Ok(())
+    });
+    action!(on_change_default_root, |s, a| {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Valitse uusien kilpailujen tallennuspaikka")
+            .pick_folder()
+        {
+            let preferences = s
+                .preferences
+                .as_mut()
+                .ok_or_else(|| invalid("Sovellusasetuksia ei voitu avata"))?;
+            preferences.save_root(Some(path)).map_err(|e| invalid(&e))?;
+            a.set_default_root(
+                preferences
+                    .competition_root()
+                    .map_err(|e| invalid(&e))?
+                    .display()
+                    .to_string()
+                    .into(),
+            );
+            status(&a, "Uusien kilpailujen tallennuspaikka muutettu.", false);
+        }
+        Ok(())
+    });
+    action!(on_reset_default_root, |s, a| {
+        let preferences = s
+            .preferences
+            .as_mut()
+            .ok_or_else(|| invalid("Sovellusasetuksia ei voitu avata"))?;
+        preferences.save_root(None).map_err(|e| invalid(&e))?;
+        a.set_default_root(
+            preferences
+                .competition_root()
+                .map_err(|e| invalid(&e))?
+                .display()
+                .to_string()
+                .into(),
+        );
+        status(&a, "Uusien kilpailujen oletussijainti palautettu.", false);
         Ok(())
     });
     action!(on_browse_new_path, |_s, a| {
@@ -770,7 +834,9 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 return;
             };
             let mut s = state.borrow_mut();
-            if !can_switch(&mut s, &app)
+            if app.get_update_busy()
+                || app.get_install_busy()
+                || !can_switch(&mut s, &app)
                 || !s.workspace.as_ref().is_some_and(Workspace::is_editable)
             {
                 return;
@@ -831,6 +897,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         app.window().on_close_requested(move || {
             let Some(app) = weak.upgrade() else { return slint::CloseRequestResponse::HideWindow; };
             let mut s = state.borrow_mut();
+            if app.get_install_busy() { return slint::CloseRequestResponse::KeepWindowShown; }
             if !can_leave(&mut s, &app) { return slint::CloseRequestResponse::KeepWindowShown; }
             timer.stop();
             if let Err(error) = stop_reader(&mut s, &app) { status(&app, error.to_string(), true); return slint::CloseRequestResponse::KeepWindowShown; }
@@ -937,10 +1004,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut demo = false;
     let mut smoke_test = false;
     let mut captures = None;
+    let mut health_check = None;
+    let mut install_requested = false;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--demo") => demo = true,
+            Some("--install") => install_requested = true,
+            Some("--health-check") => {
+                health_check = Some(
+                    args.next()
+                        .ok_or("Käynnistyskuittauksen tunnus puuttuu")?
+                        .into_string()
+                        .map_err(|_| "Käynnistyskuittaus on virheellinen")?,
+                )
+            }
             Some("--smoke-test") => smoke_test = true,
             Some("--capture-dir") => {
                 captures = Some(PathBuf::from(
@@ -972,24 +1050,74 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let app = AppWindow::new()?;
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
+    app.set_app_version(env!("CARGO_PKG_VERSION").into());
+    app.set_managed(installation::is_managed());
+    let preferences = if demo {
+        let root = demo_path()?.parent().unwrap().to_owned();
+        PreferencesStore::open_at(
+            &root.join("sovellusasetukset.toml"),
+            &root.join("Kilpailut"),
+        )
+    } else {
+        PreferencesStore::open()
+    };
+    let preferences = match preferences {
+        Ok(preferences) => {
+            if let Ok(root) = preferences.competition_root() {
+                app.set_default_root(root.display().to_string().into());
+            }
+            Some(preferences)
+        }
+        Err(error) => {
+            status(&app, error, true);
+            None
+        }
+    };
+    let package = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(Path::to_owned))
+        .filter(|p| p.join("release.json").is_file());
+    app.set_installable(package.is_some());
+    app.set_setup_open((package.is_some() && !app.get_managed() && !demo) || install_requested);
+    let previous = preferences
+        .as_ref()
+        .and_then(|p| p.get().last_competition.clone());
     let state = Rc::new(RefCell::new(State {
         selected: -1,
         detail: -1,
+        preferences,
+        install_bundle: package,
         ..Default::default()
     }));
     let reader_timer = Rc::new(Timer::default());
     bind(&app, &state, &reader_timer);
+    let update_timer = Rc::new(Timer::default());
+    desktop::bind(&state, &app, &update_timer, &reader_timer);
     let path = if demo {
         Some(demo_path()?)
     } else {
-        initial_path
+        initial_path.or(previous)
     };
     if let Some(path) = path
         && let Err(error) = open_workspace(&mut state.borrow_mut(), &app, &path, demo)
     {
         status(&app, error.to_string(), true);
     }
+    if let Some(error) = installation::take_startup_error()? {
+        status(&app, error, true);
+    }
     app.show()?;
+    if let Some(token) = health_check {
+        let weak = app.as_weak();
+        Timer::single_shot(Duration::from_millis(150), move || {
+            if let Err(error) = installation::acknowledge_startup(&token) {
+                if let Some(app) = weak.upgrade() {
+                    status(&app, error, true);
+                }
+                let _ = slint::quit_event_loop();
+            }
+        });
+    }
     if smoke_test {
         smoke::run(&app, &state)?;
     }
@@ -997,6 +1125,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         capture_views(&app, state.clone(), directory, smoke_test)?;
     }
     slint::run_event_loop()?;
+    update_timer.stop();
     reader_timer.stop();
     stop_reader(&mut state.borrow_mut(), &app)?;
     Ok(())

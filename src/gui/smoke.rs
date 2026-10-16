@@ -22,6 +22,7 @@ pub fn open_dialog(app: &AppWindow) {
 }
 
 pub fn fill_dialog(app: &AppWindow) {
+    app.set_new_location_visible(true);
     key(app, "Syysajo 2026");
     key(app, slint::platform::Key::Tab);
     key(app, "C:/Kilpailut/Syysajo");
@@ -41,6 +42,26 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
             ws.project().ok_or("Muokattava esimerkki puuttuu")?.clone(),
         )
     };
+    // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
+    app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
+    {
+        let state = state.borrow();
+        let created = state.workspace.as_ref().unwrap();
+        let preferences = state.preferences.as_ref().unwrap();
+        assert_eq!(created.name(), "Nimellä luotu kilpailu");
+        assert!(created.path().starts_with(preferences.competition_root()?));
+        let reopened =
+            PreferencesStore::open_at(preferences.path(), &preferences.competition_root()?)?;
+        assert_eq!(
+            reopened.get().last_competition.as_deref(),
+            Some(created.path())
+        );
+        assert_eq!(
+            Workspace::open(reopened.get().last_competition.as_ref().unwrap())?.name(),
+            "Nimellä luotu kilpailu"
+        );
+    }
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
     app.invoke_navigate(1);
     app.invoke_select_row(0);
     // Näkymän vaihto hyväksyy myös vielä kohdistetussa kentässä olevan luonnoksen.
@@ -97,7 +118,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
     app.invoke_select_detail(1);
     assert!(app.invoke_field_commit(3, "275".into()));
     app.invoke_navigate(3);
-    assert!(app.get_calculation_notes().contains("AS2015A"));
+    assert!(!app.get_calculation_notes().contains("varmistamatta"));
     let results = state.borrow().workspace.as_ref().unwrap().results()?;
     assert_eq!(results.competitors[0].total_penalties, 600);
     // Tallennusvirhe ei hävitä jo luettua kehystä; uudelleenyritys käyttää samaa kilpailua.

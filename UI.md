@@ -37,6 +37,10 @@ Vanhoja AS2015A-kilpailuja käsitellään lähdeaineistona. Niiden tarkastelu ei
 | Seitsemän näkymän asettelu ja käyttäjätekstit | `ui/app.slint`. |
 | Slintin ja Rustin välillä kulkevat esitystyypit | `ui/types.slint`. |
 | Rustin ja Slintin välinen tiedonsiirto sekä käyttöliittymän tapahtumat | `src/gui/mod.rs`. |
+| Sovellusasetukset ja päivitysten GUI-taustatyö | `src/gui/desktop.rs`. |
+| Pysyvät kilpailukansiot ja viimeksi avattu kilpailu | `src/preferences.rs`. |
+| Versionoitu asennus, käynnistin ja palautus | `src/installation.rs`, `src/bin/as2026-launcher.rs`. |
+| Allekirjoituksen tarkistus ja lataukset | `src/updates.rs`, `release-public-key.hex`. |
 | GUI:n käynnistäminen | `src/bin/as2026-gui.rs`. |
 | Lomakkeet ja nimetyt valinnat | `src/gui/forms.rs`. |
 | Taulukot, haku ja tulosten esittäminen | `src/gui/tables.rs`. |
@@ -108,3 +112,11 @@ Kuvakaappausajoon yhdistetty koe lähettää myös näppäintapahtumat käynniss
 Koe ei avaa fyysistä lukijaa. Fyysistä Emit-testiä ei tässä GUI-vaiheessa toistettu. Aiempi CLI-laitetesti ei yksin todista GUI:n fyysistä lukijatyönkulkua.
 
 Tulosten tallennuspaikan valinta tehdään erillisessä tehtävässä, joten raportin valintaikkuna ei pysäytä Emit-tapahtumien käsittelyä. Tallennusvirheessä lukija pysäytetään ja jo luetut kehykset säilytetään muistissa; käyttöliittymä tarjoaa uudelleenyrityksen ennen sulkemista. Lukuhistorian luettelo näyttää viimeiset 50 lukemaa, mutta koko historia säilyy kilpailutiedostossa.
+
+## Pysyvä asennus ja kilpailukansiot
+
+Uuden kilpailun luomisessa riittää nimi. Ohjelma tekee sen alle yksilöllisen turvallisen kansion Asiakirjat-kansion AS2026/Kilpailut-juureen. Jos Asiakirjat-kansiota ei ole määritelty, käytetään käyttöjärjestelmän pysyvää sovellusdataa. Asetuksista vaihdettu oletusjuuri ja kilpailukohtainen Vaihda sijaintia -valinta eivät siirrä vanhoja kilpailuja. Viimeksi onnistuneesti avattu pysyvä kilpailu muistetaan seuraavaa käynnistystä varten. --demo käyttää erillisiä tilapäisiä koetietoja ja omia asetuksia; se ei muuta viimeksi avattua oikeaa kilpailua.
+
+Asetukset-näkymän sovellusasetuksia voi käyttää myös ilman avointa kilpailua. Päivitysten tarkistus ja lataus tehdään käyttäjän pyynnöstä taustalla. Asennus odottaa keskeneräisten muokkausten hyväksymistä ja odottavien Emit-lukemien tallennusta ennen ohjelman vaihtoa. Kortinlukija pysäytetään hallitusti asennuksen ajaksi.
+
+Projektin oma lisenssi on BSD-2-Clause. Alkuperäinen Slint-maininta säilytetään Tietoja-ikkunassa. Esitystasolla näytetään toimitsijan työhön liittyvät tiedot ja virheet; kehityksen ja laskennan tutkimushistoria kuuluu tekniseen dokumentaatioon.

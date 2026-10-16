@@ -1,0 +1,172 @@
+[
+  {
+    "name": "accesskit",
+    "version": "0.22.0",
+    "file": "accesskit-0.22.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_atspi_common",
+    "version": "0.15.0",
+    "file": "accesskit_atspi_common-0.15.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_consumer",
+    "version": "0.32.0",
+    "file": "accesskit_consumer-0.32.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_unix",
+    "version": "0.18.0",
+    "file": "accesskit_unix-0.18.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_winit",
+    "version": "0.30.0",
+    "file": "accesskit_winit-0.30.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/09e2a3798c052e12b2ecccfa5b9d27608399e4bb/LICENSE-APACHE"
+  },
+  {
+    "name": "const-field-offset",
+    "version": "0.2.1",
+    "file": "const-field-offset-0.2.1.txt",
+    "source": "https://raw.githubusercontent.com/slint-ui/slint/b0fc6a7287a062fefb30133e6aecf0303f76357d/LICENSES/MIT.txt"
+  },
+  {
+    "name": "const-field-offset-macro",
+    "version": "0.2.1",
+    "file": "const-field-offset-macro-0.2.1.txt",
+    "source": "https://raw.githubusercontent.com/slint-ui/slint/b0fc6a7287a062fefb30133e6aecf0303f76357d/LICENSES/MIT.txt"
+  },
+  {
+    "name": "drm-fourcc",
+    "version": "2.2.0",
+    "file": "drm-fourcc-2.2.0.txt",
+    "source": "https://raw.githubusercontent.com/danielzfranklin/drm-fourcc-rs/7b9f80060ffd4b35cd236437e65a17fb517d163c/Cargo.toml",
+    "notice": "Upstream declares MIT without a separate license file; standard MIT terms with author attribution."
+  },
+  {
+    "name": "gbm-sys",
+    "version": "0.4.0",
+    "file": "gbm-sys-0.4.0.txt",
+    "source": "https://raw.githubusercontent.com/Drakulix/gbm.rs/2b4047f8e5ab4d050d4ed88f5ee2515069478fac/LICENSE"
+  },
+  {
+    "name": "gl_generator",
+    "version": "0.14.0",
+    "file": "gl_generator-0.14.0.txt",
+    "source": "https://raw.githubusercontent.com/brendanzab/gl-rs/ea503e8d5fb6d73c6030e6191ce738cd3bf3433e/LICENSE"
+  },
+  {
+    "name": "harfrust",
+    "version": "0.5.2",
+    "file": "harfrust-0.5.2.txt",
+    "source": "https://raw.githubusercontent.com/harfbuzz/harfrust/efdae3142ab76a2f1524d72cff9e3dfdc5afd7ca/LICENSE"
+  },
+  {
+    "name": "integer-sqrt",
+    "version": "0.1.5",
+    "file": "integer-sqrt-0.1.5.txt",
+    "source": "https://raw.githubusercontent.com/derekdreery/integer-sqrt-rs/282d0d4e26fd41d888894f5578b9d7553f7be0c8/LICENSE-APACHE"
+  },
+  {
+    "name": "khronos_api",
+    "version": "3.1.0",
+    "file": "khronos_api-3.1.0.txt",
+    "source": "https://raw.githubusercontent.com/brendanzab/gl-rs/f150967b1c44ae888e6676f93f639ebc82771bdc/LICENSE"
+  },
+  {
+    "name": "lyon_algorithms",
+    "version": "1.0.21",
+    "file": "lyon_algorithms-1.0.21.txt",
+    "source": "https://raw.githubusercontent.com/nical/lyon/994526f2766c7e9bc5bb16687232fd7e8999dbdf/LICENSE-APACHE"
+  },
+  {
+    "name": "lyon_extra",
+    "version": "1.1.0",
+    "file": "lyon_extra-1.1.0.txt",
+    "source": "https://raw.githubusercontent.com/nical/lyon/56219c95c658d4f39de7b190d98e57d5773ba241/LICENSE-APACHE"
+  },
+  {
+    "name": "lyon_geom",
+    "version": "1.0.19",
+    "file": "lyon_geom-1.0.19.txt",
+    "source": "https://raw.githubusercontent.com/nical/lyon/56219c95c658d4f39de7b190d98e57d5773ba241/LICENSE-APACHE"
+  },
+  {
+    "name": "lyon_path",
+    "version": "1.0.19",
+    "file": "lyon_path-1.0.19.txt",
+    "source": "https://raw.githubusercontent.com/nical/lyon/56219c95c658d4f39de7b190d98e57d5773ba241/LICENSE-APACHE"
+  },
+  {
+    "name": "profiling",
+    "version": "1.0.18",
+    "file": "profiling-1.0.18.txt",
+    "source": "https://raw.githubusercontent.com/aclysma/profiling/8271551172eb6fa4cba47369aedd93790c623df9/LICENSE-APACHE"
+  },
+  {
+    "name": "profiling-procmacros",
+    "version": "1.0.18",
+    "file": "profiling-procmacros-1.0.18.txt",
+    "source": "https://raw.githubusercontent.com/aclysma/profiling/8271551172eb6fa4cba47369aedd93790c623df9/LICENSE-APACHE"
+  },
+  {
+    "name": "pulp-wasm-simd-flag",
+    "version": "0.1.1",
+    "file": "pulp-wasm-simd-flag-0.1.1.txt",
+    "source": "https://raw.githubusercontent.com/sarah-quinones/pulp/5eb07fd7b68edf0a5e19f71737d315f72a510295/LICENSE"
+  },
+  {
+    "name": "rspolib",
+    "version": "0.1.2",
+    "file": "rspolib-0.1.2.txt",
+    "source": "https://raw.githubusercontent.com/mondeja/rspolib/8170d99ebad29d894712ccb3dc6d0be2198d3055/LICENSE"
+  },
+  {
+    "name": "simd_helpers",
+    "version": "0.1.0",
+    "file": "simd_helpers-0.1.0.txt",
+    "source": "https://raw.githubusercontent.com/lu-zero/simd_helpers/ca1a2f84aa386d758e98f8a609d990263932fb85/Cargo.toml",
+    "notice": "Upstream declares MIT without a separate license file; standard MIT terms with author attribution."
+  },
+  {
+    "name": "skia-bindings",
+    "version": "0.90.0",
+    "file": "skia-bindings-0.90.0.txt",
+    "source": "https://raw.githubusercontent.com/rust-skia/rust-skia/da4579b39b75fa2187c58af5d33d6c1499a2ed42/LICENSE"
+  },
+  {
+    "name": "skia-safe",
+    "version": "0.90.0",
+    "file": "skia-safe-0.90.0.txt",
+    "source": "https://raw.githubusercontent.com/rust-skia/rust-skia/da4579b39b75fa2187c58af5d33d6c1499a2ed42/LICENSE"
+  },
+  {
+    "name": "taffy",
+    "version": "0.9.2",
+    "file": "taffy-0.9.2.txt",
+    "source": "https://raw.githubusercontent.com/DioxusLabs/taffy/8f30e394106af09dbf131d184e3cff25d20cc207/LICENSE.md"
+  },
+  {
+    "name": "vtable",
+    "version": "0.4.0",
+    "file": "vtable-0.4.0.txt",
+    "source": "https://raw.githubusercontent.com/slint-ui/slint/443908daeed77db500781670448d3688e4be0b9a/LICENSES/MIT.txt"
+  },
+  {
+    "name": "vtable-macro",
+    "version": "0.4.0",
+    "file": "vtable-macro-0.4.0.txt",
+    "source": "https://raw.githubusercontent.com/slint-ui/slint/443908daeed77db500781670448d3688e4be0b9a/LICENSES/MIT.txt"
+  },
+  {
+    "name": "zune-inflate",
+    "version": "0.2.54",
+    "file": "zune-inflate-0.2.54.txt",
+    "source": "https://raw.githubusercontent.com/etemesi254/zune-image/69502ce83fdfecdd0beefd677e2abb3781b29d98/LICENSE.md"
+  }
+]

@@ -143,3 +143,15 @@ Automaattiset testit käyttävät synteettisiä kilpailijoita, kilpailuja ja tav
 Pidä `kilpailu.toml`, lukuhistoria ja varmuuskopiot poissa lähdekoodirepositoriosta, jos niissä on oikeita kilpailijoiden tietoja. Lähdekoodin `fixtures`-aineisto on synteettistä. Ohjelman paikallinen `.lukko`-lukitus ja sisältövertailu eivät ole usean tietokoneen synkronointia. Ulkoiset editorimuutokset ja `.bak`-palautus tehdään sovelluksen ollessa suljettuna; tarkemmat palautusohjeet ovat README-tiedostossa.
 
 Uuden kilpailun luonti julkaisee valmiin tiedoston kovalla linkillä, jotta olemassa olevaa kilpailua ei voida korvata kilpailevalla luontiyrityksellä. Valitse kovat linkit salliva paikallinen tiedostojärjestelmä. FAT- ja exFAT-taltiot eivät tue tätä luontipolkua; niitä ei pidä käyttää suoraan kilpailun tallennuskansiona tässä toteutuksessa.
+
+## Asennettavan ohjelman paketointi
+
+`cargo build --release --features gui` tuottaa CLI:n ja GUI:n lisäksi asennuksen pysyvän käynnistimen `as2026-launcher` (Windowsissa .exe). Pakettien lisenssit tarkistetaan ennen kokoamista:
+
+```sh
+python3 scripts/package_release.py check-license
+python3 -m unittest discover -s scripts/tests -v
+python3 scripts/package_release.py prepare --target x86_64-unknown-linux-gnu --output target/payload-linux
+```
+
+Paketoinnin ja manuaalisesti käynnistettävän tulevan GitHub-julkaisun ohjeet ovat tiedostossa RELEASES.md. Projektilisenssi on BSD-2-Clause; riippuvuuksien lisenssejä ei muuteta. Pelkkä paketin kokoaminen ei ole GitHub Release eikä muuta repositorion yksityisyyttä.

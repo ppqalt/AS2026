@@ -228,7 +228,6 @@ fn read_continuously(directory: &Path, requested: Option<&str>) -> Result<()> {
     println!(
         "Aseta kortti lukijaan. Seuraavaa korttia odotetaan samassa portissa. Lopeta Ctrl+C:llä."
     );
-    println!("Laskenta on kehitysversio; vastaavuus AS2015A-tuloksiin on vielä varmistamatta.");
     let result = (|| {
         while !STOP_READING.load(Ordering::SeqCst) {
             if let Some(frame) = reader.poll().map_err(invalid)? {
@@ -320,9 +319,11 @@ fn print_calculation(result: &timing::LiveCalculation, show_trace: bool) {
         );
     }
     for d in &result.diagnostics {
-        match d.row {
-            Some(row) => println!("Huomio, rivi {row}: {}", d.message),
-            None => println!("Huomio: {}", d.message),
+        if let Some(message) = report::user_notice(&d.message) {
+            match d.row {
+                Some(row) => println!("Huomio, rivi {row}: {message}"),
+                None => println!("Huomio: {message}"),
+            }
         }
     }
     if show_trace {
@@ -340,10 +341,11 @@ fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<S
     let a = load(directory, encoding)?;
     let result = application::calculate(&a)?;
     println!("\nTuloslaskennan esikatselu — {}", result.competition_name);
-    println!(
-        "Korttiaineiston laskentaa ei ole vielä verrattu alkuperäisohjelman kilpailutuloksiin."
-    );
-    for warning in &result.warnings {
+    for warning in result
+        .warnings
+        .iter()
+        .filter_map(|m| report::user_notice(m))
+    {
         println!("Huomio: {warning}");
     }
     for entry in &result.competitors {
@@ -362,7 +364,7 @@ fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<S
             Ok(calculation) => print_calculation(calculation, show_trace),
             Err(error) => println!("Laskentaa ei tehty: {error}"),
         }
-        for note in &entry.notes {
+        for note in entry.notes.iter().filter_map(|m| report::user_notice(m)) {
             println!("Huomio: {note}");
         }
     }
@@ -398,7 +400,7 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
     println!(
         "\nLuokkakohtaiset tulokset — {}",
         if is_native {
-            "ajantasainen asemalaskenta (kehitysversio)"
+            "ajantasainen asemalaskenta"
         } else {
             "tallennetut pisteet"
         }

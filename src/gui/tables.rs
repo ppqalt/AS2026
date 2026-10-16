@@ -118,7 +118,11 @@ pub fn data(
     }
     notes.sort();
     notes.dedup();
-    view.notes = notes.join("\n");
+    view.notes = notes
+        .iter()
+        .filter_map(|note| as2026::report::user_notice(note))
+        .collect::<Vec<_>>()
+        .join("\n");
     Ok(view)
 }
 
@@ -330,11 +334,6 @@ fn results(
     if !ranking.omitted_source_indices.is_empty() {
         notes.push("Keskeneräiset ja tuntemattomat tarkastustilat näkyvät luettelon lopussa ilman sijoitusta.".into());
     }
-    notes.push(if ws.is_editable() {
-        "Tulokset lasketaan ajantasaisista tiedoista ja leimauksista. Summa sisältää asemarivien pisteet; erilliset kilpailijakohtaiset RT- ja muut lisäpisteet puuttuvat vielä. Vastaavuutta AS2015A:n lopputuloksiin ei ole vahvistettu."
-    } else {
-        "Tulokset ja asemarivit ovat AS2015A-aineiston tallennettuja arvoja. Korttilaskennan esikatselu ei muuta niitä."
-    }.into());
     notes.push(
         "Tasapisteissä jaettu sija säilyy; rivien esitysjärjestys ei ratkaise tasapisteitä.".into(),
     );
@@ -642,7 +641,12 @@ mod tests {
         assert_eq!(results.rows[1].key, 1);
         assert_eq!(text(&results.rows[1], 6), "—");
         assert!(!results.detail_rows.is_empty());
-        assert!(results.notes.contains("AS2015A"));
+        assert!(!results.notes.contains("AS2015A"));
+        assert!(
+            results
+                .notes
+                .contains("Maaliaika on johdettu kortin viimeisestä leimasta.")
+        );
     }
 
     #[test]

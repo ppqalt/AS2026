@@ -12,7 +12,7 @@ use as2026::{
     ranking::{
         self, ClassDefinition, CompetitorInput, Diagnostic, DiagnosticKind, RankingInput, Status,
     },
-    report::{calculation_html, ranking_html, save_new},
+    report::{calculation_html, ranking_html, save_new, user_notice},
     scoring::PenaltyTotals,
     timing::{
         CalculatedRow, CalculationDiagnostic, CalculationPolicy, CalculationStatus, LiveCalculation,
@@ -198,11 +198,11 @@ fn calculation_html_escapes_rows_errors_reasons_and_notes_and_keeps_totals_separ
     assert!(html.contains("Tuloslaskennan esikatselu"));
     assert!(html.contains("Tallennettu tulos: <strong>23 p</strong>"));
     assert!(html.contains("Virhepisteet yhteensä (asemarivit): 9 p"));
-    assert!(html.contains("Esikatselu sisältää vain asemarivien virhepisteet."));
-    assert!(html.contains("Erillisiä puuttuvien ja ylimääräisten RT-asemien lisäyksiä sekä muita kilpailijakohtaisia virhepisteitä ei vielä yhdistetä esikatseluun."));
+    assert!(!html.contains("kehitysversio"));
+    assert!(!html.contains("varmistamatta"));
     assert!(html.contains("Aikavirhepisteet: 7 p"));
     assert!(html.contains("Tarkastustulos: KESK"));
-    assert!(html.contains("Esikatselua ei voitu laskea: Virheellinen syöte:"));
+    assert!(html.contains("Laskentaa ei voitu tehdä: Virheellinen syöte:"));
     assert!(html.contains("Tavoite (s)"));
     assert!(html.contains("Toteutunut (s)"));
     assert!(!html.contains("internal-code-not-for-display"));
@@ -263,4 +263,41 @@ fn save_new_refuses_existing_symlink_without_touching_target() {
     assert!(save_new(&link, "korvattu").is_err());
     assert_eq!(fs::read_to_string(&target).unwrap(), "säilytettävä");
     fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn user_notices_keep_actionable_input_errors_and_hide_research_notes() {
+    let note = "Kilpailija 7: Palautettu korttilaskenta johtaa leimattoman maalin ajan kortin viimeisestä leimasta. Vanhan ohjelman tämän kohdan käsittely on ristiriitainen. Valitun laskentatavan vastaavuus vanhoihin kilpailutuloksiin on vielä tarkistettava.";
+    assert_eq!(
+        user_notice(note).unwrap(),
+        "Kilpailija 7: Maaliaika on johdettu kortin viimeisestä leimasta."
+    );
+    assert_eq!(
+        user_notice("Virheellinen syöte: Kortin 123 raakaleimauksia ei löydy emit.txt-tiedostosta")
+            .unwrap(),
+        "Virheellinen syöte: Kortin 123 raakaleimauksia ei löydy emit.txt-tiedostosta"
+    );
+    assert!(user_notice("Esikatselu sisältää asemarivien virhepisteet. Erillisiä RT-lisäyksiä ja muita kilpailijakohtaisia virhepisteitä ei vielä yhdistetä siihen.").is_none());
+}
+
+#[test]
+fn native_reports_present_results_without_development_banners() {
+    let project =
+        as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+            .unwrap();
+    let archive = as2026::application::calculated_project(&project).unwrap();
+    let calculation = as2026::application::calculate(&project.to_archive().unwrap()).unwrap();
+    let ranking =
+        as2026::application::rank_stored(&archive, ranking::TiePolicy::KeepSharedAndFlag).unwrap();
+    for html in [
+        as2026::report::project_calculation_html(&calculation),
+        as2026::report::project_ranking_html(&archive, &ranking),
+    ] {
+        assert!(!html.contains("kehitysversio"));
+        assert!(!html.contains("varmistamatta"));
+        assert!(!html.contains("Vanhan ohjelman"));
+        assert!(!html.contains("vastaavuus"));
+        assert!(html.contains("Maaliaika on johdettu kortin viimeisestä leimasta."));
+        assert!(html.contains("Virhepisteet") || html.contains("Tulos"));
+    }
 }

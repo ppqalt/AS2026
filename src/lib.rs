@@ -6,11 +6,17 @@
 pub mod application;
 pub mod changes;
 pub mod emit;
+#[cfg(feature = "desktop")]
+pub mod installation;
 pub mod legacy;
 pub mod live_reader;
 pub mod matching;
+#[cfg(feature = "desktop")]
+pub mod preferences;
 pub mod reader;
 pub mod scoring;
+#[cfg(feature = "desktop")]
+pub mod updates;
 pub mod workspace;
 
 use std::fmt;
