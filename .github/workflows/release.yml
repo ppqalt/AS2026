@@ -39,24 +39,20 @@ jobs:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Asenna Python-paketointityökalujen ajonaikainen ympäristö
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.13'
+      - name: Asenna Rustin julkaisutyökalu
+        run: rustup toolchain install stable --profile minimal
       - name: Varmista AS2026:n täydellinen BSD-2-Clause-lisenssi ennen rakentamista
-        run: python scripts/package_release.py check-license
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- check-license
       - name: Varmista vakaa versio ja main-haaran julkaisu
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
-        run: python scripts/package_release.py verify --tag "$env:RELEASE_TAG"
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- verify --tag "$env:RELEASE_TAG"
         if: runner.os == 'Windows'
       - name: Varmista vakaa versio ja main-haaran julkaisu
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
-        run: python3 scripts/package_release.py verify --tag "$RELEASE_TAG"
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- verify --tag "$RELEASE_TAG"
         if: runner.os == 'Linux'
-      - name: Asenna Rustin tarkistustyökalut
-        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
       - name: Asenna Linuxin käyttöliittymäkirjastojen kehitystiedostot
         if: runner.os == 'Linux'
         run: |
@@ -69,11 +65,11 @@ jobs:
       - name: Tarkista varoitukset
         run: cargo +stable clippy --locked --all-targets --features gui -- -D warnings
       - name: Testaa paketointi ja allekirjoituksen tarkistus
-        run: python -m unittest discover -s scripts/tests -v
+        run: cargo +stable test --manifest-path tools/release/Cargo.toml
       - name: Käännä GUI, käynnistin ja komentoriviohjelma
         run: cargo +stable build --locked --release --features gui
       - name: Kokoa tiedostot ja riippuvuuksien lisenssit
-        run: python scripts/package_release.py prepare --target ${{ matrix.target }} --output release-payloads/${{ matrix.target }}
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- prepare --target ${{ matrix.target }} --output release-payloads/${{ matrix.target }}
       - name: Säilytä tarkistetut hyötytiedostot
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -96,16 +92,14 @@ jobs:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Asenna allekirjoitustyökalun Python-ympäristö
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.13'
+      - name: Asenna Rustin julkaisutyökalu
+        run: rustup toolchain install stable --profile minimal
       - name: Varmista AS2026:n täydellinen BSD-2-Clause-lisenssi ennen allekirjoittamista
-        run: python3 scripts/package_release.py check-license
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- check-license
       - name: Varmista julkaisu uudelleen ennen salaisuuden käyttöä
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
-        run: python3 scripts/package_release.py verify --tag "$RELEASE_TAG"
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- verify --tag "$RELEASE_TAG"
       - name: Nouda Linux-paketti
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -119,7 +113,7 @@ jobs:
       - name: Allekirjoita manifesti ja kokoa molemmat julkaisuarkistot
         env:
           AS2026_RELEASE_SIGNING_KEY: ${{ secrets.AS2026_RELEASE_SIGNING_KEY }}
-        run: python3 scripts/sign_release.py --input release-payloads --output dist
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- sign --input release-payloads --output dist
       - name: Julkaise valmis vakaa versio
         env:
           GH_TOKEN: ${{ github.token }}

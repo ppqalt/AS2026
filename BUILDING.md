@@ -149,9 +149,9 @@ Uuden kilpailun luonti julkaisee valmiin tiedoston kovalla linkillä, jotta olem
 `cargo build --release --features gui` tuottaa CLI:n ja GUI:n lisäksi asennuksen pysyvän käynnistimen `as2026-launcher` (Windowsissa .exe). Pakettien lisenssit tarkistetaan ennen kokoamista:
 
 ```sh
-python3 scripts/package_release.py check-license
-python3 -m unittest discover -s scripts/tests -v
-python3 scripts/package_release.py prepare --target x86_64-unknown-linux-gnu --output target/payload-linux
+cargo run --manifest-path tools/release/Cargo.toml -- check-license
+cargo test --manifest-path tools/release/Cargo.toml
+cargo run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-unknown-linux-gnu --output target/payload-linux
 ```
 
 Paketoinnin ja manuaalisesti käynnistettävän tulevan GitHub-julkaisun ohjeet ovat tiedostossa RELEASES.md. Projektilisenssi on BSD-2-Clause; riippuvuuksien lisenssejä ei muuteta. Pelkkä paketin kokoaminen ei ole GitHub Release eikä muuta repositorion yksityisyyttä.

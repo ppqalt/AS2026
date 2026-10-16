@@ -1,4 +1,4 @@
-# AS2026:n tulevien julkaisujen tekeminen
+# AS2026:n julkaisujen tekeminen
 
 Nykyinen lisenssi on **BSD-2-Clause**. Repositorio on julkinen. Pelkkä dev-push tai tagi ei silti julkaise GitHub Releaseä: julkaisutyönkulku käynnistetään erikseen ja sen julkaisuvaihe pitää valita nimenomaisesti. Oletuksena syntyvät vain Actions-testipaketit.
 
@@ -11,7 +11,7 @@ Kehitys tehdään `dev`-haarassa. Hyväksytty, testattu versio viedään hallitu
 
 ## Paketit
 
-`.github/workflows/release.yml` rakentaa Linux-paketin Ubuntu 22.04:llä ja Windows-paketin Windowsin omalla MSVC-työkaluketjulla. Kummallakin alustalla suoritetaan Cargo-testit, Clippy, muotoilutarkistus ja paketointiskriptien testit ennen release-käännöstä. Ubuntu 22.04 rajaa Linuxin glibc-vaatimusta; ohjelma tarvitsee lisäksi järjestelmän tavalliset Wayland- tai X11-, EGL- ja fonttikirjastot. Windows-käännös ei todista käyttöliittymän tai päivityksen toimintaa fyysisellä Windows-koneella.
+`.github/workflows/release.yml` rakentaa Linux-paketin Ubuntu 22.04:llä ja Windows-paketin Windowsin omalla MSVC-työkaluketjulla. Kummallakin alustalla suoritetaan Cargo-testit, Clippy, muotoilutarkistus ja Rust-julkaisutyökalun testit ennen release-käännöstä. Ubuntu 22.04 rajaa Linuxin glibc-vaatimusta; ohjelma tarvitsee lisäksi järjestelmän tavalliset Wayland- tai X11-, EGL- ja fonttikirjastot. Windows-käännös ei todista käyttöliittymän tai päivityksen toimintaa fyysisellä Windows-koneella.
 
 Julkaisu sisältää seuraavat tiedostot:
 
@@ -23,7 +23,7 @@ Arkistojen juuressa ovat `as2026-gui`, `as2026-launcher` ja `as2026` (Windowsiss
 
 Asennus päivittää myös pysyvän käynnistimen varmennetusta paketista atomisesti ennen aktiivisen version vaihtoa. Jos Windowsissa käynnissä oleva vanha käynnistin estää vaihdon, asennus antaa virheen ja ohjaa käyttämään uuden puretun paketin asennusohjelmaa; aktiivinen versio säilyy ennallaan. Aiemman version palautus varmentaa palautettavan paketin ja odottaa käynnistyskuittausta. Epäonnistuva palautus säilyttää alkuperäisen aktiivisen version.
 
-`scripts/package_release.py` kerää suoritettavat tiedostot ja käytössä olevan Cargo-riippuvuuspuun lisenssit. Mukaan kerätään myös rakennusaikaisia riippuvuuksia. `dependency-licenses/index.json` luettelee nimet, versiot, lisenssit, tekijät ja lähteet. Crateista puuttuvat lisenssit kopioidaan tarkistetuista, lähdecommitilla kiinnitetyistä `scripts/license-overrides/`-tiedostoista. `drm-fourcc` ja `simd_helpers` ilmoittavat lähdekoodissaan MIT-lisenssin ilman erillistä lisenssitiedostoa; niiden erikseen merkityissä ilmoituksissa yhdistetään tavallinen MIT-teksti Cargo-metatietojen tekijämainintoihin. REUSE-muotoiset SPDX-tekijämaininnat kerätään lisäksi lähdekoodin otsakkeista. Keruu pysähtyy puuttuvaan lisenssiin; riippuvuuden päivitys voi vaatia uuden tarkistetun lisenssikopion. Alkuperäisiä tekijämainintoja ei poisteta. Slintin maininta säilyy GUI:n **Tietoja**-ikkunassa.
+`tools/release/`-hakemiston Rust-julkaisutyökalu kerää suoritettavat tiedostot ja käytössä olevan Cargo-riippuvuuspuun lisenssit. Mukaan kerätään myös rakennusaikaisia riippuvuuksia. `dependency-licenses/index.json` luettelee nimet, versiot, lisenssit, tekijät ja lähteet. Crateista puuttuvat lisenssit kopioidaan tarkistetuista, lähdecommitilla kiinnitetyistä `scripts/license-overrides/`-tiedostoista. `drm-fourcc` ja `simd_helpers` ilmoittavat lähdekoodissaan MIT-lisenssin ilman erillistä lisenssitiedostoa; niiden erikseen merkityissä ilmoituksissa yhdistetään tavallinen MIT-teksti Cargo-metatietojen tekijämainintoihin. REUSE-muotoiset SPDX-tekijämaininnat kerätään lisäksi lähdekoodin otsakkeista. Keruu pysähtyy puuttuvaan lisenssiin; riippuvuuden päivitys voi vaatia uuden tarkistetun lisenssikopion. Alkuperäisiä tekijämainintoja ei poisteta. Slintin maininta säilyy GUI:n **Tietoja**-ikkunassa.
 
 ## Aitous ja allekirjoitusavain
 
@@ -31,7 +31,7 @@ Asennus päivittää myös pysyvän käynnistimen varmennetusta paketista atomis
 
 Allekirjoitusvaihe saa kirjoitusoikeuden vain GitHub Releaseen. Rakennusvaiheilla on vain lukuoikeus. Allekirjoitussalaisuutta käytetään vasta, kun molempien alustojen tarkistukset ja paketointi ovat onnistuneet. Työnkulku käynnistetään manuaalisesti valitsemalla julkaisutagi. Oletus publish_release=false kokoaa vain testipaketit; allekirjoitus ja GitHub Release edellyttävät erillistä publish_release=true-valintaa. Pull request tai tagin push ei käynnistä julkaisua. GitHubin haarojen ja tagien suojaus kannattaa määrittää niin, että vain ylläpitäjä voi julkaista vakaita tageja.
 
-`scripts/sign_release.py` varmistaa, että yksityisen avaimen julkinen osa vastaa repositorion avainta. Avain kirjoitetaan rajatuin oikeuksin väliaikaiseen tiedostoon vain allekirjoittamisen ajaksi ja poistetaan sen jälkeen. Salaisuutta tai OpenSSL:n yksityiskohtaisia avainvirheitä ei tulosteta lokiin. Kumpikin alustan välipaketti tarkistetaan vielä uudelleen ennen allekirjoitusta. Julkaisu pysähtyy puuttuvaan avaimeen, väärään avaimeen tai muuttuneisiin tiedostoihin.
+Rust-julkaisutyökalun `sign`-komento varmistaa, että yksityisen avaimen julkinen osa vastaa repositorion avainta. Yksityinen avain käsitellään Rust-prosessin muistissa, eikä siitä kirjoiteta väliaikaista PEM-tiedostoa. Salaisuutta tai avaimen sisältöä ei tulosteta lokiin. Kumpikin alustan välipaketti tarkistetaan vielä uudelleen ennen allekirjoitusta. Julkaisu pysähtyy puuttuvaan avaimeen, väärään avaimeen tai muuttuneisiin tiedostoihin.
 
 `release.json` on UTF-8-JSON, ja allekirjoitus koskee sen täsmällisiä tavuja. Rakenne on seuraava:
 
@@ -61,16 +61,16 @@ Todellinen tiedostoluettelo sisältää jokaisen hyötytiedoston, myös lisenssi
 
 ## Tarkistukset paikallisesti
 
-Paketointitestit käyttävät synteettisiä tiedostoja ja testissä muodostettua kertakäyttöistä Ed25519-avainta:
+Rust-julkaisutyökalun testit käyttävät synteettisiä tiedostoja ja tarkistavat muun muassa arkistomuodot, tiedostonimet sekä tiivisteet:
 
 ```sh
-python3 -m unittest discover -s scripts/tests -v
+cargo test --manifest-path tools/release/Cargo.toml
 ```
 
 Valmiin paikallisen Linux-käännöksen hyötytiedostot voi koota ilman allekirjoitusavainta:
 
 ```sh
-python3 scripts/package_release.py prepare --target x86_64-unknown-linux-gnu --output target/release-payload-linux
+cargo run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-unknown-linux-gnu --output target/release-payload-linux
 ```
 
 Allekirjoitus tehdään vasta molempien alustojen tarkistetuista hyötytiedostoista. Paikallinen yksittäisen alustan kehityskäännös ei ole allekirjoitettu ohjelmapäivitys. Älä lisää paikallisia kilpailuja, asetuksia, yksityisiä avaimia tai GitHub-tunnuksia julkaisupakettiin.

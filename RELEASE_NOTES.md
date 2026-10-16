@@ -1,5 +1,7 @@
-# AS2026 0.5.4
+# AS2026 0.5.5
 
-Tämä pieni päivitys siirtää sivupalkin **SOVELLUS**-osion (Päivitykset, Tietoja ja Emit-lukijan tila) ikkunan alareunaan. Muita käyttöliittymätoimintoja, kilpailujen tietoja, tuloslaskentaa tai Emit-lukemista ei muuteta.
+Julkaisupaketointi, lisenssitarkistukset, pakettien allekirjoitus ja niiden testit on siirretty Pythonista Rustiin. GitHub Actions käyttää nyt samaa Rust-työkalua Linuxissa ja Windowsissa.
 
-Uusi versio toimitetaan samoina allekirjoitettuina Linux- ja Windows-paketteina kuin aiemmat julkaisut. Kilpailut ja käyttäjäasetukset pysyvät erillään ohjelmatiedostoista.
+Päivitys säilyttää allekirjoitetun `release.json` / `release.sig` -manifestin rakenteen, nykyisen Ed25519-avaimen ja päivittäjän yhteensopivuuden. AS2026:n kilpailujen käsittelyä, Emit-lukemista, käyttöliittymää tai tuloslaskentasääntöjä ei ole muutettu.
+
+0.5.5 jaetaan allekirjoitettuina Linux- ja Windows-paketteina. Olemassa olevat kilpailut ja asetukset säilyvät asennuksen ulkopuolella.

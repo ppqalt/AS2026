@@ -10,7 +10,7 @@ Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 
 ## Asennus
 
-Virallista GitHub Releaseä ei ole vielä julkaistu. Tulevat paketit tulevat [Releases-sivulle](https://github.com/ppqalt/AS2026/releases): Linuxille `.tar.gz`, Windowsille `.zip`. Molemmat ovat 64-bittisille x86-tietokoneille.
+Ensimmäinen vakaa julkaisu on AS2026 0.5.4. Tulevatkin paketit löytyvät [Releases-sivulle](https://github.com/ppqalt/AS2026/releases): Linuxille `.tar.gz`, Windowsille `.zip`. Molemmat ovat 64-bittisille x86-tietokoneille.
 
 Pura paketti, avaa `as2026-gui` (Windowsissa `as2026-gui.exe`) ja valitse **Asenna ja käynnistä**. AS2026 tulee sovellusvalikkoon. Päivitykset löytyvät kohdasta **sivupalkin Tarkista päivitykset -painike**.
 
@@ -23,6 +23,7 @@ cargo run --features gui --bin as2026-gui
 cargo test --all-targets --features gui
 cargo clippy --all-targets --features gui -- -D warnings
 cargo build --release --features gui
+cargo test --manifest-path tools/release/Cargo.toml
 ```
 
 Rust 1.89 tai uudempi. Komentoriviohjelman voi kääntää ilman GUI-riippuvuuksia: `cargo build --release`.
