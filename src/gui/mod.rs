@@ -56,6 +56,7 @@ struct State {
     worker: Option<ReaderWorker>,
     receiver: Option<Receiver<ReaderEvent>>,
     unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
+    read_notice_timer: Timer,
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -259,8 +260,8 @@ fn open_workspace(state: &mut State, app: &AppWindow, path: &Path, demo: bool) -
     state.invalid_fields.clear();
     state.edit_draft.clear();
     app.set_demo(demo);
-    app.set_last_card("Odotetaan lukua".into());
-    app.set_last_card_detail("Kortti tunnistetaan kilpailijan Emit-numerosta.".into());
+    state.read_notice_timer.stop();
+    app.set_read_notice_visible(false);
     navigate(state, app, 0)?;
     status(app, message, false);
     if !demo {
@@ -429,6 +430,20 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
     }
 }
 
+fn show_read_notice(state: &mut State, app: &AppWindow, text: String) {
+    app.set_read_notice(text.into());
+    app.set_read_notice_visible(true);
+    let weak = app.as_weak();
+    // Sama ajastin käynnistyy uudestaan: vanha kuittaus ei piilota uudempaa lukua.
+    state
+        .read_notice_timer
+        .start(TimerMode::SingleShot, Duration::from_secs(3), move || {
+            if let Some(app) = weak.upgrade() {
+                app.set_read_notice_visible(false);
+            }
+        });
+}
+
 fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool {
     match event {
         ReaderEvent::Connected { port } => {
@@ -444,41 +459,22 @@ fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool 
                         .and_then(Workspace::project)
                         .and_then(|p| p.kilpailijat.iter().find(|d| d.emit == outcome.card_number));
                     let identity = competitor.map_or_else(
-                        || {
-                            "Ei vielä ilmoittautunutta kilpailijaa. Kortin voi yhdistää myöhemmin."
-                                .into()
-                        },
-                        |d| {
-                            format!(
-                                "#{} {} / {} · luokka {}",
-                                d.numero, d.kuljettaja, d.kartanlukija, d.luokka
-                            )
-                        },
+                        || "Ei vielä kilpailijaa".into(),
+                        |d| format!("#{} {}", d.numero, d.kuljettaja),
                     );
-                    app.set_last_card(format!("Emit {}", outcome.card_number).into());
-                    app.set_last_card_detail(
-                        format!(
-                            "{identity} · {}",
-                            if outcome.content_changed {
-                                "Uudet leimaukset tallennettu"
-                            } else {
-                                "Samat leimaukset, lukema tallennettu"
-                            }
-                        )
-                        .into(),
+                    show_read_notice(
+                        state,
+                        app,
+                        format!("✓ Emit {} luettu · {identity}", outcome.card_number),
                     );
                     if let Err(error) = update_tables(state, app) {
                         status(app, error.to_string(), true);
-                    } else {
-                        status(
-                            app,
-                            "Kortin lukema tallennettu. Lukija odottaa seuraavaa korttia.",
-                            false,
-                        );
                     }
                     false
                 }
                 Err(error) => {
+                    state.read_notice_timer.stop();
+                    app.set_read_notice_visible(false);
                     state.unsaved.push((frame, read_clock));
                     app.set_unsaved_count(state.unsaved.len() as i32);
                     status(
@@ -960,6 +956,13 @@ fn capture_views(
         if current < 21 && current.is_multiple_of(3) {
             if let Err(error) = navigate(&mut state.borrow_mut(), &app, (current / 3) as i32) {
                 eprintln!("{error}");
+            }
+            if keyboard_test && current == 6 {
+                show_read_notice(
+                    &mut state.borrow_mut(),
+                    &app,
+                    "✓ Emit 123456 luettu · #7 Esimerkkikuljettaja".into(),
+                );
             }
         } else if current < 21 && current % 3 == 1 {
             app.window().request_redraw();

@@ -118,3 +118,59 @@ Uusimman dev-version oma koodi, dokumentaatio ja synteettiset esimerkit käyttä
 Aiempi commit `50baf9d` käytti 0BSD-lisenssiä. Siihen jo myönnettyjä oikeuksia ei peruuteta eikä sen Git-historiaa muuteta. Nykyinen lisenssivalinta koskee uutta dev-versiota ja siitä tehtäviä tulevia julkaisuja.
 
 GitHub-repositorio säilyy yksityisenä. Tarkistuksessa Releases-rajapinta palautti nolla julkaisua (mukaan lukien luonnokset ja esijulkaisut), eikä Actions-latauspaketteja ollut. Release-julkaisuja tai tageja ei siksi poistettu. `codex-original` säilyy commitissa `944ee4f`. Uutta GitHub Releaseä ei tehty.
+
+## Asennus, kilpailukansiot ja lisenssitarkistukset 16.10.2026
+
+Versio 0.5.0 lisää pysyvän käyttäjäkohtaisen asennuksen ja kilpailujen oletuskansion. Uusi kilpailu perustetaan nimellä; ohjelma luo sille yksilöllisen kansion Asiakirjat-kansion `AS2026/Kilpailut`-hakemistoon tai käyttöjärjestelmän pysyvään sovellusdatakansioon. Sijainnin voi vaihtaa. Viimeksi avattu kilpailu muistetaan, ja ohjelmatiedostot, asetukset sekä kilpailut säilyvät erillään. Esimerkkitila käyttää erillistä väliaikaista kopiota ja erillisiä asetuksia.
+
+Tämän vaiheen Rust-muutokset:
+
+| Tiedosto | Tarkoitus |
+| --- | --- |
+| `src/preferences.rs` | Käyttöjärjestelmän kansiot, turvalliset kilpailukansioiden nimet, asetusten atominen tallennus, lukitus ja viimeksi avattu kilpailu. |
+| `src/updates.rs` | Manuaalinen HTTPS-päivitystarkistus, Ed25519-allekirjoitus, tiedostojen tiivisteet, BSD-2-Clause-metatieto ja rajattu turvallinen arkiston purku. |
+| `src/installation.rs` | Versionoitu asennus, pysyvä käynnistin, paikallinen asennuslukko, käynnistyskuittaus ja epäonnistuneen päivityksen palautus. Linuxin sovellusvalikkotiedosto ja Windowsin Käynnistä-valikon pikakuvake. |
+| `src/bin/as2026-launcher.rs` | Asennus- ja käynnistystoimintojen erillinen ohjelma; Windowsissa ei konsoli-ikkunaa. |
+| `src/bin/as2026-gui.rs` | Windowsin graafisen sovelluksen käynnistys ilman konsoli-ikkunaa. |
+| `src/gui/desktop.rs` | Päivitysten taustatyö, asennuksen hallittu käynnistys sekä tallennusten tarkistus ennen sovelluksen sulkemista. |
+| `src/gui/mod.rs` | Oletuskansio, nimellä perustaminen, muistettu kilpailu, asennuksen käynnistyskuittaus ja uusien toimintojen yhdistäminen käyttöliittymään. |
+| `src/gui/smoke.rs` | Nimellä perustamisen, pysyvän tallennuksen, muistamisen ja näppäimistön toimintakokeet. |
+| `src/gui/tables.rs` | Käyttäjälle olennaiset laskentahuomautukset yhteisen esityspolun kautta. |
+| `src/report.rs` | Yleiset tutkimus- ja kehitystekstit pois käyttäjän raporteista; toimintaan vaikuttavat tiedot säilyvät. |
+| `src/main.rs` | CLI:n yleisten kehitys- ja tutkimushuomautusten siivous samalla esityspolulla. |
+| `src/lib.rs` | Valinnaisten työpöytämoduulien vienti. |
+
+Testitiedostot `tests/preferences.rs`, `tests/installation.rs`, `tests/report.rs` ja `tests/cli.rs` kattavat kansiot, asetusten konfliktit, pikakuvakkeiden muodostamisen sekä raporttien käyttäjätekstit. Asennuksen ja päivittäjän sisäiset testit kattavat lisäksi virheellisen allekirjoituksen, muuttuneet tiedostot, vaaralliset arkistot, kesken jääneen asennuksen ja palautuksen. Laskentaytimen sääntöjä ei muutettu.
+
+Lisenssimuutos on omassa commitissaan `79d0a35`. Se muutti tiedostoja `LICENSE`, `Cargo.toml`, `README.md`, `THIRD_PARTY.md`, `ui/app.slint` ja tätä raporttia. LICENSE käyttää [SPDX:n BSD-2-Clause-vakiotekstiä](https://spdx.org/licenses/BSD-2-Clause.html) ja aiempaa yhteistä tekijämainintaa. Tulevien pakettien lisenssivarmistukset ovat tiedostoissa `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `scripts/package_release.py`, `scripts/sign_release.py`, `scripts/tests/test_release.py` ja `src/updates.rs`.
+
+Muut tämän vaiheen tiedostot ovat `Cargo.lock`, `BUILDING.md`, `CLI.md`, `UI.md`, `RELEASES.md`, `RELEASE_NOTES.md`, `assets/as2026.svg`, `assets/as2026.ico`, `release-public-key.hex`, `scripts/.gitignore` ja `scripts/license-overrides/`. Viimeksi mainittu hakemisto sisältää lähdecommitilla kiinnitettyjä kolmannen osapuolen lisenssitekstejä ja niiden lähdeluettelon; niiden lisenssejä ei muutettu BSD-2-Clauseksi. Julkinen allekirjoitusavain kuuluu lähdekoodiin, yksityinen avain säilyy erillään.
+
+Paikallisesti hyväksytyt tarkistukset:
+
+- `cargo fmt --all --check`.
+- `cargo test --all-targets`: 160 testiä, ei epäonnistuneita.
+- `cargo test --all-targets --features gui`: 203 testiä, ei epäonnistuneita.
+- Clippy ilman GUI:ta ja GUI-ominaisuudella: ei varoituksia.
+- Release-käännös ilman GUI:ta ja GUI-ominaisuudella: hyväksytty.
+- `python3 scripts/package_release.py check-license`: Cargo ja koko BSD-2-Clause-teksti hyväksytty.
+- Paketoinnin ja allekirjoituksen 25 Python-testiä: hyväksytty. Vanha oma 0BSD-lisenssi, vajaa lisenssiteksti ja vanha metadata hylätään; kolmannen osapuolen 0BSD-lisenssi säilyy.
+- Release-GUI:n työnkulku- ja näppäimistökokeet: hyväksytty. Seitsemän näkymän, uuden kilpailun ja Tietoja-ikkunan kuvat tarkastettiin; Tietoja näyttää BSD-2-Clausen ja Slint-maininnan.
+- Todellinen Linuxin hyötytiedostopaketti: 988 tiedostoa, mukaan lukien oma lisenssi ja riippuvuuksien lisenssit. Paikallinen paketti allekirjoitettiin, asennettiin ja sen käynnistyskuittaus onnistui. Asennetun LICENSE vastasi projektin LICENSEä.
+- `desktop-file-validate` hyväksyi pikakuvakkeen, ja `gtk-launch` avasi ohjelman pysyvästä `versions/0.5.0`-asennuskansiosta.
+
+GitHubin Releases-, Actions-artifacts- ja Packages-lukumäärät olivat alkutarkistuksessa nolla. Vanhoja julkaisuja ei siis ollut poistettavaksi. Uusi CI tuottaa ainoastaan yksityisiä BSD-2-Clause-testipaketteja. Release-työnkulku edellyttää manuaalista käynnistystä ja erillistä julkaisuvaiheen valintaa; se tarkistaa lisenssin ennen rakentamista ja uudelleen ennen allekirjoittamista. Uutta Releaseä tai tagia ei tehty.
+
+GitHubin yleinen lisenssimetadata pysyy toistaiseksi tyhjänä, koska oletushaara `main` on alkuperäinen `944ee4f` ilman LICENSE-tiedostoa. Dev-haarassa BSD-2-Clause on käytössä. Lisenssin automaattinen tunnistus päivittyy, kun hyväksytty uusi versio myöhemmin viedään main-haaraan. Mainin ja `codex-original`-tagin sisältöä tai aiempaa Git-historiaa ei muutettu.
+
+Fyysisen Windows-koneen asennusta tai päivitystä ei testattu. GitHubista tehtävää oikean julkaistun päivityksen latausta ei voitu kokeilla, koska repositorio on yksityinen eikä Releaseä julkaista tässä vaiheessa. Latauksen, allekirjoituksen ja purun polut on testattu korvattavalla HTTP-kuljetusrajapinnalla; tämä ei korvaa tulevan oikean julkaisun latauskoetta. Fyysiseen Emit-lukijaan ei koskettu tässä vaiheessa.
+
+## Emit-näkymän viimeistely, versio 0.5.1
+
+Muiden muutosten jälkeen Emit-näkymän suuri viimeisen kortin paneeli korvattiin pienellä kolmen sekunnin onnistumiskuittauksella. Lukuhistoria ryhmittelee vain peräkkäiset saman kortin samat varsinaiset leimat. Lukukertojen määrä näkyy Lukuja-sarakkeessa, ryhmän rivivalinta säilyy ja yksityiskohdat näyttävät viimeisimmän lukeman. Eri kortit, muuttuneet leimat ja virheelliset tapahtumat säilyvät erillisinä. Kaikki alkuperäiset lukemat säilytetään edelleen tallennuksessa.
+
+Tämä viimeistely muutti tiedostoja `src/gui/mod.rs`, `src/gui/tables.rs`, `src/gui/smoke.rs` ja `ui/app.slint`. Versionumero päivitettiin Cargo-tiedostoihin ja käyttö dokumentoitiin UI- ja julkaisuteksteihin. Laskentaytimen, sarjaliikenteen tai kilpailutiedoston muotoa ei muutettu.
+
+Version 0.5.1 koko GUI-testisarja sisältää 205 hyväksyttyä testiä; lisätestit suojaavat eri korttien erottelua, myöhempää kilpailijaan yhdistämistä sekä sadan uusintakehyksen ryhmittelyä. Release-GUI:n työnkulku-, näppäimistö- ja oikea 3,2 sekunnin ajastinkoe hyväksyttiin. Kuvasta tarkastettiin myös pienen lukukuittauksen sijainti. Fyysistä lukijaa ei tarvittu näihin kokeisiin.
+
+Paikallinen allekirjoitettu päivitys 0.5.0-versiosta 0.5.1-versioon ja edellisen 0.5.0-version palautus kokeiltiin oikeilla ohjelmilla. Käynnistyskuittaus ja version osoittimen palautus onnistuivat. Julkaisemattoman väliversion asennus säilytettiin palautuskansiossa, kun kuvantarkastuksessa viimeisteltiin kuittauksen välistystä. GitHub Releaseä tai tagia ei tehty tässäkään kokeessa.

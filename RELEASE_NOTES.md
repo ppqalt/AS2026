@@ -4,4 +4,6 @@ Lataa oman käyttöjärjestelmäsi paketti, pura se ja avaa `as2026-gui` (Window
 
 Kilpailut ja asetukset säilyvät erillään ohjelmatiedostoista. Päivitysten tarkistus tarvitsee internetyhteyden, kilpailun käyttäminen toimii ilman sitä.
 
-Tämä julkaisu tuo automaattiset kilpailukansiot, viimeksi avatun kilpailun muistamisen, allekirjoitetut päivitykset ja käyttäjäkohtaisen asennuksen. Ohjelman käyttöliittymä on suomenkielinen. Lisenssit ja kolmannen osapuolen maininnat ovat paketissa mukana.
+Tämä julkaisu tuo automaattiset kilpailukansiot, viimeksi avatun kilpailun muistamisen, allekirjoitetut päivitykset ja käyttäjäkohtaisen asennuksen. Ohjelman käyttöliittymä on suomenkielinen. AS2026:n oma lisenssi on BSD-2-Clause. Sen koko teksti ja kolmannen osapuolen lisenssit sekä tekijämaininnat ovat paketissa mukana.
+
+Emit-lukuhistoria ryhmittelee peräkkäiset saman korttisisällön luvut. Pieni onnistumiskuittaus kertoo lukemisesta; kaikki lukemat säilyvät tallessa.

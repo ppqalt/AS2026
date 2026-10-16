@@ -443,39 +443,61 @@ fn history(
         "Luettu",
         "Emit",
         "Kilpailija",
-        "Sisältö",
+        "Tapahtuma",
         "Leimoja",
+        "Lukuja",
         "Käyttö",
     ]);
-    view.weights = vec![0.18, 0.11, 0.27, 0.20, 0.08, 0.16];
+    view.weights = vec![0.18, 0.10, 0.25, 0.18, 0.07, 0.07, 0.15];
     if let Some(project) = ws.project() {
+        struct Group {
+            // Ensimmäinen alkuperäinen indeksi pitää rivivalinnan vakaana uusintaluvuissa.
+            first: usize,
+            latest: usize,
+            content: Option<Vec<Punch>>,
+            event: &'static str,
+        }
         let mut previous: HashMap<u32, Vec<Punch>> = HashMap::new();
         let mut active = HashMap::new();
-        let mut states = Vec::with_capacity(project.leimaluvut.len());
+        let mut groups: Vec<Group> = Vec::new();
         for (index, read) in project.leimaluvut.iter().enumerate() {
-            match read.content() {
+            let (content, event) = match read.content() {
                 Ok(content) => {
-                    let state = match previous.get(&read.emit) {
-                        Some(old) if *old == content => "Sama sisältö",
-                        Some(_) => "Muuttuneet leimat",
-                        None => "Ensimmäinen luku",
+                    let event = if previous.get(&read.emit).is_some_and(|old| *old != content) {
+                        "Leimat päivitetty"
+                    } else {
+                        "Kortti luettu"
                     };
-                    let count = content.len().to_string();
-                    previous.insert(read.emit, content);
+                    previous.insert(read.emit, content.clone());
                     active.insert(read.emit, index);
-                    states.push((state, count));
+                    (Some(content), event)
                 }
                 Err(error) => {
-                    states.push(("Virheellinen lukema", "—".into()));
                     notes.push(format!(
                         "Kortin {} lukukerta {} ohitetaan laskennassa: {error}",
                         read.emit,
                         index + 1
                     ));
+                    (None, "Virheellinen lukema")
                 }
+            };
+            if let Some(group) = groups.last_mut()
+                && content.is_some()
+                && project.leimaluvut[group.latest].emit == read.emit
+                && group.content == content
+            {
+                group.latest = index;
+            } else {
+                groups.push(Group {
+                    first: index,
+                    latest: index,
+                    content,
+                    event,
+                });
             }
         }
-        for (index, read) in project.leimaluvut.iter().enumerate().rev().take(50) {
+        for group in groups.iter().rev().take(50) {
+            let read = &project.leimaluvut[group.latest];
             let clock = read
                 .luettu_unix_ms
                 .and_then(|value| i64::try_from(value).ok())
@@ -487,14 +509,18 @@ fn history(
                 })
                 .unwrap_or_else(|| read.lukukello.clone());
             view.rows.push(row(
-                index,
+                group.first,
                 vec![
                     clock,
                     read.emit.to_string(),
                     card_owner(archive, read.emit),
-                    states[index].0.into(),
-                    states[index].1.clone(),
-                    if active.get(&read.emit) == Some(&index) {
+                    group.event.into(),
+                    group
+                        .content
+                        .as_ref()
+                        .map_or_else(|| "—".into(), |p| p.len().to_string()),
+                    (group.latest - group.first + 1).to_string(),
+                    if active.get(&read.emit) == Some(&group.latest) {
                         "Aktiivinen"
                     } else {
                         "Historia"
@@ -503,9 +529,11 @@ fn history(
                 ],
             ));
         }
+        // Ryhmän tarkastelu näyttää viimeisimmän fyysisen luvun, myös sen lukumerkin.
         if let Some(read) = usize::try_from(selected_key)
             .ok()
-            .and_then(|key| project.leimaluvut.get(key))
+            .and_then(|key| groups.iter().find(|g| (g.first..=g.latest).contains(&key)))
+            .and_then(|group| project.leimaluvut.get(group.latest))
         {
             let punches: Vec<_> = read
                 .leimat
@@ -517,9 +545,9 @@ fn history(
                 .collect();
             punches_detail(view, read.emit, &read.lukukello, &punches);
         }
-        if project.leimaluvut.len() > 50 {
+        if groups.len() > 50 {
             notes.push(format!(
-                "Näytetään 50 uusinta lukukertaa; kilpailutiedosto säilyttää kaikki {} tapahtumaa.",
+                "Näytetään 50 uusinta lukutapahtumaa; kilpailutiedosto säilyttää kaikki {} lukukertaa.",
                 project.leimaluvut.len()
             ));
         }
@@ -548,6 +576,7 @@ fn history(
                             card_owner(archive, read.card_number),
                             content.into(),
                             read.records.len().to_string(),
+                            "1".into(),
                             "Tuontiaineisto".into(),
                         ],
                     ));
@@ -568,7 +597,6 @@ fn history(
             Err(error) => notes.push(format!("Lukuhistorian avaaminen epäonnistui: {error}")),
         }
     }
-    notes.push("Jokainen fyysinen lukukerta säilyy historiassa. Pelkkä lukumerkin 250 ajan muutos ei muuta kortin varsinaista sisältöä eikä monista kilpailijan tulosta.".into());
 }
 
 #[cfg(test)]
@@ -650,7 +678,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_reader_marker_is_same_content_and_bad_history_keeps_good_active() {
+    fn consecutive_repeats_group_without_hiding_changes_or_bad_reads() {
         let fixture = Fixture::new(|project| {
             let original = project.leimaluvut[0].clone();
             let mut repeated = original.clone();
@@ -669,16 +697,66 @@ mod tests {
         let view = data(&fixture.workspace, 2, 1, "").unwrap();
         assert_eq!(
             view.rows.iter().map(|row| row.key).collect::<Vec<_>>(),
-            vec![4, 3, 2, 1, 0]
+            vec![4, 3, 2, 0]
         );
         assert_eq!(text(&view.rows[0], 3), "Virheellinen lukema");
         assert_eq!(text(&view.rows[1], 2), "Ei vielä kilpailijaa");
-        assert_eq!(text(&view.rows[2], 3), "Muuttuneet leimat");
-        assert_eq!(text(&view.rows[2], 5), "Aktiivinen");
-        assert_eq!(text(&view.rows[3], 3), "Sama sisältö");
+        assert_eq!(text(&view.rows[2], 3), "Leimat päivitetty");
+        assert_eq!(text(&view.rows[2], 6), "Aktiivinen");
+        assert_eq!(text(&view.rows[3], 3), "Kortti luettu");
+        assert_eq!(text(&view.rows[3], 5), "2");
+        assert_eq!(fixture.workspace.project().unwrap().leimaluvut.len(), 5);
         assert_eq!(view.detail_rows.len(), 5);
         assert_eq!(text(view.detail_rows.last().unwrap(), 3), "Lukumerkki");
+        assert_eq!(text(view.detail_rows.last().unwrap(), 2), "903");
         assert!(view.notes.contains("ohitetaan laskennassa"));
+    }
+
+    #[test]
+    fn different_cards_break_groups_and_unregistered_cards_can_be_linked_later() {
+        let mut fixture = Fixture::new(|project| {
+            let original = project.leimaluvut[0].clone();
+            let mut other = original.clone();
+            other.emit = 555;
+            project.leimaluvut.push(other);
+            project.leimaluvut.push(original);
+        });
+        let view = data(&fixture.workspace, 2, 1, "").unwrap();
+        assert_eq!(
+            view.rows.iter().map(|row| row.key).collect::<Vec<_>>(),
+            vec![2, 1, 0]
+        );
+        assert_eq!(text(&view.rows[1], 2), "Ei vielä kilpailijaa");
+        fixture
+            .workspace
+            .edit_driver(7, as2026::workspace::DriverField::Card, "555")
+            .unwrap();
+        let linked = data(&fixture.workspace, 2, 1, "").unwrap();
+        assert_eq!(text(&linked.rows[1], 2), "7 · Esimerkkikuljettaja");
+        assert_eq!(linked.detail_rows.len(), 5);
+        assert_eq!(text(&linked.rows[2], 6), "Historia");
+        assert_eq!(text(&linked.rows[0], 6), "Aktiivinen");
+    }
+
+    #[test]
+    fn many_repeated_frames_keep_one_stable_row_and_latest_details() {
+        let fixture = Fixture::new(|project| {
+            let original = project.leimaluvut[0].clone();
+            for marker in 781..=880 {
+                let mut repeated = original.clone();
+                repeated.leimat.last_mut().unwrap().aika_sekuntia = marker;
+                repeated.lukukello = "12:12:00".into();
+                project.leimaluvut.push(repeated);
+            }
+        });
+        let view = data(&fixture.workspace, 2, 0, "").unwrap();
+        assert_eq!(view.rows.len(), 1);
+        assert_eq!(view.rows[0].key, 0);
+        assert_eq!(text(&view.rows[0], 0), "12:12:00");
+        assert_eq!(text(&view.rows[0], 5), "101");
+        assert_eq!(text(&view.rows[0], 6), "Aktiivinen");
+        assert_eq!(text(view.detail_rows.last().unwrap(), 2), "880");
+        assert_eq!(fixture.workspace.project().unwrap().leimaluvut.len(), 101);
     }
 
     #[test]

@@ -141,6 +141,34 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
     app.invoke_retry_readouts();
     assert_eq!(app.get_unsaved_count(), 0);
     assert_eq!(ProjectStore::open(&path)?.project().leimaluvut.len(), 2);
+    assert!(app.get_read_notice_visible());
+    assert!(app.get_read_notice().contains("Emit 123456 luettu"));
+    app.invoke_navigate(2);
+    let history_key = app.get_rows().row_data(0).unwrap().key;
+    app.invoke_select_row(history_key);
+    assert_eq!(app.get_detail_rows().row_count(), 5);
+    let repeated = emit::parse_frame(include_bytes!("../../fixtures/synthetic/emit-frame.raw"))?;
+    assert!(!handle_event(
+        &mut state.borrow_mut(),
+        app,
+        ReaderEvent::Frame {
+            frame: Box::new(repeated),
+            read_clock: ClockTime::new(12, 11, 1)?,
+        },
+    ));
+    assert_eq!(ProjectStore::open(&path)?.project().leimaluvut.len(), 3);
+    assert_eq!(app.get_rows().row_count(), 1);
+    assert_eq!(app.get_rows().row_data(0).unwrap().key, history_key);
+    assert_eq!(app.get_selected_key(), history_key);
+    assert_eq!(
+        app.get_rows()
+            .row_data(0)
+            .unwrap()
+            .cells
+            .row_data(5)
+            .unwrap(),
+        "3"
+    );
     app.invoke_navigate(5);
     app.invoke_add_station();
     let rule_options = || {
@@ -187,6 +215,22 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
         state.invalid_field = false;
         open_workspace(&mut state, app, &path, true)?;
     }
+    assert!(
+        !app.get_read_notice_visible(),
+        "Kilpailun vaihto tyhjentää kuittauksen"
+    );
+    show_read_notice(&mut state.borrow_mut(), app, "✓ Kortti luettu".into());
+    assert!(app.get_read_notice_visible());
+    let weak = app.as_weak();
+    Timer::single_shot(Duration::from_millis(3200), move || {
+        if let Some(app) = weak.upgrade() {
+            assert!(
+                !app.get_read_notice_visible(),
+                "Lukukuittaus poistuu itsestään"
+            );
+            println!("GUI-lukukuittauksen ajastinkoe hyväksytty.");
+        }
+    });
     println!(
         "GUI-työnkulkukoe hyväksytty: valinnat, luonnokset, automaattitallennus, virheestä palautuminen ja yhteinen laskenta."
     );

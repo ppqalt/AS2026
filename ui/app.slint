@@ -44,8 +44,8 @@ export component AppWindow inherits Window {
     in-out property <bool> reader-running;
     in-out property <string> reader-status: "Lukijaa ei ole käynnistetty.";
     in-out property <string> reader-port;
-    in-out property <string> last-card: "Odotetaan lukua";
-    in-out property <string> last-card-detail: "Kortti tunnistetaan kilpailijan Emit-numerosta.";
+    in-out property <string> read-notice;
+    in-out property <bool> read-notice-visible;
     in-out property <string> calculation-notes;
     in-out property <string> app-version;
     in-out property <string> default-root;
@@ -263,30 +263,25 @@ export component AppWindow inherits Window {
                             Button { height: Theme.control-height; text: root.reader-running ? "Pysäytä luku" : "Käynnistä lukija"; primary: true; enabled: root.editable; clicked => { if root.reader-running { root.reader-stop(); } else { root.reader-start(root.reader-port); } } }
                         }
                     }
-                    Rectangle {
-                        height: 86px; background: Theme.accent-soft; border-radius: Theme.radius;
-                        VerticalLayout {
-                            padding: 18px; spacing: 5px;
-                            Text { text: root.last-card; color: Theme.ink; font-size: 22px; font-weight: 700; }
-                            Note { text: root.last-card-detail; }
-                        }
-                    }
                     if root.unsaved-count > 0: HorizontalLayout {
                         Text { text: root.unsaved-count + " lukemaa odottaa tallennusta"; color: Theme.danger; vertical-alignment: center; }
                         Button { height: Theme.control-height; text: "Päivitä ja yritä tallentaa"; enabled: !root.reader-running; clicked => { root.retry-readouts(); } }
                     }
                     HorizontalLayout {
+                        spacing: 12px;
                         Text { text: "Lukuhistoria"; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; }
-                        Rectangle { horizontal-stretch: 1; }
+                        Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.accent; font-size: 12px; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
                         Button { height: Theme.control-height; text: "Lue kehystiedosto…"; enabled: root.editable && !root.reader-running; clicked => { root.import-frame(); } }
                     }
                     DataTable { rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: "Tallennetut korttiluvut tulevat tähän."; selected(key) => { root.select-row(key); } }
-                    if root.detail-rows.length > 0: DataTable {
-                        height: 190px;
-                        rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
-                        empty-text: "Valitse lukutapahtuma.";
+                    if root.detail-rows.length > 0: VerticalLayout {
+                        height: 218px; spacing: 8px;
+                        Text { text: root.detail-title; color: Theme.ink; font-size: 13px; font-weight: 600; }
+                        DataTable {
+                            rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
+                            empty-text: "Valitse lukutapahtuma.";
+                        }
                     }
-                    Note { text: "Sama leimaussisältö ei luo uutta kilpailijatulosta. Lukumerkin 250 aika saa muuttua."; }
                 }
                 if root.opened && (root.page == 1 || root.page == 3 || root.page == 4 || root.page == 5): VerticalLayout {
                     spacing: 12px;

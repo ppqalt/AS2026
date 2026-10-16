@@ -20,7 +20,7 @@ Vasemman reunan navigaatio pysyy näkyvissä. Työalue käyttää tavallisia lue
 | Tulokset | Ajantasainen tulosluettelo, laskennan huomautukset ja HTML-raportti. |
 | Luokat | Luokan lisäys ja muokkaus sekä yhteys rataan. |
 | Radat ja asemat | Ratojen ja niiden asemien lisäys ja muokkaus. |
-| Kilpailun asetukset | Kilpailun perustietojen muokkaus. |
+| Asetukset | Kilpailujen tallennuspaikka, ohjelmapäivitykset ja avoimen kilpailun perustiedot. |
 
 Olemassa olevien tietojen kelvolliset muutokset tallentuvat Enterillä tai poistuttaessa kentästä. Uusi tietue täytetään luonnoksena ja lisätään vasta ehjänä. Luonnoksen syötekentät ovat käyttöliittymän väliaikaista tilaa; ne eivät ole toinen itsenäinen kilpailutietokanta. Virheellinen syöte pitää voida korjata menettämättä viimeksi oikein tallennettua kilpailua. Tallennusvirhettä ei saa esittää onnistuneena tallennuksena.
 
@@ -72,6 +72,8 @@ Kenttien välillä liikutaan Tabilla ja arvot voi hyväksyä Enterillä. Säilyt
 Sarjaportin odotus tapahtuu taustalla. Ikkunan tapahtumakiertoa ei saa pysäyttää laitteen odottamiseen. Fyysisen lukutapahtuman, kortin varsinaisten leimausten ja kilpailijalle lasketun tuloksen ero säilyy samana kuin komentorivillä.
 
 Kilpailun vaihtaminen ei saa siirtää vanhan kilpailun lukutapahtumaa uuden kilpailun tiedostoon. Muokkaus, lukuhistorian tallennus ja tulosten uudelleenlaskenta käyttävät samaa ajantasaista kilpailua. Pelkkä muutoksen esittäminen Slintin listamallissa ei ole tallennus.
+
+Onnistunut tallennettu kortinluku näkyy pienenä kolmen sekunnin kuittauksena lukuhistorian otsikkorivillä. Peräkkäiset saman kortin samat varsinaiset leimat esitetään yhdellä rivillä; Lukuja-sarake kertoo lukukertojen määrän ja yksityiskohdat näyttävät ryhmän viimeisimmän lukeman. Eri kortit, muuttuneet leimat ja virheelliset lukemat näkyvät erillisinä. Ryhmittely koskee vain esitystä: kaikki alkuperäiset lukemat säilyvät kilpailutiedostossa.
 
 Linuxin tiedostonvalinta käyttää työpöydän XDG-portaalia ja Windowsin tiedostonvalinta Windowsin omaa valintaikkunaa. Käyttöjärjestelmän valintaikkunan kieli ja ulkoasu määräytyvät järjestelmän asetuksista. Sovelluksen omat tekstit sekä Slintin tekstikenttien Leikkaa-, Kopioi-, Liitä- ja Valitse kaikki -toiminnot ovat suomeksi.
 
