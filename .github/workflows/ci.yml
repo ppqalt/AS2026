@@ -21,16 +21,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Asenna Python julkaisupaketoinnin testeille
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.13'
-      - name: Varmista AS2026:n täydellinen BSD-2-Clause-lisenssi ennen rakentamista
-        run: python scripts/package_release.py check-license
-      - name: Testaa julkaisupaketointi ja allekirjoitus
-        run: python -m unittest discover -s scripts/tests -v
       - name: Asenna Rustin tarkistustyökalut
         run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Varmista AS2026:n täydellinen BSD-2-Clause-lisenssi ennen rakentamista
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- check-license
+      - name: Testaa julkaisupaketointi ja allekirjoitus
+        run: cargo +stable test --manifest-path tools/release/Cargo.toml
       - name: Asenna Linuxin käyttöliittymäkirjastojen kehitystiedostot
         if: runner.os == 'Linux'
         run: |
@@ -58,10 +54,10 @@ jobs:
         run: cargo +stable build --locked --release --features gui
       - name: Kokoa yksityinen BSD-2-Clause-paketti Linuxille
         if: runner.os == 'Linux'
-        run: python scripts/package_release.py prepare --target x86_64-unknown-linux-gnu --output target/ci-release-payload
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-unknown-linux-gnu --output target/ci-release-payload
       - name: Kokoa yksityinen BSD-2-Clause-paketti Windowsille
         if: runner.os == 'Windows'
-        run: python scripts/package_release.py prepare --target x86_64-pc-windows-msvc --output target/ci-release-payload
+        run: cargo +stable run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-pc-windows-msvc --output target/ci-release-payload
       - name: Säilytä tarkistettu yksityinen paketti Actions-artifactina
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
