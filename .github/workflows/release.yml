@@ -1,4 +1,4 @@
-name: Yksityiset paketit ja erikseen pyydetty julkaisu
+name: Julkaisupaketit ja manuaalinen GitHub-julkaisu
 
 on:
   workflow_dispatch:

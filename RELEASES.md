@@ -1,10 +1,10 @@
 # AS2026:n tulevien julkaisujen tekeminen
 
-Nykyinen lisenssi on **BSD-2-Clause**. Repositorio pidetään yksityisenä, eikä uusi dev-push tai tagi yksin julkaise GitHub Releaseä. Julkaisutyönkulku käynnistetään tarkoituksella ja sen julkaisuvaihe pitää valita erikseen. Oletuksena syntyvät vain tarkistetut yksityiset Actions-testipaketit.
+Nykyinen lisenssi on **BSD-2-Clause**. Repositorio on julkinen. Pelkkä dev-push tai tagi ei silti julkaise GitHub Releaseä: julkaisutyönkulku käynnistetään erikseen ja sen julkaisuvaihe pitää valita nimenomaisesti. Oletuksena syntyvät vain Actions-testipaketit.
 
 Paketointi tarkistaa projektin LICENSE-tiedoston koko standarditekstin, Cargo-lisenssitiedon sekä paketin lisenssimetadatan. Väärä oma lisenssi estää paketoinnin ja allekirjoituksen. Riippuvuuksien omat lisenssit säilytetään muuttamatta niitä.
 
-Aiemman 0BSD-koodin oikeuksia ei peruuteta. Vanhoja committeja ja tageja ei muuteta.
+Git-historia ja vanhat tagit säilytetään muuttumattomina.
 
 
 Kehitys tehdään `dev`-haarassa. Hyväksytty, testattu versio viedään hallitusti `main`-haaraan. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.5.0`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.

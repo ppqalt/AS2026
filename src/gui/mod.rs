@@ -924,7 +924,7 @@ fn capture_views(
             return;
         };
         let current = *phase.borrow();
-        if current >= if keyboard_test { 28 } else { 21 } {
+        if current >= if keyboard_test { 31 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -936,24 +936,24 @@ fn capture_views(
             let _ = slint::quit_event_loop();
             return;
         }
-        if current == 21 {
+        if current == 24 {
             smoke::open_dialog(&app);
-        } else if current == 22 {
+        } else if current == 25 {
             smoke::fill_dialog(&app);
-        } else if current == 24 {
+        } else if current == 27 {
             smoke::key(&app, slint::platform::Key::Escape);
             assert!(!app.get_dialog_open(), "Esc sulkee valintaikkunan");
             println!("GUI-näppäimistökoe hyväksytty: Ctrl+N, tekstisyöte, Tab ja Esc.");
-        } else if current == 25 {
+        } else if current == 28 {
             app.set_about_open(true);
-        } else if current == 26 {
+        } else if current == 29 {
             app.window().request_redraw();
         }
-        if current >= 21 && current != 23 && current != 27 {
+        if current >= 24 && current != 26 && current != 30 {
             *phase.borrow_mut() += 1;
             return;
         }
-        if current < 21 && current.is_multiple_of(3) {
+        if current < 24 && current.is_multiple_of(3) {
             if let Err(error) = navigate(&mut state.borrow_mut(), &app, (current / 3) as i32) {
                 eprintln!("{error}");
             }
@@ -964,10 +964,10 @@ fn capture_views(
                     "✓ Emit 123456 luettu · #7 Esimerkkikuljettaja".into(),
                 );
             }
-        } else if current < 21 && current % 3 == 1 {
+        } else if current < 24 && current % 3 == 1 {
             app.window().request_redraw();
         } else {
-            let index = if current == 27 { 8 } else { current / 3 };
+            let index = if current == 30 { 9 } else { current / 3 };
             let names = [
                 "yleiskatsaus",
                 "kilpailijat",
@@ -976,6 +976,7 @@ fn capture_views(
                 "luokat",
                 "radat",
                 "asetukset",
+                "paivitykset",
                 "uusi-kilpailu",
                 "tietoja",
             ];

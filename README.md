@@ -12,7 +12,7 @@ Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 
 Virallista GitHub Releaseä ei ole vielä julkaistu. Tulevat paketit tulevat [Releases-sivulle](https://github.com/ppqalt/AS2026/releases): Linuxille `.tar.gz`, Windowsille `.zip`. Molemmat ovat 64-bittisille x86-tietokoneille.
 
-Pura paketti, avaa `as2026-gui` (Windowsissa `as2026-gui.exe`) ja valitse **Asenna ja käynnistä**. AS2026 tulee sovellusvalikkoon. Päivitykset löytyvät kohdasta **Asetukset → Tarkista päivitykset**.
+Pura paketti, avaa `as2026-gui` (Windowsissa `as2026-gui.exe`) ja valitse **Asenna ja käynnistä**. AS2026 tulee sovellusvalikkoon. Päivitykset löytyvät kohdasta **sivupalkin Tarkista päivitykset -painike**.
 
 Uusi kilpailu luodaan antamalla sen nimi. Kilpailut tallennetaan normaalisti Asiakirjat-kansion `AS2026/Kilpailut`-kansioon. Tallennuspaikan voi vaihtaa asetuksista. Ohjelmapäivitykset säilyttävät kilpailutiedot ja asetukset.
 

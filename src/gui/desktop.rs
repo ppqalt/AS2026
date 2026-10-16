@@ -77,14 +77,31 @@ fn poll(state: &SharedState, app: &AppWindow, timer: &Rc<Timer>, reader_timer: &
     state.borrow_mut().update_receiver = None;
     app.set_update_busy(false);
     match event {
+        UpdateEvent::Checked(Ok(updates::UpdateCheck::NoRelease)) => {
+            state.borrow_mut().update = None;
+            state.borrow_mut().update_bundle = None;
+            app.set_available_version("".into());
+            let message = "GitHubissa ei vielä ole vakaata julkaisua.";
+            app.set_update_status(message.into());
+            status(app, message, false);
+        }
         UpdateEvent::Checked(Ok(updates::UpdateCheck::Current)) => {
             state.borrow_mut().update = None;
             app.set_available_version("".into());
             app.set_update_status("Ohjelma on ajan tasalla.".into());
+            status(app, "Ohjelma on ajan tasalla.", false);
         }
         UpdateEvent::Checked(Ok(updates::UpdateCheck::Available(update))) => {
             app.set_available_version(update.version.clone().into());
             app.set_update_status(format!("Uusi versio {} on saatavilla.", update.version).into());
+            status(
+                app,
+                format!(
+                    "Versio {} on saatavilla. Asenna ja käynnistä uudelleen sivupalkista.",
+                    update.version
+                ),
+                false,
+            );
             state.borrow_mut().update = Some(update);
         }
         UpdateEvent::Downloaded(Ok(bundle)) => {
@@ -126,6 +143,7 @@ pub(super) fn bind(
             if app.get_update_busy() || app.get_install_busy() {
                 return;
             }
+            state.borrow_mut().update_bundle = None;
             app.set_update_status("Tarkistetaan päivityksiä…".into());
             if let Err(error) = begin_task(&state, &app, &timer, &reader_timer, || {
                 UpdateEvent::Checked(updates::check())

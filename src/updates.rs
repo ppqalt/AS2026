@@ -13,6 +13,7 @@ use std::{
 
 pub const REPOSITORY: &str = "ppqalt/AS2026";
 const LATEST: &str = "https://api.github.com/repos/ppqalt/AS2026/releases/latest";
+const NO_RELEASES: &str = "GitHubissa ei vielä ole vakaata julkaisua.";
 const MAX_MANIFEST: usize = 2 * 1024 * 1024;
 const MAX_ARCHIVE: usize = 128 * 1024 * 1024;
 const MAX_EXPANDED: u64 = 512 * 1024 * 1024;
@@ -55,6 +56,7 @@ pub struct Update {
 }
 #[derive(Debug, Clone)]
 pub enum UpdateCheck {
+    NoRelease,
     Current,
     Available(Update),
 }
@@ -315,6 +317,9 @@ impl Fetcher for GithubClient {
                     "GitHubiin ei saada suojattua yhteyttä. Tarkista internetyhteys".to_owned()
                 }
             })?;
+        if url == LATEST && response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(NO_RELEASES.into());
+        }
         if !response.status().is_success() {
             return Err(format!(
                 "GitHub vastasi virheellä {}. Päivityksiä ei voitu tarkistaa tai ladata",
@@ -359,7 +364,11 @@ fn check_with(
     current: &str,
     key: &VerifyingKey,
 ) -> Result<UpdateCheck, String> {
-    let raw = fetcher.get(LATEST, MAX_MANIFEST)?;
+    let raw = match fetcher.get(LATEST, MAX_MANIFEST) {
+        Ok(raw) => raw,
+        Err(error) if error == NO_RELEASES => return Ok(UpdateCheck::NoRelease),
+        Err(error) => return Err(error),
+    };
     let release: GithubRelease =
         serde_json::from_slice(&raw).map_err(|_| "GitHubin julkaisutietoja ei voitu lukea")?;
     if release.draft || release.prerelease {
@@ -771,6 +780,15 @@ mod tests {
         assert!(matches!(
             check_with(&mock, "0.5.0", &key).unwrap(),
             UpdateCheck::Current
+        ));
+    }
+    #[test]
+    fn no_published_release_is_normal_not_a_network_failure() {
+        let key = SigningKey::from_bytes(&[7; 32]).verifying_key();
+        let mock = Mock(BTreeMap::from([(LATEST.into(), Err(NO_RELEASES.into()))]));
+        assert!(matches!(
+            check_with(&mock, "0.5.3", &key).unwrap(),
+            UpdateCheck::NoRelease
         ));
     }
     #[test]

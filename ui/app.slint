@@ -8,7 +8,7 @@ export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
     title: "AS2026 — kilpailunhallinta";
     preferred-width: 1320px; preferred-height: 860px;
-    min-width: 1080px; min-height: 680px;
+    min-width: 580px; min-height: 400px;
     background: Theme.canvas;
     default-font-size: Theme.body-font-size;
     forward-focus: keyboard;
@@ -129,7 +129,7 @@ export component AppWindow inherits Window {
     HorizontalLayout {
         spacing: 0px;
         Rectangle {
-            width: Theme.sidebar-width; background: Theme.sidebar;
+            width: root.width < 850px ? 158px : Theme.sidebar-width; background: Theme.sidebar;
             VerticalLayout {
                 padding: 14px; spacing: 5px;
                 Rectangle {
@@ -140,55 +140,85 @@ export component AppWindow inherits Window {
                         Text { text: "KILPAILUNHALLINTA"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; }
                     }
                 }
-                for label[index] in ["Yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"]: NavItem {
-                    label: label;
-                    marker: ["01", "02", "03", "04", "05", "06", "07"][index];
-                    active: root.page == index;
-                    chosen => { root.navigate(index); }
+                ScrollView {
+                    vertical-stretch: 1;
+                    horizontal-stretch: 1;
+                    VerticalLayout {
+                        spacing: 5px;
+                        for label[index] in ["Yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"]: NavItem {
+                            label: label;
+                            marker: ["01", "02", "03", "04", "05", "06", "07"][index];
+                            active: root.page == index;
+                            chosen => { root.navigate(index); }
+                        }
+                    }
                 }
-                Rectangle { vertical-stretch: 1; }
+                Text { text: "SOVELLUS"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; height: 22px; vertical-alignment: center; }
+                Button {
+                    height: Theme.control-height;
+                    text: root.update-busy ? "Tarkistetaan…" : root.available-version != "" ? "Asenna " + root.available-version + " ↻" : "Tarkista päivitykset";
+                    enabled: !root.update-busy && !root.install-busy;
+                    clicked => {
+                        if root.available-version != "" { root.apply-update(); }
+                        else { root.check-updates(); }
+                    }
+                }
+                if root.available-version != "": Note {
+                    text: "Asennus käynnistää sovelluksen uudelleen.";
+                    font-size: 11px;
+                }
                 Button { height: Theme.control-height; text: "Tietoja"; clicked => { root.about-open = true; } }
                 Rectangle {
-                    height: 84px; background: #1b3343; border-radius: 5px;
+                    height: root.height < 650px ? 34px : 84px; background: #1b3343; border-radius: 5px;
                     VerticalLayout {
-                        padding: 12px; spacing: 6px;
+                        padding: root.height < 650px ? 5px : 12px; spacing: 6px;
                         Text { text: root.reader-running ? "●  Emit-lukija käynnissä" : "○  Emit-lukija pysäytetty"; color: root.reader-running ? #80d6bb : #a8bdc9; font-size: 11px; }
-                        Text { text: "AS2026 " + root.app-version; color: #8ba4b4; font-size: 11px; }
+                        Text { visible: root.height >= 650px; text: "AS2026 " + root.app-version; color: #8ba4b4; font-size: 11px; }
                     }
                 }
             }
         }
         VerticalLayout {
+            horizontal-stretch: 1;
             spacing: 0px;
             Rectangle {
                 height: 70px; background: Theme.surface;
                 HorizontalLayout {
-                    padding-left: Theme.gutter; padding-right: Theme.gutter; padding-top: 18px; padding-bottom: 18px; spacing: 16px;
+                    padding-left: root.width < 850px ? 12px : Theme.gutter; padding-right: root.width < 850px ? 12px : Theme.gutter; padding-top: 18px; padding-bottom: 18px; spacing: 12px;
                     VerticalLayout {
                         spacing: 3px;
                         Text { text: root.competition-name; color: Theme.ink; font-size: 17px; font-weight: 700; overflow: elide; }
                         Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.editable ? "Automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: 11px; }
                     }
                     Rectangle { horizontal-stretch: 1; }
-                    Button { height: Theme.control-height; text: "Avaa kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
-                    Button { height: Theme.control-height; text: "+ Uusi kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.begin-new(); } }
+                    Button { height: Theme.control-height; text: root.width < 850px ? "Avaa" : "Avaa kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
+                    Button { height: Theme.control-height; text: root.width < 850px ? "+ Uusi" : "+ Uusi kilpailu"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.begin-new(); } }
                 }
                 Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
             }
             VerticalLayout {
-                padding: Theme.gutter; spacing: 16px;
+                horizontal-stretch: 1;
+                padding: root.width < 850px ? 12px : Theme.gutter; spacing: 16px;
                 HorizontalLayout {
+                    horizontal-stretch: 1;
                     VerticalLayout {
+                        horizontal-stretch: 1;
                         spacing: 5px;
                         Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit-lukeminen", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"][root.page]; }
-                        Note { text: ["Kilpailun tiedot ja tärkeimmät työvaiheet yhdessä paikassa.", "Ilmoittautumiset, lähtöajat ja korttien kohdistus.", "Aseta kortti lukijaan. Tiedot kohdistuvat ja tallentuvat automaattisesti.", "Ajantasaiset tulokset ja kilpailijan asemakohtainen tarkastelu.", "Luokkien ratavalinnat ja lähtötiedot.", "Valitse rata ja tarkastele sen asemia järjestyksessä.", "Tallennuspaikka, päivitykset ja avoimen kilpailun asetukset."][root.page]; }
+                        Note { text: ["Kilpailun tiedot ja tärkeimmät työvaiheet yhdessä paikassa.", "Ilmoittautumiset, lähtöajat ja korttien kohdistus.", "Aseta kortti lukijaan. Tiedot kohdistuvat ja tallentuvat automaattisesti.", "Ajantasaiset tulokset ja kilpailijan asemakohtainen tarkastelu.", "Luokkien ratavalinnat ja lähtötiedot.", "Valitse rata ja tarkastele sen asemia järjestyksessä.", "Tallennuspaikka ja avoimen kilpailun asetukset."][root.page]; }
                     }
                     Rectangle { horizontal-stretch: 1; }
-                    if root.opened: Button { height: Theme.control-height; text: "Päivitä tiedot"; enabled: !root.reader-running && !root.new-record && !root.form-blocked; clicked => { root.reload(); } }
+                    if root.opened && root.page < 6: Button { height: Theme.control-height; text: "Päivitä tiedot"; enabled: !root.reader-running && !root.new-record && !root.form-blocked; clicked => { root.reload(); } }
                 }
-                if root.page == 0: VerticalLayout {
+                if root.page == 0: ScrollView {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                    horizontal-stretch: 1;
                     spacing: 18px;
                     if !root.opened: Rectangle {
+                        height: 335px; vertical-stretch: 0;
+                        horizontal-stretch: 1;
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         VerticalLayout {
                             padding: 32px; spacing: 16px;
@@ -209,6 +239,7 @@ export component AppWindow inherits Window {
                         }
                     }
                     if root.opened: Rectangle {
+                        horizontal-stretch: 1;
                         height: 112px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         HorizontalLayout {
                             padding: 20px; spacing: 30px;
@@ -219,6 +250,7 @@ export component AppWindow inherits Window {
                         }
                     }
                     if root.opened: Rectangle {
+                        horizontal-stretch: 1;
                         height: 240px;
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         VerticalLayout {
@@ -239,11 +271,13 @@ export component AppWindow inherits Window {
                         }
                     }
                     Rectangle { vertical-stretch: 1; }
+                    }
                 }
-                if root.page > 0 && root.page != 6 && !root.opened: Rectangle {
+                if root.page > 0 && root.page < 6 && !root.opened: Rectangle {
                     Text { text: "Avaa kilpailu aloittaaksesi."; color: Theme.muted; horizontal-alignment: center; vertical-alignment: center; }
                 }
                 if root.opened && root.page == 2: VerticalLayout {
+                    horizontal-stretch: 1;
                     spacing: 14px;
                     Rectangle {
                         height: 105px; background: Theme.surface; border-width: 1px; border-color: Theme.line; border-radius: Theme.radius;
@@ -284,20 +318,27 @@ export component AppWindow inherits Window {
                     }
                 }
                 if root.opened && (root.page == 1 || root.page == 3 || root.page == 4 || root.page == 5): VerticalLayout {
-                    spacing: 12px;
+                    horizontal-stretch: 1;
+                    spacing: 16px;
                     HorizontalLayout {
                         spacing: 12px;
-                        search := LineEdit { text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
+                        search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
                         if root.page != 3: Button { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; primary: true; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie HTML-raportti…"; clicked => { root.export-report(); } }
                     }
                     HorizontalLayout {
+                        horizontal-stretch: 1;
+                        vertical-stretch: 1;
                         spacing: 16px;
                         VerticalLayout {
-                            spacing: 12px;
-                            DataTable { rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: root.filter == "" ? "Luettelo on tyhjä. Lisää ensimmäinen tietue." : "Haulla ei löytynyt tietoja."; selected(key) => { root.select-row(key); } }
-                            if root.page == 5 || root.page == 3: VerticalLayout {
-                                spacing: 10px;
+                            horizontal-stretch: 1;
+                            vertical-stretch: 1;
+                            spacing: 16px;
+                            DataTable { horizontal-stretch: 1; vertical-stretch: 2; rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: root.filter != "" ? "Haulla ei löytynyt tietoja." : root.page == 3 ? "Ei vielä tuloksia. Lisää kilpailijat ja lue Emit-kortit." : "Luettelo on tyhjä. Lisää ensimmäinen tietue."; selected(key) => { root.select-row(key); } }
+                            if root.page == 5 || (root.page == 3 && root.detail-rows.length > 0): VerticalLayout {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 1;
+                                spacing: 12px;
                                 HorizontalLayout {
                                     Text { text: root.detail-title; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; }
                                     Rectangle { horizontal-stretch: 1; }
@@ -305,7 +346,7 @@ export component AppWindow inherits Window {
                                     if root.page == 5: Button { height: Theme.control-height; text: "↑"; enabled: root.editable && root.detail-key > 0 && !root.new-record; clicked => { root.move-station(-1); } }
                                     if root.page == 5: Button { height: Theme.control-height; text: "↓"; enabled: root.editable && root.detail-key >= 0 && !root.new-record; clicked => { root.move-station(1); } }
                                 }
-                                DataTable { rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; empty-text: "Valitse ensin rivi yllä olevasta luettelosta."; selected(key) => { root.select-detail(key); } }
+                                DataTable { horizontal-stretch: 1; vertical-stretch: 1; rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; empty-text: "Valitse ensin rivi yllä olevasta luettelosta."; selected(key) => { root.select-detail(key); } }
                             }
                         }
                         if root.editor-visible: Editor {
@@ -321,6 +362,7 @@ export component AppWindow inherits Window {
                 }
                 if root.page == 6: ScrollView {
                     HorizontalLayout {
+                        horizontal-stretch: 1;
                         spacing: 24px;
                         if root.opened: Editor {
                             width: 420px;
@@ -331,8 +373,10 @@ export component AppWindow inherits Window {
                             cancel => { root.cancel-edit(); }
                         }
                         VerticalLayout {
+                            horizontal-stretch: 1;
                             spacing: 18px;
                             Rectangle {
+                                horizontal-stretch: 1;
                                 min-height: 190px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                                 VerticalLayout {
                                     padding: 20px; spacing: 12px;
@@ -340,24 +384,12 @@ export component AppWindow inherits Window {
                                     Note { text: "Uusi kilpailu tallennetaan omaan kansioonsa tämän sijainnin alle."; }
                                     Text { text: root.default-root; color: Theme.ink; wrap: word-wrap; }
                                     HorizontalLayout {
+                                        spacing: 12px;
                                         Button { height: Theme.control-height; text: "Vaihda sijaintia…"; clicked => { root.change-default-root(); } }
                                         Button { height: Theme.control-height; text: "Palauta oletus"; clicked => { root.reset-default-root(); } }
+                                        Rectangle { horizontal-stretch: 1; }
                                     }
                                     Note { text: "Sijainnin vaihtaminen koskee uusia kilpailuja. Aiemmat kilpailut säilyvät paikoillaan."; }
-                                }
-                            }
-                            Rectangle {
-                                min-height: 200px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
-                                VerticalLayout {
-                                    padding: 20px; spacing: 12px;
-                                    Text { text: "AS2026 " + root.app-version; color: Theme.ink; font-size: 17px; font-weight: 700; }
-                                    Note { text: root.update-status; }
-                                    HorizontalLayout {
-                                        Button { height: Theme.control-height; text: root.update-busy ? "Odota…" : "Tarkista päivitykset"; enabled: !root.update-busy && !root.install-busy; clicked => { root.check-updates(); } }
-                                        if root.available-version != "": Button { height: Theme.control-height; text: "Päivitä nyt"; primary: true; enabled: !root.update-busy && !root.install-busy; clicked => { root.apply-update(); } }
-                                    }
-                                    if root.installable && !root.managed: Button { height: Theme.control-height; text: "Asenna tälle käyttäjälle"; enabled: !root.install-busy; clicked => { root.install-app(); } }
-                                    Note { text: root.managed ? "Sovellus on asennettu tälle käyttäjälle." : ""; }
                                 }
                             }
                             Rectangle { vertical-stretch: 1; }
@@ -406,7 +438,7 @@ export component AppWindow inherits Window {
             reject
         }
         Rectangle {
-            width: 540px; height: root.new-location-visible ? 370px : 300px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: min(540px, root.width - 24px); height: min(root.height - 24px, root.new-location-visible ? 370px : 300px); x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
             border-radius: 8px; background: Theme.surface; border-color: Theme.line; border-width: 1px;
             VerticalLayout {
                 padding: 26px; spacing: 16px;
@@ -457,7 +489,7 @@ export component AppWindow inherits Window {
                 reject
             }
             Rectangle {
-                width: 480px; height: 460px;
+                width: min(480px, root.width - 24px); height: min(460px, root.height - 24px);
                 x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                 VerticalLayout {
@@ -484,12 +516,12 @@ export component AppWindow inherits Window {
             reject
         }
         Rectangle {
-            width: 480px; height: 250px; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: min(480px, root.width - 24px); height: min(250px, root.height - 24px); x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
             background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
             VerticalLayout {
                 padding: 26px; spacing: 16px;
                 Heading { text: root.install-busy ? "Asennetaan AS2026:ta" : "Asenna AS2026"; }
-                Note { text: root.install-busy ? "Ohjelma avautuu automaattisesti asennuksen valmistuttua." : "Asennus lisää AS2026:n sovellusvalikkoon ja mahdollistaa päivitykset ohjelman asetuksista."; }
+                Note { text: root.install-busy ? "Ohjelma avautuu automaattisesti asennuksen valmistuttua." : "Asennus lisää AS2026:n sovellusvalikkoon ja mahdollistaa päivitykset sivupalkista."; }
                 Note { text: "Kilpailut ja asetukset säilyvät erillään ohjelmatiedostoista."; }
                 HorizontalLayout {
                     if !root.install-busy: Button { height: Theme.control-height; text: "Myöhemmin"; clicked => { root.setup-open = false; } }

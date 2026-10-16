@@ -114,8 +114,10 @@ export component DataTable inherits Rectangle {
     in property <string> empty-text: "Ei tietoja.";
     callback selected(int);
     property <int> current-index: -1;
-    min-width: 0px;
-    min-height: 100px;
+    min-width: 260px;
+    min-height: 160px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
     background: Theme.surface;
     border-color: focus.has-focus ? Theme.accent : Theme.line;
     border-width: focus.has-focus ? 2px : 1px;
@@ -166,7 +168,7 @@ export component DataTable inherits Rectangle {
         Rectangle {
             height: 36px; background: #23313b;
             HorizontalLayout {
-                padding-left: 12px; padding-right: 12px; spacing: 0px;
+                padding-left: 14px; padding-right: 14px; spacing: 10px;
                 for title[i] in root.headers: Text {
                     text: title; horizontal-stretch: root.weights[i];
                     min-width: 0px; preferred-width: 0px;
@@ -185,7 +187,7 @@ export component DataTable inherits Rectangle {
                 height: Theme.row-height;
                 background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? #1c2b35 : Theme.surface;
                 HorizontalLayout {
-                    padding-left: 12px; padding-right: 12px; spacing: 0px;
+                    padding-left: 14px; padding-right: 14px; spacing: 10px;
                     for value[i] in row.cells: Text {
                         text: value; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
@@ -203,6 +205,7 @@ export component DataTable inherits Rectangle {
             }
             if root.rows.length == 0: Text {
                 text: root.empty-text; color: Theme.muted; font-size: 14px;
+                x: 20px; y: 0px; width: parent.width - 40px; height: parent.height;
                 horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
             }
         }

@@ -62,6 +62,15 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
         );
     }
     open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    // Päivitykset ovat sivupalkin painike, eivät oma kilpailusivunsa.
+    app.invoke_navigate(7);
+    assert_eq!(
+        app.get_page(),
+        0,
+        "Päivityspainike ei muuta kilpailunäkymää"
+    );
+    app.invoke_navigate(6);
+    assert_eq!(app.get_page(), 6, "Asetukset kuuluvat kilpailunhallintaan");
     app.invoke_navigate(1);
     app.invoke_select_row(0);
     // Näkymän vaihto hyväksyy myös vielä kohdistetussa kentässä olevan luonnoksen.
