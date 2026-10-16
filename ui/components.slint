@@ -16,7 +16,6 @@ export component Note inherits Text {
 
 export component NavItem inherits Rectangle {
     in property <string> label;
-    in property <string> marker;
     in property <bool> active;
     callback chosen();
     height: 42px;
@@ -26,9 +25,24 @@ export component NavItem inherits Rectangle {
     forward-focus: focus;
     background: root.active ? Theme.accent-fill : touch.has-hover ? Theme.sidebar-hover : transparent;
     HorizontalLayout {
-        padding-left: 14px; padding-right: 12px; spacing: 10px;
-        Text { text: root.marker; width: 20px; color: root.active ? #c2eee5 : #8ba4b4; font-size: 12px; vertical-alignment: center; }
-        Text { text: root.label; color: white; font-size: 14px; font-weight: root.active ? 600 : 400; vertical-alignment: center; }
+        padding-left: 12px; padding-right: 8px; spacing: 10px;
+        Text {
+            width: 10px;
+            text: "●";
+            color: root.active ? #b8f4e9 : #7295a4;
+            font-size: 9px;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.label;
+            color: white;
+            font-size: 13px;
+            font-weight: root.active ? 600 : 400;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            min-width: 0px;
+            overflow: elide;
+        }
     }
     touch := TouchArea { clicked => { focus.focus(); root.chosen(); } }
     focus := FocusScope {
