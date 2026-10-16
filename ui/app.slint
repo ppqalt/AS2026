@@ -155,6 +155,8 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
+                // Tyhjä venyvä tila kiinnittää sovellustoiminnot sivupalkin alareunaan.
+                Rectangle { vertical-stretch: 1; }
                 Text { text: "SOVELLUS"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; height: 22px; vertical-alignment: center; }
                 Button {
                     height: Theme.control-height;
