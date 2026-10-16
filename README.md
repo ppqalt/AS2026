@@ -6,7 +6,7 @@ Ohjelma on kehitysversio. Laskennan täydellistä vastaavuutta AS2015A:n kilpail
 
 ## Lisenssi
 
-AS2026:n oma lähdekoodi, dokumentaatio ja synteettiset esimerkit ovat [0BSD-lisenssillä](LICENSE). Se sallii käytön, kopioinnin, muokkaamisen ja jakelun myös kaupallisesti ilman tekijän mainitsemisen tai muutosten julkaisun vaatimusta. Ohjelma tarjotaan ilman takuuta. Lisenssi ei koske alkuperäistä AS2015A-ohjelmaa, kilpailuaineistoja eikä ulkopuolisia kirjastoja.
+AS2026:n oma lähdekoodi, dokumentaatio ja synteettiset esimerkit ovat [BSD-2-Clause-lisenssillä](LICENSE). Lähdekoodia ja ohjelmatiedostoja jaettaessa säilytetään tekijänoikeusilmoitus, lisenssiehdot ja vastuuvapauslauseke. Ohjelma tarjotaan ilman takuuta. Lisenssi ei koske alkuperäistä AS2015A-ohjelmaa, kilpailuaineistoja eikä ulkopuolisia kirjastoja.
 
 Riippuvuudet säilyttävät omat lisenssinsä. Slintiä käytetään työpöytäsovelluksessa sen maksuttomalla Royalty-free 2.0 -lisenssillä, ja sen edellyttämä maininta on ohjelman **Tietoja**-ikkunassa. Katso [THIRD_PARTY.md](THIRD_PARTY.md).
 

@@ -111,6 +111,10 @@ Fyysistä Emit-lukijaa ei avattu GUI-vaiheessa. Windowsin visuaalinen käyttö j
 
 Seuraava kehitysaskel on kokeilla kilpailun perustamisen ja tulostuksen kokonainen työnkulku järjestäjän kanssa sekä kerätä alkuperäisellä AS2015A:lla vahvistettu vertailukilpailu laskentaytimen varmennukseen.
 
-## Lisenssivalinta
+## Nykyinen lisenssi: BSD-2-Clause
 
-Käyttäjän pyynnöstä AS2026:n oma koodi, dokumentaatio ja synteettiset esimerkit lisensoitiin 0BSD-lisenssillä. Virallinen teksti on LICENSE-tiedostossa ja Cargo-paketin SPDX-tunnus on `0BSD`. README:n aiempi avoin lisenssivalinta päivitettiin. Ulkopuoliset kirjastot säilyttävät omat ehtonsa; Slintin Royalty-free 2.0 -vaihtoehto ja Tietoja-ikkunan alkuperäinen AboutSlint-maininta dokumentoidaan THIRD_PARTY-tiedostossa. Repositorio säilyy yksityisenä, main-haaran historiaa ei muuteta.
+Uusimman dev-version oma koodi, dokumentaatio ja synteettiset esimerkit käyttävät BSD-2-Clause-lisenssiä. LICENSE sisältää standardin koko tekstin ja nykyisen tekijänoikeusilmoituksen: `Copyright (c) 2026 AS2026 contributors`. Henkilötietoja ei ole lisätty. Cargo-paketin SPDX-tunnus on `BSD-2-Clause`. Riippuvuuksien lisenssit ja Slintin AboutSlint-maininta säilyvät erillisinä.
+
+Aiempi commit `50baf9d` käytti 0BSD-lisenssiä. Siihen jo myönnettyjä oikeuksia ei peruuteta eikä sen Git-historiaa muuteta. Nykyinen lisenssivalinta koskee uutta dev-versiota ja siitä tehtäviä tulevia julkaisuja.
+
+GitHub-repositorio säilyy yksityisenä. Tarkistuksessa Releases-rajapinta palautti nolla julkaisua (mukaan lukien luonnokset ja esijulkaisut), eikä Actions-latauspaketteja ollut. Release-julkaisuja tai tageja ei siksi poistettu. `codex-original` säilyy commitissa `944ee4f`. Uutta GitHub Releaseä ei tehty.
