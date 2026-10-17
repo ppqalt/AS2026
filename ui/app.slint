@@ -1,7 +1,7 @@
 import { Button, LineEdit, Palette, AboutSlint, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { TableRow, EditorField } from "types.slint";
-import { Heading, Note, NavItem, DataTable, Editor, Metric } from "components.slint";
+import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton } from "components.slint";
 export { TableRow, EditorField }
 
 export component AppWindow inherits Window {
@@ -204,7 +204,7 @@ export component AppWindow inherits Window {
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Button { height: Theme.control-height; text: "Avaa"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.open-file(); } }
-                    Button { height: Theme.control-height; text: "+ Uusi"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; primary: true; clicked => { root.begin-new(); } }
+                    AccentButton { height: Theme.control-height; text: "+ Uusi"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.begin-new(); } }
                 }
                 Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
             }
@@ -238,7 +238,7 @@ export component AppWindow inherits Window {
                             Note { text: "Avaa olemassa oleva kilpailu tai perusta uusi. Voit myös tutustua ohjelmaan turvallisella esimerkkikilpailulla."; max-width: 580px; }
                             HorizontalLayout {
                                 spacing: 10px;
-                                Button { height: Theme.control-height; text: "Avaa kilpailutiedosto…"; primary: true; clicked => { root.open-file(); } }
+                                AccentButton { height: Theme.control-height; text: "Avaa kilpailutiedosto…"; clicked => { root.open-file(); } }
                                 Button { height: Theme.control-height; text: "Kokeile esimerkillä"; clicked => { root.open-demo(); } }
                                 Rectangle { horizontal-stretch: 1; }
                             }
@@ -273,7 +273,7 @@ export component AppWindow inherits Window {
                                 spacing: 10px;
                                 Button { height: Theme.control-height; text: "Kilpailijat →"; clicked => { root.navigate(1); } }
                                 Button { height: Theme.control-height; text: "Radat ja asemat →"; clicked => { root.navigate(5); } }
-                                Button { height: Theme.control-height; text: "Emit-lukeminen →"; primary: true; enabled: root.editable; clicked => { root.navigate(2); } }
+                                AccentButton { height: Theme.control-height; text: "Emit-lukeminen →"; enabled: root.editable; clicked => { root.navigate(2); } }
                                 Button { height: Theme.control-height; text: "Tulokset →"; clicked => { root.navigate(3); } }
                             }
                             Rectangle { height: 8px; }
@@ -307,7 +307,7 @@ export component AppWindow inherits Window {
                                 placeholder-text: "Automaattinen / COM3";
                                 enabled: !root.reader-running;
                             }
-                            Button { height: Theme.control-height; text: root.reader-running ? "Pysäytä luku" : "Käynnistä lukija"; primary: true; enabled: root.editable; clicked => { if root.reader-running { root.reader-stop(); } else { root.reader-start(root.reader-port); } } }
+                            AccentButton { height: Theme.control-height; text: root.reader-running ? "Pysäytä luku" : "Käynnistä lukija"; enabled: root.editable; clicked => { if root.reader-running { root.reader-stop(); } else { root.reader-start(root.reader-port); } } }
                         }
                     }
                     if root.unsaved-count > 0: HorizontalLayout {
@@ -336,7 +336,7 @@ export component AppWindow inherits Window {
                     HorizontalLayout {
                         spacing: 12px;
                         search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
-                        if root.page != 3: Button { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; primary: true; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
+                        if root.page != 3: AccentButton { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie XLSX…"; clicked => { root.export-xlsx(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie CSV…"; clicked => { root.export-csv(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie HTML-raportti…"; clicked => { root.export-report(); } }
@@ -391,10 +391,9 @@ export component AppWindow inherits Window {
                                 placeholder-text: "Hae radoista…";
                                 edited => { root.filter-changed(self.text); }
                             }
-                            Button {
+                            AccentButton {
                                 height: Theme.control-height;
                                 text: "+ Lisää rata";
-                                primary: true;
                                 enabled: root.editable && !root.new-record;
                                 clicked => { root.add-record(); }
                             }
@@ -591,7 +590,7 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     Rectangle { horizontal-stretch: 1; }
                     dialog-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.dialog-open = false; } }
-                    dialog-create := Button { height: Theme.control-height; text: "Luo kilpailu"; primary: true; clicked => { root.create-project(root.new-path, root.new-name); } }
+                    dialog-create := AccentButton { height: Theme.control-height; text: "Luo kilpailu"; clicked => { root.create-project(root.new-path, root.new-name); } }
                 }
             }
         }
@@ -645,7 +644,7 @@ export component AppWindow inherits Window {
                 Note { text: "Kilpailut ja asetukset säilyvät erillään ohjelmatiedostoista."; }
                 HorizontalLayout {
                     if !root.install-busy: Button { height: Theme.control-height; text: "Myöhemmin"; clicked => { root.setup-open = false; } }
-                    setup-install := Button { height: Theme.control-height; text: root.install-busy ? "Odota…" : "Asenna ja käynnistä"; primary: true; enabled: !root.install-busy; clicked => { root.install-app(); } }
+                    setup-install := AccentButton { height: Theme.control-height; text: root.install-busy ? "Odota…" : "Asenna ja käynnistä"; enabled: !root.install-busy; clicked => { root.install-app(); } }
                 }
             }
         }

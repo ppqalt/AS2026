@@ -15,6 +15,54 @@ export component Note inherits Text {
 }
 
 // Fluent 2: stable sidebar selection with a slim forest-green rail.
+// Compact Fluent 2 accent action. Built-in neutral Fluent controls remain
+// untouched; this single accent variant avoids platform-blue primary buttons.
+// Immediate states only: no animation, opacity, shadow, acrylic or gradient.
+export component AccentButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: Theme.control-height;
+    min-width: 76px;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: root.enabled ? Theme.accent-fill : Theme.line;
+    background: root.enabled
+        ? (touch.has-hover ? Theme.accent-hover : Theme.accent-fill)
+        : Theme.surface-raised;
+    forward-focus: key-focus;
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        Text {
+            text: root.text;
+            color: root.enabled ? Theme.ink : Theme.subtle-text;
+            font-size: 13px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        clicked => { if root.enabled { root.clicked(); } }
+    }
+    key-focus := FocusScope {
+        width: 0px;
+        focus-on-tab-navigation: root.enabled;
+        key-pressed(event) => {
+            if root.enabled && (event.text == Key.Return || event.text == Key.Space) {
+                root.clicked();
+                return accept;
+            }
+            reject
+        }
+    }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+}
+
 export component NavItem inherits Rectangle {
     in property <string> label;
     in property <bool> active;
@@ -317,7 +365,7 @@ export component Editor inherits Rectangle {
         }
         if root.new-record: HorizontalLayout {
             Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.cancel(); } }
-            Button { height: Theme.control-height; text: "Lisää"; primary: true; enabled: root.writable; clicked => { root.add(); } }
+            AccentButton { height: Theme.control-height; text: "Lisää"; enabled: root.writable; clicked => { root.add(); } }
         }
         if root.blocked && !root.new-record: Button { height: Theme.control-height;
             text: "Palauta tallennetut tiedot";
