@@ -39,3 +39,19 @@ fn route_details_and_table_mouse_selection_remain_distinct() {
     assert!(!table.contains("FocusScope"));
     assert!(!table.contains("forward-focus"));
 }
+
+#[test]
+fn editor_widths_do_not_depend_on_window_width() {
+    let app = include_str!("../ui/app.slint");
+    // Referencing root.width from a child inside the root's layout creates a
+    // layoutinfo-h <-> width feedback loop in Slint 1.16.
+    assert!(app.contains("preferred-width: 344px;"));
+    assert!(app.contains("preferred-width: 400px;"));
+    for line in app.lines() {
+        let declaration = line.trim_start();
+        assert!(
+            !(declaration.starts_with("width:") && declaration.contains("root.width *")),
+            "window-dependent editor width creates a binding loop: {declaration}"
+        );
+    }
+}

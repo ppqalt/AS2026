@@ -362,7 +362,12 @@ export component AppWindow inherits Window {
                             }
                         }
                         if root.editor-visible: Editor {
-                            width: min(360px, max(310px, root.width * 0.30));
+                            // Use layout constraints, not root.width: referring to the
+                            // window size here creates a Slint layout binding loop.
+                            preferred-width: 344px;
+                            min-width: 280px;
+                            max-width: 360px;
+                            horizontal-stretch: 0;
                             heading: root.editor-title; description: root.editor-description;
                             fields: root.fields; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
@@ -484,7 +489,11 @@ export component AppWindow inherits Window {
                         horizontal-stretch: 1;
                         spacing: 24px;
                         if root.opened: Editor {
-                            width: min(420px, max(310px, root.width * 0.32));
+                            // Constrained by the parent layout; no window-size feedback.
+                            preferred-width: 400px;
+                            min-width: 280px;
+                            max-width: 420px;
+                            horizontal-stretch: 0;
                             heading: "Kilpailun asetukset"; description: "Muutokset tallentuvat kentän hyväksymisen jälkeen.";
                             fields: root.fields; writable: root.editable && !root.install-busy; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
