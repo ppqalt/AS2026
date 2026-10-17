@@ -11,6 +11,7 @@ export component AppWindow inherits Window {
     min-width: 480px; min-height: 320px;
     background: Theme.canvas;
     default-font-size: Theme.body-font-size;
+    default-font-family: Theme.font-family;
     forward-focus: keyboard;
     in-out property <int> page: 0;
     in-out property <bool> opened;
@@ -136,15 +137,15 @@ export component AppWindow inherits Window {
     HorizontalLayout {
         spacing: 0px;
         Rectangle {
-            width: 194px; background: Theme.sidebar;
+            width: Theme.sidebar-width; background: Theme.sidebar;
             VerticalLayout {
                 padding: 14px; spacing: 5px;
                 Rectangle {
                     height: 76px;
                     VerticalLayout {
                         padding-left: 12px; padding-top: 10px; spacing: 4px;
-                        Text { text: "AS2026"; color: white; font-size: 25px; font-weight: 800; letter-spacing: 1px; }
-                        Text { text: "KILPAILUNHALLINTA"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; }
+                        Text { text: "AS2026"; color: Theme.ink; font-size: 24px; font-weight: 700; letter-spacing: 0.4px; }
+                        Text { text: "KILPAILUNHALLINTA"; color: Theme.subtle-text; font-size: 9px; letter-spacing: 1.2px; }
                     }
                 }
                 // Pelkkä vieritettävä navigaatio, ilman ScrollView'n reunaviivaa.
@@ -164,7 +165,7 @@ export component AppWindow inherits Window {
                 }
                 // Tyhjä venyvä tila kiinnittää sovellustoiminnot sivupalkin alareunaan.
                 Rectangle { vertical-stretch: 1; }
-                Text { text: "SOVELLUS"; color: #8ba4b4; font-size: 9px; letter-spacing: 1.2px; height: 22px; vertical-alignment: center; }
+                Text { text: "SOVELLUS"; color: Theme.subtle-text; font-size: 9px; letter-spacing: 1.2px; height: 22px; vertical-alignment: center; }
                 Button {
                     height: Theme.control-height;
                     text: root.update-busy ? "Tarkistetaan…" : root.available-version != "" ? "Asenna " + root.available-version : "Päivitykset ↻";
@@ -180,11 +181,11 @@ export component AppWindow inherits Window {
                 }
                 Button { height: Theme.control-height; text: "Tietoja"; clicked => { root.about-open = true; } }
                 Rectangle {
-                    height: 56px; background: #1b3343; border-radius: 5px;
+                    height: 56px; background: Theme.surface-raised; border-radius: Theme.radius;
                     VerticalLayout {
                         padding: 8px; spacing: 4px;
-                        Text { text: root.reader-running ? "●  Emit-lukija käynnissä" : "○  Emit-lukija pysäytetty"; color: root.reader-running ? #80d6bb : #a8bdc9; font-size: 11px; }
-                        Text { text: "AS2026 " + root.app-version; color: #8ba4b4; font-size: 11px; }
+                        Text { text: root.reader-running ? "●  Emit-lukija käynnissä" : "○  Emit-lukija pysäytetty"; color: root.reader-running ? Theme.success : Theme.muted; font-size: 11px; }
+                        Text { text: "AS2026 " + root.app-version; color: Theme.subtle-text; font-size: 11px; }
                     }
                 }
             }
@@ -209,7 +210,7 @@ export component AppWindow inherits Window {
             }
             VerticalLayout {
                 horizontal-stretch: 1;
-                padding: 12px; spacing: 16px;
+                padding: Theme.gutter; spacing: Theme.space-4;
                 HorizontalLayout {
                     horizontal-stretch: 1;
                     VerticalLayout {
@@ -226,13 +227,13 @@ export component AppWindow inherits Window {
                     vertical-stretch: 1;
                     VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 18px;
+                    spacing: Theme.space-4;
                     if !root.opened: Rectangle {
-                        height: 335px; vertical-stretch: 0;
+                        height: 310px; vertical-stretch: 0;
                         horizontal-stretch: 1;
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         VerticalLayout {
-                            padding: 32px; spacing: 16px;
+                            padding: Theme.space-6; spacing: Theme.space-4;
                             Text { text: "Valmis kilpailupäivään"; font-size: 26px; font-weight: 700; color: Theme.ink; }
                             Note { text: "Avaa olemassa oleva kilpailu tai perusta uusi. Voit myös tutustua ohjelmaan turvallisella esimerkkikilpailulla."; max-width: 580px; }
                             HorizontalLayout {
@@ -251,7 +252,7 @@ export component AppWindow inherits Window {
                     }
                     if root.opened: Rectangle {
                         horizontal-stretch: 1;
-                        height: 112px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                        height: 108px; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         HorizontalLayout {
                             padding: 20px; spacing: 30px;
                             Metric { label: "Kilpailijaa"; count: root.driver-count; }
@@ -262,10 +263,10 @@ export component AppWindow inherits Window {
                     }
                     if root.opened: Rectangle {
                         horizontal-stretch: 1;
-                        height: 240px;
+                        height: 222px;
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         VerticalLayout {
-                            padding: 22px; spacing: 14px;
+                            padding: Theme.space-5; spacing: Theme.space-3;
                             Text { text: "Kilpailun työvaiheet"; font-size: 17px; font-weight: 700; color: Theme.ink; }
                             Note { text: "Tarkista luokat ja radat, lisää kilpailijat ja käynnistä kortinluku. Tuloslaskenta käyttää samoja tietoja kaikkialla."; }
                             HorizontalLayout {
@@ -289,14 +290,14 @@ export component AppWindow inherits Window {
                 }
                 if root.opened && root.page == 2: VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 14px;
+                    spacing: Theme.space-3;
                     Rectangle {
-                        height: 105px; background: Theme.surface; border-width: 1px; border-color: Theme.line; border-radius: Theme.radius;
+                        height: 88px; background: Theme.surface; border-width: 1px; border-color: Theme.line; border-radius: Theme.radius;
                         HorizontalLayout {
-                            padding: 18px; spacing: 12px;
+                            padding: Theme.space-4; spacing: Theme.space-3;
                             VerticalLayout {
                                 spacing: 7px;
-                                Text { text: root.reader-running ? "●  Lukija odottaa korttia" : "Kortinluku"; color: Theme.accent; font-size: 17px; font-weight: 700; }
+                                Text { text: root.reader-running ? "●  Lukija odottaa korttia" : "Kortinluku"; color: root.reader-running ? Theme.success : Theme.ink; font-size: 16px; font-weight: 700; }
                                 Note { text: root.reader-status; }
                             }
                             Rectangle { horizontal-stretch: 1; }
@@ -316,12 +317,12 @@ export component AppWindow inherits Window {
                     HorizontalLayout {
                         spacing: 12px;
                         Text { text: "Lukuhistoria"; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; }
-                        Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.accent; font-size: 12px; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                        Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.success; font-size: 12px; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
                         Button { height: Theme.control-height; text: "Lue kehystiedosto…"; enabled: root.editable && !root.reader-running; clicked => { root.import-frame(); } }
                     }
                     DataTable { rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: "Tallennetut korttiluvut tulevat tähän."; selected(key) => { root.select-row(key); } }
                     if root.detail-rows.length > 0: VerticalLayout {
-                        height: 218px; spacing: 8px;
+                        height: 218px; spacing: Theme.space-2;
                         Text { text: root.detail-title; color: Theme.ink; font-size: 13px; font-weight: 600; }
                         DataTable {
                             rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
@@ -361,7 +362,7 @@ export component AppWindow inherits Window {
                             }
                         }
                         if root.editor-visible: Editor {
-                            width: 310px;
+                            width: min(360px, max(310px, root.width * 0.30));
                             heading: root.editor-title; description: root.editor-description;
                             fields: root.fields; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
@@ -398,12 +399,12 @@ export component AppWindow inherits Window {
                                 clicked => { root.add-record(); }
                             }
                         }
-                        Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: 16px; font-weight: 700; }
+                        Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: 15px; font-weight: 700; }
                         DataTable {
                             horizontal-stretch: 1;
                             vertical-stretch: 0;
                             table-min-height: 84px;
-                            height: min(170px, max(84px, 40px + root.rows.length * Theme.row-height));
+                            height: min(194px, max(84px, 36px + root.rows.length * Theme.row-height));
                             rows: root.rows; headers: root.headers; weights: root.weights;
                             selected-key: root.selected-key;
                             empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
@@ -460,7 +461,7 @@ export component AppWindow inherits Window {
                             horizontal-stretch: 1;
                             vertical-stretch: 0;
                             table-min-height: 184px;
-                            height: min(320px, max(184px, 40px + root.detail-rows.length * Theme.row-height));
+                            height: min(340px, max(184px, 36px + root.detail-rows.length * Theme.row-height));
                             rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
                             selected-key: root.detail-key;
                             empty-text: "Valitse rata yllä olevasta luettelosta.";
@@ -484,7 +485,7 @@ export component AppWindow inherits Window {
                         horizontal-stretch: 1;
                         spacing: 24px;
                         if root.opened: Editor {
-                            width: 420px;
+                            width: min(420px, max(310px, root.width * 0.32));
                             heading: "Kilpailun asetukset"; description: "Muutokset tallentuvat kentän hyväksymisen jälkeen.";
                             fields: root.fields; writable: root.editable && !root.install-busy; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
@@ -528,7 +529,7 @@ export component AppWindow inherits Window {
         }
     }
     if root.dialog-open: Rectangle {
-        background: #13273580;
+        background: Theme.modal-backdrop;
         TouchArea { }
         FocusScope {
         focus-on-click: false;
@@ -558,9 +559,9 @@ export component AppWindow inherits Window {
         }
         Rectangle {
             width: min(540px, root.width - 24px); height: min(root.height - 24px, root.new-location-visible ? 370px : 300px); x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-            border-radius: 8px; background: Theme.surface; border-color: Theme.line; border-width: 1px;
+            border-radius: Theme.radius-large; background: Theme.surface; border-color: Theme.line; border-width: 1px;
             VerticalLayout {
-                padding: 26px; spacing: 16px;
+                padding: Theme.space-6; spacing: Theme.space-4;
                 Heading { text: "Uusi kilpailu"; }
                 VerticalLayout {
                     spacing: 6px;
@@ -597,7 +598,7 @@ export component AppWindow inherits Window {
         }
     }
     if root.about-open: Rectangle {
-        background: #13273580;
+        background: Theme.modal-backdrop;
         TouchArea { }
         FocusScope {
             focus-on-click: false;
@@ -624,7 +625,7 @@ export component AppWindow inherits Window {
         }
     }
     if root.setup-open || root.install-busy: Rectangle {
-        background: #132735b0;
+        background: Theme.modal-backdrop;
         TouchArea { }
         FocusScope {
         focus-on-click: false;
@@ -638,7 +639,7 @@ export component AppWindow inherits Window {
             width: min(480px, root.width - 24px); height: min(250px, root.height - 24px); x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
             background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
             VerticalLayout {
-                padding: 26px; spacing: 16px;
+                padding: Theme.space-6; spacing: Theme.space-4;
                 Heading { text: root.install-busy ? "Asennetaan AS2026:ta" : "Asenna AS2026"; }
                 Note { text: root.install-busy ? "Ohjelma avautuu automaattisesti asennuksen valmistuttua." : "Asennus lisää AS2026:n sovellusvalikkoon ja mahdollistaa päivitykset sivupalkista."; }
                 Note { text: "Kilpailut ja asetukset säilyvät erillään ohjelmatiedostoista."; }
