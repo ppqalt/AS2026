@@ -136,6 +136,14 @@ fn calculate_punches(
     timing::calculate_live(&rows, &options)
 }
 
+/// Johdetun tulosarkiston HMS-kentät säilyttävät myös keskiyön ylittävän
+/// kokonaissekuntiarvon: esimerkiksi 24:05:00, eivät piilota vuorokauden vaihtoa.
+fn hms(seconds: i64) -> [i64; 3] {
+    let hours = seconds.div_euclid(3600);
+    let within_hour = seconds.rem_euclid(3600);
+    [hours, within_hour / 60, within_hour % 60]
+}
+
 fn optional_nonnegative(value: Option<&String>, label: &str) -> Result<Option<i64>, CoreError> {
     let Some(value) = value else {
         return Err(invalid(format!("{label} puuttuu")));
@@ -462,8 +470,18 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                 competitor.header_fields[19] = result.totals.time_points.to_string();
                 competitor.header_fields[20] = result.totals.other_points.to_string();
                 competitor.header_fields[26] = total.to_string();
+                let elapsed = hms(result.total_duration_seconds);
+                let finish = hms(result.finish_clock_seconds);
+                for (index, value) in elapsed.into_iter().enumerate() {
+                    competitor.header_fields[13 + index] = value.to_string();
+                }
+                for (index, value) in finish.into_iter().enumerate() {
+                    competitor.header_fields[16 + index] = value.to_string();
+                }
                 competitor.total_penalties = total;
                 competitor.status = result.status.as_legacy().into();
+                competitor.header_fields[28] = competitor.status.clone();
+                competitor.header_fields[29] = result.reason.clone();
                 competitor.results = result
                     .rows
                     .into_iter()
@@ -484,7 +502,7 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                             received_code: row.received_code,
                             target_seconds: row.target_seconds,
                             actual_seconds: row.actual_seconds,
-                            clock: [0; 3],
+                            clock: row.clock_seconds.map_or([0; 3], hms),
                             rule: row.effective_rule as i64,
                             section_text: station
                                 .map_or("", |s| s.section_time_text.as_str())
@@ -496,7 +514,9 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                         }
                     })
                     .collect();
-                competitor.declared_row_count = competitor.results.len() as u32;
+                competitor.declared_row_count = u32::try_from(competitor.results.len())
+                    .map_err(|_| CoreError::ArithmeticOverflow("asematulosten määrä"))?;
+                competitor.header_fields[27] = competitor.declared_row_count.to_string();
             }
             Err(error) => archive.warnings.push(format!(
                 "Kilpailijan {} tulos puuttuu: {error}",

@@ -271,3 +271,19 @@ fn native_keeps_stored_rt_sum_without_repricing_and_rejects_invalid_totals() {
     project.kilpailijat[0].lisavirheet.muut_virhepisteet = i64::MAX;
     assert!(application::calculated_project(&project).is_err());
 }
+
+#[test]
+fn calculated_native_results_write_consistent_clocks_status_and_header_fields() {
+    let project = project();
+    let archive = application::calculated_project(&project).unwrap();
+    let driver = &archive.competitors[0];
+    assert_eq!(driver.status, "TRK");
+    assert_eq!(driver.header_fields[28], "TRK");
+    assert_eq!(driver.header_fields[29], "");
+    assert_eq!(&driver.header_fields[13..=15], ["0", "10", "0"]);
+    assert_eq!(&driver.header_fields[16..=18], ["12", "10", "0"]);
+    assert_eq!(driver.header_fields[27], driver.declared_row_count.to_string());
+    assert_eq!(driver.results.last().unwrap().clock, [12, 10, 0]);
+    assert_eq!(driver.results.last().unwrap().actual_seconds, 0);
+    assert_eq!(driver.results.last().unwrap().signed_time_penalty, 1770);
+}
