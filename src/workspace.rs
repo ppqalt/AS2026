@@ -177,6 +177,9 @@ impl Workspace {
         value: &str,
     ) -> Result<(), CoreError> {
         self.update(|project| {
+            let defaults = crate::scoring::ScoringParameters::default();
+            let missing_rate = project.virhepisteet.puuttuva_rt.unwrap_or(defaults.missing_rt);
+            let extra_rate = project.virhepisteet.ylimaarainen_rt.unwrap_or(defaults.extra_rt);
             let driver = project
                 .kilpailijat
                 .iter_mut()
@@ -192,6 +195,26 @@ impl Workspace {
                 DriverField::Start => driver.lahtoaika = value.trim().into(),
                 DriverField::Correction => {
                     driver.emit_korjaus_sekuntia = number(value, "Emit-korjaus")?
+                }
+                DriverField::MissingRtCount => {
+                    let count: u32 = number(value, "Puuttuvien RT-asemien määrä")?;
+                    let points = i64::from(count)
+                        .checked_mul(missing_rate)
+                        .ok_or(CoreError::ArithmeticOverflow("puuttuvien RT-asemien pisteet"))?;
+                    driver.lisavirheet.puuttuvat_rt_kpl = count;
+                    driver.lisavirheet.puuttuvat_rt_pisteet = points;
+                }
+                DriverField::ExtraRtCount => {
+                    let count: u32 = number(value, "Ylimääräisten RT-asemien määrä")?;
+                    let points = i64::from(count)
+                        .checked_mul(extra_rate)
+                        .ok_or(CoreError::ArithmeticOverflow("ylimääräisten RT-asemien pisteet"))?;
+                    driver.lisavirheet.ylimaaraiset_rt_kpl = count;
+                    driver.lisavirheet.ylimaaraiset_rt_pisteet = points;
+                }
+                DriverField::OtherPenalties => {
+                    let points: i64 = number(value, "Muut virhepisteet")?;
+                    driver.lisavirheet.muut_virhepisteet = points;
                 }
             }
             Ok(())
@@ -415,6 +438,9 @@ pub enum DriverField {
     Car,
     Start,
     Correction,
+    MissingRtCount,
+    ExtraRtCount,
+    OtherPenalties,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClassField {
@@ -486,6 +512,7 @@ impl DriverEdit {
             lahtoaika: self.start_time.trim().into(),
             emit_korjaus_sekuntia: optional_number(&self.correction_seconds, "Emit-korjaus")?
                 .unwrap_or(0),
+            lisavirheet: Default::default(),
         })
     }
 }

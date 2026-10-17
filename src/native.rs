@@ -142,6 +142,42 @@ pub struct Driver {
     pub lahtoaika: String,
     #[serde(default)]
     pub emit_korjaus_sekuntia: i64,
+    /// Erilliset kilpailijakohtaiset virhepisteet, eivät asemarivien pisteitä.
+    #[serde(default, skip_serializing_if = "AdditionalPenalties::is_zero")]
+    pub lisavirheet: AdditionalPenalties,
+}
+
+/// AS2015A:n Kilp.txt-L-tietueen erilliset kentät 21–25.
+/// Määrät ja jo tallennetut pistesummat pidetään erillään:
+/// kortin uusintaluku ei saa hiljaisesti hinnoitella aiempia RT-lisäyksiä uudestaan.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AdditionalPenalties {
+    pub puuttuvat_rt_kpl: u32,
+    pub puuttuvat_rt_pisteet: i64,
+    pub ylimaaraiset_rt_kpl: u32,
+    pub ylimaaraiset_rt_pisteet: i64,
+    pub muut_virhepisteet: i64,
+}
+
+impl AdditionalPenalties {
+    pub fn is_zero(&self) -> bool {
+        self.puuttuvat_rt_kpl == 0
+            && self.puuttuvat_rt_pisteet == 0
+            && self.ylimaaraiset_rt_kpl == 0
+            && self.ylimaaraiset_rt_pisteet == 0
+            && self.muut_virhepisteet == 0
+    }
+
+    fn validate(&self) -> Result<(), CoreError> {
+        if self.puuttuvat_rt_pisteet < 0
+            || self.ylimaaraiset_rt_pisteet < 0
+            || self.muut_virhepisteet < 0
+        {
+            return Err(invalid("Erilliset virhepisteet eivät saa olla negatiivisia"));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -302,6 +338,7 @@ impl Project {
                     driver.numero
                 )));
             }
+            driver.lisavirheet.validate()?;
             let time = parse_clock(&driver.lahtoaika)?;
             let mut fields = vec!["0".to_owned(); 31];
             fields[0] = driver.numero.to_string();
@@ -315,6 +352,11 @@ impl Project {
             fields[10] = time.hour.to_string();
             fields[11] = time.minute.to_string();
             fields[12] = time.second.to_string();
+            fields[21] = driver.lisavirheet.puuttuvat_rt_kpl.to_string();
+            fields[22] = driver.lisavirheet.puuttuvat_rt_pisteet.to_string();
+            fields[23] = driver.lisavirheet.ylimaaraiset_rt_kpl.to_string();
+            fields[24] = driver.lisavirheet.ylimaaraiset_rt_pisteet.to_string();
+            fields[25] = driver.lisavirheet.muut_virhepisteet.to_string();
             fields[28] = "ILM".to_owned();
             fields[29] = String::new();
             fields[30] = driver.emit_korjaus_sekuntia.to_string();

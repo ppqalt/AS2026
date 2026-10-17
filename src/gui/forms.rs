@@ -260,7 +260,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
             .iter()
             .find(|driver| driver.numero == *number)
             .map(|driver| {
-                driver_fields(
+                let mut fields = driver_fields(
                     project,
                     &DriverEdit {
                         number: driver.numero.to_string(),
@@ -272,7 +272,34 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         start_time: driver.lahtoaika.clone(),
                         correction_seconds: driver.emit_korjaus_sekuntia.to_string(),
                     },
-                )
+                );
+                fields.extend([
+                    text(
+                        8,
+                        "Puuttuvat RT-asemat (kpl)",
+                        driver.lisavirheet.puuttuvat_rt_kpl,
+                        &format!(
+                            "Erillinen pistesumma {} p. Määrän muutos laskee summan nykyisillä asetuksilla.",
+                            driver.lisavirheet.puuttuvat_rt_pisteet
+                        ),
+                    ),
+                    text(
+                        9,
+                        "Ylimääräiset RT-asemat (kpl)",
+                        driver.lisavirheet.ylimaaraiset_rt_kpl,
+                        &format!(
+                            "Erillinen pistesumma {} p. Määrän muutos laskee summan nykyisillä asetuksilla.",
+                            driver.lisavirheet.ylimaaraiset_rt_pisteet
+                        ),
+                    ),
+                    text(
+                        10,
+                        "Muut virhepisteet",
+                        driver.lisavirheet.muut_virhepisteet,
+                        "Erilliset kilpailijakohtaiset virhepisteet",
+                    ),
+                ]);
+                fields
             })
             .unwrap_or_default(),
         Selection::NewDriver => {
@@ -488,6 +515,9 @@ pub fn apply_field(
                 5 => DriverField::Car,
                 6 => DriverField::Start,
                 7 => DriverField::Correction,
+                8 => DriverField::MissingRtCount,
+                9 => DriverField::ExtraRtCount,
+                10 => DriverField::OtherPenalties,
                 _ => return Err(invalid()),
             };
             let new_number = if key == 0 {

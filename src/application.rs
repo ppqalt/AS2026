@@ -443,7 +443,23 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                         competitor.number, diagnostic.message
                     ));
                 }
-                competitor.total_penalties = result.totals.total_points;
+                // Asemarivien summat ovat vain kaksi viidestä kokonaispisteosasta.
+                // Erilliset RT-pistesummat säilyvät tallennettuina, vaikka
+                // kilpailun parametrien arvoja muutettaisiin myöhemmin.
+                let missing_rt = header_number(competitor, 22, "Puuttuvien RT pisteet")?;
+                let extra_rt = header_number(competitor, 24, "Ylimääräisten RT pisteet")?;
+                let other = header_number(competitor, 25, "Muut virhepisteet")?;
+                let total = crate::scoring::competitor_total([
+                    result.totals.time_points,
+                    result.totals.other_points,
+                    missing_rt,
+                    other,
+                    extra_rt,
+                ])?;
+                competitor.header_fields[19] = result.totals.time_points.to_string();
+                competitor.header_fields[20] = result.totals.other_points.to_string();
+                competitor.header_fields[26] = total.to_string();
+                competitor.total_penalties = total;
                 competitor.status = result.status.as_legacy().into();
                 competitor.results = result
                     .rows
