@@ -196,12 +196,13 @@ fn class_fields(project: &Project, class: &ClassEdit) -> Vec<EditorField> {
             8,
             "Sarjapisteet (Sp)",
             &class.series_method,
-            "Sarjapisteiden laskentatapa; taulukkoa vaativa tapa 4 ei ole vielä tuettu",
+            "Sarjapisteiden laskentatapa; tavan 4 pistetaulukko asetetaan kilpailun asetuksissa",
             named(&[
                 ("Ei", "0"),
                 ("100 pisteen taulukko", "1"),
                 ("60 pisteen taulukko", "2"),
                 ("16 pisteen taulukko", "3"),
+                ("Oma pistetaulukko", "4"),
                 ("100 pisteen perintä", "5"),
                 ("60 pisteen perintä", "6"),
             ]),
@@ -461,12 +462,18 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     2,
                     "Ajanottotapa",
                     project.kilpailu.ajanottotapa,
-                    "Käsiaikojen erillistä syöttöä ei vielä tueta",
+                    "Tavat 0, 1 ja 2 ovat käytettävissä; erillinen käsiaikojen syöttö on vielä kesken",
                     named(&[
                         ("Kellonaikapohjainen", "0"),
                         ("Emit", "1"),
                         ("Emit / tapa 2", "2"),
                     ]),
+                ),
+                text(
+                    3,
+                    "Oma sarjapistetaulukko (Sp 4)",
+                    project.sarjapisteet.iter().map(i64::to_string).collect::<Vec<_>>().join(", "),
+                    "Pisteet sijoille 1, 2, 3 jne. pilkuilla erotettuina; enintään 1000 ei-negatiivista lukua",
                 ),
             ];
             let settings = &project.virhepisteet;
@@ -609,6 +616,7 @@ pub fn apply_field(
                 0 => ws.edit_competition(CompetitionField::Name, value)?,
                 1 => ws.edit_competition(CompetitionField::Number, value)?,
                 2 => ws.edit_competition(CompetitionField::Timing, value)?,
+                3 => ws.edit_competition(CompetitionField::CustomSeries, value)?,
                 10..=20 => {
                     let field = [
                         OverrideField::FreeTime,

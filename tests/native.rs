@@ -318,3 +318,34 @@ fn native_class_np_sp_options_are_persisted_and_mapped_to_ranking_input() {
     project.luokat[0].nousupisteet = 2;
     assert!(project.validate().is_err());
 }
+
+#[test]
+fn native_custom_series_schedule_is_persisted_and_used_for_sp_method_four() {
+    let mut project = project();
+    project.sarjapisteet = vec![42, 30, 17];
+    project.luokat[0].sarjapistetapa = 4;
+    let text = project.to_toml().unwrap();
+    assert_eq!(native::Project::from_toml(&text).unwrap(), project);
+    let archive = project.to_archive().unwrap();
+    let table = &archive.documents["sarjap.txt"].records[0].fields;
+    assert_eq!(&table[..3], ["42", "30", "17"]);
+    let calculated = application::calculated_project(&project).unwrap();
+    let ranked = application::rank_stored(
+        &calculated,
+        as2026::ranking::TiePolicy::KeepSharedAndFlag,
+    ).unwrap();
+    assert_eq!(ranked.groups[0].entries[0].series_points, 42);
+}
+
+#[test]
+fn native_rejects_missing_invalid_or_oversized_custom_series_schedule() {
+    let mut project = project();
+    project.luokat[0].sarjapistetapa = 4;
+    assert!(project.validate().is_err());
+    project.sarjapisteet = vec![42];
+    assert!(project.validate().is_ok());
+    project.sarjapisteet = vec![-1];
+    assert!(project.validate().is_err());
+    project.sarjapisteet = vec![1; 1001];
+    assert!(project.validate().is_err());
+}

@@ -29,6 +29,9 @@ pub struct Project {
     pub kilpailu: Competition,
     #[serde(default)]
     pub virhepisteet: Overrides,
+    /// Sp 4: position 1 is the first value. Stored with the native competition.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sarjapisteet: Vec<i64>,
     #[serde(default)]
     pub luokat: Vec<Class>,
     #[serde(default)]
@@ -251,6 +254,9 @@ impl Project {
             return Err(invalid("Kilpailun numero ja nimi vaaditaan"));
         }
         crate::timing::TimingMethod::from_legacy(i64::from(self.kilpailu.ajanottotapa))?;
+        if self.sarjapisteet.len() > 1000 || self.sarjapisteet.iter().any(|&points| points < 0) {
+            return Err(invalid("Sarjapistetaulukossa saa olla enintään 1000 ei-negatiivista pistettä"));
+        }
         let mut classes = Vec::new();
         let mut class_keys = HashSet::new();
         for class in &self.luokat {
@@ -270,10 +276,8 @@ impl Project {
             if class.sarjapistetapa > 6 {
                 return Err(invalid("Luokan sarjapistetapa ei voi olla suurempi kuin 6"));
             }
-            if class.sarjapistetapa == 4 {
-                return Err(CoreError::Unsupported(
-                    "Sarjapisteiden menetelmä 4 edellyttää sarjap.txt-taulukkoa, jota uusi TOML-kilpailu ei vielä tallenna".into(),
-                ));
+            if class.sarjapistetapa == 4 && self.sarjapisteet.is_empty() {
+                return Err(invalid("Sarjapistetapa 4 edellyttää kilpailun sarjapistetaulukkoa"));
             }
             let time = parse_clock(&class.lahtoaika)?;
             classes.push(ClassDefinition {
@@ -394,6 +398,19 @@ impl Project {
             });
         }
         let mut documents: BTreeMap<String, Document> = BTreeMap::new();
+        if !self.sarjapisteet.is_empty() {
+            // Reuse the legacy ranker's first-row sarjap.txt input, without
+            // writing a second persistent source of truth beside kilpailu.toml.
+            let content = format!(
+                "{};\n",
+                self.sarjapisteet.iter().map(i64::to_string).collect::<Vec<_>>().join(";")
+            );
+            documents.insert(
+                "sarjap.txt".to_owned(),
+                legacy::parse_document(content.as_bytes(), Encoding::Utf8)
+                    .map_err(|error| invalid(error.to_string()))?,
+            );
+        }
         let mut warnings = Vec::new();
         // Fyysiset tapahtumat säilyvät Projectissa. Laskennan syötteeksi valitaan
         // jokaisen kortin viimeisin kelvollinen lukema, ei erillisiä kilpailijatietoja.
@@ -466,6 +483,7 @@ impl Project {
                 ajanottotapa: default_method(),
             },
             virhepisteet: Overrides::default(),
+            sarjapisteet: Vec::new(),
             luokat: vec![Class {
                 tunnus: "H".into(),
                 nimi: "Harjoitus".into(),

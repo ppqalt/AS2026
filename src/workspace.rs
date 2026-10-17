@@ -383,12 +383,19 @@ impl Workspace {
                 }
                 CompetitionField::Timing => {
                     let method = number(value, "Ajanottotapa")?;
-                    if method > 1 {
-                        return Err(invalid(
-                            "Valitse ajanottotapa 0 tai 1. Ajanottotapaa 2 ei ole vielä toteutettu",
-                        ));
+                    if method > 2 {
+                        return Err(invalid("Valitse ajanottotapa 0, 1 tai 2"));
                     }
                     project.kilpailu.ajanottotapa = method;
+                }
+                CompetitionField::CustomSeries => {
+                    project.sarjapisteet = if value.trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        value.split(',')
+                            .map(|part| number(part, "Sarjapistetaulukon pisteet"))
+                            .collect::<Result<Vec<i64>, _>>()?
+                    };
                 }
             }
             Ok(())
@@ -481,6 +488,7 @@ pub enum CompetitionField {
     Number,
     Name,
     Timing,
+    CustomSeries,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OverrideField {
