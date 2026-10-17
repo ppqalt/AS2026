@@ -266,6 +266,7 @@ pub fn prepare_stored_station_times(
     rows[last].elapsed_seconds = prepared.last_row_elapsed_seconds;
     let mut warnings = Vec::new();
     for index in (1..last).rev() {
+        let next_elapsed = rows[index + 1].elapsed_seconds;
         let row = &mut rows[index];
         if row.expected_code != 0 && row.elapsed_seconds != 0 {
             let mut clock = add(
@@ -302,7 +303,7 @@ pub fn prepare_stored_station_times(
                     sub(prepared.finish_clock_seconds, clock, "käsikellon ero maalista")?,
                     "käsikellon aikakoordinaatti",
                 )?;
-                if row.elapsed_seconds == 0 || row.elapsed_seconds >= rows[index + 1].elapsed_seconds {
+                if row.elapsed_seconds == 0 || row.elapsed_seconds >= next_elapsed {
                     warnings.push(format!(
                         "Tallennetun asemarivin {} käsiaika poikkeaa aikajärjestyksestä; AS2015A vain huomauttaa eikä korjaa sitä",
                         index + 1
