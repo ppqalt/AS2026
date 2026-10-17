@@ -1,0 +1,89 @@
+import { Button } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Note, AccentButton } from "components.slint";
+import { ResultOverview } from "types.slint";
+
+component ResultPoint inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> points;
+    height: 22px;
+    vertical-stretch: 0;
+    spacing: Theme.space-2;
+    Text { text: root.label; color: Theme.muted; font-size: 12px; horizontal-stretch: 1; overflow: elide; }
+    Text { text: root.points; color: Theme.ink; font-size: 12px; }
+}
+
+// Tämä paneeli esittää samat tiedot kuin tulosluettelo; se ei laske pisteitä.
+export component ResultSummary inherits Rectangle {
+    in property <ResultOverview> data;
+    in property <bool> editable;
+    in property <bool> approvable;
+    callback edit-competitor();
+    callback approve();
+    height: content.min-height;
+    vertical-stretch: 0;
+    border-width: 1px;
+    border-color: Theme.line;
+    border-radius: Theme.radius;
+    background: Theme.surface;
+    content := VerticalLayout {
+        padding: Theme.space-3;
+        spacing: Theme.space-2;
+        Text {
+            text: root.data.selected ? root.data.identity : "Kilpailijan tulos";
+            font-size: 16px; font-weight: 700; color: Theme.ink;
+            overflow: elide;
+        }
+        Note { text: root.data.selected ? root.data.details : "Valitse kilpailija tulosluettelosta."; }
+        if root.data.selected: VerticalLayout {
+            spacing: Theme.space-2;
+            ResultPoint { label: "Tila"; points: root.data.status; }
+            if root.data.reason != "": Note { text: "Syy: " + root.data.reason; }
+            Note { text: root.data.read-state; }
+            if root.data.issue != "": Text {
+                text: root.data.issue; color: Theme.warning;
+                font-size: 12px; wrap: word-wrap;
+            }
+            Rectangle { height: 1px; background: Theme.line; }
+            Text { text: "Ajat"; color: Theme.ink; font-size: 13px; font-weight: 600; }
+            HorizontalLayout {
+                spacing: Theme.space-2;
+                VerticalLayout {
+                    horizontal-stretch: 1; spacing: Theme.space-1;
+                    Text { text: "Lähtö"; color: Theme.muted; font-size: 11px; }
+                    Text { text: root.data.start; color: Theme.ink; font-size: 14px; }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1; spacing: Theme.space-1;
+                    Text { text: "Käytetty aika"; color: Theme.muted; font-size: 11px; }
+                    Text { text: root.data.elapsed; color: Theme.ink; font-size: 14px; }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1; spacing: Theme.space-1;
+                    Text { text: "Maali"; color: Theme.muted; font-size: 11px; }
+                    Text { text: root.data.finish; color: Theme.ink; font-size: 14px; }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.line; }
+            Text { text: "Virhepisteet"; color: Theme.ink; font-size: 13px; font-weight: 600; }
+            ResultPoint { label: "Aikavirhepisteet"; points: root.data.time-points; }
+            ResultPoint { label: "Asemien muut virheet"; points: root.data.station-points; }
+            ResultPoint { label: "Puuttuvat RT-asemat (" + root.data.missing-rt-count + " kpl)"; points: root.data.missing-rt; }
+            ResultPoint { label: "Ylimääräiset RT-asemat (" + root.data.extra-rt-count + " kpl)"; points: root.data.extra-rt; }
+            ResultPoint { label: "Muut virhepisteet"; points: root.data.other-points; }
+            Rectangle { height: 1px; background: Theme.line; }
+            HorizontalLayout {
+                Text { text: "Yhteensä"; color: Theme.ink; font-size: 14px; font-weight: 600; horizontal-stretch: 1; }
+                Text { text: root.data.total; color: Theme.accent-text; font-size: 18px; font-weight: 700; }
+            }
+            if root.editable: Button {
+                height: Theme.control-height; text: "Muokkaa kilpailijaa…";
+                clicked => { root.edit-competitor(); }
+            }
+            if root.editable: AccentButton {
+                text: "Hyväksy tulos"; enabled: root.approvable;
+                clicked => { root.approve(); }
+            }
+        }
+    }
+}

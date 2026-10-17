@@ -117,14 +117,17 @@ fn route_change_blocks_stale_snapshot_but_explicit_raw_rebuild_is_available() {
     assert!(application::capture_project_result(&p, 7).is_ok());
 }
 #[test]
-fn undefined_emit_manual_finish_recheck_does_not_invent_a_result() {
+fn operational_manual_finish_does_not_use_undefined_static_path() {
     let p = project();
     let result = application::capture_project_result(&p, 7).unwrap();
-    let error = application::recalculate_stored_result(&p, 7, &result)
-        .unwrap_err()
-        .to_string();
-    assert!(error.contains("alustamatonta"));
-    assert_eq!(result.aikavirheet + result.asemien_muut_virheet, 2415);
+    let checked = application::recalculate_stored_result(&p, 7, &result).unwrap();
+    assert_eq!(checked.tila, "ILM");
+    assert_eq!(checked.maalikello_sekuntia, 0);
+    assert!(!checked.can_approve());
+    // Tutkimusrajapinta säilyttää alkuperäisen alustamattoman tapauksen torjunnan.
+    let mut archive = p.to_archive().unwrap();
+    archive.competitors[0].results = result.as_station_results();
+    assert!(application::prepare_stored_competitor_timing(&archive, 7).is_err());
 }
 #[test]
 fn invalid_penalty_edit_is_atomic() {
@@ -137,17 +140,18 @@ fn invalid_penalty_edit_is_atomic() {
     assert_eq!(result, original);
 }
 #[test]
-fn recheck_preserves_operator_interruption_reason_without_forcing_interrupted_status() {
+fn recheck_does_not_keep_old_automatic_reason_as_current_outcome() {
     let p = manual_project();
     let mut result = application::capture_project_result(&p, 7).unwrap();
     result.tila = "KESK".into();
-    result.syy = "Käsin kirjattu syy".into();
+    result.syy = "Vanha syy".into();
     let checked = application::recalculate_stored_result(&p, 7, &result).unwrap();
-    assert_eq!(checked.tila, "TRK");
-    assert_eq!(checked.syy, "Käsin kirjattu syy");
+    assert_eq!(checked.tila, "ILM");
+    assert!(!checked.syy.contains("Vanha syy"));
+    assert!(checked.syy.contains("käsikello puuttuu"));
 }
 #[test]
-fn stored_emit_and_mode_two_keep_distinct_recovered_references() {
+fn operational_emit_and_mode_two_use_the_live_coordinate_reference() {
     let mut p = project();
     p.radat[0].asemat.remove(2);
     p.radat[0].asemat.last_mut().unwrap().emit_koodi = 32;
@@ -158,19 +162,20 @@ fn stored_emit_and_mode_two_keep_distinct_recovered_references() {
     assert_eq!(emit.aikavirheet + emit.asemien_muut_virheet, 645);
     p.kilpailu.ajanottotapa = 2;
     let mode_two = application::recalculate_stored_result(&p, 7, &stored).unwrap();
-    assert_eq!(mode_two.korjaus_sekuntia, 600);
-    assert_eq!(mode_two.rivit[1].actual_seconds, -205);
-    assert_eq!(mode_two.rivit.last().unwrap().actual_seconds, 120);
-    assert_eq!(mode_two.aikavirheet + mode_two.asemien_muut_virheet, 3495);
+    assert_eq!(mode_two.korjaus_sekuntia, 120);
+    assert_eq!(mode_two.rivit[1].actual_seconds, 275);
+    assert_eq!(mode_two.rivit.last().unwrap().actual_seconds, 600);
+    assert_eq!(mode_two.aikavirheet + mode_two.asemien_muut_virheet, 645);
 }
 #[test]
-fn missing_manual_station_is_penalized_in_tutki_context() {
+fn missing_manual_station_waits_for_operator_clock_without_missing_punch_penalty() {
     let p = manual_project();
     let stored = application::capture_project_result(&p, 7).unwrap();
     assert_eq!(stored.rivit[1].other_penalty, 0);
     let checked = application::recalculate_stored_result(&p, 7, &stored).unwrap();
-    assert_eq!(checked.rivit[1].other_penalty, 1800);
-    assert_eq!(checked.rivit[1].note, "AT puuttuu");
+    assert_eq!(checked.rivit[1].other_penalty, 0);
+    assert_eq!(checked.rivit[1].note, "Käsikello puuttuu");
+    assert_eq!(checked.tila, "ILM");
 }
 struct Directory(std::path::PathBuf);
 impl Directory {
@@ -236,7 +241,7 @@ fn workspace_clock_and_penalty_edits_reopen_and_require_explicit_recalculation()
     assert_eq!(reopened.project().unwrap().leimaluvut, history);
 }
 #[test]
-fn workspace_failed_tutki_preserves_file_and_pending_manual_edits() {
+fn workspace_failed_clock_edit_preserves_file_and_pending_manual_edits() {
     use as2026::workspace::ResultField;
     let dir = Directory::new(project());
     let mut workspace = dir.workspace();
@@ -246,7 +251,11 @@ fn workspace_failed_tutki_preserves_file_and_pending_manual_edits() {
         .unwrap();
     let before = std::fs::read(dir.0.join(native::FILE_NAME)).unwrap();
     let in_memory = workspace.project().unwrap().clone();
-    assert!(workspace.recalculate_stored(7).is_err());
+    assert!(
+        workspace
+            .edit_station_result(7, 5, ResultField::Clock, "25:00:00")
+            .is_err()
+    );
     assert_eq!(workspace.project().unwrap(), &in_memory);
     assert_eq!(
         std::fs::read(dir.0.join(native::FILE_NAME)).unwrap(),

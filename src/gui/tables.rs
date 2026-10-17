@@ -1,7 +1,7 @@
 //! Taulukoiden sisältö johdetaan avatusta kilpailusta. Rivin avain pysyy
 //! alkuperäisen mallin indeksinä myös haussa ja tulosten järjestämisessä.
 
-use super::TableRow;
+use super::{ResultOverview, TableRow};
 use as2026::{
     CoreError, Punch, application,
     legacy::{Archive, Competitor},
@@ -21,6 +21,7 @@ pub struct ViewData {
     pub detail_weights: Vec<f32>,
     pub detail_title: String,
     pub notes: String,
+    pub result_overview: ResultOverview,
 }
 
 fn row(index: usize, cells: Vec<String>) -> TableRow {
@@ -273,7 +274,17 @@ fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
         .collect();
 }
 
-fn result_row(index: usize, driver: &Competitor, position: String) -> TableRow {
+fn result_row(ws: &Workspace, index: usize, driver: &Competitor, position: String) -> TableRow {
+    let pending = ws
+        .project()
+        .and_then(|project| {
+            project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == driver.number)
+        })
+        .and_then(|driver| driver.tallennettu_tulos.as_ref())
+        .is_some_and(|result| !result.can_approve());
     row(
         index,
         vec![
@@ -283,10 +294,13 @@ fn result_row(index: usize, driver: &Competitor, position: String) -> TableRow {
             driver.driver.clone(),
             driver.navigator.clone(),
             status(&driver.status),
-            if !matches!(
-                Status::from_legacy(&driver.status),
-                Status::Classified | Status::Interrupted
-            ) {
+            if pending
+                || driver.results.is_empty()
+                || !matches!(
+                    Status::from_legacy(&driver.status),
+                    Status::Classified | Status::Interrupted
+                )
+            {
                 "—".into()
             } else {
                 format!("{} p", driver.total_penalties)
@@ -328,7 +342,7 @@ fn results(
                 } else {
                     "—".into()
                 };
-                view.rows.push(result_row(index, driver, position));
+                view.rows.push(result_row(ws, index, driver, position));
             }
         }
     }
@@ -336,7 +350,7 @@ fn results(
         if let Some(index) = source_index.checked_sub(1)
             && let Some(driver) = archive.competitors.get(index)
         {
-            view.rows.push(result_row(index, driver, "—".into()));
+            view.rows.push(result_row(ws, index, driver, "—".into()));
         }
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));
@@ -352,6 +366,129 @@ fn results(
         .and_then(|index| archive.competitors.get(index))
     else {
         return Ok(());
+    };
+    let (snapshot, snapshot_error) = match ws.result_snapshot(driver.number) {
+        Ok(snapshot) => (snapshot, None),
+        Err(error) => (None, Some(error.to_string())),
+    };
+    let pending_clocks = snapshot
+        .as_ref()
+        .map_or_else(Vec::new, |result| result.pending_manual_clocks());
+    let calculated = !driver.results.is_empty()
+        && snapshot_error.is_none()
+        && snapshot.as_ref().is_none_or(|result| result.can_approve());
+    let points = |index: usize| -> SharedString {
+        if !calculated && matches!(index, 19 | 20) {
+            return "—".into();
+        }
+        driver
+            .header_fields
+            .get(index)
+            .and_then(|field| field.trim().parse::<i64>().ok())
+            .map_or_else(|| "—".into(), |value| format!("{value} p").into())
+    };
+    let clock = |offset: usize| -> SharedString {
+        if !calculated {
+            return "—".into();
+        }
+        let fields = (0..3)
+            .map(|i| {
+                driver
+                    .header_fields
+                    .get(offset + i)
+                    .and_then(|field| field.trim().parse::<u32>().ok())
+            })
+            .collect::<Vec<_>>();
+        match fields.as_slice() {
+            [Some(h), Some(m), Some(s)] if *m < 60 && *s < 60 => {
+                format!("{h:02}:{m:02}:{s:02}").into()
+            }
+            _ => "—".into(),
+        }
+    };
+    let quantity = |index: usize| -> SharedString {
+        driver
+            .header_fields
+            .get(index)
+            .and_then(|value| value.trim().parse::<u32>().ok())
+            .map_or_else(|| "—".into(), |value| value.to_string().into())
+    };
+    let read_state = ws.project().map_or_else(
+        || "AS2015A-aineisto · vain katselu".to_string(),
+        |project| {
+            if driver
+                .emit_card
+                .parse::<u32>()
+                .ok()
+                .is_some_and(|card| project.active_readout(card).is_some())
+            {
+                if calculated && snapshot.as_ref().is_some_and(|result| result.hyvaksytty) {
+                    "Tulos hyväksytty".to_owned()
+                } else if calculated {
+                    "Emit-kortti luettu · tulos odottaa hyväksymistä".to_owned()
+                } else {
+                    "Emit-kortti luettu · tulos vaatii tarkastuksen (katso huomautukset)".to_owned()
+                }
+            } else {
+                "Emit-korttia ei ole vielä luettu".to_owned()
+            }
+        },
+    );
+    // A calculation failure must be visible next to the selected competitor,
+    // not buried among other competitors' diagnostics at the bottom of the page.
+    let missing_result_prefix = format!("Kilpailijan {} tulos puuttuu: ", driver.number);
+    let mut issues: Vec<String> = archive
+        .warnings
+        .iter()
+        .find_map(|warning| warning.strip_prefix(&missing_result_prefix))
+        .map(str::to_owned)
+        .into_iter()
+        .collect();
+    if let Some(result) = &snapshot {
+        if !pending_clocks.is_empty() {
+            issues.push(format!(
+                "Syötä käsikellot asemille {} ja valitse Tutki.",
+                pending_clocks
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        issues.extend(result.virheelliset_ajat.iter().cloned());
+    }
+    if let Some(error) = snapshot_error
+        && !issues.contains(&error)
+    {
+        issues.push(error);
+    }
+    view.result_overview = ResultOverview {
+        selected: true,
+        identity: format!("Nro {} · {}", driver.number, driver.driver).into(),
+        details: format!(
+            "Luokka {} · Kartanlukija {} · Emit {}",
+            driver.class_code, driver.navigator, driver.emit_card
+        )
+        .into(),
+        status: status(&driver.status).into(),
+        reason: field(&driver.header_fields, 29).into(),
+        read_state: read_state.into(),
+        issue: issues.join("\n").into(),
+        start: start(driver).into(),
+        elapsed: clock(13),
+        finish: clock(16),
+        time_points: points(19),
+        station_points: points(20),
+        missing_rt: points(22),
+        missing_rt_count: quantity(21),
+        extra_rt: points(24),
+        extra_rt_count: quantity(23),
+        other_points: points(25),
+        total: if calculated {
+            format!("{} p", driver.total_penalties).into()
+        } else {
+            "—".into()
+        },
     };
     view.detail_title = format!(
         "Nro {} · {} / {} · {}",
@@ -390,22 +527,51 @@ fn results(
         .iter()
         .enumerate()
         .map(|(index, station)| {
+            let pending = pending_clocks.contains(&station.output_index);
             row(
                 index,
                 vec![
                     station.output_index.to_string(),
                     format!("{} {}", station.station_type, station.name),
-                    format!("{} / {}", station.expected_code, station.received_code),
-                    station.target_seconds.to_string(),
                     format!(
-                        "{:02}:{:02}:{:02}",
-                        station.clock[0], station.clock[1], station.clock[2]
+                        "{} / {}",
+                        station.expected_code,
+                        if station.received_code == 0 {
+                            "—".into()
+                        } else {
+                            station.received_code.to_string()
+                        }
                     ),
-                    station.actual_seconds.to_string(),
-                    station.signed_time_penalty.to_string(),
+                    station.target_seconds.to_string(),
+                    if pending {
+                        "—".into()
+                    } else {
+                        format!(
+                            "{:02}:{:02}:{:02}",
+                            station.clock[0], station.clock[1], station.clock[2]
+                        )
+                    },
+                    if pending {
+                        "—".into()
+                    } else {
+                        station.actual_seconds.to_string()
+                    },
+                    if pending {
+                        "—".into()
+                    } else {
+                        station.signed_time_penalty.to_string()
+                    },
                     station.other_penalty.to_string(),
-                    station.total_penalty.to_string(),
-                    station.note.clone(),
+                    if pending {
+                        "—".into()
+                    } else {
+                        station.total_penalty.to_string()
+                    },
+                    if pending {
+                        "Käsikello puuttuu".into()
+                    } else {
+                        station.note.clone()
+                    },
                 ],
             )
         })
@@ -672,13 +838,28 @@ mod tests {
 
     #[test]
     fn filtering_and_result_order_keep_original_model_keys() {
-        let fixture = Fixture::new(|project| {
+        let mut fixture = Fixture::new(|project| {
             let mut second = project.kilpailijat[0].clone();
             second.numero = 2;
             second.kuljettaja = "Toinen koe".into();
             second.emit = 654321;
             project.kilpailijat.push(second);
         });
+        fixture.workspace.review_results(7).unwrap();
+        let finish = fixture
+            .workspace
+            .result_snapshot(7)
+            .unwrap()
+            .unwrap()
+            .rivit
+            .last()
+            .unwrap()
+            .output_index;
+        fixture
+            .workspace
+            .edit_station_result(7, finish, as2026::workspace::ResultField::Clock, "12:10:00")
+            .unwrap();
+        fixture.workspace.recalculate_stored(7).unwrap();
         let filtered = data(&fixture.workspace, 1, -1, "TOINEN").unwrap();
         assert_eq!(filtered.rows.len(), 1);
         assert_eq!(filtered.rows[0].key, 1);
@@ -692,11 +873,94 @@ mod tests {
         assert_eq!(text(&results.rows[1], 6), "—");
         assert!(!results.detail_rows.is_empty());
         assert!(!results.notes.contains("AS2015A"));
+        assert_eq!(results.result_overview.finish, "12:10:00");
+    }
+
+    #[test]
+    fn result_overview_tracks_selection_without_inventing_points() {
+        let fixture = Fixture::new(|project| {
+            let mut second = project.kilpailijat[0].clone();
+            second.numero = 2;
+            second.kuljettaja = "Ei leimoja".into();
+            second.emit = 77777;
+            project.kilpailijat.push(second);
+        });
+        let no_selection = data(&fixture.workspace, 3, -1, "").unwrap();
+        assert!(!no_selection.result_overview.selected);
+        let initial = data(&fixture.workspace, 3, 0, "").unwrap();
+        assert!(initial.result_overview.selected);
+        assert!(initial.result_overview.identity.contains("Nro 7"));
+        let empty = data(&fixture.workspace, 3, 1, "").unwrap();
+        assert!(empty.result_overview.identity.contains("Ei leimoja"));
+        assert_eq!(empty.result_overview.total.to_string(), "—");
+        assert_eq!(empty.result_overview.elapsed.to_string(), "—");
+        assert_eq!(empty.result_overview.finish.to_string(), "—");
+        assert_eq!(empty.result_overview.time_points.to_string(), "—");
+        // Ensimmäisen kilpailijan puuttuva käsimaali ei kuulu lukemattoman
+        // toisen kilpailijan huomautukseksi.
+        assert!(!empty.result_overview.issue.contains("Syötä käsikellot"));
         assert!(
-            results
-                .notes
-                .contains("Maalikello perustuu viimeiseen leimaan, mutta leimaamattoman maalin toteutunut aika on laskennassa 0 s.")
+            empty
+                .result_overview
+                .read_state
+                .contains("ei ole vielä luettu")
         );
+    }
+
+    #[test]
+    fn result_overview_shows_known_additions_and_reason_without_a_readout() {
+        let fixture = Fixture::new(|project| {
+            project.leimaluvut.clear();
+            let driver = &mut project.kilpailijat[0];
+            driver.lisavirheet.puuttuvat_rt_kpl = 3;
+            driver.lisavirheet.puuttuvat_rt_pisteet = 1800;
+            driver.lisavirheet.ylimaaraiset_rt_kpl = 2;
+            driver.lisavirheet.ylimaaraiset_rt_pisteet = 100;
+            driver.lisavirheet.muut_virhepisteet = 75;
+            driver.tila = Some(as2026::native::ManualStatus::new("HYL", "Väärä kalusto").unwrap());
+        });
+        let data = data(&fixture.workspace, 3, 0, "").unwrap();
+        let summary = data.result_overview;
+        assert_eq!(summary.missing_rt_count, "3");
+        assert_eq!(summary.missing_rt, "1800 p");
+        assert_eq!(summary.extra_rt_count, "2");
+        assert_eq!(summary.extra_rt, "100 p");
+        assert_eq!(summary.other_points, "75 p");
+        assert_eq!(summary.status, "Hylätty");
+        assert_eq!(summary.reason, "Väärä kalusto");
+        assert_eq!(summary.total, "—");
+        assert_eq!(summary.finish, "—");
+        assert_eq!(summary.start, "12:00:00");
+    }
+
+    #[test]
+    fn pending_manual_clock_is_blank_but_entered_midnight_is_visible() {
+        let mut fixture = Fixture::new(|_| {});
+        let view = data(&fixture.workspace, 3, 0, "").unwrap();
+        assert_eq!(view.result_overview.total, "—");
+        assert_eq!(view.result_overview.finish, "—");
+        assert_eq!(text(view.detail_rows.last().unwrap(), 4), "—");
+        assert_eq!(
+            text(view.detail_rows.last().unwrap(), 9),
+            "Käsikello puuttuu"
+        );
+        fixture.workspace.review_results(7).unwrap();
+        let finish = fixture
+            .workspace
+            .result_snapshot(7)
+            .unwrap()
+            .unwrap()
+            .rivit
+            .last()
+            .unwrap()
+            .output_index;
+        fixture
+            .workspace
+            .edit_station_result(7, finish, as2026::workspace::ResultField::Clock, "00:00:00")
+            .unwrap();
+        let entered = data(&fixture.workspace, 3, 0, "").unwrap();
+        assert_eq!(text(entered.detail_rows.last().unwrap(), 4), "00:00:00");
+        assert_eq!(entered.result_overview.total, "—");
     }
 
     #[test]

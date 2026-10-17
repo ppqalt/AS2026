@@ -655,3 +655,151 @@ pub fn save_new_bytes(path: &Path, bytes: &[u8]) -> Result<(), CoreError> {
         ))
     })
 }
+
+/// Uuden kilpailun asemakohtainen raportti käyttää samaa toimitsijalaskentaa
+/// ja tallennettua tarkastustulosta kuin käyttöliittymä. Ei muuta kilpailua.
+pub fn project_results_html(project: &crate::native::Project) -> Result<String, crate::CoreError> {
+    let archive = crate::application::calculated_project(project)?;
+    let mut html = document("Tulokset ja asemarivit", &project.kilpailu.nimi);
+    html.push_str("<section class=\"notice\"><p>Käsikellot ja pistekorjaukset säilyvät tallennettuina. Keskeneräisen tuloksen kokonaistulosta, maaliaikaa tai käytettyä aikaa ei julkaista.</p></section>\n");
+    warnings(&mut html, &archive.warnings);
+    for driver in &archive.competitors {
+        let snapshot = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == driver.number)
+            .and_then(|d| d.tallennettu_tulos.clone())
+            .map_or_else(
+                || crate::application::capture_project_result(project, driver.number),
+                Ok,
+            );
+        let valid = snapshot.as_ref().is_ok_and(|s| {
+            crate::application::validate_project_result(project, driver.number, s).is_ok()
+        });
+        let snapshot = snapshot.as_ref().ok().filter(|_| valid);
+        let complete = snapshot.is_some_and(|s| s.can_approve());
+        let reason = driver.header_fields.get(29).map_or("", String::as_str);
+        let field = |index: usize| driver.header_fields.get(index).map_or("—", String::as_str);
+        html.push_str(&format!(
+            "<section><h2>Nro {} — {} / {}</h2><p>Luokka: {}. Tila: <strong>{}</strong>{}</p>\n",
+            driver.number,
+            escape(&driver.driver),
+            escape(&driver.navigator),
+            escape(&driver.class_code),
+            escape(&driver.status),
+            if reason.is_empty() {
+                String::new()
+            } else {
+                format!(". Syy: {}", escape(reason))
+            }
+        ));
+        let start = format!(
+            "{:02}:{:02}:{:02}",
+            field(10).parse::<i64>().unwrap_or(0),
+            field(11).parse::<i64>().unwrap_or(0),
+            field(12).parse::<i64>().unwrap_or(0)
+        );
+        let duration = if complete {
+            format!(
+                "{:02}:{:02}:{:02}",
+                field(13).parse::<i64>().unwrap_or(0),
+                field(14).parse::<i64>().unwrap_or(0),
+                field(15).parse::<i64>().unwrap_or(0)
+            )
+        } else {
+            "—".into()
+        };
+        let finish = if complete {
+            format!(
+                "{:02}:{:02}:{:02}",
+                field(16).parse::<i64>().unwrap_or(0),
+                field(17).parse::<i64>().unwrap_or(0),
+                field(18).parse::<i64>().unwrap_or(0)
+            )
+        } else {
+            "—".into()
+        };
+        html.push_str(&format!(
+            "<p>Lähtöaika: {start} · Käytetty aika: {duration} · Maaliaika: {finish}</p>\n"
+        ));
+        if complete {
+            html.push_str(&format!(
+                "<p class=\"totals\">Kokonaistulos: {} p</p><p>{}</p>\n",
+                driver.total_penalties,
+                if snapshot.is_some_and(|s| s.hyvaksytty) {
+                    "Hyväksytty tulos."
+                } else {
+                    "Laskettu tulos. Hyväksyminen on vielä tekemättä."
+                }
+            ));
+        } else {
+            html.push_str(
+                "<p class=\"notice warning\">Tulos odottaa tarkastusta. Kokonaistulos: —</p>\n",
+            );
+        }
+        html.push_str(&format!("<h3>Viisi pisteosaa</h3><p>Aikavirheet: {} p · Asemien muut virheet: {} p · Puuttuvat RT: {} kpl / {} p · Muut virheet: {} p · Ylimääräiset RT: {} kpl / {} p</p>\n",escape(field(19)),escape(field(20)),escape(field(21)),escape(field(22)),escape(field(25)),escape(field(23)),escape(field(24))));
+        if !complete {
+            html.push_str("<p>Näytetyt pisteosat ovat tämänhetkiset tallennetut tai lasketut arvot; tarkastus voi muuttaa niitä.</p>\n");
+        }
+        if driver.results.is_empty() {
+            html.push_str("<p>Asematulosta ei ole vielä muodostettu.</p></section>\n");
+            continue;
+        }
+        let pending = snapshot.map_or_else(Vec::new, |s| s.pending_manual_clocks());
+        let clock_changed = snapshot.is_some_and(|s| s.kasikellot_muuttuneet);
+        let invalid_times = snapshot.is_some_and(|s| !s.virheelliset_ajat.is_empty());
+        if !pending.is_empty() {
+            html.push_str(&format!("<p>Käsikelloja puuttuu: {}.</p>\n", pending.len()));
+        }
+        if clock_changed {
+            html.push_str("<p>Käsikelloa on muutettu. Tutki laskee toteutuneet ajat ja pisteet uudelleen.</p>\n");
+        }
+        html.push_str("<div class=\"table-wrap\"><table><thead><tr><th scope=\"col\">Järjestys</th><th scope=\"col\">Tyyppi</th><th scope=\"col\">Nimi</th><th scope=\"col\">Emit</th><th scope=\"col\">Luettu</th><th scope=\"col\">Kello</th><th scope=\"col\">Tavoite (s)</th><th scope=\"col\">Toteutunut (s)</th><th scope=\"col\">Aikavirhe (p)</th><th scope=\"col\">Muu virhe (p)</th><th scope=\"col\">Yhteensä (p)</th><th scope=\"col\">Huomautus</th></tr></thead><tbody>\n");
+        let mut reference_known = true;
+        for row in &driver.results {
+            let clock_known = row.sequence != 0
+                && (row.station_type == "L"
+                    || (row.expected_code != 0 && row.received_code == row.expected_code)
+                    || (row.expected_code == 0 && !pending.contains(&row.output_index)));
+            let actual_known = clock_known && reference_known && !clock_changed && !invalid_times;
+            let actual = if actual_known {
+                row.actual_seconds.to_string()
+            } else {
+                "—".into()
+            };
+            let clock = if clock_known {
+                format!(
+                    "{:02}:{:02}:{:02}",
+                    row.clock[0], row.clock[1], row.clock[2]
+                )
+            } else {
+                "—".into()
+            };
+            if matches!(row.station_type.as_str(), "JAT" | "ULA") {
+                if clock_known {
+                    reference_known = true;
+                } else if row.expected_code == 0 {
+                    reference_known = false;
+                }
+            }
+            let sequence = if row.sequence == 0 {
+                "—".into()
+            } else {
+                row.sequence.to_string()
+            };
+            let expected = if row.sequence == 0 {
+                "—".into()
+            } else {
+                row.expected_code.to_string()
+            };
+            let received = if row.received_code == 0 {
+                "—".into()
+            } else {
+                row.received_code.to_string()
+            };
+            html.push_str(&format!("<tr><td>{sequence}</td><td>{}</td><td>{}</td><td>{expected}</td><td>{received}</td><td>{clock}</td><td class=\"numeric\">{}</td><td class=\"numeric\">{actual}</td><td class=\"numeric\">{}</td><td class=\"numeric\">{}</td><td class=\"numeric\">{}</td><td>{}</td></tr>\n",escape(&row.station_type),escape(&row.name),row.target_seconds,row.signed_time_penalty,row.other_penalty,row.total_penalty,escape(&row.note)));
+        }
+        html.push_str("</tbody></table></div></section>\n");
+    }
+    Ok(finish(html))
+}

@@ -286,18 +286,18 @@ fn native_reports_present_results_without_development_banners() {
         as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
             .unwrap();
     let archive = as2026::application::calculated_project(&project).unwrap();
-    let calculation = as2026::application::calculate(&project.to_archive().unwrap()).unwrap();
     let ranking =
         as2026::application::rank_stored(&archive, ranking::TiePolicy::KeepSharedAndFlag).unwrap();
     for html in [
-        as2026::report::project_calculation_html(&calculation),
+        as2026::report::project_results_html(&project).unwrap(),
         as2026::report::project_ranking_html(&archive, &ranking),
     ] {
         assert!(!html.contains("kehitysversio"));
         assert!(!html.contains("varmistamatta"));
         assert!(!html.contains("Vanhan ohjelman"));
         assert!(!html.contains("vastaavuus"));
-        assert!(html.contains("Maalikello perustuu viimeiseen leimaan, mutta leimaamattoman maalin toteutunut aika on laskennassa 0 s."));
+        assert!(html.contains("käsikello puuttuu"));
+        assert!(!html.contains("Maalikello perustuu viimeiseen leimaan"));
         assert!(html.contains("Virhepisteet") || html.contains("Tulos"));
     }
 }
@@ -376,4 +376,74 @@ fn status_reasons_are_appended_to_html_csv_and_xlsx_without_changing_previous_co
         assert!(!sheet.contains("<f>"));
         assert_eq!(source.competitors[0].header_fields, original);
     }
+}
+
+#[test]
+fn operational_station_report_hides_pending_finish_duration_and_final_total() {
+    let project =
+        as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+            .unwrap();
+    let before = project.clone();
+    let html = as2026::report::project_results_html(&project).unwrap();
+    assert!(html.contains("Tila: <strong>ILM</strong>"));
+    assert!(html.contains("Käsikelloja puuttuu: 1."));
+    assert!(html.contains("Käytetty aika: — · Maaliaika: —"));
+    assert!(html.contains("Kokonaistulos: —"));
+    assert!(!html.contains("Kokonaistulos: 645 p"));
+    assert!(html.contains("<th scope=\"col\">Emit</th>"));
+    assert!(html.contains("<th scope=\"col\">Luettu</th>"));
+    assert!(html.contains("<th scope=\"col\">Kello</th>"));
+    assert!(html.contains("12:04:35"));
+    assert!(!html.contains("Maalikello perustuu viimeiseen leimaan"));
+    assert_eq!(
+        project, before,
+        "raportin muodostaminen ei tallenna eikä muuta kilpailua"
+    );
+}
+
+#[test]
+fn operational_station_report_escapes_names_and_preserves_accepted_five_part_corrections() {
+    let mut project =
+        as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+            .unwrap();
+    project.kilpailu.nimi = IMPORTED.into();
+    project.kilpailijat[0].kuljettaja = IMPORTED.into();
+    project.radat[0].asemat[1].nimi = IMPORTED.into();
+    let mut stored = as2026::application::capture_project_result(&project, 7).unwrap();
+    let finish = stored
+        .rivit
+        .iter()
+        .find(|r| r.station_type == "M")
+        .unwrap()
+        .output_index;
+    stored.set_clock(finish, [12, 10, 0]).unwrap();
+    let mut stored = as2026::application::recalculate_stored_result(&project, 7, &stored).unwrap();
+    stored.set_row_penalties(2, -77, 11).unwrap();
+    stored.hyvaksytty = true;
+    project.kilpailijat[0].lisavirheet = as2026::native::AdditionalPenalties {
+        puuttuvat_rt_kpl: 2,
+        puuttuvat_rt_pisteet: 1200,
+        ylimaaraiset_rt_kpl: 3,
+        ylimaaraiset_rt_pisteet: 75,
+        muut_virhepisteet: 100,
+    };
+    project.kilpailijat[0].tila = Some(as2026::native::ManualStatus {
+        tunnus: "HYL".into(),
+        syy: IMPORTED.into(),
+    });
+    project.kilpailijat[0].tallennettu_tulos = Some(stored);
+    let before = project.clone();
+    let html = as2026::report::project_results_html(&project).unwrap();
+    safe_html(&html);
+    assert!(html.contains("Hyväksytty tulos."));
+    assert!(html.contains("Käytetty aika: 00:10:00 · Maaliaika: 12:10:00"));
+    assert!(html.contains("Kokonaistulos: 2063 p"));
+    assert!(html.contains("Aikavirheet: 77 p"));
+    assert!(html.contains("Asemien muut virheet: 611 p"));
+    assert!(html.contains("Puuttuvat RT: 2 kpl / 1200 p"));
+    assert!(html.contains("Muut virheet: 100 p"));
+    assert!(html.contains("Ylimääräiset RT: 3 kpl / 75 p"));
+    assert!(html.contains("Tila: <strong>HYL</strong>"));
+    assert!(html.contains("class=\"numeric\">-77</td>"));
+    assert_eq!(project, before);
 }

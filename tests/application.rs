@@ -362,7 +362,10 @@ fn native_numeric_route_reference_ignores_a_colliding_route_name() {
     wrong.asemat[1].tavoiteaika_sekuntia = 275;
     project.radat.push(wrong);
     let archive = as2026::application::calculated_project(&project).unwrap();
-    assert_eq!(archive.competitors[0].total_penalties, 2415);
+    assert_eq!(archive.competitors[0].total_penalties, 645);
+    assert_eq!(archive.competitors[0].status, "ILM");
+    assert_eq!(archive.competitors[0].results[1].target_seconds, 300);
+    assert_eq!(archive.competitors[0].results.last().unwrap().clock, [0; 3]);
 }
 
 #[test]

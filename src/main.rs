@@ -338,6 +338,78 @@ fn print_calculation(result: &timing::LiveCalculation, show_trace: bool) {
 }
 fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<String> {
     let is_native = directory.join(native::FILE_NAME).is_file();
+    if is_native {
+        let project = storage::ProjectStore::open(&directory.join(native::FILE_NAME))?;
+        let archive = application::calculated_project(project.project())?;
+        println!("\nTuloslaskenta — {}", project.project().kilpailu.nimi);
+        for competitor in &archive.competitors {
+            let snapshot = project
+                .project()
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == competitor.number)
+                .and_then(|d| d.tallennettu_tulos.clone())
+                .or_else(|| {
+                    application::capture_project_result(project.project(), competitor.number).ok()
+                });
+            let complete = snapshot.as_ref().is_some_and(|r| r.can_approve());
+            println!(
+                "\nNro. {} | {} | Luokka {} | Tila {} | Syy {}",
+                competitor.number,
+                competitor.driver,
+                competitor.class_code,
+                competitor.status,
+                competitor.header_fields.get(29).map_or("", String::as_str)
+            );
+            if complete {
+                println!("Virhepisteet yhteensä: {}", competitor.total_penalties);
+            } else {
+                println!("Tulos odottaa käsikellojen täydentämistä tai tarkastusta.");
+            }
+            println!(
+                "Asema | Koodi odotettu/luettu | Kello | Tavoite s | Aika s | Aikavirhe p | Muut p | Yhteensä p"
+            );
+            for row in &competitor.results {
+                let pending = snapshot
+                    .as_ref()
+                    .is_some_and(|r| r.pending_manual_clocks().contains(&row.output_index));
+                let clock = if pending {
+                    "—".into()
+                } else {
+                    format!(
+                        "{:02}:{:02}:{:02}",
+                        row.clock[0], row.clock[1], row.clock[2]
+                    )
+                };
+                println!(
+                    "{} {} | {}/{} | {} | {} | {} | {} | {} | {}",
+                    row.station_type,
+                    row.name,
+                    row.expected_code,
+                    row.received_code,
+                    clock,
+                    row.target_seconds,
+                    row.actual_seconds,
+                    row.signed_time_penalty,
+                    row.other_penalty,
+                    row.total_penalty
+                );
+            }
+        }
+        for notice in archive
+            .warnings
+            .iter()
+            .filter_map(|m| report::user_notice(m))
+        {
+            println!("Huomio: {notice}");
+        }
+        if show_trace {
+            println!(
+                "Vaiheet perustuvat samoihin tallennettuihin asemariveihin kuin käyttöliittymässä; tiedostoja ei muutettu."
+            );
+        }
+        return report::project_results_html(project.project());
+    }
     let a = load(directory, encoding)?;
     let result = application::calculate(&a)?;
     println!("\nTuloslaskennan esikatselu — {}", result.competition_name);

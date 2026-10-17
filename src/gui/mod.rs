@@ -39,11 +39,23 @@ enum UpdateEvent {
 enum PendingAction {
     Review(u32),
     Draw(Box<as2026::starts::StartDraw>),
+    Import {
+        project: Box<Project>,
+        directory: PathBuf,
+    },
+    Notice,
+}
+
+struct PendingResult {
+    number: u32,
+    card: u32,
+    notice: String,
 }
 
 #[derive(Default)]
 struct State {
     pending: Option<PendingAction>,
+    pending_result: Option<PendingResult>,
     workspace: Option<Workspace>,
     preferences: Option<PreferencesStore>,
     update: Option<updates::Update>,
@@ -58,6 +70,8 @@ struct State {
     invalid_field: bool,
     invalid_fields: BTreeSet<i32>,
     edit_draft: BTreeMap<i32, String>,
+    route_draft: BTreeMap<i32, String>,
+    invalid_route_fields: BTreeSet<i32>,
     filter: String,
     worker: Option<ReaderWorker>,
     receiver: Option<Receiver<ReaderEvent>>,
@@ -91,6 +105,11 @@ fn is_new(selection: &Selection) -> bool {
     )
 }
 fn can_leave(state: &mut State, app: &AppWindow) -> bool {
+    for (key, value) in state.route_draft.clone() {
+        if !commit_route_field(state, app, key, &value) {
+            return false;
+        }
+    }
     if !is_new(&state.selection) {
         let pending = state.edit_draft.clone();
         for (key, value) in pending {
@@ -161,6 +180,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     app.set_detail_weights(model(view.detail_weights));
     app.set_detail_title(view.detail_title.into());
     app.set_calculation_notes(view.notes.into());
+    app.set_result_overview(view.result_overview);
     app.set_selected_key(state.selected);
     app.set_detail_key(state.detail);
     let stored = ws
@@ -171,17 +191,23 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
                 .and_then(|i| p.kilpailijat.get(i))
         })
         .and_then(|d| d.tallennettu_tulos.as_ref());
-    let examine_supported = ws.project().is_some_and(|p| {
-        p.kilpailu.ajanottotapa == 0
-            || usize::try_from(state.selected)
+    app.set_examine_supported(stored.is_some());
+    let selected_number = ws
+        .project()
+        .and_then(|p| {
+            usize::try_from(state.selected)
                 .ok()
                 .and_then(|i| p.kilpailijat.get(i))
-                .and_then(|d| p.luokat.iter().find(|c| c.tunnus.trim() == d.luokka.trim()))
-                .and_then(|c| p.radat.iter().find(|r| r.numero == c.rata))
-                .and_then(|r| r.asemat.last())
-                .is_some_and(|s| s.emit_koodi != 0)
-    });
-    app.set_examine_supported(examine_supported);
+        })
+        .map(|d| d.numero);
+    let snapshot = selected_number.and_then(|number| ws.result_snapshot(number).ok().flatten());
+    let approvable = snapshot.as_ref().is_some_and(|r| r.can_approve())
+        && ws.project().is_some_and(|p| {
+            selected_number.is_some_and(|number| {
+                application::validate_project_result(p, number, snapshot.as_ref().unwrap()).is_ok()
+            })
+        });
+    app.set_result_approvable(approvable);
     app.set_result_stored(stored.is_some());
     app.set_clock_pending(stored.is_some_and(|r| r.kasikellot_muuttuneet));
     update_header(state, app)
@@ -306,10 +332,13 @@ fn open_workspace(state: &mut State, app: &AppWindow, path: &Path, demo: bool) -
     };
     state.workspace = Some(ws);
     state.selection = Selection::None;
+    state.pending_result = None;
     state.draft.clear();
     state.invalid_field = false;
     state.invalid_fields.clear();
     state.edit_draft.clear();
+    state.route_draft.clear();
+    state.invalid_route_fields.clear();
     app.set_demo(demo);
     state.read_notice_timer.stop();
     app.set_read_notice_visible(false);
@@ -449,7 +478,8 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
             state.selection = selection;
             state.invalid_fields.remove(&key);
             state.edit_draft.remove(&key);
-            state.invalid_field = !state.invalid_fields.is_empty();
+            state.invalid_field =
+                !state.invalid_fields.is_empty() || !state.invalid_route_fields.is_empty();
             app.set_form_blocked(state.invalid_field);
             sync_selected_key(state);
             if key == 0 {
@@ -506,6 +536,11 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
         forms::apply_field(workspace, &Selection::Track(route_number), key, value)
     }) {
         Ok(Selection::Track(updated_number)) => {
+            state.route_draft.remove(&key);
+            state.invalid_route_fields.remove(&key);
+            state.invalid_field =
+                !state.invalid_fields.is_empty() || !state.invalid_route_fields.is_empty();
+            app.set_form_blocked(state.invalid_field);
             if key == 0 {
                 match &mut state.selection {
                     Selection::Track(number) => *number = updated_number,
@@ -531,9 +566,67 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
             false
         }
         Err(error) => {
+            state.route_draft.insert(key, value.into());
+            state.invalid_route_fields.insert(key);
+            state.invalid_field = true;
+            app.set_form_blocked(true);
             status(app, format!("Radan tietoja ei tallennettu: {error}"), true);
             false
         }
+    }
+}
+
+fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
+    !state.invalid_field
+        && state.edit_draft.is_empty()
+        && state.route_draft.is_empty()
+        && !is_new(&state.selection)
+        && !app.get_dialog_open()
+        && !app.get_about_open()
+        && !app.get_confirm_open()
+        && !app.get_setup_open()
+        && !app.get_install_busy()
+}
+
+fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
+    if state.pending_result.is_none() || !can_follow_readout(state, app) {
+        return Ok(());
+    }
+    let pending = state.pending_result.take().unwrap();
+    let index = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .and_then(|p| {
+            p.kilpailijat
+                .iter()
+                .position(|d| d.numero == pending.number && d.emit == pending.card)
+        })
+        .ok_or_else(|| {
+            invalid("Luetun kortin kilpailijatiedot ovat muuttuneet. Valitse kilpailija uudelleen.")
+        })?;
+    state.page = 3;
+    state.filter.clear();
+    app.set_page(3);
+    app.set_filter("".into());
+    choose_row(state, index as i32)?;
+    update_tables(state, app)?;
+    update_form(state, app);
+    status(app, pending.notice, false);
+    Ok(())
+}
+
+fn defer_pending_result(state: &SharedState, app: &AppWindow) {
+    if state.borrow().pending_result.is_some() {
+        let state = state.clone();
+        let weak = app.as_weak();
+        Timer::single_shot(Duration::ZERO, move || {
+            if let Some(app) = weak.upgrade() {
+                run_action(&app, || {
+                    follow_pending_result(&mut state.borrow_mut(), &app)
+                });
+            }
+        });
     }
 }
 
@@ -564,16 +657,63 @@ fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool 
                         .workspace
                         .as_ref()
                         .and_then(Workspace::project)
-                        .and_then(|p| p.kilpailijat.iter().find(|d| d.emit == outcome.card_number));
+                        .and_then(|p| {
+                            p.kilpailijat
+                                .iter()
+                                .find(|d| Some(d.numero) == outcome.competitor_number)
+                        });
                     let identity = competitor.map_or_else(
-                        || "Ei vielä kilpailijaa".into(),
-                        |d| format!("#{} {}", d.numero, d.kuljettaja),
+                        || "Tuntematon kortti".into(),
+                        |d| format!("#{} {} / {}", d.numero, d.kuljettaja, d.kartanlukija),
                     );
+                    let preserved = competitor.is_some_and(|d| d.tallennettu_tulos.is_some());
                     show_read_notice(
                         state,
                         app,
                         format!("✓ Emit {} luettu · {identity}", outcome.card_number),
                     );
+                    if let Some(number) = outcome.competitor_number {
+                        let note = if preserved {
+                            "Aiempi tarkastustulos säilyi. Tarkista muodostaa asemarivit uudesta korttiluvusta."
+                        } else {
+                            "Täydennä käsikellot ja tarkasta tulos."
+                        };
+                        let mut notice = format!(
+                            "Emit {} tallennettu · {identity}. {note}",
+                            outcome.card_number
+                        );
+                        if let Err(error) =
+                            current_workspace(state).and_then(|ws| ws.ensure_readout_result(number))
+                        {
+                            notice = format!(
+                                "Lukema tallennettiin. Asematuloksen muodostaminen ei onnistunut: {error}"
+                            );
+                        }
+                        state.pending_result = Some(PendingResult {
+                            number,
+                            card: outcome.card_number,
+                            notice,
+                        });
+                        if !can_follow_readout(state, app) {
+                            status(
+                                app,
+                                "Uusi korttiluku tallennettu. Tulokset avataan, kun keskeneräinen muutos on hyväksytty tai peruutettu.",
+                                false,
+                            );
+                        }
+                        if let Err(error) = follow_pending_result(state, app) {
+                            status(app, error.to_string(), true);
+                        }
+                    } else {
+                        status(
+                            app,
+                            format!(
+                                "Emit {} tallennettu. Kortille ei löydy kilpailijaa; lukemaa ei kohdistettu.",
+                                outcome.card_number
+                            ),
+                            false,
+                        );
+                    }
                     if let Err(error) = update_tables(state, app) {
                         status(app, error.to_string(), true);
                     }
@@ -636,6 +776,9 @@ fn poll_reader(state: &mut State, app: &AppWindow, timer: &Timer) {
         }
         stop |= handle_event(state, app, event);
     }
+    if let Err(error) = follow_pending_result(state, app) {
+        status(app, error.to_string(), true);
+    }
     if stop {
         if let Err(error) = stop_reader(state, app) {
             status(app, error.to_string(), true);
@@ -666,9 +809,54 @@ fn confirmation(
     text: String,
 ) {
     state.pending = Some(action);
+    app.set_confirm_acceptable(true);
     app.set_confirm_title(title.into());
     app.set_confirm_text(text.into());
     app.set_confirm_open(true);
+}
+
+fn offer_excel_import(
+    state: &mut State,
+    app: &AppWindow,
+    source: &Path,
+    preview: &as2026::excel_import::ImportPreview,
+    directory: Option<PathBuf>,
+) -> GuiResult<()> {
+    let summary = preview.summary();
+    if !preview.can_import() {
+        confirmation(
+            state,
+            app,
+            PendingAction::Notice,
+            "Excel-tuonnin tarkistus",
+            format!(
+                "{summary}\n\nTietoja ei voida vielä tuoda. Korjaa ilmoitetut kohdat alkuperäisessä työkirjassa."
+            ),
+        );
+        app.set_confirm_acceptable(false);
+    } else if let Some(directory) = directory {
+        let name = source
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Tuotu kilpailu");
+        let project = preview.to_project(name)?;
+        let text = format!(
+            "Lähde: {}\n{summary}\n\nTallennetaan uutena kilpailuna: {}\nOlemassa olevaa kilpailutiedostoa ei korvata.",
+            source.display(),
+            directory.join(native::FILE_NAME).display()
+        );
+        confirmation(
+            state,
+            app,
+            PendingAction::Import {
+                project: Box::new(project),
+                directory,
+            },
+            "Tuo Excel-kilpailu",
+            text,
+        );
+    }
+    Ok(())
 }
 
 fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
@@ -876,22 +1064,33 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         let state = state.clone();
         let weak = app.as_weak();
         app.on_field_commit(move |key, value| {
-            weak.upgrade()
-                .is_some_and(|app| commit_field(&mut state.borrow_mut(), &app, key, &value))
+            weak.upgrade().is_some_and(|app| {
+                let accepted = commit_field(&mut state.borrow_mut(), &app, key, &value);
+                if accepted {
+                    defer_pending_result(&state, &app);
+                }
+                accepted
+            })
         });
     }
     {
         let state = state.clone();
         let weak = app.as_weak();
         app.on_route_field_commit(move |key, value| {
-            weak.upgrade()
-                .is_some_and(|app| commit_route_field(&mut state.borrow_mut(), &app, key, &value))
+            weak.upgrade().is_some_and(|app| {
+                let accepted = commit_route_field(&mut state.borrow_mut(), &app, key, &value);
+                if accepted {
+                    defer_pending_result(&state, &app);
+                }
+                accepted
+            })
         });
     }
-    // The route field commits on Enter or focus loss via FormField itself.
-    // Keep station drafts separate, so changing station selection cannot
-    // accidentally apply a route field to the selected station.
-    app.on_route_field_draft(|_, _| {});
+    // Radan ja aseman luonnokset ovat erillisiä, vaikka kenttätunnukset ovat samoja.
+    action!(on_route_field_draft, |s, _a, key, value| {
+        s.route_draft.insert(key, value.to_string());
+        Ok(())
+    });
     action!(on_field_draft, |s, a, key, value| {
         if is_new(&s.selection) {
             s.draft.insert(key, value.to_string());
@@ -914,12 +1113,14 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         update_tables(s, &a)?;
         update_form(s, &a);
         status(&a, "Tietue lisätty ja tallennettu.", false);
-        Ok(())
+        follow_pending_result(s, &a)
     });
     action!(on_cancel_edit, |s, a| {
         s.invalid_field = false;
         s.invalid_fields.clear();
+        s.invalid_route_fields.clear();
         s.edit_draft.clear();
+        s.route_draft.clear();
         s.draft.clear();
         choose_row(s, s.selected)?;
         if s.page == 6 {
@@ -927,7 +1128,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         update_form(s, &a);
         status(&a, "Tallennetut tiedot palautettu näkymään.", false);
-        Ok(())
+        follow_pending_result(s, &a)
     });
     action!(on_review_results, |s, a| {
         if !can_leave(s, &a) {
@@ -943,6 +1144,53 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 "Kilpailijan {number} asemarivit muodostetaan uudelleen tallennetusta korttiluvusta. Asemien käsikellot ja pistekorjaukset korvataan. Erilliset lisävirheet ja käsin valittu tila säilyvät."
             ),
         );
+        Ok(())
+    });
+    action!(on_edit_result_competitor, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let number = selected_number(s)?;
+        s.selection = Selection::Driver(number);
+        s.detail = -1;
+        a.set_detail_key(-1);
+        update_form(s, &a);
+        Ok(())
+    });
+    action!(on_approve_results, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let number = selected_number(s)?;
+        current_workspace(s)?.approve_result(number)?;
+        update_tables(s, &a)?;
+        update_form(s, &a);
+        status(
+            &a,
+            "Tulos hyväksytty ja tallennettu. Asemien pistekorjaukset säilytettiin.",
+            false,
+        );
+        Ok(())
+    });
+    action!(on_import_excel, |s, a| {
+        if !can_switch(s, &a) {
+            return Ok(());
+        }
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Tuo RATA- ja KILP-välilehdet")
+            .add_filter("Excel-kilpailupohja", &["xls", "xlsx"])
+            .pick_file()
+        {
+            let preview = as2026::excel_import::read(&path)?;
+            let directory = if preview.can_import() {
+                rfd::FileDialog::new()
+                    .set_title("Valitse uuden kilpailun kansio")
+                    .pick_folder()
+            } else {
+                None
+            };
+            offer_excel_import(s, &a, &path, &preview, directory)?;
+        }
         Ok(())
     });
     action!(on_examine_results, |s, a| {
@@ -1005,6 +1253,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     current_workspace(s)?.review_results(number)?;
                     "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
                 }
+                PendingAction::Import { project, directory } => {
+                    if !can_switch(s, &a) {
+                        return Ok(());
+                    }
+                    let imported = Workspace::create_imported(&directory, *project)?;
+                    let path = imported.path().to_owned();
+                    open_workspace(s, &a, &path, false)?;
+                    "Excel-kilpailu tuotu ja tallennettu."
+                }
+                PendingAction::Notice => "Esikatselu suljettu.",
                 PendingAction::Draw(draw) => {
                     current_workspace(s)?.apply_start_draw(&draw)?;
                     "Arvotut lähtöajat tallennettu."
@@ -1014,7 +1272,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             update_form(s, &a);
             status(&a, message, false);
         }
-        Ok(())
+        follow_pending_result(s, &a)
     });
     action!(on_export_starts, |s, a| {
         if !can_leave(s, &a) {
@@ -1024,13 +1282,23 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .project()
             .ok_or_else(|| invalid("Lähtöluettelo edellyttää AS2026-kilpailua"))?;
         let html = as2026::starts::start_list_html(project)?;
+        let csv = as2026::starts::start_list_csv(project)?;
         if let Some(path) = rfd::FileDialog::new()
             .set_title("Tallenna lähtöluettelo")
             .add_filter("HTML-lähtöluettelo", &["html"])
+            .add_filter("CSV-lähtöluettelo", &["csv"])
             .set_file_name("lahtoluettelo.html")
             .save_file()
         {
-            report::save_new(&path, &html)?;
+            let output = if path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("csv"))
+            {
+                &csv
+            } else {
+                &html
+            };
+            report::save_new(&path, output)?;
             status(
                 &a,
                 "Lähtöluettelo tallennettu. Sen voi avata ja tulostaa selaimella.",

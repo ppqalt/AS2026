@@ -7,6 +7,7 @@ pub mod application;
 pub mod changes;
 pub mod corrections;
 pub mod emit;
+pub mod excel_import;
 #[cfg(feature = "desktop")]
 pub mod installation;
 pub mod legacy;

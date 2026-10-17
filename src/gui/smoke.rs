@@ -129,9 +129,10 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
     app.invoke_navigate(3);
     assert!(!app.get_calculation_notes().contains("varmistamatta"));
     let results = state.borrow().workspace.as_ref().unwrap().results()?;
-    // Staattisesti palautettu leimaamattoman maalin laskenta säilyy;
-    // AT:n tavoiteajan muutos poistaa alkuperäisen 45 pisteen ennakon.
-    assert_eq!(results.competitors[0].total_penalties, 2370);
+    // Käsimaali odottaa toimitsijaa; tunnetun AT:n muutos poistaa 45 pisteen ennakon.
+    assert_eq!(results.competitors[0].total_penalties, 600);
+    assert_eq!(results.competitors[0].status, "ILM");
+    assert!(!app.get_result_approvable());
     // Tallennusvirhe ei hävitä jo luettua kehystä; uudelleenyritys käyttää samaa kilpailua.
     let mut backup_name = path.as_os_str().to_owned();
     backup_name.push(".bak");
@@ -168,6 +169,14 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
         },
     ));
     assert_eq!(ProjectStore::open(&path)?.project().leimaluvut.len(), 3);
+    assert_eq!(
+        app.get_page(),
+        3,
+        "tunnettu Emit avaa Tulokset myös Emit-sivulta"
+    );
+    assert_eq!(selected_number(&state.borrow())?, 7);
+    app.invoke_navigate(2);
+    app.invoke_select_row(history_key);
     assert_eq!(app.get_rows().row_count(), 1);
     assert_eq!(app.get_rows().row_data(0).unwrap().key, history_key);
     assert_eq!(app.get_selected_key(), history_key);
@@ -221,10 +230,16 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
     assert!(app.invoke_field_commit(2, "0".into()));
     app.invoke_navigate(3);
     app.invoke_select_row(0);
+    let before_review = ProjectStore::open(&path)?.project().kilpailijat[0]
+        .tallennettu_tulos
+        .clone();
     app.invoke_review_results();
     assert!(app.get_confirm_open());
     app.invoke_confirm_action(false);
-    assert!(!app.get_result_stored());
+    assert_eq!(
+        ProjectStore::open(&path)?.project().kilpailijat[0].tallennettu_tulos,
+        before_review
+    );
     app.invoke_review_results();
     app.invoke_confirm_action(true);
     assert!(app.get_result_stored());
@@ -274,7 +289,109 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
             .clock,
         [12, 4, 35]
     );
+    assert!(
+        !app.get_result_approvable(),
+        "käsimaalin puuttuva aika estää hyväksymisen"
+    );
+    let finish_index = state
+        .borrow()
+        .workspace
+        .as_ref()
+        .unwrap()
+        .results()?
+        .competitors[0]
+        .results
+        .iter()
+        .position(|r| r.station_type == "M")
+        .unwrap();
+    app.invoke_select_detail(finish_index as i32);
+    assert!(app.invoke_field_commit(100, "12:15:00".into()));
+    app.invoke_examine_results();
+    assert!(
+        app.get_result_approvable(),
+        "tulos ei hyväksyttävissä: {:?}",
+        state
+            .borrow()
+            .workspace
+            .as_ref()
+            .unwrap()
+            .result_snapshot(7)?
+    );
+    app.invoke_select_detail(1);
+    assert!(app.invoke_field_commit(101, "-75".into()));
+    app.invoke_approve_results();
+    assert!(
+        ProjectStore::open(&path)?.project().kilpailijat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .hyvaksytty
+    );
+    assert_eq!(
+        ProjectStore::open(&path)?.project().kilpailijat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .rivit[1]
+            .signed_time_penalty,
+        -75
+    );
+
+    // Uusi lukema tallentuu kesken muokkauksen mutta ei katkaise sitä.
     app.invoke_navigate(1);
+    app.invoke_select_row(0);
+    app.invoke_field_draft(1, "Keskeneräinen nimi".into());
+    let history_count = ProjectStore::open(&path)?.project().leimaluvut.len();
+    let repeated = emit::parse_frame(include_bytes!("../../fixtures/synthetic/emit-frame.raw"))?;
+    assert!(!handle_event(
+        &mut state.borrow_mut(),
+        app,
+        ReaderEvent::Frame {
+            frame: Box::new(repeated),
+            read_clock: ClockTime::new(12, 12, 0)?
+        }
+    ));
+    assert_eq!(app.get_page(), 1);
+    assert_eq!(
+        ProjectStore::open(&path)?.project().leimaluvut.len(),
+        history_count + 1
+    );
+    assert!(state.borrow().pending_result.is_some());
+    assert!(app.invoke_field_commit(1, "Keskeneräinen nimi".into()));
+    follow_pending_result(&mut state.borrow_mut(), app)?;
+    assert_eq!(app.get_page(), 3);
+    assert_eq!(selected_number(&state.borrow())?, 7);
+    assert!(
+        ProjectStore::open(&path)?.project().kilpailijat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .hyvaksytty
+    );
+    assert_eq!(
+        ProjectStore::open(&path)?.project().kilpailijat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .rivit[1]
+            .signed_time_penalty,
+        -75
+    );
+    // Tuntematon kortti ei siirry eikä kohdistu valittuun kilpailijaan.
+    app.invoke_navigate(1);
+    let mut unknown = emit::parse_frame(include_bytes!("../../fixtures/synthetic/emit-frame.raw"))?;
+    unknown.card_number = 999999;
+    assert!(!handle_event(
+        &mut state.borrow_mut(),
+        app,
+        ReaderEvent::Frame {
+            frame: Box::new(unknown),
+            read_clock: ClockTime::new(12, 13, 0)?
+        }
+    ));
+    assert_eq!(app.get_page(), 1);
+    assert!(state.borrow().pending_result.is_none());
+    assert!(app.get_status_text().contains("ei löydy kilpailijaa"));
     app.invoke_select_row(0);
     assert!(app.invoke_field_commit(11, "12345X".into()));
     assert!(app.invoke_field_commit(12, "67890".into()));
@@ -329,6 +446,54 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
         drawn.project().kilpailijat[1].lahtoaika
     );
     assert!(drawn.project().leimaluvut.is_empty());
+    app.invoke_navigate(4);
+    app.invoke_select_row(0);
+    assert!(app.invoke_field_commit(9, "0".into()));
+    let not_drawn = ProjectStore::open(&draw_path)?.project().clone();
+    app.invoke_draw_starts();
+    assert!(!app.get_confirm_open());
+    assert_eq!(ProjectStore::open(&draw_path)?.project(), &not_drawn);
+
+    // Excel-esikatselun peruutus ei kirjoita; hyväksyntä luo uuden kilpailun.
+    let excel =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/excel-import/synteettinen.xlsx");
+    let preview = as2026::excel_import::read(&excel)?;
+    let import_directory = path.parent().unwrap().join("tuontikoe");
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &preview,
+        Some(import_directory.clone()),
+    )?;
+    assert!(app.get_confirm_open());
+    assert!(app.get_confirm_acceptable());
+    assert!(!import_directory.join(native::FILE_NAME).exists());
+    app.invoke_confirm_action(false);
+    assert!(!import_directory.join(native::FILE_NAME).exists());
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &preview,
+        Some(import_directory.clone()),
+    )?;
+    app.invoke_confirm_action(true);
+    let imported = ProjectStore::open(&import_directory.join(native::FILE_NAME))?;
+    assert_eq!(imported.project().kilpailijat.len(), 2);
+    assert_eq!(imported.project().radat.len(), 2);
+    assert!(
+        imported
+            .project()
+            .luokat
+            .iter()
+            .all(|c| !c.osallistuu_lahtoarvontaan)
+    );
+    assert!(
+        !imported.project().kilpailijat[0]
+            .kuljettajan_seura
+            .is_empty()
+    );
     // Palautetaan vain tämän kokeen itse luoma synteettinen kopio kuvausta varten.
     ProjectStore::open(&path)?.update(|project| {
         *project = original.clone();
@@ -360,7 +525,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
         }
     });
     println!(
-        "GUI-työnkulkukoe hyväksytty: valinnat, luonnokset, automaattitallennus, virheestä palautuminen ja yhteinen laskenta."
+        "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(())
 }

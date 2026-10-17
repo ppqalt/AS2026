@@ -6,6 +6,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StoredResult {
+    #[serde(default)]
+    pub laskentatapa: StoredCalculationPolicy,
+    #[serde(default)]
+    pub hyvaksytty: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kasin_annetut_kellot: Vec<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub virheelliset_ajat: Vec<String>,
     pub rata: Vec<StoredRouteStation>,
     pub rivit: Vec<StoredRow>,
     pub aikavirheet: i64,
@@ -19,6 +27,14 @@ pub struct StoredResult {
     pub kasikellot_muuttuneet: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub huomautukset: Vec<String>,
+}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StoredCalculationPolicy {
+    #[default]
+    #[serde(rename = "as2015a_staattinen")]
+    As2015aStatic,
+    #[serde(rename = "as2026")]
+    As2026Operational,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -125,6 +141,46 @@ impl From<&StoredRow> for StationResult {
     }
 }
 impl StoredResult {
+    /// Puuttuva käsikello tunnistetaan syötön alkuperästä: myös 00:00:00 on kelvollinen syöte.
+    pub fn pending_manual_clocks(&self) -> Vec<u32> {
+        self.rivit
+            .iter()
+            .filter(|r| {
+                r.sequence != 0
+                    && r.expected_code == 0
+                    && r.station_type != "L"
+                    && !self.kasin_annetut_kellot.contains(&r.output_index)
+            })
+            .map(|r| r.output_index)
+            .collect()
+    }
+    pub fn can_approve(&self) -> bool {
+        if self.rivit.is_empty()
+            || !matches!(self.tila.as_str(), "TRK" | "KESK")
+            || !self.pending_manual_clocks().is_empty()
+            || self.kasikellot_muuttuneet
+            || !self.virheelliset_ajat.is_empty()
+        {
+            return false;
+        }
+        let route = self
+            .rata
+            .iter()
+            .map(|s| {
+                Ok(crate::RouteStation {
+                    sequence: s.jarjestys,
+                    kind: crate::StationKind::from_legacy(&s.tyyppi)?,
+                    label: s.nimi.clone(),
+                    expected_code: s.emit_koodi,
+                    target_seconds: s.tavoiteaika_sekuntia,
+                    rule: crate::Rule::from_legacy(s.saanto)?,
+                    section_time_text: s.jakso.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>, CoreError>>();
+        route.is_ok_and(|route| self.validate_route(&route).is_ok())
+    }
+
     pub fn as_station_results(&self) -> Vec<StationResult> {
         self.rivit.iter().map(StationResult::from).collect()
     }
@@ -137,7 +193,7 @@ impl StoredResult {
         {
             return Err(CoreError::InvalidInput("Tallennetun tuloksen rata on muuttunut. Tarkista muodostaa asemarivit uudelleen korttiluvusta; käsikorjauksia ei kohdisteta muuttuneeseen rataan automaattisesti".into()));
         }
-        if self.kesto_sekuntia < 0 || !matches!(self.tila.as_str(), "TRK" | "KESK") {
+        if self.kesto_sekuntia < 0 || !matches!(self.tila.as_str(), "TRK" | "KESK" | "ILM") {
             return Err(CoreError::InvalidInput(
                 "Tallennetun laskentatuloksen kesto tai tila on virheellinen".into(),
             ));
@@ -223,10 +279,17 @@ impl StoredResult {
         if clock == [0; 3] {
             row.elapsed_seconds = 0;
         }
+        if !self.kasin_annetut_kellot.contains(&index) {
+            self.kasin_annetut_kellot.push(index);
+        }
         if last {
             self.maalikello_sekuntia = clock[0] * 3600 + clock[1] * 60 + clock[2];
         }
         self.kasikellot_muuttuneet = true;
+        self.hyvaksytty = false;
+        if self.tila == "TRK" {
+            self.tila = "ILM".into();
+        }
         Ok(())
     }
     /// Asemarivin pistekorjaus päivittää rivien summan, ei laske aikoja uudelleen.
@@ -243,6 +306,7 @@ impl StoredResult {
         }
         // Kaikki tarkistukset tehdään kopioon: ylivuoto ei jätä puolikasta korjausta.
         let mut edited = self.clone();
+        edited.hyvaksytty = false;
         let row = edited.row_mut(index)?;
         row.signed_time_penalty = signed;
         row.other_penalty = other;

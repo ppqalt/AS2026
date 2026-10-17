@@ -110,6 +110,8 @@ pub struct Class {
     /// AS2015A:n Sp-menetelmä. Menetelmä 4 edellyttää sarjap.txt:tä.
     #[serde(default)]
     pub sarjapistetapa: u8,
+    #[serde(default = "enabled", skip_serializing_if = "is_enabled")]
+    pub osallistuu_lahtoarvontaan: bool,
 }
 /// A combined ranking class. Member codes are exact, not legacy prefix matches.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -125,6 +127,12 @@ pub struct CombinedClass {
 
 fn one() -> u32 {
     1
+}
+fn enabled() -> bool {
+    true
+}
+fn is_enabled(value: &bool) -> bool {
+    *value
 }
 fn default_start() -> String {
     "00:00:00".to_owned()
@@ -165,6 +173,10 @@ pub struct Driver {
     pub kuljettajan_lisenssi: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kartanlukijan_lisenssi: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kuljettajan_seura: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kartanlukijan_seura: String,
     pub emit: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub auto: String,
@@ -480,6 +492,8 @@ impl Project {
             fields[4] = driver.kartanlukija.clone();
             fields[5] = driver.kuljettajan_lisenssi.clone();
             fields[6] = driver.kartanlukijan_lisenssi.clone();
+            fields[7] = driver.kuljettajan_seura.clone();
+            fields[8] = driver.kartanlukijan_seura.clone();
             fields[9] = driver.auto.clone();
             fields[10] = time.hour.to_string();
             fields[11] = time.minute.to_string();
@@ -616,6 +630,7 @@ impl Project {
                 myohastymisraja_minuutteina: default_lateness(),
                 nousupisteet: 0,
                 sarjapistetapa: 0,
+                osallistuu_lahtoarvontaan: true,
             }],
             radat: vec![Track {
                 numero: 1,

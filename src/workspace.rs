@@ -138,6 +138,72 @@ impl Workspace {
         }
     }
 
+    /// Tallennettu korjaus on ensisijainen; lukemattomalle kortille ei keksitä tulosta.
+    pub fn result_snapshot(
+        &self,
+        number: u32,
+    ) -> Result<Option<crate::corrections::StoredResult>, CoreError> {
+        let Some(project) = self.project() else {
+            return Ok(None);
+        };
+        let driver = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+        if let Some(stored) = &driver.tallennettu_tulos {
+            return Ok(Some(stored.clone()));
+        }
+        if project.active_readout(driver.emit).is_none() {
+            return Ok(None);
+        }
+        application::capture_project_result(project, number).map(Some)
+    }
+
+    pub fn approve_result(&mut self, number: u32) -> Result<(), CoreError> {
+        let mut snapshot = self
+            .result_snapshot(number)?
+            .ok_or_else(|| invalid("Lue ensin kilpailijan kortti"))?;
+        if !snapshot.can_approve() {
+            return Err(invalid(
+                "Täydennä puuttuvat käsikellot ja valitse Tutki ennen hyväksymistä",
+            ));
+        }
+        snapshot.hyvaksytty = true;
+        self.update(|project| {
+            application::validate_project_result(project, number, &snapshot)?;
+            project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?
+                .tallennettu_tulos = Some(snapshot);
+            Ok(())
+        })
+    }
+
+    /// Ensimmäinen lukema saa asemarivit. Uusintaluku säilyttää aiemman tarkastuksen.
+    pub fn ensure_readout_result(&mut self, number: u32) -> Result<(), CoreError> {
+        if self
+            .project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .is_some_and(|d| d.tallennettu_tulos.is_none())
+        {
+            self.review_results(number)?;
+        }
+        Ok(())
+    }
+
+    pub fn create_imported(directory: &Path, project: Project) -> Result<Self, CoreError> {
+        project.validate()?;
+        fs::create_dir_all(directory).map_err(|e| invalid(crate::io_message(&e)))?;
+        let store = ProjectStore::create(&directory.join(native::FILE_NAME), project)?;
+        Ok(Self {
+            path: store.path().to_owned(),
+            source: Source::Native(store),
+        })
+    }
+
     pub fn ranking(&self) -> Result<RankingReport, CoreError> {
         application::rank_stored(&self.results()?, TiePolicy::KeepSharedAndFlag)
     }
@@ -197,6 +263,8 @@ impl Workspace {
                 DriverField::Driver => driver.kuljettaja = required(value, "Kuljettaja")?,
                 DriverField::Navigator => driver.kartanlukija = value.trim().into(),
                 DriverField::Card => driver.emit = number(value, "Emit-numero")?,
+                DriverField::DriverClub => driver.kuljettajan_seura = value.trim().into(),
+                DriverField::NavigatorClub => driver.kartanlukijan_seura = value.trim().into(),
                 DriverField::DriverLicence => driver.kuljettajan_lisenssi = value.trim().into(),
                 DriverField::NavigatorLicence => driver.kartanlukijan_lisenssi = value.trim().into(),
                 DriverField::Status => {
@@ -233,6 +301,11 @@ impl Workspace {
                     let points: i64 = number(value, "Muut virhepisteet")?;
                     driver.lisavirheet.muut_virhepisteet = points;
                 }
+            }
+            if matches!(field, DriverField::Class | DriverField::Card | DriverField::Start | DriverField::Correction | DriverField::MissingRtCount | DriverField::ExtraRtCount | DriverField::OtherPenalties | DriverField::Status | DriverField::StatusReason)
+                && let Some(result) = &mut driver.tallennettu_tulos {
+                result.hyvaksytty = false;
+                if matches!(field, DriverField::Class | DriverField::Start | DriverField::Correction) { result.kasikellot_muuttuneet = true; }
             }
             Ok(())
         })
@@ -364,6 +437,13 @@ impl Workspace {
                     class.myohastymisraja_minuutteina = number(value, "Myöhästymisraja")?
                 }
                 ClassField::Np => class.nousupisteet = number(value, "Nousupistevalinta")?,
+                ClassField::Draw => {
+                    class.osallistuu_lahtoarvontaan = match value.trim() {
+                        "0" => false,
+                        "1" => true,
+                        _ => return Err(invalid("Lähtöarvonnan valinnan pitää olla Kyllä tai Ei")),
+                    }
+                }
                 ClassField::Sp => class.sarjapistetapa = number(value, "Sarjapistemenetelmä")?,
             }
             if field == ClassField::Code {
@@ -620,6 +700,8 @@ pub enum DriverField {
     NavigatorLicence,
     Status,
     StatusReason,
+    DriverClub,
+    NavigatorClub,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClassField {
@@ -632,6 +714,7 @@ pub enum ClassField {
     Lateness,
     Np,
     Sp,
+    Draw,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackField {
@@ -695,6 +778,8 @@ impl DriverEdit {
             emit_korjaus_sekuntia: optional_number(&self.correction_seconds, "Emit-korjaus")?
                 .unwrap_or(0),
             lisavirheet: Default::default(),
+            kuljettajan_seura: String::new(),
+            kartanlukijan_seura: String::new(),
             kuljettajan_lisenssi: String::new(),
             kartanlukijan_lisenssi: String::new(),
             tila: None,
@@ -719,6 +804,7 @@ pub struct ClassEdit {
 impl ClassEdit {
     fn parse(self) -> Result<Class, CoreError> {
         Ok(Class {
+            osallistuu_lahtoarvontaan: true,
             tunnus: required(&self.code, "Luokan tunnus")?,
             nimi: required(&self.name, "Luokan nimi")?,
             rata: number(&self.route, "Radan numero")?,

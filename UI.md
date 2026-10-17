@@ -17,7 +17,7 @@ Vasemman reunan navigaatio pysyy näkyvissä. Työalue käyttää tavallisia lue
 | Yleiskatsaus | Kilpailun avaaminen ja perustaminen sekä yhteenveto. |
 | Kilpailijat | Haettava kilpailijaluettelo, uuden kilpailijan lisäys ja tietojen muokkaus. |
 | Emit-lukeminen | Automaattinen tai manuaalinen portti, jatkuvan luvun käynnistys ja pysäytys sekä lukutapahtumien seuranta. |
-| Tulokset | Ajantasainen tulosluettelo, laskennan huomautukset ja HTML-raportti. |
+| Tulokset | Kilpailijan ajat, viisi pisteosaa, asemarivit, käsikellot, käsikorjaukset ja tuloksen hyväksyminen. |
 | Luokat | Luokan lisäys ja muokkaus sekä yhteys rataan. |
 | Radat ja asemat | Ratojen ja niiden asemien lisäys ja muokkaus. |
 | Asetukset | Kilpailujen tallennuspaikka, ohjelmapäivitykset ja avoimen kilpailun perustiedot. |
@@ -36,6 +36,7 @@ Vanhoja AS2015A-kilpailuja käsitellään lähdeaineistona. Niiden tarkastelu ei
 | Kentät, painikkeet ja muut yhteiset komponentit | `ui/components.slint`. |
 | Seitsemän näkymän asettelu ja käyttäjätekstit | `ui/app.slint`. |
 | Slintin ja Rustin välillä kulkevat esitystyypit | `ui/types.slint`. |
+| Valitun kilpailijan ajat, tila, syy ja pisteyhteenveto | `ui/results.slint`; tiedot tulevat `src/gui/tables.rs`-sovittimesta. |
 | Rustin ja Slintin välinen tiedonsiirto sekä käyttöliittymän tapahtumat | `src/gui/mod.rs`. |
 | Sovellusasetukset ja päivitysten GUI-taustatyö | `src/gui/desktop.rs`. |
 | Pysyvät kilpailukansiot ja viimeksi avattu kilpailu | `src/preferences.rs`. |
@@ -74,6 +75,20 @@ Sarjaportin odotus tapahtuu taustalla. Ikkunan tapahtumakiertoa ei saa pysäytt�
 Kilpailun vaihtaminen ei saa siirtää vanhan kilpailun lukutapahtumaa uuden kilpailun tiedostoon. Muokkaus, lukuhistorian tallennus ja tulosten uudelleenlaskenta käyttävät samaa ajantasaista kilpailua. Pelkkä muutoksen esittäminen Slintin listamallissa ei ole tallennus.
 
 Onnistunut tallennettu kortinluku näkyy pienenä kolmen sekunnin kuittauksena lukuhistorian otsikkorivillä. Peräkkäiset saman kortin samat varsinaiset leimat esitetään yhdellä rivillä; Lukuja-sarake kertoo lukukertojen määrän ja yksityiskohdat näyttävät ryhmän viimeisimmän lukeman. Eri kortit, muuttuneet leimat ja virheelliset lukemat näkyvät erillisinä. Ryhmittely koskee vain esitystä: kaikki alkuperäiset lukemat säilyvät kilpailutiedostossa.
+
+Tunnetun Emit-kortin onnistunut tallennus avaa Tulokset ja valitsee kilpailijan. Keskeneräinen muokkaus ratkaistaan ennen valinnan vaihtoa. Tuntematon kortti säilyy lukuhistoriassa ilman kilpailijakohdistusta. Uusintaluku ei itsestään korvaa hyväksyttyä käsikorjausta.
+
+## Tuloksen täydentäminen
+
+Valitun kilpailijan yhteenveto pysyy Tulokset-näkymän oikeassa paneelissa. Siinä näkyvät lähtö, käytetty aika, maali, tila ja syy sekä kaikki viisi pisteosaa. Puuttuvista ja ylimääräisistä RT-asemista näytetään sekä kappalemäärä että pisteet. Muokkaa kilpailijaa avaa saman nykyisen lomakkeen tähän paneeliin; lisävirheitä ja tilaa varten ei tarvitse vaihtaa näkymää.
+
+Asemarivin valitseminen avaa sen kellon ja pisteiden korjauksen. Emit-numeron 0 asemien käsikellot täydennetään muodossa `hh:mm:ss`. Puuttuva aika tai keskeneräinen tulos näytetään viivalla, eikä sen tilalle esitetä laskennallista nollatulosta. Kellojen syöttö ei hävitä alkuperäisiä leimoja. Tutki käyttää tallennettuja asemarivejä ja käsikelloja, kun taas Tarkista muodostaa asemat alkuperäisestä korttiluvusta ja pyytää tarvittaessa vahvistuksen käsikorjausten korvaamiseen.
+
+Hyväksy tulos on käytettävissä vasta kun vaadittavat kellot ja laskenta ovat kunnossa. Hyväksyminen ei ole uusi pisteiden laskentapolku: se käyttää yhteisen kilpailumallin tallennettua tulosta. Oikea paneeli vierii tarvittaessa; myös kapeiden taulukoiden otsikot ja rivit vierivät yhdessä vaakasuunnassa.
+
+## Excel-tuonti
+
+Tuo Excel löytyy aloitusnäkymästä sekä kilpailijoiden, luokkien ja ratojen työalueilta. Tiedosto valitaan käyttöjärjestelmän omasta valitsimesta. Ennen tallennusta näytetään esikatselu tuotavista `KILP`- ja `RATA`-tiedoista sekä epäselvistä riveistä. Vahvistus käyttää samaa peittävää, vieritettävää valintaikkunaa kuin muut kilpailutietoihin kohdistuvat muutokset. Excel-tuonti käyttää Rustin yhteistä tuonti- ja tallennuspolkua; Slint ei tulkitse laskentataulukkoa tai suorita makroja.
 
 Linuxin tiedostonvalinta käyttää työpöydän XDG-portaalia ja Windowsin tiedostonvalinta Windowsin omaa valintaikkunaa. Käyttöjärjestelmän valintaikkunan kieli ja ulkoasu määräytyvät järjestelmän asetuksista. Sovelluksen omat tekstit sekä Slintin tekstikenttien Leikkaa-, Kopioi-, Liitä- ja Valitse kaikki -toiminnot ovat suomeksi.
 

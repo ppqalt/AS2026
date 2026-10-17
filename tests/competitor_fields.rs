@@ -19,10 +19,13 @@ fn older_competition_files_keep_automatic_status_and_omit_new_empty_fields() {
     let driver = &project.kilpailijat[0];
     assert!(driver.kuljettajan_lisenssi.is_empty());
     assert!(driver.kartanlukijan_lisenssi.is_empty());
+    assert!(driver.kuljettajan_seura.is_empty());
+    assert!(driver.kartanlukijan_seura.is_empty());
     assert!(driver.tila.is_none());
     assert!(driver.tallennettu_tulos.is_none());
     let encoded = project.to_toml().unwrap();
     assert!(!encoded.contains("lisenssi"));
+    assert!(!encoded.contains("seura"));
     assert!(!encoded.contains("kilpailijat.tila"));
     assert!(!encoded.contains("tallennettu_tulos"));
     assert_eq!(Project::from_toml(&encoded).unwrap(), project);
@@ -70,6 +73,8 @@ fn legacy_changes_do_not_discard_new_fields_or_additional_penalties() {
     let driver = &mut project.kilpailijat[0];
     driver.kuljettajan_lisenssi = "12X".into();
     driver.kartanlukijan_lisenssi = "345".into();
+    driver.kuljettajan_seura = "Kuljettajan seura".into();
+    driver.kartanlukijan_seura = "Kartanlukijan seura".into();
     driver.tila = Some(ManualStatus::new("PER", "Peruttu").unwrap());
     driver.lisavirheet.muut_virhepisteet = 12;
     driver.tallennettu_tulos = Some(stored);
@@ -82,10 +87,34 @@ fn legacy_changes_do_not_discard_new_fields_or_additional_penalties() {
     assert_eq!(after.kuljettaja, "Korjattu nimi");
     assert_eq!(after.kuljettajan_lisenssi, before.kuljettajan_lisenssi);
     assert_eq!(after.kartanlukijan_lisenssi, before.kartanlukijan_lisenssi);
+    assert_eq!(after.kuljettajan_seura, before.kuljettajan_seura);
+    assert_eq!(after.kartanlukijan_seura, before.kartanlukijan_seura);
     assert_eq!(after.tila, before.tila);
     assert_eq!(after.lisavirheet, before.lisavirheet);
     assert_eq!(after.tallennettu_tulos, before.tallennettu_tulos);
     assert_eq!(project.leimaluvut.len(), 1);
+}
+
+#[test]
+fn both_clubs_round_trip_and_explicit_empty_change_clears_them() {
+    let mut project = project();
+    project.kilpailijat[0].kuljettajan_seura = "Seura Ä".into();
+    project.kilpailijat[0].kartanlukijan_seura = "Seura Ö".into();
+    let reopened = Project::from_toml(&project.to_toml().unwrap()).unwrap();
+    assert_eq!(reopened, project);
+    let archive = reopened.to_archive().unwrap();
+    assert_eq!(archive.competitors[0].header_fields[7], "Seura Ä");
+    assert_eq!(archive.competitors[0].header_fields[8], "Seura Ö");
+    let changes = format!(
+        "{}kuljettajan_seura = \"\"\nkartanlukijan_seura = \"\"\n",
+        old_driver_change()
+    );
+    toml::from_str::<Changes>(&changes)
+        .unwrap()
+        .apply(&mut project)
+        .unwrap();
+    assert!(project.kilpailijat[0].kuljettajan_seura.is_empty());
+    assert!(project.kilpailijat[0].kartanlukijan_seura.is_empty());
 }
 
 #[test]
@@ -148,12 +177,17 @@ fn either_licence_uses_the_recovered_left_to_right_series_eligibility() {
 #[test]
 fn manual_status_is_applied_after_score_calculation_and_reaches_export() {
     let mut project = project();
+    let automatic_total = application::calculated_project(&project)
+        .unwrap()
+        .competitors[0]
+        .total_penalties;
     project.kilpailijat[0].tila = Some(ManualStatus::new("HYL", "Johdon päätös").unwrap());
     let archive = application::calculated_project(&project).unwrap();
     let competitor = &archive.competitors[0];
     assert_eq!(competitor.status, "HYL");
     assert_eq!(competitor.header_fields[29], "Johdon päätös");
-    assert_eq!(competitor.total_penalties, 2415);
+    assert_eq!(competitor.total_penalties, automatic_total);
+    assert!(competitor.total_penalties > 0);
     assert!(!competitor.results.is_empty());
     let ranked = application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
     assert_eq!(ranked.groups[0].entries[0].status, Status::Disqualified);

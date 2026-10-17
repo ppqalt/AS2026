@@ -396,6 +396,8 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         ("Automaattinen", ""), ("Tarkastettu", "TRK"), ("Keskeyttänyt", "KESK"), ("Peruuttanut", "PER"), ("Hylätty", "HYL"), ("Suljettu", "SULJ"), ("Ilmoittautunut", "ILM"), ("Ei lähtenyt", "EILÄ")
                     ])),
                     text(14, "Tilan syy", driver.tila.as_ref().map_or("", |s| s.syy.as_str()), "Käsin valitun tilan perustelu näkyy tulosraportissa"),
+                    text(15, "Kuljettajan seura", &driver.kuljettajan_seura, "Kuljettajan seuratieto"),
+                    text(16, "Kartanlukijan seura", &driver.kartanlukijan_seura, "Kartanlukijan seuratieto"),
                 ]);
                 fields
             })
@@ -426,7 +428,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
             .iter()
             .find(|class| class.tunnus == *code)
             .map(|class| {
-                class_fields(
+                let mut result = class_fields(
                     project,
                     &ClassEdit {
                         code: class.tunnus.clone(),
@@ -439,7 +441,9 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         np_enabled: class.nousupisteet.to_string(),
                         series_method: class.sarjapistetapa.to_string(),
                     },
-                )
+                );
+                result.push(choice(9, "Osallistuu lähtöarvontaan", if class.osallistuu_lahtoarvontaan { "1" } else { "0" }, "Vain valittujen luokkien lähtöajat arvotaan", named(&[("Ei", "0"), ("Kyllä", "1")])));
+                result
             })
             .unwrap_or_default(),
         Selection::NewClass => class_fields(
@@ -622,8 +626,11 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
             .and_then(|driver| driver.results.into_iter().find(|r| r.output_index == *row))
             .map_or_else(Vec::new, |station| {
                 let mut fields = Vec::new();
-                if station.expected_code == 0 && station.station_type != "L" && !(station.station_type == "M" && project.kilpailu.ajanottotapa != 0) {
-                    fields.push(text(100, "Kello", format!("{:02}:{:02}:{:02}", station.clock[0], station.clock[1], station.clock[2]), "Käsikellon tallennus säilyttää pisteet. Tutki laskee ne uudelleen."));
+                if station.expected_code == 0 && station.station_type != "L" {
+                    let pending = project.kilpailijat.iter().find(|d| d.numero == *number)
+                        .and_then(|d| d.tallennettu_tulos.as_ref()).is_none_or(|r| r.pending_manual_clocks().contains(row));
+                    let value = if pending { String::new() } else { format!("{:02}:{:02}:{:02}", station.clock[0], station.clock[1], station.clock[2]) };
+                    fields.push(text(100, "Käsikello", value, "Anna hh:mm:ss. Myös 00:00:00 on kelvollinen syötetty kello. Tutki laskee pisteet."));
                 }
                 fields.extend([
                 text(101, "Aikavirhe (p)", station.signed_time_penalty, "Ennakko positiivisena, myöhä negatiivisena; summaan tulee itseisarvo"),
@@ -670,6 +677,8 @@ pub fn apply_field(
                 12 => DriverField::NavigatorLicence,
                 13 => DriverField::Status,
                 14 => DriverField::StatusReason,
+                15 => DriverField::DriverClub,
+                16 => DriverField::NavigatorClub,
                 _ => return Err(invalid()),
             };
             let new_number = if key == 0 {
@@ -691,6 +700,7 @@ pub fn apply_field(
                 6 => ClassField::Lateness,
                 7 => ClassField::Np,
                 8 => ClassField::Sp,
+                9 => ClassField::Draw,
                 _ => return Err(invalid()),
             };
             ws.edit_class(code, field, value)?;

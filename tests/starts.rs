@@ -229,3 +229,56 @@ fn midnight_list_keeps_each_class_in_departure_order() {
         assert!(output.find("00:01:00").unwrap() < output.find("00:02:00").unwrap());
     }
 }
+
+#[test]
+fn unselected_classes_keep_their_times_and_read_history_does_not_block_selected_classes() {
+    let mut project = project();
+    let mut second = project.luokat[0].clone();
+    second.tunnus = "M".into();
+    project.luokat.push(second);
+    project.luokat[0].osallistuu_lahtoarvontaan = false;
+    for driver in &mut project.kilpailijat[5..] {
+        driver.luokka = "M".into();
+    }
+    let mut read = Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+        .unwrap()
+        .leimaluvut
+        .remove(0);
+    read.emit = project.kilpailijat[0].emit;
+    project.leimaluvut.push(read);
+    let before = project.clone();
+    let draw = starts::draw(&project, 1).unwrap();
+    assert_eq!(draw.assignments.len(), 5);
+    assert!(
+        draw.assignments
+            .iter()
+            .all(|assignment| assignment.number > 5)
+    );
+    draw.apply(&mut project).unwrap();
+    assert_eq!(project.kilpailijat[..5], before.kilpailijat[..5]);
+    assert_eq!(project.leimaluvut, before.leimaluvut);
+    assert_eq!(
+        Project::from_toml(&project.to_toml().unwrap()).unwrap(),
+        project
+    );
+}
+
+#[test]
+fn old_class_files_default_to_participation_and_old_changes_preserve_explicit_exclusion() {
+    let mut project = project();
+    assert!(project.luokat[0].osallistuu_lahtoarvontaan);
+    project.luokat[0].osallistuu_lahtoarvontaan = false;
+    let changes = "[[luokat]]\ntunnus = \"A\"\nnimi = \"Korjattu luokka\"\nrata = 1\n";
+    toml::from_str::<as2026::changes::Changes>(changes)
+        .unwrap()
+        .apply(&mut project)
+        .unwrap();
+    assert!(!project.luokat[0].osallistuu_lahtoarvontaan);
+    assert_eq!(project.luokat[0].nimi, "Korjattu luokka");
+    let changes = format!("{changes}osallistuu_lahtoarvontaan = true\n");
+    toml::from_str::<as2026::changes::Changes>(&changes)
+        .unwrap()
+        .apply(&mut project)
+        .unwrap();
+    assert!(project.luokat[0].osallistuu_lahtoarvontaan);
+}

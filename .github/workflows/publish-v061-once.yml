@@ -1,4 +1,4 @@
-name: Julkaise AS2026 0.6.0 kerran
+name: Julkaise AS2026 0.6.1 kerran
 
 # Julkaisutagi syntyy vasta saman main-commitin molempien CI-töiden läpäisystä.
 on:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   launch:
-    name: Luo tarkistettu v0.6.0-tagi ja käynnistä allekirjoitettu julkaisu
+    name: Luo tarkistettu v0.6.1-tagi ja käynnistä allekirjoitettu julkaisu
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     runs-on: ubuntu-22.04
     permissions:
@@ -32,11 +32,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$TESTED_SHA"
-          test "$(git log -1 --pretty=%s)" = 'Release AS2026 v0.6.0 [publish v0.6.0]'
-          test "$(grep -m1 '^version = ' Cargo.toml)" = 'version = "0.6.0"'
+          test "$(git log -1 --pretty=%s)" = 'Release AS2026 v0.6.1 [publish v0.6.1]'
+          test "$(grep -m1 '^version = ' Cargo.toml)" = 'version = "0.6.1"'
           test "$(grep -m1 '^license = ' Cargo.toml)" = 'license = "BSD-2-Clause"'
-          if git show-ref --verify --quiet refs/tags/v0.6.0; then
-            echo 'v0.6.0 on jo olemassa, julkaisua ei toisteta.' >&2
+          if git show-ref --verify --quiet refs/tags/v0.6.1; then
+            echo 'v0.6.1 on jo olemassa, julkaisua ei toisteta.' >&2
             exit 1
           fi
       - name: Luo tagi ja käynnistä allekirjoitettu julkaisu
@@ -47,5 +47,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api --method POST "repos/$GH_REPO/git/refs" -f ref='refs/tags/v0.6.0' -f sha="$TESTED_SHA" >/dev/null
-          gh workflow run release.yml -R "$GH_REPO" --ref main -f release_tag=v0.6.0 -F publish_release=true
+          gh api --method POST "repos/$GH_REPO/git/refs" -f ref='refs/tags/v0.6.1' -f sha="$TESTED_SHA" >/dev/null
+          gh workflow run release.yml -R "$GH_REPO" --ref main -f release_tag=v0.6.1 -F publish_release=true

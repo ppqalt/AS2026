@@ -29,6 +29,8 @@ pub enum CalculationPolicy {
     RecoveredLiveV1,
     /// AS2015A:n live-korttipolusta staattisesti palautettu käytäntö.
     RecoveredAs2015aStaticV2,
+    /// AS2026:n toimitsijakäyttö: käsikellot syötetään, positiiviset myöhästymisrajat toimivat.
+    As2026OperationalV1,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +67,7 @@ pub struct LiveCalculationOptions {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CalculationStatus {
+    Pending,
     Checked,
     Interrupted,
 }
@@ -72,6 +75,7 @@ pub enum CalculationStatus {
 impl CalculationStatus {
     pub const fn as_legacy(self) -> &'static str {
         match self {
+            Self::Pending => "ILM",
             Self::Checked => "TRK",
             Self::Interrupted => "KESK",
         }
@@ -361,7 +365,17 @@ fn trace(
 }
 fn interrupt(result: &mut LiveCalculation, row: Option<usize>, reason: &str) {
     result.status = CalculationStatus::Interrupted;
-    result.reason = reason.to_owned();
+    if result.policy == CalculationPolicy::As2026OperationalV1 {
+        let reason = reason.trim_start_matches('*');
+        if !result.reason.split("; ").any(|r| r == reason) {
+            if !result.reason.is_empty() {
+                result.reason.push_str("; ");
+            }
+            result.reason.push_str(reason);
+        }
+    } else {
+        result.reason = reason.to_owned();
+    }
     trace(result, row, "status", format!("KESK: {reason}"));
 }
 fn station_kind(row: &CalculatedRow) -> Option<StationKind> {
@@ -369,6 +383,13 @@ fn station_kind(row: &CalculatedRow) -> Option<StationKind> {
 }
 fn expected(row: &CalculatedRow) -> u32 {
     row.source.station.as_ref().map_or(999, |s| s.expected_code)
+}
+fn present_for(result: &LiveCalculation, index: usize) -> bool {
+    let row = &result.rows[index];
+    if result.policy == CalculationPolicy::As2026OperationalV1 && expected(row) == 0 {
+        return row.clock_seconds.is_some();
+    }
+    present(row)
 }
 fn present(row: &CalculatedRow) -> bool {
     if row.source.station.is_none() {
@@ -601,6 +622,9 @@ pub fn calculate_live(
             CalculationPolicy::RecoveredAs2015aStaticV2 => {
                 "AS2015A:n live-korttilaskennasta staattisesti palautettu laskentatapa; ei alkuperäisohjelmalla ajamalla varmennettu."
             }
+            CalculationPolicy::As2026OperationalV1 => {
+                "AS2026:n toimitsijalaskenta; käsin annetut kellot ja määritellyt myöhästymisrajat."
+            }
         },
     );
     let start_is_manual = expected(&result.rows[0]) == 0;
@@ -671,7 +695,7 @@ pub fn calculate_live(
     let last = result.rows.len() - 1;
     if options.policy == CalculationPolicy::RecoveredAs2015aStaticV2
         && expected(&result.rows[last]) != 0
-        && !present(&result.rows[last])
+        && !present_for(&result, last)
     {
         return Err(CoreError::Unsupported(
             "Leimallinen maali puuttuu: AS2015A keskeyttää korttilaskennan ennen lopullisia asemien summia. Epätäydellistä tulosta ei julkaista".into(),
@@ -729,7 +753,7 @@ pub fn calculate_live(
     let mut pending_missing = 0usize;
     for index in 1..result.rows.len() {
         let kind = station_kind(&result.rows[index]);
-        if present(&result.rows[index]) {
+        if present_for(&result, index) {
             match kind {
                 Some(StationKind::Ula) => {
                     if matches!(
@@ -811,7 +835,7 @@ pub fn calculate_live(
                 .ok_or(CoreError::ArithmeticOverflow("puuttuvien JAT:ien määrä"))?;
             result.rows[index].note = "JAT puuttuu".into();
         }
-        if expected(&result.rows[index]) != 0 && present(&result.rows[index]) {
+        if expected(&result.rows[index]) != 0 && present_for(&result, index) {
             let delta = sub(
                 result.rows[index].derived_elapsed_seconds,
                 clock_baseline,
@@ -820,7 +844,7 @@ pub fn calculate_live(
             result.rows[index].clock_seconds = Some(add(official, delta, "aseman kello")?);
         }
     }
-    if present(&result.rows[last]) {
+    if present_for(&result, last) {
         result.rows[last].actual_seconds = sub(
             result.rows[last].derived_elapsed_seconds,
             reference,
@@ -843,7 +867,7 @@ pub fn calculate_live(
             "Maalikello asetettiin ensimmäisen kierroksen jälkeen; toteutunut aika pysyy nollassa",
         );
     }
-    score_prepared_rows(&mut result, options, cumulative_limit, false)?;
+    score_prepared_rows(&mut result, options, cumulative_limit, false, None)?;
     Ok(result)
 }
 
@@ -852,13 +876,22 @@ fn score_prepared_rows(
     options: &LiveCalculationOptions,
     cumulative_limit: i64,
     stored_context: bool,
+    known_times: Option<&[bool]>,
 ) -> Result<(), CoreError> {
-    let last = result.rows.len() - 1;
+    let last = if result.policy == CalculationPolicy::As2026OperationalV1 {
+        result
+            .rows
+            .iter()
+            .position(|r| station_kind(r) == Some(StationKind::Finish))
+            .unwrap_or(result.rows.len() - 1)
+    } else {
+        result.rows.len() - 1
+    };
     // Toinen kierros säilyttää alkuperäisen järjestyksen. Synteettiset muutokset
     // eivät käynnistä ensimmäistä aikaviitekierrosta uudelleen.
     for index in 1..result.rows.len() {
         let kind = station_kind(&result.rows[index]);
-        let was_present = present(&result.rows[index]);
+        let was_present = present_for(result, index);
         if result.rows[index].effective_rule == Rule::Void {
             diagnostic(
                 result,
@@ -903,7 +936,15 @@ fn score_prepared_rows(
                 Some(StationKind::Jat | StationKind::Ula) => {
                     result.rows[index].other_points = options.parameters.missing_jat;
                     result.rows[index].note = "JAT puuttuu".into();
-                    interrupt(result, Some(index + 1), "*JAT puuttuu");
+                    let reason = if result.policy == CalculationPolicy::As2026OperationalV1 {
+                        result.rows[index].source.station.as_ref().map_or_else(
+                            || "JAT puuttuu".into(),
+                            |s| format!("JAT-asema {} {} puuttuu", s.sequence, s.label),
+                        )
+                    } else {
+                        "*JAT puuttuu".into()
+                    };
+                    interrupt(result, Some(index + 1), &reason);
                 }
                 Some(StationKind::Rt) => {
                     result.rows[index].other_points = options.parameters.missing_rt;
@@ -941,6 +982,7 @@ fn score_prepared_rows(
             .into();
         }
         if was_present
+            && known_times.is_none_or(|known| known[index])
             && matches!(
                 kind,
                 Some(StationKind::At | StationKind::Jat | StationKind::Finish)
@@ -985,11 +1027,52 @@ fn score_prepared_rows(
                     );
                     trace(result, Some(index + 1), "section-difference", detail);
                     if kind == Some(StationKind::Finish) {
-                        if finish_section_limit_exceeded(
-                            difference,
-                            options.parameters.section_limit_minutes,
-                        )? {
-                            interrupt(result, Some(index + 1), "*jaksomyöhä ylitetty");
+                        let exceeded = if result.policy == CalculationPolicy::As2026OperationalV1 {
+                            options.parameters.section_limit_minutes != 0
+                                && difference
+                                    < -options
+                                        .parameters
+                                        .section_limit_minutes
+                                        .checked_mul(60)
+                                        .ok_or(CoreError::ArithmeticOverflow(
+                                            "jakson myöhästymisraja",
+                                        ))?
+                        } else {
+                            finish_section_limit_exceeded(
+                                difference,
+                                options.parameters.section_limit_minutes,
+                            )?
+                        };
+                        if exceeded {
+                            let reason = if result.policy == CalculationPolicy::As2026OperationalV1
+                            {
+                                "Maalijakson myöhästymisraja ylitetty"
+                            } else {
+                                "*jaksomyöhä ylitetty"
+                            };
+                            interrupt(result, Some(index + 1), reason);
+                        }
+                    } else if result.policy == CalculationPolicy::As2026OperationalV1 {
+                        if options.parameters.section_limit_minutes != 0
+                            && difference
+                                < -options
+                                    .parameters
+                                    .section_limit_minutes
+                                    .checked_mul(60)
+                                    .ok_or(CoreError::ArithmeticOverflow(
+                                        "jakson myöhästymisraja",
+                                    ))?
+                        {
+                            let station = result.rows[index]
+                                .source
+                                .station
+                                .as_ref()
+                                .expect("JAT-aseman tiedot");
+                            let reason = format!(
+                                "JAT-aseman {} {} jakson myöhästymisraja ylitetty",
+                                station.sequence, station.label
+                            );
+                            interrupt(result, Some(index + 1), &reason);
                         }
                     } else if options.parameters.section_limit_minutes != 0 {
                         diagnostic(
@@ -1009,7 +1092,11 @@ fn score_prepared_rows(
                 }
             }
         }
-        if index == last && !was_present {
+        if index == last
+            && !was_present
+            && !(result.policy == CalculationPolicy::As2026OperationalV1
+                && expected(&result.rows[index]) == 0)
+        {
             interrupt(result, Some(index + 1), "*Maali puuttuu");
         }
         result.rows[index].total_points = row_penalty_total(
@@ -1033,11 +1120,29 @@ fn score_prepared_rows(
         .map(|row| (row.signed_time_points, row.other_points))
         .collect();
     result.totals = sum_row_penalties(&pairs)?;
-    if cumulative_lateness_exceeded(
-        result.cumulative_schedule_difference_seconds,
-        cumulative_limit,
-    )? {
-        interrupt(result, None, "*max myöhä ylitetty");
+    let cumulative_exceeded = if result.policy == CalculationPolicy::As2026OperationalV1 {
+        result.cumulative_schedule_difference_seconds
+            < -cumulative_limit
+                .checked_mul(60)
+                .ok_or(CoreError::ArithmeticOverflow(
+                    "kilpailun kokonaismyöhästymisraja",
+                ))?
+    } else {
+        cumulative_lateness_exceeded(
+            result.cumulative_schedule_difference_seconds,
+            cumulative_limit,
+        )?
+    };
+    if cumulative_exceeded {
+        interrupt(
+            result,
+            None,
+            if result.policy == CalculationPolicy::As2026OperationalV1 {
+                "Kilpailun kokonaismyöhästymisraja ylitetty"
+            } else {
+                "*max myöhä ylitetty"
+            },
+        );
     }
     let detail = format!(
         "aikavirheet {} p; muut virheet {} p; yhteensä {} p",
@@ -1216,7 +1321,7 @@ pub fn calculate_stored(
         return Err(CoreError::Unsupported("Tutki vaatii tallennettuun tulokseen lähdön ensimmäiseksi ja maalin viimeiseksi; jälkimaalirivejä ei tulkita arvaamalla".into()));
     }
     result.rows[0].clock_seconds = Some(official);
-    if !present(&result.rows[0]) || official == 0 {
+    if !present_for(&result, 0) || official == 0 {
         return Err(CoreError::Unsupported("Tallennetun tuloksen lähtöaika tai lähtöleima puuttuu. Vanhan ohjelman kesken jääneitä summia ei käytetä".into()));
     }
     let mut reference = if expected(&result.rows[0]) == 0 {
@@ -1243,7 +1348,7 @@ pub fn calculate_stored(
     let mut pending_missing = 0;
     for index in 1..result.rows.len() {
         let kind = station_kind(&result.rows[index]);
-        if present(&result.rows[index]) {
+        if present_for(&result, index) {
             match kind {
                 Some(StationKind::Ula) => {
                     if matches!(
@@ -1293,7 +1398,7 @@ pub fn calculate_stored(
         }
     }
     let last = result.rows.len() - 1;
-    if !present(&result.rows[last]) {
+    if !present_for(&result, last) {
         return Err(CoreError::Unsupported("Tallennetun tuloksen maali puuttuu. AS2015A:n kesken jäänyttä pistesummaa ei julkaista".into()));
     }
     result.rows[last].actual_seconds = sub(
@@ -1311,6 +1416,299 @@ pub fn calculate_stored(
         "stored-result-recalculation",
         "Tutki: tallennetut asemarivit ja käsikellot; korttilokin kohdistusta ei tehty",
     );
-    score_prepared_rows(&mut result, options, cumulative_limit, true)?;
+    score_prepared_rows(&mut result, options, cumulative_limit, true, None)?;
+    Ok(result)
+}
+
+/// AS2026:n toimitsijalaskenta. Emitin nollauskoordinaatti ja virallinen lähtö
+/// sitovat leimat kellonaikaan. Käsikellon K koordinaatti on lähtöankkuri + K−S:
+/// sama kaava kuin palautettu e[n]−(F−K), kun F=S+e[n]−lähtöankkuri.
+/// Käsimaalin kelloa ei päätellä viimeisestä korttileimasta. Alkuperäisen
+/// ohjelman alustamatonta käsimaalipolkua ei käytetä tässä uudessa käytännössä.
+pub fn calculate_operational(
+    source: &[crate::legacy::StationResult],
+    route: &[crate::RouteStation],
+    explicit_manual_clocks: &[u32],
+    options: &LiveCalculationOptions,
+) -> Result<LiveCalculation, CoreError> {
+    options.parameters.validate()?;
+    let official = options.official_start.seconds_since_midnight()?;
+    let cumulative_limit = options
+        .cumulative_limit_minutes
+        .unwrap_or(options.parameters.section_limit_minutes);
+    if cumulative_limit < 0 {
+        return Err(CoreError::InvalidInput(
+            "Kokonaismyöhästymisraja ei saa olla negatiivinen".into(),
+        ));
+    }
+    let mut result = LiveCalculation {
+        policy: CalculationPolicy::As2026OperationalV1,
+        rows: Vec::new(),
+        totals: PenaltyTotals::default(),
+        status: CalculationStatus::Checked,
+        reason: String::new(),
+        finish_clock_seconds: 0,
+        total_duration_seconds: 0,
+        cumulative_schedule_difference_seconds: 0,
+        diagnostics: Vec::new(),
+        trace: Vec::new(),
+    };
+    for (index, r) in source.iter().enumerate() {
+        let station = if r.sequence == 0 {
+            None
+        } else {
+            Some(
+                route
+                    .iter()
+                    .find(|s| s.sequence == r.sequence)
+                    .ok_or_else(|| CoreError::InvalidInput("Asemariviä ei löydy radalta".into()))?
+                    .clone(),
+            )
+        };
+        let kind = match station.as_ref() {
+            None => MatchKind::Extra,
+            Some(s) if s.expected_code == 0 && s.kind == StationKind::Start => {
+                MatchKind::ManualStart
+            }
+            Some(s) if s.expected_code == 0 && s.kind == StationKind::Finish => {
+                MatchKind::ManualFinish
+            }
+            Some(s) if s.expected_code != 0 && s.expected_code == r.received_code => {
+                MatchKind::Matched
+            }
+            _ => MatchKind::RouteOnly,
+        };
+        let is_manual = station
+            .as_ref()
+            .is_some_and(|s| s.expected_code == 0 && s.kind != StationKind::Start);
+        let clock_seconds = if is_manual && explicit_manual_clocks.contains(&r.output_index) {
+            Some(stored_clock_seconds(r.clock)?)
+        } else {
+            None
+        };
+        result.rows.push(CalculatedRow {
+            source: MatchedRow {
+                output_index: index + 1,
+                station: station.clone(),
+                punch: u32::try_from(r.elapsed_seconds)
+                    .ok()
+                    .filter(|_| r.received_code != 0)
+                    .map(|elapsed_seconds| crate::Punch {
+                        code: r.received_code,
+                        elapsed_seconds,
+                    }),
+                kind,
+                clock: None,
+            },
+            received_code: r.received_code,
+            effective_rule: station.as_ref().map_or(Rule::Normal, |s| s.rule),
+            derived_elapsed_seconds: if is_manual { 0 } else { r.elapsed_seconds },
+            clock_seconds,
+            target_seconds: station.as_ref().map_or(0, |s| s.target_seconds),
+            actual_seconds: 0,
+            signed_time_points: 0,
+            other_points: 0,
+            total_points: 0,
+            note: String::new(),
+        });
+    }
+    let finish = result
+        .rows
+        .iter()
+        .position(|r| station_kind(r) == Some(StationKind::Finish))
+        .ok_or_else(|| CoreError::InvalidInput("Radan maali puuttuu".into()))?;
+    if result.rows.is_empty()
+        || station_kind(&result.rows[0]) != Some(StationKind::Start)
+        || finish == 0
+        || result.rows[finish + 1..]
+            .iter()
+            .any(|r| r.source.station.is_some())
+    {
+        return Err(CoreError::InvalidInput(
+            "Lähdön pitää olla ensimmäinen rata-asema ja maalin viimeinen rata-asema".into(),
+        ));
+    }
+    let anchor = if expected(&result.rows[0]) == 0 {
+        match options.timing_method {
+            TimingMethod::ManualClock => 0,
+            TimingMethod::Emit | TimingMethod::LegacyMode2 => {
+                if options.reset_correction_seconds == 0 {
+                    120
+                } else {
+                    options.reset_correction_seconds
+                }
+            }
+        }
+    } else {
+        add(
+            result.rows[0].derived_elapsed_seconds,
+            options.reset_correction_seconds,
+            "leimatun lähdön aikaviite",
+        )?
+    };
+    result.rows[0].clock_seconds = Some(official);
+    if expected(&result.rows[0]) == 0 {
+        result.rows[0].derived_elapsed_seconds = anchor;
+    }
+    let mut known = vec![false; result.rows.len()];
+    known[0] =
+        expected(&result.rows[0]) == 0 || result.rows[0].received_code == expected(&result.rows[0]);
+    let mut invalid = Vec::new();
+    if !known[0] {
+        invalid.push("Lähtöleima puuttuu".to_owned());
+    }
+    let mut pending = Vec::new();
+    let mut previous_elapsed = anchor;
+    for (index, row) in result.rows.iter_mut().enumerate().take(finish + 1).skip(1) {
+        let Some(station) = row.source.station.as_ref() else {
+            continue;
+        };
+        if station.expected_code == 0 {
+            if let Some(mut clock) = row.clock_seconds {
+                if clock < official {
+                    clock = add(clock, 86_400, "käsikellon vuorokaudenvaihto")?;
+                }
+                row.clock_seconds = Some(clock);
+                row.derived_elapsed_seconds = add(
+                    anchor,
+                    sub(clock, official, "käsikellon ero lähdöstä")?,
+                    "käsikellon aikakoordinaatti",
+                )?;
+                known[index] = known[0];
+            } else {
+                pending.push(format!(
+                    "Aseman {} {} käsikello puuttuu",
+                    station.sequence, station.label
+                ));
+                row.note = "Käsikello puuttuu".into();
+            }
+        } else if row.received_code == station.expected_code {
+            row.clock_seconds = Some(add(
+                official,
+                sub(
+                    row.derived_elapsed_seconds,
+                    anchor,
+                    "leiman ero lähtöankkurista",
+                )?,
+                "leiman kellonaika",
+            )?);
+            known[index] = known[0];
+        }
+        if known[index] {
+            if row.derived_elapsed_seconds < previous_elapsed {
+                invalid.push(format!(
+                    "Aseman {} {} aika edeltää edellistä asemaa",
+                    station.sequence, station.label
+                ));
+                known[index] = false;
+            } else {
+                previous_elapsed = row.derived_elapsed_seconds;
+            }
+        }
+    }
+    if !known[finish] && expected(&result.rows[finish]) != 0 {
+        invalid.push("Maalileima puuttuu tai maaliaika on virheellinen".into());
+    }
+    let mut reference = known[0].then_some(anchor);
+    let mut pending_target = 0_i64;
+    for (index, row_known) in known.iter_mut().enumerate().take(finish + 1).skip(1) {
+        let kind = station_kind(&result.rows[index]);
+        if present_for(&result, index) {
+            if *row_known {
+                if kind == Some(StationKind::Ula) {
+                    if matches!(
+                        result.rows[index].effective_rule,
+                        Rule::UlaNearestMinute | Rule::UlaFloorMinute | Rule::UlaCeilMinute
+                    ) {
+                        let value = u32::try_from(result.rows[index].derived_elapsed_seconds)
+                            .map_err(|_| {
+                                CoreError::InvalidInput("ULA:n aika on negatiivinen".into())
+                            })?;
+                        result.rows[index].derived_elapsed_seconds =
+                            i64::from(round_ula_elapsed(value, result.rows[index].effective_rule)?);
+                    }
+                    reference = Some(result.rows[index].derived_elapsed_seconds);
+                } else if matches!(
+                    kind,
+                    Some(
+                        StationKind::At | StationKind::Jat | StationKind::Rt | StationKind::Finish
+                    )
+                ) {
+                    if let Some(reference) = reference {
+                        result.rows[index].actual_seconds = sub(
+                            result.rows[index].derived_elapsed_seconds,
+                            reference,
+                            "aseman toteutunut aika",
+                        )?;
+                        if kind != Some(StationKind::Finish) {
+                            result.rows[index].target_seconds = add(
+                                result.rows[index].target_seconds,
+                                pending_target,
+                                "puuttuvan JAT:n tavoitesiirto",
+                            )?;
+                        }
+                    } else {
+                        *row_known = false;
+                    }
+                    if kind == Some(StationKind::Jat) {
+                        reference = Some(result.rows[index].derived_elapsed_seconds);
+                    }
+                }
+            }
+            pending_target = 0;
+        } else if kind == Some(StationKind::Jat) {
+            if expected(&result.rows[index]) == 0 {
+                reference = None;
+            } else {
+                pending_target = add(
+                    pending_target,
+                    result.rows[index].target_seconds,
+                    "puuttuvien JAT-tavoitteiden summa",
+                )?;
+            }
+        } else if kind == Some(StationKind::Ula) && expected(&result.rows[index]) == 0 {
+            reference = None;
+        }
+    }
+    if known[finish] {
+        result.finish_clock_seconds = result.rows[finish].clock_seconds.unwrap_or(0);
+        result.total_duration_seconds =
+            sub(result.finish_clock_seconds, official, "kilpailun kesto")?;
+    }
+    // Puuttuvat käsikellot eivät ole puuttuvia leimattuja asemia. Niitä ei sakoteta
+    // ennen syöttöä. Varmat JAT- ja myöhästymisehdot saavat silti KESK-tilan.
+    score_prepared_rows(&mut result, options, cumulative_limit, false, Some(&known))?;
+    for message in &pending {
+        diagnostic(&mut result, None, "pending-manual-clock", message.clone());
+    }
+    for message in &invalid {
+        diagnostic(
+            &mut result,
+            None,
+            "operational-invalid-time",
+            message.clone(),
+        );
+    }
+    if !pending.is_empty() || !invalid.is_empty() {
+        if result.status != CalculationStatus::Interrupted {
+            result.status = CalculationStatus::Pending;
+        }
+        let pending_reason = pending
+            .iter()
+            .chain(&invalid)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("; ");
+        if !result.reason.is_empty() {
+            result.reason.push_str("; ");
+        }
+        result.reason.push_str(&pending_reason);
+    }
+    trace(
+        &mut result,
+        None,
+        "as2026-operational",
+        "AS2026:n toimitsijalaskenta: käsikellot ovat erikseen syötettyjä; myöhästymisrajat toimivat nykyisen kilpailun asetusten mukaan.",
+    );
     Ok(result)
 }

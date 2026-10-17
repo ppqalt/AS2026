@@ -1,8 +1,9 @@
 import { Button, LineEdit, Palette, AboutSlint, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { TableRow, EditorField } from "types.slint";
+import { TableRow, EditorField, ResultOverview } from "types.slint";
 import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton } from "components.slint";
-export { TableRow, EditorField }
+import { ResultSummary } from "results.slint";
+export { TableRow, EditorField, ResultOverview }
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
@@ -51,6 +52,7 @@ export component AppWindow inherits Window {
     in-out property <string> read-notice;
     in-out property <bool> read-notice-visible;
     in-out property <string> calculation-notes;
+    in-out property <ResultOverview> result-overview;
     in-out property <string> app-version;
     in-out property <string> default-root;
     in-out property <string> update-status: "Päivityksiä ei ole tarkistettu.";
@@ -87,6 +89,10 @@ export component AppWindow inherits Window {
     callback filter-changed(string);
     callback select-row(int);
     callback select-detail(int);
+    callback edit-result-competitor();
+    callback import-excel();
+    callback approve-results();
+    in-out property <bool> result-approvable: false;
     callback add-record();
     callback add-station();
     callback move-station(int);
@@ -113,6 +119,7 @@ export component AppWindow inherits Window {
     in-out property <bool> confirm-open;
     in-out property <string> confirm-title;
     in-out property <string> confirm-text;
+    in-out property <bool> confirm-acceptable: true;
     callback confirm-action(bool);
 
     // Pikanäppäimet toimivat myös kentän tai taulukon ollessa kohdistettuna.
@@ -245,7 +252,7 @@ export component AppWindow inherits Window {
                     horizontal-stretch: 1;
                     spacing: Theme.space-4;
                     if !root.opened: Rectangle {
-                        height: 310px; vertical-stretch: 0;
+                        height: 360px; vertical-stretch: 0;
                         horizontal-stretch: 1;
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         VerticalLayout {
@@ -258,6 +265,7 @@ export component AppWindow inherits Window {
                                 Button { height: Theme.control-height; text: "Kokeile esimerkillä"; clicked => { root.open-demo(); } }
                                 Rectangle { horizontal-stretch: 1; }
                             }
+                            Button { height: Theme.control-height; text: "Tuo Excel-kilpailu…"; clicked => { root.import-excel(); } }
                             Rectangle { height: 12px; }
                             Text { text: "Kilpailutiedoston tai vanhan kilpailukansion polku"; color: Theme.ink; font-size: 12px; font-weight: 600; }
                             HorizontalLayout {
@@ -351,7 +359,7 @@ export component AppWindow inherits Window {
                     spacing: 16px;
                     HorizontalLayout {
                         spacing: 12px;
-                        search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
+                        search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : root.page == 3 ? "Hae kilpailijaa tai luokkaa…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
                         if root.page != 3: AccentButton { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie XLSX…"; clicked => { root.export-xlsx(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie CSV…"; clicked => { root.export-csv(); } }
@@ -359,6 +367,7 @@ export component AppWindow inherits Window {
                     }
                     if root.page == 1 || root.page == 4: HorizontalLayout {
                         spacing: Theme.space-2;
+                        Button { text: "Tuo Excel…"; enabled: root.editable && !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.import-excel(); } }
                         Button { text: "Arvo lähtöajat…"; enabled: root.editable && !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.draw-starts(); } }
                         Button { text: "Lähtöluettelo…"; enabled: root.editable && !root.form-blocked && !root.new-record; clicked => { root.export-starts(); } }
                         Rectangle { horizontal-stretch: 1; }
@@ -367,7 +376,7 @@ export component AppWindow inherits Window {
                         spacing: Theme.space-2;
                         AccentButton { text: "Tarkista…"; enabled: root.editable && root.selected-key >= 0 && !root.form-blocked; clicked => { root.review-results(); } }
                         Button { text: "Tutki"; enabled: root.editable && root.result-stored && root.examine-supported && !root.form-blocked; clicked => { root.examine-results(); } }
-                        Note { horizontal-stretch: 1; text: !root.examine-supported && root.result-stored ? "Leimaamattoman maalin Tutki-laskentaa ei vielä tueta Emit-ajanotossa." : root.clock-pending ? "Käsikelloja muutettu. Tutki laskee pisteet uudelleen." : "Valitse asemarivi korjataksesi kellon tai pisteet."; }
+                        Note { horizontal-stretch: 1; text: root.clock-pending ? "Täydennä käsikellot. Tutki laskee pisteet uudelleen." : "Valitse asemarivi muokataksesi kelloa ja pisteitä."; }
                     }
                     HorizontalLayout {
                         horizontal-stretch: 1;
@@ -378,7 +387,7 @@ export component AppWindow inherits Window {
                             vertical-stretch: 1;
                             spacing: 16px;
                             DataTable { horizontal-stretch: 1; vertical-stretch: 2; table-min-height: root.page == 3 ? 100px : 160px; rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: root.filter != "" ? "Haulla ei löytynyt tietoja." : root.page == 3 ? "Ei vielä tuloksia. Lisää kilpailijat ja lue Emit-kortit." : "Luettelo on tyhjä. Lisää ensimmäinen tietue."; selected(key) => { root.select-row(key); } }
-                            if root.page == 3 && root.detail-rows.length > 0: VerticalLayout {
+                            if root.page == 3 && root.result-overview.selected: VerticalLayout {
                                 horizontal-stretch: 1;
                                 vertical-stretch: 1;
                                 spacing: 12px;
@@ -386,12 +395,44 @@ export component AppWindow inherits Window {
                                     Text { text: root.detail-title; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; overflow: elide; }
                                     Rectangle { horizontal-stretch: 1; }
                                 }
-                                DataTable { horizontal-stretch: 1; vertical-stretch: 1; table-min-height: 100px; rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; empty-text: "Valitse ensin rivi yllä olevasta luettelosta."; selected(key) => { root.select-detail(key); } }
+                                DataTable { horizontal-stretch: 1; vertical-stretch: 1; table-min-height: 100px; rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; empty-text: "Asematuloksia ei vielä ole. Lue Emit-kortti tai tarkista kilpailijan korttiluku."; selected(key) => { root.select-detail(key); } }
                             }
                         }
-                        if root.editor-visible: Editor {
-                            // Use layout constraints, not root.width: referring to the
-                            // window size here creates a Slint layout binding loop.
+                        // Tulosten oikea paneeli pysyy näkyvissä myös ennen ensimmäistä
+                        // korttilukua. Sen sisältö päivittyy samasta kilpailumallista.
+                        if root.page == 3: result-panel := ScrollView {
+                            preferred-width: 344px;
+                            min-width: 280px;
+                            max-width: 360px;
+                            horizontal-stretch: 0;
+                            vertical-stretch: 1;
+                            viewport-width: self.visible-width;
+                            horizontal-scrollbar-policy: always-off;
+                            VerticalLayout {
+                                x: 0px; y: 0px;
+                                width: result-panel.visible-width;
+                                spacing: Theme.space-3;
+                                ResultSummary {
+                                    horizontal-stretch: 1;
+                                    data: root.result-overview;
+                                    editable: root.editable;
+                                    approvable: root.result-approvable && !root.form-blocked;
+                                    edit-competitor => { root.edit-result-competitor(); }
+                                    approve => { root.approve-results(); }
+                                }
+                                if root.editor-visible: Editor {
+                                    horizontal-stretch: 1;
+                                    vertical-stretch: 0;
+                                    height: max(330px, 148px + root.fields.length * 76px);
+                                    heading: root.editor-title; description: root.editor-description;
+                                    fields: root.fields; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                                    field-commit(key, value) => { root.field-commit(key, value) }
+                                    field-draft(key, value) => { root.field-draft(key, value); }
+                                    add => { root.add-commit(); } cancel => { root.cancel-edit(); }
+                                }
+                            }
+                        }
+                        if root.page != 3 && root.editor-visible: Editor {
                             preferred-width: 344px;
                             min-width: 280px;
                             max-width: 360px;
@@ -433,6 +474,7 @@ export component AppWindow inherits Window {
                                 enabled: root.editable && !root.new-record;
                                 clicked => { root.add-record(); }
                             }
+                            Button { text: "Tuo Excel…"; enabled: root.editable && !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.import-excel(); } }
                         }
                         Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: 15px; font-weight: 700; }
                         DataTable {
@@ -702,7 +744,8 @@ export component AppWindow inherits Window {
             capture-key-pressed(event) => {
                 if event.text == Key.Escape { root.confirm-action(false); return accept; }
                 if event.text == Key.Tab {
-                    if confirm-cancel.has-focus { confirm-accept.focus(); }
+                    if !root.confirm-acceptable { confirm-cancel.focus(); }
+                    else if confirm-cancel.has-focus { confirm-accept.focus(); }
                     else { confirm-cancel.focus(); }
                     return accept;
                 }
@@ -719,7 +762,7 @@ export component AppWindow inherits Window {
                     HorizontalLayout {
                         Rectangle { horizontal-stretch: 1; }
                         confirm-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.confirm-action(false); } }
-                        confirm-accept := AccentButton { height: Theme.control-height; text: "Hyväksy"; clicked => { root.confirm-action(true); } }
+                        confirm-accept := AccentButton { height: Theme.control-height; text: "Hyväksy"; enabled: root.confirm-acceptable; clicked => { root.confirm-action(true); } }
                     }
                 }
             }

@@ -13,7 +13,7 @@ cargo build --release
 
 `as2026` avaa ilman argumentteja suomenkielisen päätekäyttövalikon. Siinä voi tarkastaa kilpailun, laskea esikatselun, näyttää tulokset, purkaa kehystiedoston, kokeilla esimerkkikilpailua, avata jatkuvan Emit-luvun tai perustaa uuden kilpailun. Valinta 0 sulkee ohjelman. Tulosraportin voi tallentaa HTML-tiedostoksi ja tulostaa selaimesta. Olemassa olevaa raporttitiedostoa ei korvata. CLI voidaan kääntää myös ilman `gui`-ominaisuutta ja sen riippuvuuksia.
 
-Windowsin ohjelmatiedosto on `as2026.exe`. Valmis ohjelma ei tarvitse Rustia tai erillistä palvelinta. Sarjaportin käyttö toteutetaan samalla Rust-rajapinnalla molemmilla alustoilla; Windows-käännös, testit, Clippy ja ohjelman sisäinen esimerkki on varmennettu [GitHubin Windows-ajossa](https://github.com/ppqalt/AS2026/actions/runs/38806074766). Fyysistä Windows-lukijaa ei ole testattu.
+Windowsin ohjelmatiedosto on `as2026.exe`. Valmis ohjelma ei tarvitse Rustia tai erillistä palvelinta. Sarjaportti käyttää samaa Rust-rajapintaa Linuxissa ja Windowsissa. Fyysisen lukijan ja Windowsin käytännön työnkulut tarvitsevat erilliset laitekokeet.
 
 ## Uusi kilpailu ja yhteiset tiedot
 
@@ -24,9 +24,9 @@ cargo run -- tarkista oma-kilpailu
 
 `uusi` luo kansioon UTF-8-muotoisen `kilpailu.toml`-tiedoston. Olemassa olevaa kilpailutiedostoa ei korvata. Pohjassa ovat harjoitusluokka H, rata 1 sekä lähtö ja maali. Kilpailijan voi lisätä alla kuvatulla muutostiedostolla.
 
-Kilpailulla on yksi yhteinen `native::Project`-malli. Kilpailija viittaa luokan tunnukseen, luokka radan numeroon ja rata sisältää asemansa. Kortti yhdistetään kilpailijaan Emit-numeron perusteella. Luokan, radan, nimen tai leimausten muutos tulee mukaan seuraavaan laskentaan samasta mallista; erillistä vanhentuvaa tuloskopiota ei ylläpidetä. Saman kilpailijanumeron tai Emit-numeron ristiriitainen käyttö hylätään.
+Kilpailulla on yksi yhteinen `native::Project`-malli. Kilpailija viittaa luokan tunnukseen, luokka radan numeroon ja rata sisältää asemansa. Kortti yhdistetään kilpailijaan Emit-numeron perusteella. Kortinlukuhistoria ja tallennettu tarkastustulos ovat erillisiä: uusintaluku säilyttää käsikorjaukset, kunnes ne korvataan erikseen Tarkista-toiminnolla. Muuttunut rata vaatii uuden tarkastuksen. Ristiriitaiset kilpailija- tai Emit-numerot hylätään.
 
-Tiedostomuoto säilyy versiona `versio = 1`. Aiemmat version 1 tiedostot avautuvat edelleen. Kilpailijalle on lisätty vapaaehtoinen `auto` ja lukutapahtumalle vapaaehtoinen `luettu_unix_ms`. Jälkimmäinen kertoo uuden lukutapahtuman tallennusajan Unix-ajan millisekunteina; aiemmista tiedostoista kenttä voi puuttua. Luettava esimerkki on [fixtures/native-demo/kilpailu.toml](fixtures/native-demo/kilpailu.toml).
+Tiedostomuoto säilyy versiona `versio = 1`. Aiemmat tiedostot avautuvat edelleen. Kilpailijan auto, lisenssit, seurat, käsin valittu tila ja tallennettu asematulos ovat valinnaisia tietoja. Luokan `osallistuu_lahtoarvontaan` on vanhoissa tiedostoissa oletuksena tosi; Excel-tuonnissa se on aluksi epätosi. Lukutapahtuman valinnainen `luettu_unix_ms` kertoo tallennusajan Unix-ajan millisekunteina. Esimerkki on [fixtures/native-demo/kilpailu.toml](fixtures/native-demo/kilpailu.toml).
 
 ## Kilpailijan, luokan, radan ja aseman muuttaminen
 
@@ -62,7 +62,7 @@ Muutostiedoston osioiden merkitys:
 | `[kilpailu]` | Korvaa koko kilpailun perustieto-osion. |
 | `[virhepisteet]` | Korvaa koko kilpailukohtaisten virhepisteasetusten osion. |
 
-Vain mukana olevat tietueet ja osiot vaihdetaan. Muut kilpailijat, luokat ja radat säilyvät. Yksittäisen mukana olevan tietueen kenttiä ei yhdistetä vanhoihin: anna kaikki tarvittavat arvot. Jos jätät vapaaehtoisen kentän pois korvattavasta tietueesta, sen oletusarvo tulee käyttöön. Esimerkiksi tyhjä `[virhepisteet]` palauttaa kilpailukohtaiset poikkeukset laskentaytimen oletuksiin. Toistuvat tunnisteet saman muutostiedoston sisällä ja tuntemattomat kentät hylätään. Muutostiedostolla ei poisteta tietueita.
+Vain mukana olevat tietueet ja osiot vaihdetaan; muut kilpailijat, luokat ja radat säilyvät. Anna korvattavan tietueen tarvittavat perustiedot. Yhteensopivuuden vuoksi pois jätetyt lisenssit, seurat, tila, lisävirheet, tallennettu tulos ja luokan arvontavalinta säilyvät vanhoista tiedoista. Nimenomainen tyhjä lisenssi tai seura tyhjentää tiedon. Muutostiedoston `tila = { tunnus = "" }` palauttaa automaattisen tilan; varsinaisesta kilpailutiedostosta tila poistetaan kokonaan. Muiden vapaaehtoisten kenttien poisjättö käyttää oletusta. Tyhjä `[virhepisteet]` palauttaa kilpailukohtaiset poikkeukset oletuksiin. Toistuvat tunnisteet ja tuntemattomat kentät hylätään. Muutostiedostolla ei poisteta tietueita.
 
 Rataa muuttaessa ilmoita myös kaikki säilytettävät asemat. Esimerkiksi uuden kilpailupohjan rata voidaan korvata näin:
 
@@ -102,7 +102,7 @@ Lukuhistoria, kortin leimaussisältö ja laskentatulos ovat eri asioita:
 
 - Hyväksytyt lukijakehykset säilyvät `[[leimaluvut]]`-historiassa, myös samaa sisältöä toistettaessa. Lukija voi lähettää uuden kehyksen kortin pysyessä paikallaan; historiarivi ei yksin todista erillistä kortin nostoa ja uudelleenasetusta.
 - Kortin varsinaista sisältöä verrataan ensimmäistä 250-lukumerkkiä edeltävistä leimauksista, ankkuri mukaan lukien. Pelkkä 250-merkin ajan muutos ei tarkoita muuttunutta leimaussisältöä.
-- Laskenta käyttää historian viimeisintä kelvollista lukemaa kullekin kortille. Kilpailijasta muodostetaan yksi aktiivinen tulos, joten uusintaluku ei tee kaksoistulosta. Lukukello ja lukumerkin aika voivat silti vaikuttaa maalikellon johtamiseen.
+- Uusi korttilaskenta käyttää historian viimeisintä kelvollista lukemaa. Kilpailijalla on yksi aktiivinen tulos; uusintaluku ei tee kaksoistulosta eikä korvaa tallennettuja käsikorjauksia. Uuden kilpailun käsimaali täydennetään erillisellä kellolla, ei johtamalla se viimeisestä leimasta.
 - Muuttuneet varsinaiset leimaukset havaitaan. Eri kortteja voi lukea peräkkäin.
 - Tuntematon kortti tallentuu historiaan ja yhdistyy myöhemmin lisättyyn kilpailijaan Emit-numerolla.
 - Hylättävä uusi lukema ei poista aiempaa kelvollista lukemaa. Vanhan TOML-historian virheellinen lukema ohitetaan laskennassa ja siitä ilmoitetaan.
@@ -153,35 +153,29 @@ as2026 ohje
 
 Näissä esimerkeissä `as2026` tarkoittaa oman alustan ohjelmatiedostoa. Kehityshakemistossa sama komento on esimerkiksi `cargo run -- tarkista fixtures/synthetic`. Laita välilyöntejä sisältävä polku lainausmerkkeihin.
 
-`laske` näyttää korttiaineistosta lasketut asemarivit ja huomautukset. TOML-kilpailun `tulokset` käyttää tallennettuja asemakorjauksia tai laskee tuloksen kortista, jos tallennettua tulosta ei ole. Vanhan kilpailun `tulokset` käyttää `Kilp.txt`-tiedoston tallennettuja pisteitä. Esikatselua ei kirjoiteta vanhojen tallennettujen tulosten päälle. GUI:n Tarkista ja käsikorjaukset tallentavat uuden kilpailun asematuloksen pysyvästi. Katso [kilpailutoiminnot](KILPAILUTOIMINNOT.md).
+`laske` näyttää TOML-kilpailun samat tallennetut asemakorjaukset ja täydennettävät käsikellot kuin käyttöliittymä. Jos tallennettua asematulosta ei ole, rivit muodostetaan korttiluvusta. Puuttuva käsikello näkyy viivana ja tulos odottaa tarkastusta. `tulokset` käyttää samaa ajantasaista kilpailumallia. Komennot eivät itsessään hyväksy tulosta tai muuta kilpailutiedostoa.
 
-Toteutettu laskenta kattaa leimausten kohdistuksen, AT/JAT/ULA-jaksot, puuttuvien ja ylimääräisten asemien virheet, ULA-pyöristykset, enimmäissakot, myöhästymisrajat sekä säännön 4 käsittelyn. Tulosluettelossa on luokka- ja ratakohtainen järjestys. Vanha aineistopolku tukee lisäksi yhdistettyjä luokkia, osallistumistilastoa sekä nousu- ja sarjapisteitä. Uuden TOML-muodon tietomalli ei vielä kata kaikkia vanhan kilpailun asetuksia.
+Vanhan AS2015A-aineiston `laske` on erillinen raakaleimausten staattinen esikatselu. Sen `tulokset` käyttää `Kilp.txt`-tiedoston tallennettuja pisteitä. Kumpikaan ei korvaa vanhoja lähdetiedostoja. Käyttöliittymän Tarkista, Tutki, käsikorjaukset ja Hyväksy tulos on kuvattu [kilpailutoiminnoissa](KILPAILUTOIMINNOT.md).
+
+AS2026-kilpailun toimitsijalaskenta tukee ajanottotapoja 0, 1 ja 2 sekä erikseen annettuja käsikelloja. Kokonaispisteet yhdistävät asemien aikavirheet ja muut virheet, puuttuvien ja ylimääräisten RT-asemien erilliset pisteet sekä muut kilpailijakohtaiset pisteet. Oletuksena puuttuva RT antaa 600 pistettä; kilpailun asetus voi muuttaa kerrointa.
+
+Tulosluettelossa ovat luokka- ja ratakohtainen järjestys, yhdistetyt luokat sekä nousu- ja sarjapisteet. Syy säilyy HTML-, CSV- ja XLSX-viennissä. CSV on puolipistein erotettua UTF-8:aa ja XLSX tavallinen työkirja ilman makroja tai suoritettavia kaavoja. Raportit eivät korvaa olemassa olevaa tiedostoa.
+
+`--live 8765` avaa tulosnäkymän vain samalla koneella osoitteessa `http://127.0.0.1:8765/`. Kilpailu luetaan uudelleen selaimen pyynnöillä ja näkymä päivittyy viiden sekunnin välein. Ctrl+C lopettaa palvelimen. Se ei ole usean koneen synkronointi.
 
 Tasapisteet säilyvät oletuksena jaettuina. Asematietoihin perustuvan ratkaisun voi pyytää erikseen, mutta se tehdään vain riittävillä, samoihin asemiin kohdistetuilla tiedoilla. Avoimet tarkastustulokset estävät nousu- ja sarjapisteiden vahvistamisen.
 
-Laskennan olennaiset rajat säilyvät:
+## Käsikellot, Excel-tuonti ja lähtöjärjestelyt
 
-- Esikatselun summa sisältää asemarivien virhepisteet. Erillisiä kilpailijakohtaisia RT-lisäyksiä ja muita virhepisteitä ei vielä yhdistetä siihen.
-- Korttilaskenta tukee ajanottotapoja 0 ja 1. Ajanottotavan 0 polku käyttää korttiaineistoa; käsin syötettyjen asemakellojen yleistä uudelleenlaskentaa ei ole.
-- Ajanottotapaa 2 ja kaikkia lähtö-/maalikellon poikkeustapauksia ei tueta. Käsimaalin johtamisesta viimeisestä leimasta annetaan huomautus.
-- Epäselvät tai tukemattomat polut ilmoitetaan; laskentasääntöjä ei päätellä puuttuvan vertailuaineiston tilalle.
+Käyttöliittymän **Tulokset** täydentää Emit-numerolla 0 merkityt asemat muodossa `hh:mm:ss`. Myös käsimaalin aika annetaan erikseen. **Tutki** laskee tallennetut kellot uudelleen; **Hyväksy tulos** säilyttää asemien käsin korjatut pisteet. Keskeneräinen, virheellinen tai vanhentunut tulos ei kelpaa hyväksyttäväksi. Nämä toiminnot eivät ole erillisiä komentorivikomentoja.
 
-## Jatkokehityksen kattavuus
+Tunnetun kilpailijaparin korttiluku avaa käyttöliittymässä automaattisesti Tulokset-näkymän. Keskeneräinen muokkaus saa valmistua ensin. Uusintaluku säilyttää tallennetun tarkastuksen; **Tarkista…** korvaa sen vasta vahvistuksen jälkeen.
 
-Alkuperäisen AS2015A:n kahdeksan päätoimintoa ohjaavat kattavuutta, eivät uuden käyttöliittymän välilehtijakoa:
+**Tuo Excel…** lukee `.xls`- tai `.xlsx`-pohjan RATA- ja KILP-välilehdet esikatseluun. Hyväksyntä luo uuden kilpailun valittuun kansioon. Seuratiedot säilyvät, eikä puuttuvia luokkia tai ratoja arvata. Tuonti ja sen vahvistus ovat käyttöliittymässä. Katso [Excel-kenttäkartta](docs/EXCEL_TUONTI.md).
 
-| Alkuperäinen toiminto | Nykyinen toteutus ja jäljellä oleva työ |
-| --- | --- |
-| Parametrit ja perustiedot | Vanhojen tietojen luku, TOML-perustiedot ja virhepisteasetukset sekä kilpailun asetusten GUI-näkymä. Kaikkien alkuperäisten asetusten kattavuus puuttuu. |
-| Luokkien tiedot | Luokan lisäys ja korvaus, rataviittaus, lähtöajat sekä yhdistetyt luokat ja nousu-/sarjapisteasetukset. |
-| Ratatiedot | Ratojen ja asemien luku, kokonaisen radan muutos sekä graafinen rata- ja asemaeditori. Kaikkien vanhojen poikkeussääntöjen kattavuus on kesken. |
-| Emit-leimantarkastus | Kehyksen purku, jatkuva lukija, historia ja kohdistus. Laajemmat fyysiset laitekokeet ja laskennan vastaavuusvertailu jatkuvat. |
-| Asemakohtaiset tiedot | Tallennetut asemarivit, käsikellot ja pistekorjaukset sekä erilliset Tarkista/Tutki-toiminnot. Emit-ajanoton leimaamattoman maalin Tutki on vielä rajattu pois. |
-| Tuloslaskenta | Ajanottotavat 0/1/2, erilliset lisävirhepisteet ja tulosviennit. Oikean kilpailun vastaavuusvertailu puuttuu. |
-| Ilmoittautumiset | Kilpailijaeditori, auto, Emit-kohdistus, tilat/perustelut ja lisenssit. Lähtöaikojen arvonta sekä HTML-/CSV-lähtöluettelot. |
-| Emit-rivin teko | Kehyksestä muodostetaan yhteisen mallin lukutapahtuma. Vanhan ohjelman koko erillistä rivinmuodostus- ja vientitoimintoa ei ole toteutettu. |
+Luokan **Osallistuu lähtöarvontaan** määrää arvottavat luokat. **Arvo lähtöajat…** näyttää esikatselun; ulkopuoliset luokat säilyttävät aikansa. Jo luettua tai tarkastettua kilpailijaa ei arvota uudelleen. Lähtöluettelon voi tallentaa HTML:nä tai CSV:nä.
 
-Seuraavien ominaisuuksien tulee käyttää `ProjectStore::update`-rajapintaa ja samaa kilpailumallia kuten GUI:ssa ja komentorivillä nyt. Verkkopalvelinta tai monen koneen synkronointia ei ole toteutettu.
+Vanhan AS2015A-aineiston staattinen laskentapolku on erillään uuden kilpailun toimitsijalaskennasta. Kaikkia vanhan ohjelman epäselviä poikkeustapauksia tai historiallisten tulosten täydellistä vastaavuutta ei ole varmennettu.
 
 ## Tarkistukset
 
@@ -195,27 +189,4 @@ cargo clippy --all-targets --features gui -- -D warnings
 cargo build --release --features gui --bin as2026-gui
 ```
 
-Testit kattavat vanhojen tiedostojen lukua, TOML-yhteensopivuutta, kohdistuksia, laskentaa ja järjestystä, uusintalukuja, jatkuvan lukijan tavupuskurointia sekä tallennuksen epäonnistumista ja paikallisia ristiriitoja. Testiaineisto on synteettistä. Erillisessä Linux-laitetestissä oikea kortti 538747 luettiin toistuvasti samassa jatkuvassa istunnossa, historia tallentui ja kilpailu avautui uudelleen. Tämä ei varmista kaikkia laite- ja kilpailutilanteita eikä laskennan täydellistä vastaavuutta alkuperäisiin kilpailutuloksiin.
-
-## 0.5.6: taulukkovienti ja paikallinen live-HTML
-
-```sh
-as2026 tulokset oma-kilpailu --csv tulokset.csv
-as2026 tulokset oma-kilpailu --xlsx tulokset.xlsx
-as2026 tulokset oma-kilpailu --live 8765
-```
-
-CSV on UTF-8-muotoinen, puolipistein erotettu tiedosto. XLSX on tavallinen
-Excel-työkirja ilman makroja tai kaavoja, ja sen laskenta perustuu samaan
-tulosjärjestykseen kuin HTML- ja CSV-vienti. Molemmat viennit säilyttävät
-olemassa olevan tiedoston, eivätkä korvaa sitä.
-
-Live-HTML toimii vain samalla koneella osoitteessa
-`http://127.0.0.1:8765/` ja lukee kilpailun uudestaan jokaisella pyynnöllä.
-Selaimen päivitysväli on viisi sekuntia. Lopeta palvelin Ctrl+C:llä.
-Kyseessä ei ole julkinen verkkopalvelin tai usean tietokoneen synkronointi.
-
-0.5.6 sisältää myös AS2015A:n rakenteista pääteltyjä laskentapolkuja,
-mutta alkuperäisen AS2015A:n suoritusta vastaavia vertailutestejä ei ole
-tehty. Tallennettujen vanhojen asematulosten täydellinen uudelleenlaskenta
-ja epäselvät käsikorjauspolut eivät vielä ole käytettävissä.
+Testit kattavat vanhojen tiedostojen ja Excel-välilehtien lukua, TOML-yhteensopivuutta, käsikelloja, tilasiirtymiä, uusintalukuja, hyväksynnän esteitä sekä tallennuksen epäonnistumista ja paikallisia ristiriitoja. Synteettinen aineisto ei korvaa oikeaa vertailukilpailua tai fyysisiä Linux- ja Windows-lukijakokeita. Paikallisen alkuperäisen Excel-mallipohjan erillinen koe on kuvattu [Excel-tuonnin ohjeessa](docs/EXCEL_TUONTI.md).

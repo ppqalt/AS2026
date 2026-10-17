@@ -1,6 +1,6 @@
 [package]
 name = "as2026"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 rust-version = "1.89"
 default-run = "as2026"
@@ -23,6 +23,8 @@ ed25519-dalek = { version = "2", optional = true }
 tar = { version = "0.4", optional = true }
 flate2 = { version = "1", optional = true }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# Vanhan .xls/.xlsx-pohjan vain luku -tuonti, ei Excel-asennusta tai makroja.
+calamine = { version = "=0.36.1", default-features = false }
 
 [features]
 default = []

@@ -36,6 +36,22 @@ fn project() -> native::Project {
     native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap()
 }
 
+/// Aito toimitsijapolku: käsimaalille annetaan kello ja tallennetut asemat tutkitaan.
+fn complete_manual_finish(project: &mut native::Project) {
+    let mut result = application::capture_project_result(project, 7).unwrap();
+    let finish = result
+        .rivit
+        .iter()
+        .find(|r| r.station_type == "M")
+        .unwrap()
+        .output_index;
+    result.set_clock(finish, [12, 10, 0]).unwrap();
+    let result = application::recalculate_stored_result(project, 7, &result).unwrap();
+    assert_eq!(result.tila, "TRK");
+    assert!(result.can_approve());
+    project.kilpailijat[0].tallennettu_tulos = Some(result);
+}
+
 fn read(card: u32, marker_time: u32, finish_time: u32) -> native::Readout {
     native::Readout {
         emit: card,
@@ -221,6 +237,11 @@ fn new_project_uses_shared_defaults_and_serializes_special_names() {
 #[test]
 fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
     let mut project = project();
+    complete_manual_finish(&mut project);
+    let baseline = application::calculated_project(&project)
+        .unwrap()
+        .competitors
+        .remove(0);
     project.kilpailijat[0].lisavirheet = native::AdditionalPenalties {
         puuttuvat_rt_kpl: 2,
         puuttuvat_rt_pisteet: 1200,
@@ -236,17 +257,24 @@ fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
 
     let results = application::calculated_project(&project).unwrap();
     let competitor = &results.competitors[0];
-    assert_eq!(competitor.header_fields[19], "1815");
-    assert_eq!(competitor.header_fields[20], "600");
-    assert_eq!(competitor.header_fields[26], "3790");
-    assert_eq!(competitor.total_penalties, 3790);
+    assert_eq!(competitor.status, "TRK");
+    assert_eq!(competitor.header_fields[19], baseline.header_fields[19]);
+    assert_eq!(competitor.header_fields[20], baseline.header_fields[20]);
+    assert_eq!(
+        competitor.total_penalties,
+        baseline.total_penalties + 1200 + 75 + 100
+    );
+    assert_eq!(
+        competitor.header_fields[26],
+        competitor.total_penalties.to_string()
+    );
     assert_eq!(
         competitor
             .results
             .iter()
             .map(|row| row.total_penalty)
             .sum::<i64>(),
-        2415
+        baseline.total_penalties
     );
     assert_eq!(
         native::Project::from_toml(&project.to_toml().unwrap()).unwrap(),
@@ -257,6 +285,11 @@ fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
 #[test]
 fn native_keeps_stored_rt_sum_without_repricing_and_rejects_invalid_totals() {
     let mut project = project();
+    complete_manual_finish(&mut project);
+    let baseline = application::calculated_project(&project)
+        .unwrap()
+        .competitors[0]
+        .total_penalties;
     project.kilpailijat[0].lisavirheet.puuttuvat_rt_kpl = 2;
     project.kilpailijat[0].lisavirheet.puuttuvat_rt_pisteet = 700;
     assert_eq!(
@@ -264,8 +297,12 @@ fn native_keeps_stored_rt_sum_without_repricing_and_rejects_invalid_totals() {
             .unwrap()
             .competitors[0]
             .total_penalties,
-        3115
+        baseline + 700
     );
+    project.virhepisteet.puuttuva_rt = Some(999);
+    let updated = application::calculated_project(&project).unwrap();
+    assert_eq!(updated.competitors[0].total_penalties, baseline + 700);
+    assert_eq!(updated.competitors[0].header_fields[22], "700");
     project.kilpailijat[0].lisavirheet.muut_virhepisteet = -1;
     assert!(project.validate().is_err());
     project.kilpailijat[0].lisavirheet.muut_virhepisteet = i64::MAX;
@@ -274,7 +311,28 @@ fn native_keeps_stored_rt_sum_without_repricing_and_rejects_invalid_totals() {
 
 #[test]
 fn calculated_native_results_write_consistent_clocks_status_and_header_fields() {
-    let project = project();
+    let mut project = project();
+    let history = project.leimaluvut.clone();
+    let pending = application::calculated_project(&project).unwrap();
+    let driver = &pending.competitors[0];
+    assert_eq!(driver.status, "ILM");
+    assert_eq!(driver.header_fields[28], "ILM");
+    assert!(driver.header_fields[29].contains("käsikello puuttuu"));
+    assert_eq!(
+        &driver.header_fields[13..=18],
+        ["0", "0", "0", "0", "0", "0"]
+    );
+    assert_eq!(driver.results.last().unwrap().clock, [0; 3]);
+    assert_eq!(driver.results.last().unwrap().signed_time_penalty, 0);
+    let initial_at = driver
+        .results
+        .iter()
+        .find(|r| r.expected_code == 31)
+        .unwrap()
+        .clone();
+    assert_eq!(initial_at.clock, [12, 4, 35]);
+    assert_eq!(initial_at.actual_seconds, 275);
+    complete_manual_finish(&mut project);
     let archive = application::calculated_project(&project).unwrap();
     let driver = &archive.competitors[0];
     assert_eq!(driver.status, "TRK");
@@ -287,13 +345,22 @@ fn calculated_native_results_write_consistent_clocks_status_and_header_fields() 
         driver.declared_row_count.to_string()
     );
     assert_eq!(driver.results.last().unwrap().clock, [12, 10, 0]);
-    assert_eq!(driver.results.last().unwrap().actual_seconds, 0);
-    assert_eq!(driver.results.last().unwrap().signed_time_penalty, 1770);
+    assert_eq!(driver.results.last().unwrap().actual_seconds, 600);
+    assert_eq!(driver.results.last().unwrap().signed_time_penalty, 0);
+    let checked_at = driver
+        .results
+        .iter()
+        .find(|r| r.expected_code == 31)
+        .unwrap();
+    assert_eq!(checked_at.clock, initial_at.clock);
+    assert_eq!(checked_at.actual_seconds, initial_at.actual_seconds);
+    assert_eq!(project.leimaluvut, history);
 }
 
 #[test]
 fn native_class_np_sp_options_are_persisted_and_mapped_to_ranking_input() {
     let mut project = project();
+    complete_manual_finish(&mut project);
     project.luokat[0].nousupisteet = 1;
     project.luokat[0].sarjapistetapa = 1;
     let archive = project.to_archive().unwrap();
@@ -322,6 +389,7 @@ fn native_class_np_sp_options_are_persisted_and_mapped_to_ranking_input() {
 #[test]
 fn native_custom_series_schedule_is_persisted_and_used_for_sp_method_four() {
     let mut project = project();
+    complete_manual_finish(&mut project);
     project.sarjapisteet = vec![42, 30, 17];
     project.luokat[0].sarjapistetapa = 4;
     let text = project.to_toml().unwrap();
@@ -352,6 +420,7 @@ fn native_rejects_missing_invalid_or_oversized_custom_series_schedule() {
 #[test]
 fn combined_classes_are_persisted_and_ranked_from_native_toml() {
     let mut project = project();
+    complete_manual_finish(&mut project);
     project.luokat[0].sarjapistetapa = 1;
     project.yhdistetyt_luokat.push(native::CombinedClass {
         nimi: "Yhteinen".into(),

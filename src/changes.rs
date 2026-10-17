@@ -10,6 +10,7 @@ pub struct Changes {
     pub luokat: Vec<native::Class>,
     pub radat: Vec<native::Track>,
     provided_driver_fields: Vec<ProvidedDriverFields>,
+    provided_class_draw: Vec<bool>,
 }
 
 /// Vanha muutostiedosto ei tunne myöhemmin lisättyjä kilpailijakenttiä.
@@ -18,6 +19,8 @@ pub struct Changes {
 struct ProvidedDriverFields {
     driver_licence: bool,
     navigator_licence: bool,
+    driver_club: bool,
+    navigator_club: bool,
     status: bool,
     penalties: bool,
     stored_result: bool,
@@ -31,7 +34,7 @@ impl<'de> Deserialize<'de> for Changes {
             kilpailu: Option<native::Competition>,
             virhepisteet: Option<native::Overrides>,
             kilpailijat: Vec<toml::Value>,
-            luokat: Vec<native::Class>,
+            luokat: Vec<toml::Value>,
             radat: Vec<native::Track>,
         }
         let input = Input::deserialize(deserializer)?;
@@ -44,6 +47,8 @@ impl<'de> Deserialize<'de> for Changes {
             provided.push(ProvidedDriverFields {
                 driver_licence: fields.contains_key("kuljettajan_lisenssi"),
                 navigator_licence: fields.contains_key("kartanlukijan_lisenssi"),
+                driver_club: fields.contains_key("kuljettajan_seura"),
+                navigator_club: fields.contains_key("kartanlukijan_seura"),
                 status: fields.contains_key("tila"),
                 penalties: fields.contains_key("lisavirheet"),
                 stored_result: fields.contains_key("tallennettu_tulos"),
@@ -53,13 +58,29 @@ impl<'de> Deserialize<'de> for Changes {
                 .map_err(|_| D::Error::custom("Kilpailijan muutoksen kenttä on virheellinen"))?;
             competitors.push(driver);
         }
+        let mut classes = Vec::new();
+        let mut class_draw = Vec::new();
+        for value in input.luokat {
+            class_draw.push(
+                value
+                    .as_table()
+                    .ok_or_else(|| D::Error::custom("Luokan muutoksen pitää olla tietue"))?
+                    .contains_key("osallistuu_lahtoarvontaan"),
+            );
+            classes.push(
+                value
+                    .try_into()
+                    .map_err(|_| D::Error::custom("Luokan muutoksen kenttä on virheellinen"))?,
+            );
+        }
         Ok(Self {
             kilpailu: input.kilpailu,
             virhepisteet: input.virhepisteet,
             kilpailijat: competitors,
-            luokat: input.luokat,
+            luokat: classes,
             radat: input.radat,
             provided_driver_fields: provided,
+            provided_class_draw: class_draw,
         })
     }
 }
@@ -101,6 +122,12 @@ impl Changes {
                     if !provided.navigator_licence {
                         value.kartanlukijan_lisenssi = old.kartanlukijan_lisenssi.clone();
                     }
+                    if !provided.driver_club {
+                        value.kuljettajan_seura = old.kuljettajan_seura.clone();
+                    }
+                    if !provided.navigator_club {
+                        value.kartanlukijan_seura = old.kartanlukijan_seura.clone();
+                    }
                     if !provided.status {
                         value.tila = old.tila.clone();
                     }
@@ -125,7 +152,7 @@ impl Changes {
             }
         }
         let mut codes = std::collections::HashSet::new();
-        for value in self.luokat {
+        for (index, mut value) in self.luokat.into_iter().enumerate() {
             if !codes.insert(value.tunnus.trim().to_owned()) {
                 return Err(CoreError::InvalidInput(
                     "Muutoksessa on toistuva luokan tunnus".into(),
@@ -136,6 +163,9 @@ impl Changes {
                 .iter_mut()
                 .find(|c| c.tunnus.trim() == value.tunnus.trim())
             {
+                if self.provided_class_draw.get(index) == Some(&false) {
+                    value.osallistuu_lahtoarvontaan = old.osallistuu_lahtoarvontaan;
+                }
                 *old = value;
             } else {
                 project.luokat.push(value);

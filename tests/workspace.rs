@@ -3,7 +3,7 @@ use as2026::{
     storage::ProjectStore,
     workspace::{
         ClassEdit, ClassField, CompetitionField, DriverEdit, DriverField, OverrideField,
-        StationEdit, StationField, TrackEdit, TrackField, Workspace,
+        ResultField, StationEdit, StationField, TrackEdit, TrackField, Workspace,
     },
 };
 use std::{
@@ -209,17 +209,42 @@ fn class_route_change_uses_current_route_and_preserves_class_settings() {
     let mut expected = class;
     expected.rata = 2;
     assert_eq!(workspace.project().unwrap().luokat[0], expected);
-    // Kortin leimaukset eivät kuulu uudelle lähtö–maali-radalle. Vanhaa,
-    // onnistunutta laskentaa ei saa näyttää uuden radan tuloksena.
+    // Uuden radan L0/M0 ei käytä vanhan radan AT31/AT32-kohdistusta.
+    // Kortin kaikki kolme leimaa ovat nyt ylimääräisiä, ja käsimaali odottaa aikaa.
     assert!(
         workspace.calculation().unwrap().competitors[0]
             .calculation
             .is_err()
     );
-    assert_eq!(workspace.results().unwrap().competitors[0].status, "ILM");
+    let results = workspace.results().unwrap();
+    let driver = &results.competitors[0];
+    assert_eq!(driver.status, "ILM");
+    assert_eq!(driver.results.iter().filter(|r| r.sequence > 0).count(), 2);
     assert_eq!(
-        workspace.results().unwrap().competitors[0].total_penalties,
-        0
+        driver
+            .results
+            .iter()
+            .filter(|r| r.sequence == 0)
+            .map(|r| r.received_code)
+            .collect::<Vec<_>>(),
+        vec![31, 90, 32]
+    );
+    assert!(
+        driver
+            .results
+            .iter()
+            .filter(|r| r.sequence == 0)
+            .all(|r| r.other_penalty == 600)
+    );
+    assert_eq!(driver.total_penalties, 1800);
+    assert_eq!(
+        driver
+            .results
+            .iter()
+            .find(|r| r.station_type == "M")
+            .unwrap()
+            .clock,
+        [0; 3]
     );
     assert_eq!(workspace.results().unwrap().routes.len(), 2);
 }
@@ -527,6 +552,19 @@ fn legacy_is_read_only_and_keeps_imported_results_separate() {
 fn rt_counts_and_other_penalties_autosave_and_survive_normal_driver_edits() {
     let directory = Directory::new();
     let mut workspace = directory.example();
+    workspace.review_results(7).unwrap();
+    let finish = workspace.results().unwrap().competitors[0]
+        .results
+        .iter()
+        .find(|r| r.station_type == "M")
+        .unwrap()
+        .output_index;
+    workspace
+        .edit_station_result(7, finish, ResultField::Clock, "12:10:00")
+        .unwrap();
+    workspace.recalculate_stored(7).unwrap();
+    let baseline = workspace.results().unwrap().competitors[0].total_penalties;
+    assert_eq!(workspace.results().unwrap().competitors[0].status, "TRK");
     workspace
         .edit_driver(7, DriverField::MissingRtCount, "2")
         .unwrap();
@@ -542,7 +580,7 @@ fn rt_counts_and_other_penalties_autosave_and_survive_normal_driver_edits() {
     assert_eq!(driver.lisavirheet.muut_virhepisteet, 100);
     assert_eq!(
         workspace.results().unwrap().competitors[0].total_penalties,
-        3715
+        baseline + 1200 + 100
     );
     let reopened = Workspace::open(&directory.file()).unwrap();
     assert_eq!(
@@ -551,7 +589,7 @@ fn rt_counts_and_other_penalties_autosave_and_survive_normal_driver_edits() {
     );
     assert_eq!(
         reopened.results().unwrap().competitors[0].total_penalties,
-        3715
+        baseline + 1200 + 100
     );
 }
 

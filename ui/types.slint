@@ -1,2 +1,25 @@
 export struct TableRow { key: int, cells: [string] }
 export struct EditorField { key: int, label: string, value: string, hint: string, options: [string], values: [string], choice: int, duration: bool, hours: string, minutes: string, seconds: string }
+
+// Tulosten toimitsijanäkymä käyttää samoja tallennettuja laskentatietoja
+// kuin taulukko. Tyhjä arvo on aina "—", ei keksitty nollatulos.
+export struct ResultOverview {
+    selected: bool,
+    identity: string,
+    details: string,
+    status: string,
+    reason: string,
+    read-state: string,
+    issue: string,
+    start: string,
+    elapsed: string,
+    finish: string,
+    time-points: string,
+    station-points: string,
+    missing-rt: string,
+    missing-rt-count: string,
+    extra-rt: string,
+    extra-rt-count: string,
+    other-points: string,
+    total: string,
+}

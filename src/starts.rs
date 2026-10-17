@@ -33,6 +33,9 @@ pub fn draw(project: &Project, seed: u64) -> Result<StartDraw, CoreError> {
     let mut random = Random(seed);
     let mut assignments = Vec::new();
     for class in &project.luokat {
+        if !class.osallistuu_lahtoarvontaan {
+            continue;
+        }
         let mut drivers = project
             .kilpailijat
             .iter()

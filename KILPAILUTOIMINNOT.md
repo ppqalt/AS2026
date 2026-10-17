@@ -1,75 +1,65 @@
 # Kilpailun tarkastus ja lähtöjärjestelyt
 
-Tässä kuvataan paikallisen main-kehitysversion lisäykset v0.5.7:n päälle.
-Niistä ei vielä ole tehty uutta GitHub-julkaisua.
+Ohje koskee paikallista AS2026-kehitysversiota. Tässä kuvatuista uusista muutoksista ei ole tehty GitHub-julkaisua.
 
-## Tarkista ja Tutki
+## Emit-kortista tulokseen
 
-Tulokset-näkymässä kilpailijan valinta näyttää asemarivit. Valitse asema
-korjataksesi sen virhepisteitä. Käsiaika-asemalla voi muuttaa myös kelloa.
-Leimatun aseman kello johdetaan kortista, ja lähtökello muutetaan
-Kilpailijat-näkymän lähtöajasta.
+Tunnetun kilpailijaparin onnistunut korttiluku tallentuu alkuperäisine leimauksineen. Sovellus avaa **Tulokset** ja valitsee luetun kilpailijaparin. Asemat muodostuvat luokan radasta, ja leimatuista asemista saadut ajat täyttyvät automaattisesti.
 
-- **Tarkista…** muodostaa asemarivit uudelleen viimeisestä aktiivisesta
-  korttiluvusta. Vahvistus kertoo, että asemarivien käsikorjaukset korvataan.
-  Erilliset RT-lisävirheet, muut kilpailijakohtaiset virheet ja käsin valittu
-  tila säilyvät.
-- **Kellon muuttaminen** tallentaa käsikellon. Se ei muuta toteutunutta
-  aikaa eikä virhepisteitä ennen Tutki-toimintoa.
-- **Pisteiden muuttaminen** tallentaa asemarivin pisteet ja päivittää summan.
-  Aikavirheen ennakko on positiivinen, myöhä negatiivinen. Kokonaissummaan
-  lasketaan aikavirheen itseisarvo sekä muut virhepisteet.
-- **Tutki** laskee tallennetuista asemariveistä ja käsikelloista.
-  Se korvaa asemarivien pistekorjaukset laskennalla.
+Keskeneräistä lomakemuokkausta ei keskeytetä: korttiluku tallentuu, ja siirtyminen odottaa muokkauksen hyväksymistä tai peruuttamista. Tuntematon kortti säilyy lukuhistoriassa eikä kohdistu toiseen kilpailijaan.
 
-Tallennettu asematulos säilyy myös uuden korttiluvun jälkeen. Kortinlukuhistoriaa
-ei muuteta korjauksilla. Radan muuttaminen ei kohdista vanhoja korjauksia
-uusiin asemiin: kyseinen kilpailija jää ilman sijoitusta ja saa huomautuksen,
-kunnes toimitsija valitsee Tarkista. Muiden kilpailijoiden tarkastelu jatkuu.
+Uusintaluku ei tee kaksoistulosta. Aiemmat tallennetut käsikellot, pistekorjaukset ja hyväksyntä säilyvät. Uuden korttiluvun ottaminen niiden tilalle tapahtuu erikseen **Tarkista…**-toiminnolla ja sen vahvistuksella.
 
-Leimaamattoman maalin Tutki-laskentaa ei vielä tueta Emit-ajanottotavoilla 1 ja 2.
-Toiminto ei ole silloin käytettävissä. Kellonaikapohjainen tapa 0 ja Emit-tapojen
-leimatut maalit on toteutettu olemassa olevan staattisen tutkimuksen mukaan.
-Kilpailun ajanottotapaa ei pidä vaihtaa vain tämän rajoituksen kiertämiseksi.
+## Käsikellot, tarkastus ja hyväksyntä
 
-## Kilpailijan tila ja lisenssit
+Radalla Emit-numerolla **0** merkityt asemat kellotetaan käsin. Lähtökello tulee kilpailijan lähtöajasta; muiden käsiaika-asemien kellot syötetään Tulokset-näkymässä muodossa **hh:mm:ss**. Käsiaika-asemia voi olla useita. Myös käsimaalin kello syötetään erikseen: sitä ei arvata viimeisestä leimasta. Puuttuva käsikello näkyy tyhjänä, ei valmiina nollakellona.
 
-Kilpailijat-näkymässä ovat alkuperäiset tilat **TRK**, **KESK**, **PER**,
-**HYL**, **SULJ**, **ILM** ja **EILÄ** suomenkielisine nimineen.
-**Automaattinen** antaa laskennan määrätä tilan. Käsin valittu tila ja sen syy
-säilyvät uusissa korttiluvuissa. Syy viedään HTML-, CSV- ja XLSX-tulosluetteloihin.
-Puuttuvaa tai vanhentunutta tulosta ei voi julkaista nollapisteisenä TRK/KESK-valinnalla.
+1. Valitse kilpailijapari ja asemarivi. Tarkasta automaattisesti täytetyt leimaukset ja syötä puuttuvat käsikellot.
+2. Valitse **Tutki**. Se laskee tallennetuista asemariveistä ja käsikelloista. Kellon muuttaminen tallentuu heti, mutta ei vielä muuta laskettuja aikoja tai pisteitä.
+3. Tee tarvittavat asemakohtaiset pistekorjaukset laskennan jälkeen. Pistekorjaus päivittää rivin ja summan. Aikavirheen ennakko on positiivinen ja myöhä negatiivinen; kokonaispisteisiin tulee itseisarvo.
+4. Täydennä kilpailijakohtaiset lisävirheet ja tarkasta tila sekä Syy.
+5. Valitse **Hyväksy tulos**. Hyväksyntä tallentaa tarkastuksen eikä laske käsin korjattuja pisteitä uudelleen.
 
-Kuljettajan ja kartanlukijan lisenssit tallentuvat erikseen. Sarjapistekelpoisuus
-käyttää vanhasta ohjelmasta palautettua X- ja numeromerkkien käsittelyä, myös
-merkkijärjestyksen poikkeuksia. Lisenssitieto ei itsessään vaihda kilpailijan tilaa.
+**Tutki** korvaa aiemmat asemarivien pistekorjaukset uudella laskennalla. **Tarkista…** puolestaan muodostaa asemarivit uudelleen viimeisestä aktiivisesta korttiluvusta ja korvaa niiden käsikellot sekä pistekorjaukset. Sen vahvistus kertoo korvattavista tiedoista. Erilliset RT-lisävirheet, muut kilpailijakohtaiset virheet ja käsin valittu tila säilyvät.
+
+Puuttuva käsikello, virheellinen aika, muuttuneeseen rataan kuuluva tulos tai ristiriitaiset pistesummat estävät hyväksymisen. Kellon, pisteiden ja muiden tulokseen vaikuttavien tietojen muutos poistaa aiemman hyväksynnän. Radan muuttaminen ei kohdista vanhoja käsikorjauksia uusiin asemiin automaattisesti: muodosta rivit uudelleen Tarkista-toiminnolla ja tarkasta ne.
+
+## Pisteet ja tila
+
+Kokonaispisteissä yhdistyvät viisi osaa: aikavirhepisteet, asemien muut virhepisteet, puuttuvien RT-asemien pisteet, ylimääräisten RT-asemien pisteet ja muut kilpailijakohtaiset virhepisteet.
+
+**Puuttuvat RT-asemat (kpl)** hinnoitellaan kilpailun asetuksella: oletus on 600 pistettä asemalta, joten kolme puuttuvaa RT-asemaa antaa 1 800 pistettä. Näkymässä näkyvät sekä määrä että pistesumma. **Muut virhepisteet** syötetään suoraan pisteinä. Myös ylimääräisten RT-asemien nykyinen käsittely säilyy.
+
+**Automaattinen** tila antaa laskennan määrätä tuloksen:
+
+- **ILM**: tarvittava aika tai muu tarkastustieto on vielä kesken.
+- **TRK**: laskenta on kelvollinen eikä keskeytysehtoja ole.
+- **KESK**: esimerkiksi vaadittu JAT puuttuu tai jakson tai kilpailun myöhästymisraja ylittyy. Laskenta käyttää kilpailun ja luokan asetuksia. Olennaiset syyt näkyvät Syy-kentässä.
+
+Toimitsija voi valita myös tilat **TRK**, **KESK**, **PER**, **HYL**, **SULJ**, **ILM** ja **EILÄ** suomenkielisine nimineen. Käsin valittu HYL tai PER säilyy uudessa korttiluvussa. Keskeneräisestä tai virheellisestä tuloksesta ei tehdä tarkastettua pelkällä TRK-valinnalla. Tila ja Syy kulkevat HTML-, CSV- ja XLSX-tulosluetteloihin.
+
+Kuljettajan ja kartanlukijan lisenssit sekä seuratiedot tallentuvat erikseen. Lisenssien X- ja numeromerkit vaikuttavat vanhasta ohjelmasta palautetun säännön mukaan sarjapistekelpoisuuteen; ne eivät itsessään muuta kilpailijan tilaa.
+
+## Excel-kilpailun tuonti
+
+Valitse **Tuo Excel…**, avaa `.xls`- tai `.xlsx`-tiedosto ja valitse uuden kilpailun kansio. Tarkasta esikatselun määrät, huomautukset ja tallennuspaikka ennen **Hyväksy**-valintaa. Olemassa olevaa kilpailutiedostoa ei korvata. Kilpailun nimi tulee työkirjan nimestä, ja sen voi vaihtaa asetuksissa.
+
+Tuonti lukee vain tunnistetun **RATA**- ja **KILP**-pohjan: radat ja asemat asetuksineen sekä kilpailijaparit, Emit-numerot, lähtöajat, molempien seurat ja autot. Kelvottomat rivit selitetään; epäselviä luokkia tai ratoja ei arvata. Toistuvat kilpailija- tai Emit-numerot estävät vahvistuksen. Makroja tai kaavoja ei suoriteta eikä lähdetyökirjaa muuteta.
+
+Tuodut luokat eivät aluksi osallistu lähtöarvontaan. Näin KILP-välilehden lähtöajat säilyvät, kunnes toimitsija valitsee luokat arvontaan. Kenttäkartta ja tarkemmat rajat ovat [Excel-tuonnin kuvauksessa](docs/EXCEL_TUONTI.md).
 
 ## Lähtöajat ja lähtöluettelo
 
-Aseta luokille lähtöaika ja lähtöväli. **Arvo lähtöajat…** löytyy Kilpailijat-
-ja Luokat-näkymistä. Esikatselu näyttää kilpailunumerot ja arvotut kellot.
-**Peruuta** ei muuta kilpailua; **Hyväksy** korvaa esikatselun lähtöajat yhtenä
-tallennuksena. Kilpailunumerot, kortit ja muut kilpailijatiedot säilyvät.
+Aseta luokan lähtöaika, lähtöväli sekä **Osallistuu lähtöarvontaan**. A- ja M-luokkia ei ole suljettu arvonnasta kiinteällä säännöllä: toimitsija valitsee osallistuvat luokat.
 
-Arvontaan osallistuvat automaattiset/ILM-kilpailijat. Kortin jo luettu tai
-tallennetun asematuloksen saanut osallistuja estää arvonnan. Keskeyttäneet,
-hylätyt ja muut erikseen asetetut tilat eivät osallistu. Muuttunut kilpailu
-mitätöi vanhan esikatselun. Arvonta on luokkakohtainen eikä yritä ratkaista eri
-luokkien kesken mahdollisesti samoja lähtökelloja.
+**Arvo lähtöajat…** löytyy Kilpailijat- ja Luokat-näkymistä. Esikatselu näyttää kilpailunumerot ja arvotut kellot. **Peruuta** ei muuta kilpailua; **Hyväksy** tallentaa näytetyt lähtöajat yhdessä. Arvonnan ulkopuolisten luokkien ajat sekä kilpailunumerot, kortit ja muut tiedot säilyvät.
 
-**Lähtöluettelo…** tallentaa HTML:n selaimella tulostettavaksi tai CSV:n
-jatkokäsittelyyn. Lista on luokkajärjestyksessä ja luokan sisällä lähtöjärjestyksessä,
-myös keskiyön yli. Kaikki kilpailijat näkyvät tilatietoineen.
+Valituista luokista arvotaan automaattiset/ILM-kilpailijat. Jo luettu kortti tai tallennettu asematulos estää kyseisen arvonnan. Muut käsin valitut tilat eivät osallistu. Kilpailun muuttuminen mitätöi vanhan esikatselun.
 
-## Aineiston yhteensopivuus
+**Lähtöluettelo…** tallentaa HTML:n selaimella tulostettavaksi tai CSV:n jatkokäsittelyyn. Lista on luokkajärjestyksessä ja luokan sisällä lähtöjärjestyksessä myös keskiyön yli.
 
-Uudet kentät ovat valinnaisia. Aiemmat kilpailu.toml-tiedostot avautuvat ilman
-muunnosta. Vanhojen muutostiedostojen kilpailijamuutokset säilyttävät uudet
-lisenssit, tilan, lisävirheet ja tallennetun tuloksen, jos niitä ei ole annettu
-muutoksessa. Vanhaa sovellusversiota ei pidä käyttää uuden version kirjoittamien
-lisäkenttien muokkaamiseen. Varmuuskopio syntyy tavallisen tallennuksen yhteydessä.
+## Yhteensopivuus ja tarkistusten rajat
 
-Tarkistukset käyttävät synteettisiä aineistoja. Repositorion aineistoissa ei ole
-oikean kilpailun lähtötietoja ja alkuperäisen ohjelman varmennettua tulosluetteloa.
-Täydellistä historiallisten tulosten vastaavuutta tai fyysisen lukijan/Windowsin
-käytännön varmennusta ei siten väitetä.
+Uudet kentät ovat valinnaisia: aiemmat `kilpailu.toml`-tiedostot avautuvat ilman muunnosta. Vanhojen muutostiedostojen pois jättämät lisenssit, seurat, tila, lisävirheet, tallennettu tulos ja luokan arvontavalinta säilyvät. Vanhaa sovellusversiota ei pidä käyttää uuden version lisäkenttien muokkaamiseen. Tavallinen tallennus säilyttää edellisen version varmuuskopiona.
+
+Työnkulkuja testataan synteettisillä tiedostoilla ja käyttöliittymäkokeilla. Oikean kilpailun täydellistä AS2015A-tulosvastaavuutta sekä fyysisen lukijan ja Windowsin käytännön työnkulkuja varten tarvitaan erilliset vertailukokeet.
