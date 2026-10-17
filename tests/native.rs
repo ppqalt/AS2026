@@ -282,7 +282,10 @@ fn calculated_native_results_write_consistent_clocks_status_and_header_fields() 
     assert_eq!(driver.header_fields[29], "");
     assert_eq!(&driver.header_fields[13..=15], ["0", "10", "0"]);
     assert_eq!(&driver.header_fields[16..=18], ["12", "10", "0"]);
-    assert_eq!(driver.header_fields[27], driver.declared_row_count.to_string());
+    assert_eq!(
+        driver.header_fields[27],
+        driver.declared_row_count.to_string()
+    );
     assert_eq!(driver.results.last().unwrap().clock, [12, 10, 0]);
     assert_eq!(driver.results.last().unwrap().actual_seconds, 0);
     assert_eq!(driver.results.last().unwrap().signed_time_penalty, 1770);
