@@ -131,7 +131,7 @@ fn calculate_punches(
             "Luokan kokonaismyöhästymisraja",
         )?,
         parameters: a.scoring_parameters().map_err(|e| invalid(e.to_string()))?,
-        policy: CalculationPolicy::RecoveredLiveV1,
+        policy: CalculationPolicy::RecoveredAs2015aStaticV2,
     };
     timing::calculate_live(&rows, &options)
 }

@@ -437,7 +437,11 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     "Ajanottotapa",
                     project.kilpailu.ajanottotapa,
                     "Käsiaikojen erillistä syöttöä ei vielä tueta",
-                    named(&[("Kellonaikapohjainen", "0"), ("Emit", "1")]),
+                    named(&[
+                        ("Kellonaikapohjainen", "0"),
+                        ("Emit", "1"),
+                        ("Emit / tapa 2", "2"),
+                    ]),
                 ),
             ];
             let settings = &project.virhepisteet;

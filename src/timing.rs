@@ -1,7 +1,8 @@
 //! Korttiaineiston laskentapolku, joka perustuu staattisesti palautettuun logiikkaan.
 //!
-//! `RecoveredLiveV1` on nimetty, rajattu laskentakäytäntö: se ei väitä olevansa
-//! alkuperäisellä ohjelmalla validoitu tuloslaskenta. Raakaleimaukset säilyvät
+//! `RecoveredLiveV1` säilyttää aikaisemman Rust-esikatselun oletukset.
+//! `RecoveredAs2015aStaticV2` perustuu täydennettyyn Ghidra-käskytutkimukseen.
+//! Kumpaakaan ei ole validoitu suorittamalla alkuperäistä ohjelmaa. Raakaleimaukset säilyvät
 //! `CalculatedRow::source`-kentässä, ja johdetut ajat ovat erillisissä kentissä.
 //! Vanhan ohjelman ristiriitaiset haarat ilmoitetaan diagnostiikassa. Ajanottotapa
 //! 2 ja tallennettujen tulosten uudelleenlaskenta eivät kuulu tähän rajapintaan.
@@ -23,7 +24,10 @@ use crate::{ClockTime, CoreError, MatchKind, MatchedRow, Rule, StationKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CalculationPolicy {
+    /// Aikaisemman Rust-prototyypin eksplisiittinen laskentakäytäntö.
     RecoveredLiveV1,
+    /// AS2015A:n live-korttipolusta staattisesti palautettu käytäntö.
+    RecoveredAs2015aStaticV2,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -262,8 +266,10 @@ pub fn calculate_live(
             "negatiivinen kokonaismyöhästymisraja".into(),
         ));
     }
-    if options.timing_method == TimingMethod::LegacyMode2 {
-        return Err(CoreError::Unsupported("korttiluennan ja tallennettujen tulosten ajanottotavan 2 korjauskaavat poikkeavat; valitse tuettu ajanottotapa 0 tai 1".into()));
+    if options.timing_method == TimingMethod::LegacyMode2
+        && options.policy == CalculationPolicy::RecoveredLiveV1
+    {
+        return Err(CoreError::Unsupported("ajanottotavan 2 laskenta kuuluu uuteen staattisesti palautettuun korttilaskentakäytäntöön".into()));
     }
     validate_rows(rows)?;
     let mut result = LiveCalculation {
@@ -301,7 +307,10 @@ pub fn calculate_live(
         &mut result,
         None,
         "policy",
-        "Palautettu korttilaskenta, versio 1. Laskenta perustuu vanhan ohjelman tutkimiseen; sitä ei ole vielä verrattu historiallisten kilpailujen tuloksiin.",
+        match options.policy {
+            CalculationPolicy::RecoveredLiveV1 => "Aikaisemman Rust-prototyypin korttilaskenta; ei historiallisesti varmennettu.",
+            CalculationPolicy::RecoveredAs2015aStaticV2 => "AS2015A:n live-korttilaskennasta staattisesti palautettu laskentatapa; ei alkuperäisohjelmalla ajamalla varmennettu.",
+        },
     );
     let start_is_manual = expected(&result.rows[0]) == 0;
     if result.rows[0].source.kind == MatchKind::Missing {
@@ -323,7 +332,9 @@ pub fn calculate_live(
     let mut reference = if start_is_manual {
         match options.timing_method {
             TimingMethod::ManualClock => 0,
-            TimingMethod::Emit => {
+            TimingMethod::Emit | TimingMethod::LegacyMode2 => {
+                // Molemmat menetelmät käyttävät live-korttipolussa samaa
+                // lähtöankkuria; tallennettujen tulosten tarkistus on eri polku.
                 let value = if options.reset_correction_seconds == 0 {
                     120
                 } else {
@@ -332,7 +343,6 @@ pub fn calculate_live(
                 result.rows[0].derived_elapsed_seconds = value;
                 value
             }
-            TimingMethod::LegacyMode2 => unreachable!(),
         }
     } else {
         add(
@@ -349,7 +359,10 @@ pub fn calculate_live(
         format!("jakson aikaviite {reference} s"),
     );
     if start_is_manual
-        && options.timing_method == TimingMethod::Emit
+        && matches!(
+            options.timing_method,
+            TimingMethod::Emit | TimingMethod::LegacyMode2
+        )
         && options.reset_correction_seconds != 0
     {
         diagnostic(
@@ -372,17 +385,33 @@ pub fn calculate_live(
     }
     result.finish_clock_seconds = add(official, result.total_duration_seconds, "maalikello")?;
     let manual_finish = expected(&result.rows[last]) == 0;
+    let legacy_manual_finish =
+        manual_finish && options.policy == CalculationPolicy::RecoveredAs2015aStaticV2;
     if manual_finish {
-        result.rows[last].derived_elapsed_seconds = i64::from(options.last_punch_elapsed_seconds);
-        result.rows[last].clock_seconds = Some(result.finish_clock_seconds);
-        diagnostic(
-            &mut result,
-            Some(last + 1),
-            "manual-finish-derived",
-            "Palautettu korttilaskenta johtaa leimattoman maalin ajan kortin viimeisestä leimasta. Vanhan ohjelman tämän kohdan käsittely on ristiriitainen. Valitun laskentatavan vastaavuus vanhoihin kilpailutuloksiin on vielä tarkistettava.",
-        );
+        if legacy_manual_finish {
+            // M0 luokitellaan ennen maalikellon kirjoitusta. Koordinaatti ja
+            // toteutunut aika jäävät nolliksi ensimmäisellä kierroksella.
+            diagnostic(
+                &mut result,
+                Some(last + 1),
+                "manual-finish-legacy-order",
+                "AS2015A:n leimaamattoman maalin toteutunut aika jää nollaksi, ja maalikello kirjoitetaan vasta ennen toista sakkokierrosta. Tulos on staattinen ennuste.",
+            );
+        } else {
+            result.rows[last].derived_elapsed_seconds = i64::from(options.last_punch_elapsed_seconds);
+            result.rows[last].clock_seconds = Some(result.finish_clock_seconds);
+            diagnostic(
+                &mut result,
+                Some(last + 1),
+                "manual-finish-derived",
+                "Aiempi Rust-käytäntö johtaa maalin ajan viimeisestä leimasta, eikä vastaa palautettua AS2015A:n live-korttipolkua.",
+            );
+        }
     }
-    let clock_baseline = if options.timing_method == TimingMethod::Emit {
+    let clock_baseline = if matches!(
+        options.timing_method,
+        TimingMethod::Emit | TimingMethod::LegacyMode2
+    ) {
         add(
             result.rows[0].derived_elapsed_seconds,
             options.reset_correction_seconds,
@@ -492,12 +521,21 @@ pub fn calculate_live(
             reference,
             "maalijakson toteutunut aika",
         )?;
-    } else {
+    } else if !legacy_manual_finish {
         diagnostic(
             &mut result,
             Some(last + 1),
             "missing-finish-explicit-result",
             "Vanhan ohjelman korttilaskenta keskeytyy puuttuvaan maalileimaan, eikä kaikkien tuloskenttien käsittely ole selvä. Tässä laskennassa asemarivit säilytetään ja puuttumissakko sekä muiden asemien virheet lasketaan. Kilpailijan tila on keskeyttänyt.",
+        );
+    }
+    if legacy_manual_finish {
+        result.rows[last].clock_seconds = Some(result.finish_clock_seconds);
+        trace(
+            &mut result,
+            Some(last + 1),
+            "manual-finish-clock-after-first-pass",
+            "Maalikello asetettiin ensimmäisen kierroksen jälkeen; toteutunut aika pysyy nollassa",
         );
     }
     // Toinen kierros säilyttää alkuperäisen järjestyksen. Synteettiset muutokset
@@ -618,7 +656,7 @@ pub fn calculate_live(
                     .section_time_text
                     .clone();
                 if let Some(difference) =
-                    section_difference(&text, result.rows[index].actual_seconds)?
+                    section_difference(&text, result.rows[index].actual_seconds, options.policy)?
                 {
                     result.cumulative_schedule_difference_seconds = add(
                         result.cumulative_schedule_difference_seconds,
@@ -715,7 +753,11 @@ fn synthesize_void_row(result: &mut LiveCalculation, index: usize) -> Result<(),
     Ok(())
 }
 
-fn section_difference(text: &str, actual_seconds: i64) -> Result<Option<i64>, CoreError> {
+fn section_difference(
+    text: &str,
+    actual_seconds: i64,
+    policy: CalculationPolicy,
+) -> Result<Option<i64>, CoreError> {
     // 0x00408748: 1..9 tavua, vain numerot/välilyönnit, vähintään yksi numero.
     // Sisävälilyöntien x87-muunnosta ei arvata.
     if text.is_empty() || text.len() > 9 || !text.bytes().all(|b| b.is_ascii_digit() || b == b' ') {
@@ -725,12 +767,18 @@ fn section_difference(text: &str, actual_seconds: i64) -> Result<Option<i64>, Co
     if trimmed.is_empty() {
         return Ok(None);
     }
-    if trimmed.contains(' ') {
-        return Err(CoreError::Unsupported(
-            "Jakso-kentän sisävälilyönnin vanha numeromuunnos on epäselvä".into(),
-        ));
-    }
-    let minutes = trimmed
+    let numeric_prefix = if trimmed.contains(' ') {
+        if policy == CalculationPolicy::RecoveredLiveV1 {
+            return Err(CoreError::Unsupported(
+                "Jakso-kentän sisävälilyönnin vanha numeromuunnos on epäselvä".into(),
+            ));
+        }
+        // AS2015A:n numeromuunnos pysähtyy ensimmäiseen sisävälilyöntiin.
+        trimmed.split(' ').next().unwrap_or("")
+    } else {
+        trimmed
+    };
+    let minutes = numeric_prefix
         .parse::<i64>()
         .map_err(|_| CoreError::InvalidInput("Jakso-kentän lukuarvo".into()))?;
     let seconds = minutes
