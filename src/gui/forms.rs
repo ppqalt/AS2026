@@ -185,6 +185,27 @@ fn class_fields(project: &Project, class: &ClassEdit) -> Vec<EditorField> {
             &class.lateness_minutes,
             "Kokonaismyöhästymisen raja minuutteina",
         ),
+        choice(
+            7,
+            "Nousupisteet (Np)",
+            &class.np_enabled,
+            "Luokan nousupisteiden julkaisu",
+            named(&[("Ei", "0"), ("Kyllä", "1")]),
+        ),
+        choice(
+            8,
+            "Sarjapisteet (Sp)",
+            &class.series_method,
+            "Sarjapisteiden laskentatapa; taulukkoa vaativa tapa 4 ei ole vielä tuettu",
+            named(&[
+                ("Ei", "0"),
+                ("100 pisteen taulukko", "1"),
+                ("60 pisteen taulukko", "2"),
+                ("16 pisteen taulukko", "3"),
+                ("100 pisteen perintä", "5"),
+                ("60 pisteen perintä", "6"),
+            ]),
+        ),
     ]
 }
 
@@ -338,6 +359,8 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         start_time: class.lahtoaika.clone(),
                         interval_minutes: class.lahtovali_minuutteina.to_string(),
                         lateness_minutes: class.myohastymisraja_minuutteina.to_string(),
+                        np_enabled: class.nousupisteet.to_string(),
+                        series_method: class.sarjapistetapa.to_string(),
                     },
                 )
             })
@@ -360,6 +383,8 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                 start_time: "15:00:00".into(),
                 interval_minutes: "2".into(),
                 lateness_minutes: "60".into(),
+                np_enabled: "0".into(),
+                series_method: "0".into(),
                 ..Default::default()
             },
         ),
@@ -541,6 +566,8 @@ pub fn apply_field(
                 4 => ClassField::Start,
                 5 => ClassField::Interval,
                 6 => ClassField::Lateness,
+                7 => ClassField::Np,
+                8 => ClassField::Sp,
                 _ => return Err(invalid()),
             };
             ws.edit_class(code, field, value)?;
@@ -643,6 +670,8 @@ pub fn add(
                 start_time: value(4),
                 interval_minutes: value(5),
                 lateness_minutes: value(6),
+                np_enabled: value(7),
+                series_method: value(8),
             })?;
             Ok(Selection::Class(code))
         }

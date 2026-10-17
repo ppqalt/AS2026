@@ -98,6 +98,12 @@ pub struct Class {
     pub lahtovali_minuutteina: u32,
     #[serde(default = "default_lateness")]
     pub myohastymisraja_minuutteina: u32,
+    /// AS2015A:n Np-valinta (0/1).
+    #[serde(default)]
+    pub nousupisteet: u8,
+    /// AS2015A:n Sp-menetelmä. Menetelmä 4 edellyttää sarjap.txt:tä.
+    #[serde(default)]
+    pub sarjapistetapa: u8,
 }
 fn one() -> u32 {
     1
@@ -258,6 +264,17 @@ impl Project {
                     class.rata
                 )));
             }
+            if class.nousupisteet > 1 {
+                return Err(invalid("Luokan nousupistevalinnan pitää olla 0 tai 1"));
+            }
+            if class.sarjapistetapa > 6 {
+                return Err(invalid("Luokan sarjapistetapa ei voi olla suurempi kuin 6"));
+            }
+            if class.sarjapistetapa == 4 {
+                return Err(CoreError::Unsupported(
+                    "Sarjapisteiden menetelmä 4 edellyttää sarjap.txt-taulukkoa, jota uusi TOML-kilpailu ei vielä tallenna".into(),
+                ));
+            }
             let time = parse_clock(&class.lahtoaika)?;
             classes.push(ClassDefinition {
                 code: code.to_owned(),
@@ -272,8 +289,8 @@ impl Project {
                     class.lahtovali_minuutteina.to_string(),
                     "0".into(),
                     class.myohastymisraja_minuutteina.to_string(),
-                    "0".into(),
-                    "0".into(),
+                    class.nousupisteet.to_string(),
+                    class.sarjapistetapa.to_string(),
                 ],
             });
         }
@@ -457,6 +474,8 @@ impl Project {
                 lahtoaika: "15:00:00".into(),
                 lahtovali_minuutteina: 2,
                 myohastymisraja_minuutteina: default_lateness(),
+                nousupisteet: 0,
+                sarjapistetapa: 0,
             }],
             radat: vec![Track {
                 numero: 1,

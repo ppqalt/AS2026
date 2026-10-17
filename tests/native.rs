@@ -290,3 +290,34 @@ fn calculated_native_results_write_consistent_clocks_status_and_header_fields() 
     assert_eq!(driver.results.last().unwrap().actual_seconds, 0);
     assert_eq!(driver.results.last().unwrap().signed_time_penalty, 1770);
 }
+
+#[test]
+fn native_class_np_sp_options_are_persisted_and_mapped_to_ranking_input() {
+    let mut project = project();
+    project.luokat[0].nousupisteet = 1;
+    project.luokat[0].sarjapistetapa = 1;
+    let archive = project.to_archive().unwrap();
+    assert_eq!(archive.basic.classes[0].fields[8], "1");
+    assert_eq!(archive.basic.classes[0].fields[9], "1");
+    let results = application::calculated_project(&project).unwrap();
+    let ranking = application::rank_stored(
+        &results,
+        as2026::ranking::TiePolicy::KeepSharedAndFlag,
+    )
+    .unwrap();
+    let ordinary = ranking
+        .groups
+        .iter()
+        .find(|group| group.kind == as2026::ranking::GroupKind::Ordinary)
+        .unwrap();
+    assert_eq!(ordinary.entries[0].series_points, 100);
+    assert_eq!(
+        native::Project::from_toml(&project.to_toml().unwrap()).unwrap(),
+        project
+    );
+    project.luokat[0].sarjapistetapa = 4;
+    assert!(project.validate().is_err());
+    project.luokat[0].sarjapistetapa = 0;
+    project.luokat[0].nousupisteet = 2;
+    assert!(project.validate().is_err());
+}

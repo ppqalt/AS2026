@@ -258,6 +258,8 @@ impl Workspace {
                 ClassField::Lateness => {
                     class.myohastymisraja_minuutteina = number(value, "Myöhästymisraja")?
                 }
+                ClassField::Np => class.nousupisteet = number(value, "Nousupistevalinta")?,
+                ClassField::Sp => class.sarjapistetapa = number(value, "Sarjapistemenetelmä")?,
             }
             if field == ClassField::Code {
                 let new_code = class.tunnus.clone();
@@ -457,6 +459,8 @@ pub enum ClassField {
     Start,
     Interval,
     Lateness,
+    Np,
+    Sp,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackField {
@@ -532,6 +536,8 @@ pub struct ClassEdit {
     pub start_time: String,
     pub interval_minutes: String,
     pub lateness_minutes: String,
+    pub np_enabled: String,
+    pub series_method: String,
 }
 
 impl ClassEdit {
@@ -544,6 +550,9 @@ impl ClassEdit {
             lahtoaika: self.start_time.trim().into(),
             lahtovali_minuutteina: number(&self.interval_minutes, "Lähtöväli")?,
             myohastymisraja_minuutteina: number(&self.lateness_minutes, "Myöhästymisraja")?,
+            nousupisteet: optional_number(&self.np_enabled, "Nousupistevalinta")?.unwrap_or(0),
+            sarjapistetapa: optional_number(&self.series_method, "Sarjapistemenetelmä")?
+                .unwrap_or(0),
         })
     }
 }
