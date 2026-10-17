@@ -14,37 +14,35 @@ export component Note inherits Text {
     wrap: word-wrap;
 }
 
+// Fluent 2: stable sidebar selection with a slim forest-green rail.
 export component NavItem inherits Rectangle {
     in property <string> label;
     in property <bool> active;
     callback chosen();
-    height: 42px;
-    border-radius: 5px;
-    border-width: focus.has-focus ? 2px : 0px;
-    border-color: #b2ebe0;
+    height: 40px;
+    border-radius: Theme.radius;
+    background: root.active ? Theme.accent-soft : touch.has-hover ? Theme.sidebar-hover : transparent;
     forward-focus: focus;
-    background: root.active ? Theme.accent-fill : touch.has-hover ? Theme.sidebar-hover : transparent;
-    HorizontalLayout {
-        padding-left: 12px; padding-right: 8px; spacing: 10px;
-        Text {
-            width: 10px;
-            text: "●";
-            color: root.active ? #b8f4e9 : #7295a4;
-            font-size: 9px;
-            vertical-alignment: center;
-        }
-        Text {
-            text: root.label;
-            color: white;
-            font-size: 13px;
-            font-weight: root.active ? 600 : 400;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
-            min-width: 0px;
-            overflow: elide;
-        }
+    Rectangle {
+        width: 3px;
+        height: parent.height - 12px;
+        y: 6px;
+        x: 0px;
+        border-radius: 1px;
+        background: root.active ? Theme.accent-fill : transparent;
     }
-    touch := TouchArea { clicked => { focus.focus(); root.chosen(); } }
+    Text {
+        x: 14px;
+        width: parent.width - 22px;
+        height: parent.height;
+        text: root.label;
+        color: root.active ? Theme.accent-text : Theme.muted;
+        font-size: 13px;
+        font-weight: root.active ? 600 : 400;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    touch := TouchArea { clicked => { root.chosen(); } }
     focus := FocusScope {
         width: 0px;
         key-pressed(event) => {
@@ -93,12 +91,12 @@ export component FormField inherits VerticalLayout {
         }
     }
     spacing: 5px;
-    Text { height: 16px; text: root.label; color: Theme.ink; font-size: 12px; font-weight: 600; }
+    Text { height: 16px; text: root.label; color: Theme.muted; font-size: 12px; font-weight: 600; }
     Rectangle {
         height: 40px;
         border-width: root.invalid ? 1px : 0px;
         border-color: Theme.danger;
-        border-radius: 5px;
+        border-radius: Theme.radius;
         duration-input := HorizontalLayout {
             visible: root.duration;
             x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
@@ -189,7 +187,7 @@ export component DataTable inherits Rectangle {
     VerticalLayout {
         padding: 1px; spacing: 0px;
         Rectangle {
-            height: 36px; background: #23313b;
+            height: 36px; background: Theme.table-header;
             HorizontalLayout {
                 padding-left: 14px; padding-right: 14px; spacing: 10px;
                 for title[i] in root.headers: Text {
@@ -206,18 +204,18 @@ export component DataTable inherits Rectangle {
             for row[index] in root.rows: Rectangle {
                 property <bool> active: row.key == root.selected-key;
                 height: Theme.row-height;
-                background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? #1c2b35 : Theme.surface;
+                background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
                 HorizontalLayout {
                     padding-left: 14px; padding-right: 14px; spacing: 10px;
                     for value[i] in row.cells: Text {
                         text: value; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
-                        color: i == 0 ? Theme.accent : Theme.ink;
+                        color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
                         font-weight: i == 0 ? 600 : 400;
                         font-size: 13px; vertical-alignment: center; overflow: elide;
                     }
                 }
-                Rectangle { y: parent.height - 1px; height: 1px; background: #23313b; }
+                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
                 touch := TouchArea { clicked => { root.selected(row.key); } }
                 accessible-role: list-item;
                 accessible-label: row.cells[0] + " " + row.cells[1];
@@ -266,7 +264,7 @@ export component Editor inherits Rectangle {
     callback cancel();
     background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
     VerticalLayout {
-        padding: 18px; spacing: 12px;
+        padding: Theme.space-4; spacing: Theme.space-3;
         Text { text: root.heading; color: Theme.ink; font-size: 17px; font-weight: 700; wrap: word-wrap; }
         Note { text: root.description; }
         ScrollView {
@@ -331,7 +329,7 @@ export component Editor inherits Rectangle {
 export component Metric inherits VerticalLayout {
     in property <string> label;
     in property <int> count;
-    spacing: 6px;
-    Text { text: root.count; color: Theme.ink; font-size: 28px; font-weight: 700; }
+    spacing: Theme.space-1;
+    Text { text: root.count; color: Theme.ink; font-size: 26px; font-weight: 700; }
     Note { text: root.label; }
 }
