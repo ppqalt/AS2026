@@ -546,3 +546,38 @@ fn stored_timing_method_one_reanchors_and_rejects_ambiguous_manual_finish() {
         Err(CoreError::Unsupported(_))
     ));
 }
+
+#[test]
+fn static_policy_does_not_publish_stale_legacy_early_return_scores() {
+    let missing_start = vec![
+        station(1, StationKind::Start, 31, 0),
+        station(2, StationKind::At, 32, 300),
+        station(3, StationKind::Finish, 33, 600),
+    ];
+    let mut o = options(720);
+    o.policy = CalculationPolicy::RecoveredAs2015aStaticV2;
+    let punches = vec![
+        Punch { code: 32, elapsed_seconds: 420 },
+        Punch { code: 33, elapsed_seconds: 720 },
+    ];
+    let rows = match_route(&missing_start, &punches, clock()).unwrap();
+    assert!(matches!(
+        calculate_live(&rows, &o),
+        Err(CoreError::Unsupported(_))
+    ));
+    let missing_finish = vec![
+        station(1, StationKind::Start, 0, 0),
+        station(2, StationKind::At, 32, 300),
+        station(3, StationKind::Finish, 33, 600),
+    ];
+    let rows = match_route(
+        &missing_finish,
+        &[Punch { code: 32, elapsed_seconds: 420 }],
+        clock(),
+    )
+    .unwrap();
+    assert!(matches!(
+        calculate_live(&rows, &o),
+        Err(CoreError::Unsupported(_))
+    ));
+}

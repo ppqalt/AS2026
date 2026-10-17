@@ -409,6 +409,11 @@ pub fn calculate_live(
         if start_is_manual {
             return Err(CoreError::Unsupported("leimattomalle lähdölle ei ole hyväksyttyä lähtöaikaa; tämän tapauksen laskentaa ei ole vielä vahvistettu".into()));
         }
+        if options.policy == CalculationPolicy::RecoveredAs2015aStaticV2 {
+            return Err(CoreError::Unsupported(
+                "Leimallinen lähtö puuttuu: AS2015A palaa ennen pistesummien alustusta. Vanhoja muistisummia ei käytetä uuden tuloksen korvikkeena".into(),
+            ));
+        }
         result.rows[0].other_points = 9999;
         result.rows[0].total_points = 9999;
         result.rows[0].note = "lähtö puuttuu".into();
@@ -465,6 +470,14 @@ pub fn calculate_live(
         );
     }
     let last = result.rows.len() - 1;
+    if options.policy == CalculationPolicy::RecoveredAs2015aStaticV2
+        && expected(&result.rows[last]) != 0
+        && !present(&result.rows[last])
+    {
+        return Err(CoreError::Unsupported(
+            "Leimallinen maali puuttuu: AS2015A keskeyttää korttilaskennan ennen lopullisia asemien summia. Epätäydellistä tulosta ei julkaista".into(),
+        ));
+    }
     result.total_duration_seconds = sub(
         i64::from(options.last_punch_elapsed_seconds),
         result.rows[0].derived_elapsed_seconds,
