@@ -279,10 +279,36 @@ pub struct Competitor {
 }
 pub fn parse_competitors(document: &Document) -> Result<Vec<Competitor>, ImportError> {
     let mut result: Vec<Competitor> = Vec::new();
+    let mut header_type: Option<&str> = None;
     for record in &document.records {
         match record.tag() {
-            "L" => {
-                let f = record.data(31)?;
+            "L" | "K" => {
+                let kind = record.tag();
+                if header_type.is_some_and(|previous| previous != kind) {
+                    // The old loader retains the K field offset when a later L
+                    // arrives. Reject the mixed input instead of misreading it.
+                    return Err(error(format!(
+                        "Rivi {}: K- ja L-otsakkeita ei voi sekoittaa turvallisesti",
+                        record.line
+                    )));
+                }
+                header_type = Some(kind);
+                let f = if kind == "K" {
+                    let old = record.data(28)?;
+                    let mut normalized = vec![String::new(); 31];
+                    normalized[..5].clone_from_slice(&old[..5]);
+                    normalized[7] = format!(
+                        "{:<15}",
+                        old[5].chars().take(15).collect::<String>()
+                    );
+                    normalized[9] = old[6].clone();
+                    for (index, dest) in normalized.iter_mut().enumerate().skip(10) {
+                        *dest = old[index - 3].clone();
+                    }
+                    normalized
+                } else {
+                    record.data(31)?.to_vec()
+                };
                 let n = unsigned(&f[0], record.line, "kilpailunumero")?;
                 if result.iter().any(|c| c.number == n) {
                     return Err(error(format!(
@@ -329,12 +355,6 @@ pub fn parse_competitors(document: &Document) -> Result<Vec<Competitor>, ImportE
                     note: text(&f[17]),
                 });
             }
-            "K" => {
-                return Err(error(format!(
-                    "Rivi {}: vanha K-otsikko säilyy raakadatassa, mutta sen tulkintaa ei vielä tueta",
-                    record.line
-                )));
-            }
             tag => {
                 return Err(error(format!(
                     "Rivi {}: tuntematon kilpailijatietue {tag:?}",
@@ -362,7 +382,29 @@ pub struct BasicSettings {
 }
 pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
     let mut result = BasicSettings::default();
-    for record in &document.records {
+    let first = document.records.first().ok_or_else(|| error("Asperus.txt on tyhjä"))?;
+    let old_format = first.tag() != "PE";
+    if old_format {
+        // Before PE the six initial columns omitted competition/organizer IDs.
+        let old = fields(&first.fields, 6, first.line)?;
+        result.identity = vec![
+            String::new(),
+            old[0].clone(),
+            String::new(),
+            old[1].clone(),
+            old[2].clone(),
+            old[3].clone(),
+            old[4].clone(),
+            old[5].clone(),
+        ];
+    }
+    for record in document.records.iter().skip(usize::from(old_format)) {
+        if old_format && matches!(record.tag(), "PE" | "TU" | "Y") {
+            return Err(error(format!(
+                "Rivi {}: vanhaan perustietomuotoon ei voi sekoittaa PE/TU/Y-tietueita",
+                record.line
+            )));
+        }
         match record.tag() {
             "PE" => {
                 if !result.identity.is_empty() {
@@ -373,7 +415,14 @@ pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
             "TU" => result.output_names = record.data(2)?.to_vec(),
             "Y" => result.combined_classes.push(record.fields[1..].to_vec()),
             _ => {
-                let f = fields(&record.fields, 10, record.line)?;
+                let f = if old_format {
+                    let old = fields(&record.fields, 9, record.line)?;
+                    let mut normalized = vec![old[0].clone()];
+                    normalized.extend(old.iter().cloned());
+                    normalized
+                } else {
+                    fields(&record.fields, 10, record.line)?.to_vec()
+                };
                 let code = text(&f[0]);
                 if result.classes.iter().any(|class| class.code == code) {
                     return Err(error(format!(
@@ -391,9 +440,7 @@ pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
         }
     }
     if result.identity.is_empty() {
-        return Err(error(
-            "Nykyinen PE-otsikko puuttuu; vanhaa perustietomuotoa ei arvata",
-        ));
+        return Err(error("Asperus.txt: kilpailun perustiedot puuttuvat"));
     }
     Ok(result)
 }
