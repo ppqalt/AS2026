@@ -355,7 +355,7 @@ fn combined_classes_are_persisted_and_ranked_from_native_toml() {
     project.luokat[0].sarjapistetapa = 1;
     project.yhdistetyt_luokat.push(native::CombinedClass {
         nimi: "Yhteinen".into(),
-        luokat: vec!["H".into()],
+        luokat: vec!["A".into()],
         nousupisteet: 1,
         sarjapistetapa: 5,
     });
@@ -382,17 +382,17 @@ fn combined_class_member_codes_are_exact_and_invalid_configs_are_rejected() {
     let mut project = project();
     let group = native::CombinedClass {
         nimi: "Kooste".into(),
-        luokat: vec!["H".into()],
+        luokat: vec!["A".into()],
         nousupisteet: 1,
         sarjapistetapa: 0,
     };
     project.yhdistetyt_luokat.push(group);
     assert!(project.validate().is_ok());
-    project.yhdistetyt_luokat[0].luokat = vec!["HX".into()];
+    project.yhdistetyt_luokat[0].luokat = vec!["AX".into()];
     assert!(project.validate().is_err());
-    project.yhdistetyt_luokat[0].luokat = vec!["H".into(), "H".into()];
+    project.yhdistetyt_luokat[0].luokat = vec!["A".into(), "A".into()];
     assert!(project.validate().is_err());
-    project.yhdistetyt_luokat[0].luokat = vec!["H".into()];
+    project.yhdistetyt_luokat[0].luokat = vec!["A".into()];
     project.yhdistetyt_luokat[0].sarjapistetapa = 4;
     assert!(project.validate().is_err());
     project.sarjapisteet = vec![100, 90];
