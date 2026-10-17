@@ -328,15 +328,21 @@ impl Project {
                 return Err(invalid("Yhdistetyn luokan nimi puuttuu tai toistuu"));
             }
             if group.luokat.is_empty() || group.nousupisteet > 1 || group.sarjapistetapa > 6 {
-                return Err(invalid(format!("Yhdistetyn luokan {name} jäsenet tai Np/Sp-valinta on virheellinen")));
+                return Err(invalid(format!(
+                    "Yhdistetyn luokan {name} jäsenet tai Np/Sp-valinta on virheellinen"
+                )));
             }
             if group.sarjapistetapa == 4 && self.sarjapisteet.is_empty() {
-                return Err(invalid("Yhdistetyn luokan Sp 4 edellyttää sarjapistetaulukkoa"));
+                return Err(invalid(
+                    "Yhdistetyn luokan Sp 4 edellyttää sarjapistetaulukkoa",
+                ));
             }
             let mut members = HashSet::new();
             for code in &group.luokat {
                 if !class_keys.contains(code.as_str()) || !members.insert(code.as_str()) {
-                    return Err(invalid(format!("Yhdistetyssä luokassa {name} on tuntematon tai toistuva jäsenluokka {code}")));
+                    return Err(invalid(format!(
+                        "Yhdistetyssä luokassa {name} on tuntematon tai toistuva jäsenluokka {code}"
+                    )));
                 }
             }
             let mut fields = vec![
@@ -346,7 +352,12 @@ impl Project {
                 group.sarjapistetapa.to_string(),
             ];
             fields.extend(classes.iter().map(|class| {
-                if members.contains(class.code.as_str()) { "1" } else { "0" }.to_owned()
+                if members.contains(class.code.as_str()) {
+                    "1"
+                } else {
+                    "0"
+                }
+                .to_owned()
             }));
             combined_classes.push(fields);
         }

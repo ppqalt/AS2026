@@ -362,13 +362,17 @@ fn combined_classes_are_persisted_and_ranked_from_native_toml() {
     let toml = project.to_toml().unwrap();
     assert_eq!(native::Project::from_toml(&toml).unwrap(), project);
     let archive = application::calculated_project(&project).unwrap();
-    assert_eq!(archive.basic.combined_classes[0], ["1", "Yhteinen", "1", "5", "1"]);
-    let ranking = application::rank_stored(
-        &archive,
-        as2026::ranking::TiePolicy::KeepSharedAndFlag,
-    ).unwrap();
-    let group = ranking.groups.iter()
-        .find(|g| g.kind == as2026::ranking::GroupKind::Combined).unwrap();
+    assert_eq!(
+        archive.basic.combined_classes[0],
+        ["1", "Yhteinen", "1", "5", "1"]
+    );
+    let ranking =
+        application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag).unwrap();
+    let group = ranking
+        .groups
+        .iter()
+        .find(|g| g.kind == as2026::ranking::GroupKind::Combined)
+        .unwrap();
     assert_eq!(group.entries.len(), 1);
     assert_eq!(group.entries[0].series_points, 100);
 }
