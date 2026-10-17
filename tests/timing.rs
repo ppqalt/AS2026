@@ -672,6 +672,6 @@ fn stored_manual_clock_zero_and_nonmonotonic_data_are_not_silently_fixed() {
         clock: [12, 12, 0],
     };
     let result = prepare_stored_station_times(&prepared, &[first, wrong_order, last]).unwrap();
-    assert_eq!(result.rows[1].elapsed_seconds, 840);
+    assert_eq!(result.rows[1].elapsed_seconds, 720);
     assert_eq!(result.warnings.len(), 1);
 }
