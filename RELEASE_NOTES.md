@@ -18,6 +18,9 @@ muokkausta. Kilpailujen tietomalli ja tuloslaskennan aikayksikkö eivät muutu.
   ikkunassa ja yhdessä sarakkeessa kapeissa ikkunalaatoissa.
 - Ratataulukon koko seuraa tietueiden määrää. Asemalista ja muokkauspaneeli
   ovat erillisiä, jotta käyttöliittymä ei lisää keinotekoisia tyhjiä välejä.
+- Emit-lukemisen sarjaporttikentän ylimääräinen "Sarjaportti"-otsikko
+  poistettiin; automaattisen porttivalinnan tai käsin annetun COM-portin
+  toimintaa ei muutettu.
 - Taulukoista poistettiin suuri näppäimistökohdistuksen kehys, sen
   nuolinäppäinnavigaatio ja fokuksen siirtäminen riviklikkauksella.
   Hiirellä valittu rivi näkyy edelleen omalla taustavärillään.
