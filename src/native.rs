@@ -160,6 +160,11 @@ pub struct Driver {
     pub luokka: String,
     pub kuljettaja: String,
     pub kartanlukija: String,
+    /// Lisenssin X- ja numeromerkit tulkitaan vanhan sarjapistelaskennan mukaan.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kuljettajan_lisenssi: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kartanlukijan_lisenssi: String,
     pub emit: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub auto: String,
@@ -169,6 +174,44 @@ pub struct Driver {
     /// Erilliset kilpailijakohtaiset virhepisteet, eivät asemarivien pisteitä.
     #[serde(default, skip_serializing_if = "AdditionalPenalties::is_zero")]
     pub lisavirheet: AdditionalPenalties,
+    /// Puuttuva valinta tarkoittaa laskennan automaattista tilaa.
+    /// Myös TRK ja KESK voidaan valita nimenomaisesti käsin.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tila: Option<ManualStatus>,
+    /// Tarkista tallentaa asemat; Tutki laskee tallennetuista käsikorjauksista.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tallennettu_tulos: Option<crate::corrections::StoredResult>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManualStatus {
+    pub tunnus: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub syy: String,
+}
+
+impl ManualStatus {
+    pub fn new(tunnus: &str, syy: &str) -> Result<Self, CoreError> {
+        let status = Self {
+            tunnus: tunnus.to_owned(),
+            syy: syy.to_owned(),
+        };
+        status.validate()?;
+        Ok(status)
+    }
+
+    pub fn validate(&self) -> Result<(), CoreError> {
+        if !matches!(
+            self.tunnus.as_str(),
+            "TRK" | "KESK" | "PER" | "HYL" | "SULJ" | "ILM" | "EILÄ"
+        ) {
+            return Err(invalid(
+                "Kilpailijan tilan pitää olla TRK, KESK, PER, HYL, SULJ, ILM tai EILÄ",
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// AS2015A:n Kilp.txt-L-tietueen erilliset kentät 21–25.
@@ -425,6 +468,9 @@ impl Project {
                 )));
             }
             driver.lisavirheet.validate()?;
+            if let Some(status) = &driver.tila {
+                status.validate()?;
+            }
             let time = parse_clock(&driver.lahtoaika)?;
             let mut fields = vec!["0".to_owned(); 31];
             fields[0] = driver.numero.to_string();
@@ -432,8 +478,8 @@ impl Project {
             fields[2] = driver.emit.to_string();
             fields[3] = driver.kuljettaja.clone();
             fields[4] = driver.kartanlukija.clone();
-            fields[5] = String::new();
-            fields[6] = String::new();
+            fields[5] = driver.kuljettajan_lisenssi.clone();
+            fields[6] = driver.kartanlukijan_lisenssi.clone();
             fields[9] = driver.auto.clone();
             fields[10] = time.hour.to_string();
             fields[11] = time.minute.to_string();
@@ -443,8 +489,16 @@ impl Project {
             fields[23] = driver.lisavirheet.ylimaaraiset_rt_kpl.to_string();
             fields[24] = driver.lisavirheet.ylimaaraiset_rt_pisteet.to_string();
             fields[25] = driver.lisavirheet.muut_virhepisteet.to_string();
-            fields[28] = "ILM".to_owned();
-            fields[29] = String::new();
+            fields[28] = driver
+                .tila
+                .as_ref()
+                .map_or("ILM", |status| status.tunnus.as_str())
+                .to_owned();
+            fields[29] = driver
+                .tila
+                .as_ref()
+                .map_or("", |status| status.syy.as_str())
+                .to_owned();
             fields[30] = driver.emit_korjaus_sekuntia.to_string();
             competitors.push(Competitor {
                 number: driver.numero,
@@ -452,10 +506,10 @@ impl Project {
                 emit_card: fields[2].clone(),
                 driver: fields[3].clone(),
                 navigator: fields[4].clone(),
+                status: fields[28].clone(),
                 header_fields: fields,
                 total_penalties: 0,
                 declared_row_count: 0,
-                status: "ILM".into(),
                 correction_seconds: driver.emit_korjaus_sekuntia,
                 results: Vec::new(),
             });

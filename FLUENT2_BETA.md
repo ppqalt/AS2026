@@ -1,69 +1,93 @@
-# AS2026 — Fluent 2 / Dark Spruce beta
+# AS2026 — Fluent 2 / Dark Spruce
 
-This branch is a **visual beta**, deliberately separate from stable `main`.
-It starts at AS2026 v0.5.7 and preserves the calculation, storage, Emit,
-import/export, updater, and competition model without modification.
+Fluent 2 on AS2026:n koko käyttöliittymän suunnittelukieli. Dark Spruce
+on sen tumma väritys. Paikalliseen `main`-haaraan yhdistetty käyttöliittymä
+pohjautuu v0.5.7:n toimintoihin ja aiempaan
+`beta/fluent2-dark-spruce`-haaraan. Tämä yhdistäminen ei itsessään julkaise
+uutta versiota tai muuta GitHubin haaroja.
 
-## Design system
+Tiedoston nimi on säilytetty aiemmasta betasta, jotta olemassa olevat
+viittaukset toimivat.
 
-Slint 1.16 already renders its standard `Button`, `LineEdit`,
-`ComboBox`, and `ScrollView` with the **Fluent style** selected explicitly
-in `build.rs`. Keep these native Fluent widgets rather than duplicating
-controls just for appearance.
+## Yhteiset säännöt
 
-`ui/theme.slint` is the only source for UI color and spacing tokens.
-Dark Spruce is close to charcoal with a very restrained forest tint:
+- Sama navigaatio, typografia, mittasuhteet, lomakkeet, taulukot,
+  valintaikkunat ja toimintojen tilat kaikissa näkymissä.
+- Lähes mustat, hieman vihertävät pinnat ja hillitty metsänvihreä korostus.
+- Vihreä osoittaa ensisijaisesti valinnan, tärkeän toiminnon tai onnistumisen.
+- Ohuet neutraalit rajat ja selkeä, tiivis asettelu.
+- Sovelluksen komponenteissa ei animaatioita, siirtymiä,
+  sumennusta, varjoja, liukuvärejä, hohtoa tai läpikuultavia peitepintoja.
+- Kaikki käyttäjälle näkyvät tekstit ovat suomeksi. Vanhan AS2015A:n
+  toimintojen yhteydessä käytetään sen alkuperäistä sanastoa.
+- Toteutus säilyy Rustin ja Slintin varassa ilman verkkokäyttöliittymää.
 
-| Token | Hex | Usage |
+## Komponentit ja värit
+
+Slint 1.16:n Fluent-tyyli valitaan tiedostossa `build.rs`. Valmiiden
+`Button`-, `LineEdit`-, `ComboBox`- ja `ScrollView`-komponenttien toteutukset
+säilytetään paikallisessa, efektittömässä sovituksessa `ui/fluent`.
+Ensisijaiselle vihreälle toimintopainikkeelle on oma pieni komponentti.
+
+`ui/theme.slint` sisältää käyttöliittymän yhteiset värit ja välit:
+
+| Tunniste | Väri | Käyttö |
 |---|---|---|
-| canvas | `#0D1210` | page |
-| surface | `#151C19` | ordinary panels |
-| surface-raised | `#1C2722` | quiet raised elements |
-| line | `#2C3931` | one-pixel separators |
-| accent-fill | `#356F54` | primary actions and selection rail |
-| accent-soft | `#233B2D` | selected rows and navigation |
-| ink | `#E8EEE9` | main text |
-| muted | `#A3B0A7` | secondary labels |
+| canvas | `#0D1210` | näkymän tausta |
+| surface | `#151C19` | tavallinen paneeli |
+| surface-raised | `#1C2722` | erotettu pinta |
+| line | `#2C3931` | ohuet rajat |
+| accent-fill | `#356F54` | tärkeä toiminto ja navigaation valintamerkki |
+| accent-soft | `#233B2D` | valittu taulukkorivi tai navigaatiorivi |
+| ink | `#E8EEE9` | tavallinen teksti |
+| muted | `#A3B0A7` | täydentävä teksti |
 
-Spacing follows Fluent 2's four-pixel ramp. Default controls are 36 px high,
-list rows 38 px, and corners are 5–6 px. Dark Spruce green is reserved
-for action, selection, and success states; not every border or title.
+Välit perustuvat neljän kuvapisteen asteikkoon. Painikkeiden peruskorkeus
+on 36, taulukkorivien 38 ja navigaatiorivien 40 loogista kuvapistettä.
+Kulmien pyöristys on 5–6 kuvapistettä. Navigaation vihreä valintamerkki
+keskitetään rivin toteutuneen korkeuden perusteella, ja sen ylä- ja
+alapuolelle jää sama tila myös näyttöskaalauksen muuttuessa.
 
-Google Sans is the requested preferred font. The application asks the OS for
-`Google Sans` through `Window.default-font-family`; it **does not ship or
-download any font files**, and Slint/system font substitution applies when
-Google Sans is unavailable.
+Ensisijainen kirjasin on käyttäjän valitsema Google Sans. Sovellus pyytää
+sitä käyttöjärjestelmältä, mutta ei sisällä eikä lataa kirjasintiedostoja.
+Slint käyttää järjestelmän korvaavaa kirjasinta, jos Google Sans puuttuu.
 
-## Behavior and performance
+## Säilytettävä toiminta
 
-- No app-authored animation, transition, blur, acrylic, drop shadow,
-  gradient, glass effect, or semi-transparent modal overlay.
-- Hover and selection are immediate flat color changes.
-- Reader controls, form validation, accessible action semantics, and existing
-  keyboard behavior for **forms and buttons** stay functional.
-- **Tables remain mouse-selected**: no table-level keyboard `FocusScope`,
-  navigation handler, or large focus outline.
-- `Radan tiedot` remains visible while a station is selected; the route
-  heading and station list do not jump between selections.
-- Station time stays in separate hours/minutes/seconds fields, persisted
-  in the existing seconds format.
-- Native Slint Fluent widgets may have toolkit-internal behavior; this beta
-  introduces no custom animation code.
+- Lomakkeiden, painikkeiden ja valintaikkunoiden näppäimistökäyttö säilyy.
+- Taulukon rivit valitaan hiirellä. Taulukkoon ei lisätä omaa
+  näppäimistökohdistusta tai suurta kohdistuskehystä. Kapeassa ikkunassa
+  otsikot ja rivit vierivät vaakasuunnassa yhdessä; pystyvierityspalkki
+  säilyy näkyvän taulukkoalueen reunassa.
+- Radan tiedot pysyvät näkyvissä asemaa vaihdettaessa.
+- Aseman tavoiteaika syötetään erillisiin tunti-, minuutti- ja
+  sekuntikenttiin. Tallennusmuoto säilyy sekunteina.
+- Editorin leveys määräytyy asettelun rajoitteista. Se ei riipu sellaisesta
+  ikkunan leveydestä, jonka kokolaskenta puolestaan riippuu editorista.
+- Laskenta, tiedostot, Emit-luku, kilpailutiedot ja tuonti/vienti eivät
+  muutu pelkän ulkoasun yhdistämisen vuoksi.
 
-## Source and verification
+## Tarkistaminen
 
-The uploaded archive used for the audit was an older v0.5.6 working-tree
-snapshot; implementation is based on the current GitHub v0.5.7 branch, so the
-recent route and station fixes are **not reverted**.
-
-CI builds Linux and Windows, exercises GUI compilation and Rust tests.
-To preview the beta locally:
+Rust-testit tarkistavat muun muassa päätekstien ja valintojen luettavan
+kontrastin sekä taulukoiden hiirivalinnan ja editorien asettelurajauksen.
+GUI käännetään erikseen ja tarkistetaan todellisilla kuvakaappauksilla
+myös kapeassa ikkunassa ja eri näyttöskaalauksilla. Linuxin tulos ei
+itsessään todista Windowsin ulkoasua tai toimintaa.
 
 ```sh
-git fetch origin beta/fluent2-dark-spruce
-git switch --track origin/beta/fluent2-dark-spruce
 cargo run --features gui --bin as2026-gui
 ```
 
-This is not a signed/public v0.5.8 release. Review the GUI on real desktops,
-especially narrow Wayland tiles, before discussing a merge to `main`.
+Slintin alkuperäisten Fluent-vakiokomponenttien lyhyet animaatiot,
+reunojen liukuvärit ja ponnahdusikkunoiden varjot on poistettu paikallisesta
+sovituksesta. Testi tarkistaa myös nämä lähdetiedostot ja niiden paikalliset
+riippuvuudet. Tausta-, teksti- ja valintavärit tulevat samasta Dark Spruce
+-paletista. Käyttöjärjestelmän omat ikkunakehykset ja tiedostonvalitsimet
+noudattavat käyttöjärjestelmän asetuksia.
+
+Paikallisen Slint-kopion lisenssit, tehdyt muutokset ja versionpäivityksen
+ylläpitotarve kuvataan tiedostossa `ui/fluent/README.md`. Tekstikentän oman
+valikon vuoksi käännöksessä tarvitaan Slint 1.16:n sisäinen tyyppi;
+rakennusskripti sallii sen vain omassa prosessissaan. Käyttäjän ei tarvitse
+asettaa ympäristömuuttujia tai asentaa teemaa erikseen.

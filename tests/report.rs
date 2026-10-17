@@ -59,7 +59,7 @@ fn ranked(archive: &Archive) -> ranking::RankingReport {
             number: 7,
             class_code: IMPORTED.into(),
             route_code: IMPORTED.into(),
-            status: Status::Classified,
+            status: Status::from_legacy(&archive.competitors[0].status),
             total_penalty: archive.competitors[0].total_penalties,
             start_hour: 10,
             driver_licence: "123".into(),
@@ -327,4 +327,53 @@ fn provisional_ranking_csv_leaves_np_and_sp_cells_blank() {
     let csv = ranking_csv(&source, &report);
     let class_row = csv.lines().nth(1).unwrap();
     assert!(class_row.ends_with("\"\";\"\""));
+}
+
+#[test]
+fn status_reasons_are_appended_to_html_csv_and_xlsx_without_changing_previous_columns() {
+    use std::io::{Cursor, Read};
+    let reason = "=Päätös \"<script>\" & 'Ää'; perustelu";
+    for status in ["HYL", "PER", "KESK"] {
+        let mut source = archive();
+        source.competitors[0].status = status.into();
+        source.competitors[0].header_fields = vec![String::new(); 31];
+        source.competitors[0].header_fields[28] = status.into();
+        source.competitors[0].header_fields[29] = reason.into();
+        let original = source.competitors[0].header_fields.clone();
+        let report = ranked(&source);
+        let html = ranking_html(&source, &report);
+        assert!(html.contains("<th scope=\"col\">Syy</th>"));
+        assert_eq!(
+            html.matches("=Päätös &quot;&lt;script&gt;&quot; &amp; &#39;Ää&#39;; perustelu")
+                .count(),
+            2
+        );
+        assert!(!html.contains("<script>"));
+        assert!(html.contains(&format!("<td>{status}</td>")));
+
+        let csv = ranking_csv(&source, &report);
+        let header = csv.lines().next().unwrap();
+        assert!(header.ends_with("\"Np\";\"Sp\";\"Syy\""));
+        for row in csv.lines().skip(1) {
+            assert!(row.contains(&format!(";\"{status}\";\"23\";")));
+            assert!(row.ends_with("\"'=Päätös \"\"<script>\"\" & 'Ää'; perustelu\""));
+        }
+
+        let bytes = as2026::report::ranking_xlsx(&source, &report).unwrap();
+        let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+        let mut sheet = String::new();
+        zip.by_name("xl/worksheets/sheet1.xml")
+            .unwrap()
+            .read_to_string(&mut sheet)
+            .unwrap();
+        assert!(
+            sheet.contains("<c r=\"L1\" t=\"inlineStr\"><is><t xml:space=\"preserve\">Syy</t>")
+        );
+        assert!(sheet.contains("<c r=\"L2\" t=\"inlineStr\">"));
+        assert!(
+            sheet.contains("Päätös &quot;&lt;script&gt;&quot; &amp; &apos;Ää&apos;; perustelu")
+        );
+        assert!(!sheet.contains("<f>"));
+        assert_eq!(source.competitors[0].header_fields, original);
+    }
 }

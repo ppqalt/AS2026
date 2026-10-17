@@ -5,6 +5,7 @@
 
 pub mod application;
 pub mod changes;
+pub mod corrections;
 pub mod emit;
 #[cfg(feature = "desktop")]
 pub mod installation;
@@ -15,6 +16,7 @@ pub mod matching;
 pub mod preferences;
 pub mod reader;
 pub mod scoring;
+pub mod starts;
 #[cfg(feature = "desktop")]
 pub mod updates;
 pub mod workspace;

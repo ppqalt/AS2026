@@ -1,39 +1,52 @@
-# AS2026 0.5.7
+# AS2026 0.6.0
 
-Tämä julkaisu selkeyttää **Radat ja asemat** -näkymän valintaa ja
-muokkausta. Kilpailujen tietomalli ja tuloslaskennan aikayksikkö eivät muutu.
+AS2026 0.6.0 tuo **Fluent 2 / Dark Spruce** -käyttöliittymän koko ohjelmaan
+ja lisää kilpailutoimistolle olennaisia tarkastus- ja lähtöjärjestelytoimintoja.
+Sovellus toimii edelleen natiivisti Rustilla ja Slintillä Linuxissa ja Windowsissa.
+Kaikki käyttäjälle näkyvät tekstit säilyvät suomenkielisinä.
 
-## Käyttöliittymä
+## Fluent 2 ja käyttöliittymä
 
-- Radan tiedot pysyvät näkyvissä, vaikka radalta valitaan muokattava asema.
-  Asemalistan otsikko `Rata N · nimi` ei enää hyppää ylös ja alas
-  muokkauspaneelin kadotessa.
-- Radan numeroa ja nimeä voi muokata samalla kun asema on valittuna.
-  Radan numeron vaihtuminen päivittää myös avoimen asemamuokkauksen viitteen.
-- Tavoiteaikaa muokataan erillisillä tunneilla, minuuteilla ja sekunneilla
-  (h : min : s). Kilpailu tallentaa edelleen täsmälleen samat sekuntimäärät
-  `tavoiteaika_sekuntia`-kenttään; muut aikakentät säilyvät ennallaan.
-  Virheellisiä minuutti- ja sekuntiarvoja ei hyväksytä.
-- Aseman kuusi kenttää näkyvät kahdessa sarakkeessa riittävän leveässä
-  ikkunassa ja yhdessä sarakkeessa kapeissa ikkunalaatoissa.
-- Ratataulukon koko seuraa tietueiden määrää. Asemalista ja muokkauspaneeli
-  ovat erillisiä, jotta käyttöliittymä ei lisää keinotekoisia tyhjiä välejä.
-- Emit-lukemisen sarjaporttikentän ylimääräinen "Sarjaportti"-otsikko
-  poistettiin; automaattisen porttivalinnan tai käsin annetun COM-portin
-  toimintaa ei muutettu.
-- Taulukoista poistettiin suuri näppäimistökohdistuksen kehys, sen
-  nuolinäppäinnavigaatio ja fokuksen siirtäminen riviklikkauksella.
-  Hiirellä valittu rivi näkyy edelleen omalla taustavärillään.
-  Tekstikentät toimivat näppäimistöllä normaalisti.
+- Lähes musta, hillityn metsänvihreä Dark Spruce -teema on kaikkien seitsemän
+  näkymän yhteinen suunnittelukieli. Valinnat ja ensisijaiset toiminnot
+  korostuvat vihreällä, eivät koristeellisilla tehosteilla.
+- Slint 1.16:n Fluent-vakiokomponenteista on mukana paikallinen sovitus,
+  josta on poistettu animaatiot, läpikuultavuus, varjot ja liukuvärit.
+  Mukana ovat sovituksen alkuperäiset lisenssit ja tekijämaininnat.
+- Sivupalkin valintamerkki on keskitetty ja taulukoiden otsikot ja rivit
+  vierivät yhdessä kapeissa ikkunoissa. Lomakkeet, editorit ja painikkeet
+  käyttävät yhteisiä mittoja ja värejä. Valintarivin suuri näppäimistökehys
+  ei palaudu; lomakkeiden näppäimistökäyttö säilyy.
+- Radan tiedot pysyvät näkyvissä asemaa valittaessa. Asemien tavoiteaika
+  syötetään tunneissa, minuuteissa ja sekunneissa, mutta tallennetaan
+  edelleen sekunteina.
+- Ikkunoiden asettelussa vältetään Slintin sisäkkäisistä leveyksistä
+  syntyvät riippuvuussilmukat. Käyttöjärjestelmän omat ikkunakoristeet ja
+  tiedostonvalitsimet noudattavat järjestelmän valintoja.
 
-## Yhteensopivuus
+## Kilpailun hallinta
 
-AS2026 0.5.6:n Rust-laskenta, Emit-luku ja CSV/XLSX/HTML-viennit
-säilyvät. Tämä julkaisu ei muuta AS2015A:n palautettujen laskentasääntöjen
-todistusastetta: historiallista täyttä parity-varmennusta ei ole tehty,
-ja vanhojen tallennettujen asematulosten täydellinen uudelleenpisteytys
-on edelleen keskeneräinen. Vanhat kilpailutiedostot avataan edelleen
-vain luettaviksi.
+- **Tarkista…** palauttaa asemarivit aktiivisen kortinlukulokin perusteella
+  vahvistuksen jälkeen. **Tutki** laskee tallennetuista asemariveistä ja
+  käsikelloista; erillisiä kellon ja pisteiden käsikorjauksia voidaan tehdä.
+- Kilpailijoille voi asettaa alkuperäisiä kilpailutiloja (TRK, KESK, PER,
+  HYL, SULJ, ILM, EILÄ), perustelut sekä kuljettajan ja kartanlukijan
+  lisenssitiedot. Tilat ja niiden syyt näkyvät tulosviennissä.
+- **Arvo lähtöajat…** näyttää ennen tallennusta esikatselun, joka voidaan
+  hyväksyä tai perua. HTML- ja CSV-lähtöluettelot tukevat käytännön
+  kilpailujärjestelyjä.
+- Vanhojen kilpailu.toml-tiedostojen valinnaiset lisäkentät säilyvät
+  yhteensopivina. Tallennus säilyttää aiemman version varmuuskopion.
 
-Linux- ja Windows-jakelupaketit rakennetaan, tarkistetaan ja
-allekirjoitetaan aiemmalla Ed25519-päivitysten luottamusketjulla.
+## Varmennuksen rajat
+
+Pistelaskennan ja kilpailutoimintojen testit perustuvat pääosin synteettisiin
+vertailuihin sekä aiemmasta AS2015A:sta palautettuihin sääntöihin.
+Täyttä tulosvertailua oikeaan historialliseen kilpailuun ei ole vielä tehty.
+Emit-ajanottotapojen 1 ja 2 leimaamattoman maalin Tutki-laskenta ei ole
+käytettävissä ilman vahvistettua alkuperäisen ohjelman laskentasääntöä.
+Fyysisen lukijan ja valmiin Windows-paketin toiminta on lisäksi hyvä tarkistaa
+todellisella kilpailulaitteistolla.
+
+Linux- ja Windows-julkaisut tarkistetaan GitHub Actionsissa. Hyväksytyt
+paketit allekirjoitetaan aiemmalla Ed25519-päivitysten luottamusketjulla.

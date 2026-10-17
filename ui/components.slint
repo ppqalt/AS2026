@@ -14,7 +14,6 @@ export component Note inherits Text {
     wrap: word-wrap;
 }
 
-// Fluent 2: stable sidebar selection with a slim forest-green rail.
 // Compact Fluent 2 accent action. Built-in neutral Fluent controls remain
 // untouched; this single accent variant avoids platform-blue primary buttons.
 // Immediate states only: no animation, opacity, shadow, acrylic or gradient.
@@ -68,21 +67,23 @@ export component NavItem inherits Rectangle {
     in property <bool> active;
     callback chosen();
     height: 40px;
+    vertical-stretch: 0;
     border-radius: Theme.radius;
     background: root.active ? Theme.accent-soft : touch.has-hover ? Theme.sidebar-hover : transparent;
     forward-focus: focus;
-    Rectangle {
+    // Keskitys sidotaan rivin todelliseen korkeuteen, myös skaalattaessa.
+    selection-rail := Rectangle {
         width: 3px;
-        height: parent.height - 12px;
-        y: 6px;
+        height: max(0px, root.height - Theme.space-3);
+        y: (root.height - self.height) / 2;
         x: 0px;
-        border-radius: 1px;
+        border-radius: self.width / 2;
         background: root.active ? Theme.accent-fill : transparent;
     }
     Text {
         x: 14px;
-        width: parent.width - 22px;
-        height: parent.height;
+        width: root.width - 22px;
+        height: root.height;
         text: root.label;
         color: root.active ? Theme.accent-text : Theme.muted;
         font-size: 13px;
@@ -223,6 +224,8 @@ export component DataTable inherits Rectangle {
     in property <string> empty-text: "Ei tietoja.";
     callback selected(int);
     in property <length> table-min-height: 160px;
+    // Sisällön leveys ei kasvata ikkunan vähimmäisleveyttä.
+    in property <length> content-min-width: max(520px, root.headers.length * 85px);
     min-width: 260px;
     min-height: root.table-min-height;
     horizontal-stretch: 1;
@@ -232,48 +235,67 @@ export component DataTable inherits Rectangle {
     border-width: 1px;
     border-radius: Theme.radius;
     clip: true;
-    VerticalLayout {
-        padding: 1px; spacing: 0px;
-        Rectangle {
-            height: 36px; background: Theme.table-header;
-            HorizontalLayout {
-                padding-left: 14px; padding-right: 14px; spacing: 10px;
-                for title[i] in root.headers: Text {
-                    text: title; horizontal-stretch: root.weights[i];
-                    min-width: 0px; preferred-width: 0px;
-                    font-size: 11px; font-weight: 700; color: Theme.muted;
-                    vertical-alignment: center; overflow: elide;
-                }
-            }
-        }
-        body := Rectangle {
-            vertical-stretch: 1;
-            list := ListView {
-            for row[index] in root.rows: Rectangle {
-                property <bool> active: row.key == root.selected-key;
-                height: Theme.row-height;
-                background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
+    horizontal := ScrollView {
+        x: 1px; y: 1px;
+        width: root.width - 2px; height: root.height - 2px;
+        horizontal-scrollbar-policy: as-needed;
+        vertical-scrollbar-policy: always-off;
+        viewport-width: max(self.visible-width, root.content-min-width);
+        viewport-height: self.visible-height;
+        VerticalLayout {
+            x: 0px; y: 0px;
+            width: horizontal.viewport-width;
+            height: max(0px, horizontal.visible-height - (horizontal.viewport-width > horizontal.visible-width ? 14px : 0px));
+            spacing: 0px;
+            Rectangle {
+                height: 36px; background: Theme.table-header;
                 HorizontalLayout {
                     padding-left: 14px; padding-right: 14px; spacing: 10px;
-                    for value[i] in row.cells: Text {
-                        text: value; horizontal-stretch: root.weights[i];
+                    for title[i] in root.headers: Text {
+                        text: title; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
-                        color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
-                        font-weight: i == 0 ? 600 : 400;
-                        font-size: 13px; vertical-alignment: center; overflow: elide;
+                        font-size: 11px; font-weight: 700; color: Theme.muted;
+                        vertical-alignment: center; overflow: elide;
                     }
                 }
-                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
-                touch := TouchArea { clicked => { root.selected(row.key); } }
-                accessible-role: list-item;
-                accessible-label: row.cells[0] + " " + row.cells[1];
-                accessible-action-default => { root.selected(row.key); }
             }
-            }
-            if root.rows.length == 0: Text {
-                text: root.empty-text; color: Theme.muted; font-size: 14px;
-                x: 20px; y: 0px; width: parent.width - 40px; height: parent.height;
-                horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
+            body := Rectangle {
+                vertical-stretch: 1;
+                list := ListView {
+                    // Pystyvieritys pysyy ikkunan reunassa myös vaakavierityksen aikana.
+                    x: -horizontal.viewport-x;
+                    width: horizontal.visible-width;
+                    viewport-width: horizontal.viewport-width;
+                    viewport-x <=> horizontal.viewport-x;
+                    horizontal-scrollbar-policy: always-off;
+                    for row[index] in root.rows: Rectangle {
+                        property <bool> active: row.key == root.selected-key;
+                        width: horizontal.viewport-width;
+                        height: Theme.row-height;
+                        background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
+                        HorizontalLayout {
+                            padding-left: 14px; padding-right: 14px; spacing: 10px;
+                            for value[i] in row.cells: Text {
+                                text: value; horizontal-stretch: root.weights[i];
+                                min-width: 0px; preferred-width: 0px;
+                                color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
+                                font-weight: i == 0 ? 600 : 400;
+                                font-size: 13px; vertical-alignment: center; overflow: elide;
+                            }
+                        }
+                        Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+                        touch := TouchArea { clicked => { root.selected(row.key); } }
+                        accessible-role: list-item;
+                        accessible-label: row.cells[0] + " " + row.cells[1];
+                        accessible-action-default => { root.selected(row.key); }
+                    }
+                }
+                if root.rows.length == 0: Text {
+                    text: root.empty-text; color: Theme.muted; font-size: 14px;
+                    x: 20px - horizontal.viewport-x; y: 0px;
+                    width: horizontal.visible-width - 40px; height: parent.height;
+                    horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
+                }
             }
         }
     }

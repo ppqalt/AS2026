@@ -508,89 +508,281 @@ pub fn rank_stored(
     ranking::rank(&input)
 }
 
-/// Rakentaa uuden kilpailun tulosnäkymän nykyisistä lähtötiedoista.
-/// Johdettuja pisteitä ei tallenneta toiseksi totuudeksi TOML-tiedostoon.
-/// Tämä kehitysversion asemalaskenta ei vahvista AS2015A-vastaavuutta.
-pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, CoreError> {
+/// Muodostaa Tarkista-toiminnon uuden asematuloksen korttiluvusta.
+/// Vanhoja käsikelloja tai asemarivien pistekorjauksia ei käytetä lähtötietona.
+/// Kutsuja tallentaa palautetun tuloksen vasta toiminnon onnistuttua.
+pub fn capture_project_result(
+    project: &crate::native::Project,
+    number: u32,
+) -> Result<crate::corrections::StoredResult, CoreError> {
     let mut archive = project.to_archive()?;
-    let calculations = calculate(&archive)?;
-    for (competitor, preview) in archive.competitors.iter_mut().zip(calculations.competitors) {
-        match preview.calculation {
-            Ok(result) => {
-                for diagnostic in &result.diagnostics {
-                    archive.warnings.push(format!(
-                        "Kilpailija {}: {}",
-                        competitor.number, diagnostic.message
-                    ));
-                }
-                // Asemarivien summat ovat vain kaksi viidestä kokonaispisteosasta.
-                // Erilliset RT-pistesummat säilyvät tallennettuina, vaikka
-                // kilpailun parametrien arvoja muutettaisiin myöhemmin.
-                let missing_rt = header_number(competitor, 22, "Puuttuvien RT pisteet")?;
-                let extra_rt = header_number(competitor, 24, "Ylimääräisten RT pisteet")?;
-                let other = header_number(competitor, 25, "Muut virhepisteet")?;
-                let total = crate::scoring::competitor_total([
-                    result.totals.time_points,
-                    result.totals.other_points,
-                    missing_rt,
-                    other,
-                    extra_rt,
-                ])?;
-                competitor.header_fields[19] = result.totals.time_points.to_string();
-                competitor.header_fields[20] = result.totals.other_points.to_string();
-                competitor.header_fields[26] = total.to_string();
-                let elapsed = hms(result.total_duration_seconds);
-                let finish = hms(result.finish_clock_seconds);
-                for (index, value) in elapsed.into_iter().enumerate() {
-                    competitor.header_fields[13 + index] = value.to_string();
-                }
-                for (index, value) in finish.into_iter().enumerate() {
-                    competitor.header_fields[16 + index] = value.to_string();
-                }
-                competitor.total_penalties = total;
-                competitor.status = result.status.as_legacy().into();
-                competitor.header_fields[28] = competitor.status.clone();
-                competitor.header_fields[29] = result.reason.clone();
-                competitor.results = result
-                    .rows
-                    .into_iter()
-                    .map(|row| {
-                        let station = row.source.station.as_ref();
-                        crate::legacy::StationResult {
-                            output_index: row.source.output_index as u32,
-                            sequence: station.map_or(0, |s| s.sequence),
-                            station_type: station
-                                .map_or(StationKind::At, |s| s.kind)
-                                .as_legacy()
-                                .into(),
-                            name: station
-                                .map_or("Ylimääräinen asema", |s| s.label.as_str())
-                                .into(),
-                            elapsed_seconds: row.derived_elapsed_seconds,
-                            expected_code: station.map_or(0, |s| s.expected_code),
-                            received_code: row.received_code,
-                            target_seconds: row.target_seconds,
-                            actual_seconds: row.actual_seconds,
-                            clock: row.clock_seconds.map_or([0; 3], hms),
-                            rule: row.effective_rule as i64,
-                            section_text: station
-                                .map_or("", |s| s.section_time_text.as_str())
-                                .into(),
-                            signed_time_penalty: row.signed_time_points,
-                            other_penalty: row.other_points,
-                            total_penalty: row.total_points,
-                            note: row.note,
-                        }
-                    })
-                    .collect();
-                competitor.declared_row_count = u32::try_from(competitor.results.len())
-                    .map_err(|_| CoreError::ArithmeticOverflow("asematulosten määrä"))?;
-                competitor.header_fields[27] = competitor.declared_row_count.to_string();
+    let competitor = archive
+        .competitors
+        .iter_mut()
+        .find(|c| c.number == number)
+        .ok_or_else(|| invalid(format!("Kilpailijaa {number} ei löydy")))?;
+    competitor.status = "ILM".into();
+    competitor.header_fields[28] = "ILM".into();
+    let report = calculate(&archive)?;
+    let preview = report
+        .competitors
+        .into_iter()
+        .find(|c| c.number == number)
+        .ok_or_else(|| invalid("Kilpailijan laskentatulos puuttuu"))?;
+    let calculated = preview.calculation?;
+    let competitor = archive
+        .competitors
+        .iter()
+        .find(|c| c.number == number)
+        .expect("kilpailija löytyi");
+    snapshot_for_calculation(&archive, competitor, calculated)
+}
+
+fn calculation_rows(result: &LiveCalculation) -> Vec<crate::legacy::StationResult> {
+    result
+        .rows
+        .iter()
+        .map(|row| {
+            let station = row.source.station.as_ref();
+            crate::legacy::StationResult {
+                output_index: row.source.output_index as u32,
+                sequence: station.map_or(0, |s| s.sequence),
+                station_type: station
+                    .map_or(StationKind::At, |s| s.kind)
+                    .as_legacy()
+                    .into(),
+                name: station
+                    .map_or("Ylimääräinen asema", |s| s.label.as_str())
+                    .into(),
+                elapsed_seconds: row.derived_elapsed_seconds,
+                expected_code: station.map_or(999, |s| s.expected_code),
+                received_code: row.received_code,
+                target_seconds: row.target_seconds,
+                actual_seconds: row.actual_seconds,
+                clock: row.clock_seconds.map_or([0; 3], hms),
+                rule: row.effective_rule as i64,
+                section_text: station.map_or("", |s| s.section_time_text.as_str()).into(),
+                signed_time_penalty: row.signed_time_points,
+                other_penalty: row.other_points,
+                total_penalty: row.total_points,
+                note: row.note.clone(),
             }
-            Err(error) => archive.warnings.push(format!(
-                "Kilpailijan {} tulos puuttuu: {error}",
-                competitor.number
-            )),
+        })
+        .collect()
+}
+fn snapshot_for_calculation(
+    archive: &Archive,
+    competitor: &Competitor,
+    result: LiveCalculation,
+) -> Result<crate::corrections::StoredResult, CoreError> {
+    let route = route_for(archive, competitor)?
+        .to_core()
+        .map_err(|e| invalid(e.to_string()))?;
+    Ok(crate::corrections::StoredResult {
+        rata: route
+            .iter()
+            .map(crate::corrections::StoredRouteStation::from)
+            .collect(),
+        rivit: calculation_rows(&result)
+            .iter()
+            .map(crate::corrections::StoredRow::from)
+            .collect(),
+        aikavirheet: result.totals.time_points,
+        asemien_muut_virheet: result.totals.other_points,
+        tila: result.status.as_legacy().into(),
+        syy: result.reason,
+        maalikello_sekuntia: result.finish_clock_seconds,
+        kesto_sekuntia: result.total_duration_seconds,
+        korjaus_sekuntia: competitor.correction_seconds,
+        kasikellot_muuttuneet: false,
+        huomautukset: result.diagnostics.into_iter().map(|d| d.message).collect(),
+    })
+}
+
+/// Tutki käyttää tallennettuja asemarivejä ja käsikelloja. Se ei lue eikä muuta
+/// raakaleimauksia. Määrittelemättömän vanhan laskentapolun kohdalla palautetaan virhe.
+pub fn recalculate_stored_result(
+    project: &crate::native::Project,
+    number: u32,
+    stored: &crate::corrections::StoredResult,
+) -> Result<crate::corrections::StoredResult, CoreError> {
+    let archive = project.to_archive()?;
+    let c = archive
+        .competitors
+        .iter()
+        .find(|c| c.number == number)
+        .ok_or_else(|| invalid(format!("Kilpailijaa {number} ei löydy")))?;
+    let route = route_for(&archive, c)?
+        .to_core()
+        .map_err(|e| invalid(e.to_string()))?;
+    stored.validate_route(&route)?;
+    let rows = stored.as_station_results();
+    let last = rows
+        .last()
+        .ok_or_else(|| invalid("Tallennettu asematulos puuttuu"))?;
+    let timing_method = TimingMethod::from_legacy(integer(
+        archive
+            .basic
+            .identity
+            .get(7)
+            .ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
+        "Ajanottotapa",
+    )?)?;
+    let prepared = timing::prepare_stored_timing(&timing::StoredTimingInput {
+        official_start: start(c)?,
+        stored_finish_clock_seconds: stored.maalikello_sekuntia,
+        last_row_elapsed_seconds: last.elapsed_seconds,
+        finish_expected_code: last.expected_code,
+        reset_correction_seconds: c.correction_seconds,
+        timing_method,
+    })?;
+    let options = LiveCalculationOptions {
+        official_start: start(c)?,
+        reset_correction_seconds: prepared.effective_reset_correction_seconds,
+        timing_method,
+        last_punch_elapsed_seconds: 0,
+        cumulative_limit_minutes: optional_nonnegative(
+            class_for(&archive, &c.class_code)?.fields.get(7),
+            "Luokan kokonaismyöhästymisraja",
+        )?,
+        parameters: archive
+            .scoring_parameters()
+            .map_err(|e| invalid(e.to_string()))?,
+        policy: CalculationPolicy::RecoveredAs2015aStaticV2,
+    };
+    let calculated = timing::calculate_stored(&rows, &route, &prepared, &options)?;
+    let mut result = snapshot_for_calculation(&archive, c, calculated)?;
+    result.korjaus_sekuntia = prepared.effective_reset_correction_seconds;
+    // AS2015A säilyttää käsin annetun vanhan KESK-syyn myös TRK-tulokselle.
+    if stored.tila == "KESK" && !stored.syy.is_empty() && !stored.syy.starts_with(['*', ' ']) {
+        result.syy = stored.syy.clone();
+    }
+    Ok(result)
+}
+
+fn apply_result(
+    c: &mut Competitor,
+    result: &crate::corrections::StoredResult,
+) -> Result<(), CoreError> {
+    let total = crate::scoring::competitor_total([
+        result.aikavirheet,
+        result.asemien_muut_virheet,
+        header_number(c, 22, "Puuttuvien RT pisteet")?,
+        header_number(c, 25, "Muut virhepisteet")?,
+        header_number(c, 24, "Ylimääräisten RT pisteet")?,
+    ])?;
+    c.header_fields[19] = result.aikavirheet.to_string();
+    c.header_fields[20] = result.asemien_muut_virheet.to_string();
+    c.header_fields[26] = total.to_string();
+    c.total_penalties = total;
+    for (index, value) in hms(result.kesto_sekuntia).into_iter().enumerate() {
+        c.header_fields[13 + index] = value.to_string();
+    }
+    for (index, value) in hms(result.maalikello_sekuntia).into_iter().enumerate() {
+        c.header_fields[16 + index] = value.to_string();
+    }
+    c.status = result.tila.clone();
+    c.header_fields[28] = c.status.clone();
+    c.header_fields[29] = result.syy.clone();
+    c.results = result.as_station_results();
+    c.declared_row_count = u32::try_from(c.results.len())
+        .map_err(|_| CoreError::ArithmeticOverflow("asematulosten määrä"))?;
+    c.header_fields[27] = c.declared_row_count.to_string();
+    Ok(())
+}
+
+/// Rakentaa tulosnäkymän. Käsin hyväksytty asematulos säilyy, vaikka kortin
+/// lukuhistoriaan lisätään uusi luku. Tarkista korvaa sen vain käyttäjän pyynnöstä.
+/// Viisi pisteosaa yhdistetään aina; käsin valittu tila asetetaan laskennan jälkeen.
+pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, CoreError> {
+    let mut automatic = project.clone();
+    for driver in &mut automatic.kilpailijat {
+        driver.tila = None;
+    }
+    let mut archive = automatic.to_archive()?;
+    let calculations = calculate(&archive)?;
+    let mut resolved = Vec::new();
+    for preview in calculations.competitors {
+        let competitor = archive
+            .competitors
+            .iter()
+            .find(|c| c.number == preview.number)
+            .expect("laskennan kilpailija");
+        let driver = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == preview.number)
+            .expect("projektin kilpailija");
+        let (result, blocked) = if let Some(stored) = &driver.tallennettu_tulos {
+            let validation = route_for(&archive, competitor)
+                .and_then(|r| r.to_core().map_err(|e| invalid(e.to_string())))
+                .and_then(|route| stored.validate_route(&route));
+            let blocked = validation.is_err();
+            (validation.map(|()| stored.clone()), blocked)
+        } else {
+            (
+                preview
+                    .calculation
+                    .and_then(|r| snapshot_for_calculation(&archive, competitor, r)),
+                false,
+            )
+        };
+        resolved.push((preview.number, result, blocked));
+    }
+    for (number, result, blocked) in resolved {
+        let competitor = archive
+            .competitors
+            .iter_mut()
+            .find(|c| c.number == number)
+            .expect("laskennan kilpailija");
+        let has_result = result.is_ok();
+        let requested_status = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .and_then(|d| d.tila.as_ref());
+        match result {
+            Ok(result) => {
+                for message in &result.huomautukset {
+                    archive
+                        .warnings
+                        .push(format!("Kilpailija {number}: {message}"));
+                }
+                if result.kasikellot_muuttuneet {
+                    archive.warnings.push(format!("Kilpailija {number}: käsikelloa on muutettu. Pisteet säilyvät ennallaan, kunnes valitaan Tutki."));
+                }
+                apply_result(competitor, &result)?;
+            }
+            Err(error) => archive
+                .warnings
+                .push(format!("Kilpailijan {number} tulos puuttuu: {error}")),
+        }
+        let missing_classified_result = !has_result
+            && requested_status.is_some_and(|s| matches!(s.tunnus.as_str(), "TRK" | "KESK"));
+        if missing_classified_result {
+            archive.warnings.push(format!("Kilpailija {number}: käsin valittua tarkastustilaa ei käytetä ilman laskettua asematulosta. Valittu tila säilyy kilpailijan tiedoissa."));
+        }
+        if blocked || missing_classified_result {
+            competitor.status = "ILM".into();
+            competitor.header_fields[28] = "ILM".into();
+            competitor.header_fields[29] = if blocked {
+                "Tallennettu tulos ei vastaa rataa tai sen pisteitä. Valitse Tarkista."
+            } else {
+                "Laskettu asematulos puuttuu. Tarkista kilpailijan korttiluku."
+            }
+            .into();
+            competitor.results.clear();
+            competitor.declared_row_count = 0;
+            competitor.header_fields[27] = "0".into();
+        } else if let Some(status) = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .and_then(|d| d.tila.as_ref())
+        {
+            competitor.status = status.tunnus.clone();
+            competitor.header_fields[28] = status.tunnus.clone();
+            competitor.header_fields[29] = status.syy.clone();
         }
     }
     Ok(archive)

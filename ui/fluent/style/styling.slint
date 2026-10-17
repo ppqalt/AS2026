@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
+
+import { Theme } from "../../theme.slint";
+
+export struct TextStyle {
+    font-size: length,
+    font-weight: int,
+}
+
+export global FluentFontSettings {
+    out property <TextStyle> body: {
+        font-size: 14px,
+        font-weight: FontWeight.normal
+    };
+    out property <TextStyle> body-strong: {
+        font-size: 14px,
+        font-weight: FontWeight.semi-bold
+    };
+    out property <TextStyle> title: {
+        font-size: 28px,
+        font-weight: FontWeight.semi-bold
+    };
+}
+
+export global FluentPalette {
+    in-out property <ColorScheme> color-scheme: ColorScheme.dark;
+    out property <brush> background: Theme.surface;
+    out property <brush> foreground: Theme.ink;
+    out property <brush> alternate-background: Theme.surface-raised;
+    out property <brush> alternate-foreground: Theme.ink;
+    out property <brush> control-background: Theme.surface-raised;
+    out property <brush> control-foreground: Theme.ink;
+    out property <brush> accent-background: Theme.accent-fill;
+    out property <brush> accent-foreground: Theme.ink;
+    out property <brush> selection-background: Theme.accent-soft;
+    out property <brush> selection-foreground: Theme.accent-text;
+    out property <brush> border: Theme.line;
+    out property <brush> secondary-accent-background: Theme.accent-hover;
+    out property <brush> tertiary-accent-background: Theme.accent-fill;
+    out property <brush> accent-disabled: Theme.surface-raised;
+    out property <brush> accent-control-border: Theme.line;
+    out property <brush> control-border: Theme.line;
+    out property <brush> text-accent-foreground-secondary: Theme.ink;
+    out property <brush> text-accent-foreground-disabled: Theme.subtle-text;
+    out property <brush> text-secondary: Theme.muted;
+    out property <brush> text-tertiary: Theme.subtle-text;
+    out property <brush> text-disabled: Theme.subtle-text;
+    out property <brush> text-control-border: Theme.line;
+    out property <brush> control-secondary: Theme.surface-hover;
+    out property <brush> control-tertiary: Theme.surface;
+    out property <brush> control-disabled: Theme.surface;
+    out property <brush> control-alt-secondary: Theme.surface-hover;
+    out property <brush> control-alt-tertiary: Theme.surface;
+    out property <brush> control-alt-quartiary: Theme.surface-hover;
+    out property <brush> control-alt-disabled: Theme.surface;
+    out property <brush> control-strong-stroke: Theme.muted;
+    out property <brush> control-strong-stroke-disabled: Theme.line;
+    out property <brush> control-solid: Theme.surface-raised;
+    out property <brush> circle-border: Theme.line;
+    out property <brush> control-input-active: Theme.surface-raised;
+    out property <brush> focus-stroke-inner: Theme.surface;
+    out property <brush> focus-stroke-outer: Theme.accent;
+    out property <brush> control-background-stroke-flyout: Theme.line;
+    out property <brush> sub-title-secondary: Theme.surface-raised;
+    out property <brush> sub-title-tertiary: Theme.surface;
+    out property <brush> subtle: Theme.surface-hover;
+    out property <brush> subtle-secondary: Theme.surface-hover;
+    out property <brush> subtle-tertiary: Theme.surface;
+    out property <brush> divider: Theme.line;
+    out property <brush> layer-on-mica-base-alt: Theme.surface-raised;
+    out property <brush> layer-on-mica-base-alt-secondary: Theme.surface-hover;
+    out property <brush> card-stroke: Theme.line;
+    out property <brush> state: Theme.ink;
+    out property <brush> state-secondary: Theme.canvas;
+}
+
+export global Icons {
+    out property <image> arrow-down: @image-url("_arrow-down.svg");
+    out property <image> arrow-up: @image-url("_arrow-up.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> chevron-down: @image-url("_chevron-down.svg");
+    out property <image> chevron-up: @image-url("_chevron-up.svg");
+    out property <image> down: @image-url("_down.svg");
+    out property <image> dropdown: @image-url("_dropdown.svg");
+    out property <image> left: @image-url("_left.svg");
+    out property <image> right: @image-url("_right.svg");
+    out property <image> up: @image-url("_up.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
+    out property <image> arrow-back: @image-url("_arrow_back.svg");
+    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
+    out property <image> edit: @image-url("_edit.svg");
+    out property <image> calendar: @image-url("_calendar.svg");
+}
+
+export global FluentSizeSettings {
+    out property <length> item-height: 40px;
+}

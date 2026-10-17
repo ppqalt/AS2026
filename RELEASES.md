@@ -7,7 +7,7 @@ Paketointi tarkistaa projektin LICENSE-tiedoston koko standarditekstin, Cargo-li
 Git-historia ja vanhat tagit säilytetään muuttumattomina.
 
 
-Kehitys tehdään `dev`-haarassa. Hyväksytty, testattu versio viedään hallitusti `main`-haaraan. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.5.0`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.
+AS2026 0.6.0:sta alkaen jatkuva kehitys ja hyväksytyt julkaisut kootaan `main`-haaraan. Vanhat kehitys- ja beta-haarat poistetaan vasta hyväksytyn julkaisun jälkeen. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.5.0`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.
 
 ## Paketit
 

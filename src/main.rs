@@ -45,7 +45,7 @@ fn help() {
            as2026 paivita KANSIO MUUTOKSET.toml\n\
            as2026 uusi KANSIO [KILPAILUN_NIMI]\n\n\
          Tuloslaskenta näyttää korttiaineiston laskennan esikatselun.\n\
-         TOML-kilpailun tulokset lasketaan ajantasaisista tiedoista.\n\
+         TOML-kilpailu käyttää tallennettuja korjauksia tai kortista laskettuja tuloksia.\n\
          Vanhan kilpailun tulosluettelot perustuvat tallennettuihin pisteisiin.\n\
          Tasatulokset säilytetään jaettuina. --ratkaise-tasatulokset ottaa käyttöön\n\
          asematietoihin perustuvan vertailun, kun tarvittavat tiedot ovat saatavilla.\n\

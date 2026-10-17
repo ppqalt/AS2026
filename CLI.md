@@ -153,7 +153,7 @@ as2026 ohje
 
 Näissä esimerkeissä `as2026` tarkoittaa oman alustan ohjelmatiedostoa. Kehityshakemistossa sama komento on esimerkiksi `cargo run -- tarkista fixtures/synthetic`. Laita välilyöntejä sisältävä polku lainausmerkkeihin.
 
-`laske` näyttää korttiaineistosta lasketut asemarivit ja huomautukset. TOML-kilpailun `tulokset` laskee tulosluettelon ajantasaisesta kilpailumallista; se on asemalaskennan tulos. Vanhan kilpailun `tulokset` käyttää `Kilp.txt`-tiedoston tallennettuja pisteitä. Esikatselua ei kirjoiteta vanhojen tallennettujen tulosten päälle. Uuden kilpailun johdettuja tuloksia ei myöskään ylläpidetä erillisenä pysyvänä kopiona.
+`laske` näyttää korttiaineistosta lasketut asemarivit ja huomautukset. TOML-kilpailun `tulokset` käyttää tallennettuja asemakorjauksia tai laskee tuloksen kortista, jos tallennettua tulosta ei ole. Vanhan kilpailun `tulokset` käyttää `Kilp.txt`-tiedoston tallennettuja pisteitä. Esikatselua ei kirjoiteta vanhojen tallennettujen tulosten päälle. GUI:n Tarkista ja käsikorjaukset tallentavat uuden kilpailun asematuloksen pysyvästi. Katso [kilpailutoiminnot](KILPAILUTOIMINNOT.md).
 
 Toteutettu laskenta kattaa leimausten kohdistuksen, AT/JAT/ULA-jaksot, puuttuvien ja ylimääräisten asemien virheet, ULA-pyöristykset, enimmäissakot, myöhästymisrajat sekä säännön 4 käsittelyn. Tulosluettelossa on luokka- ja ratakohtainen järjestys. Vanha aineistopolku tukee lisäksi yhdistettyjä luokkia, osallistumistilastoa sekä nousu- ja sarjapisteitä. Uuden TOML-muodon tietomalli ei vielä kata kaikkia vanhan kilpailun asetuksia.
 
@@ -173,12 +173,12 @@ Alkuperäisen AS2015A:n kahdeksan päätoimintoa ohjaavat kattavuutta, eivät uu
 | Alkuperäinen toiminto | Nykyinen toteutus ja jäljellä oleva työ |
 | --- | --- |
 | Parametrit ja perustiedot | Vanhojen tietojen luku, TOML-perustiedot ja virhepisteasetukset sekä kilpailun asetusten GUI-näkymä. Kaikkien alkuperäisten asetusten kattavuus puuttuu. |
-| Luokkien tiedot | Luokan lisäys ja korvaus sekä yksiselitteinen rataviittaus. Kaikkia vanhoja luokka-, yhdistely- ja pisteasetuksia ei voi määrittää TOML-muodossa. |
+| Luokkien tiedot | Luokan lisäys ja korvaus, rataviittaus, lähtöajat sekä yhdistetyt luokat ja nousu-/sarjapisteasetukset. |
 | Ratatiedot | Ratojen ja asemien luku, kokonaisen radan muutos sekä graafinen rata- ja asemaeditori. Kaikkien vanhojen poikkeussääntöjen kattavuus on kesken. |
 | Emit-leimantarkastus | Kehyksen purku, jatkuva lukija, historia ja kohdistus. Laajemmat fyysiset laitekokeet ja laskennan vastaavuusvertailu jatkuvat. |
-| Asemakohtaiset tiedot | Laskennan asemarivit, huomautukset ja HTML-raportti. Käsin syötettyjen asemakellojen ja kaikkien korjausten työnkulku puuttuu. |
-| Tuloslaskenta | Laskentaydin ja luettelot olemassa. Kattava AS2015A-vertailu, ajanottotapa 2 ja erilliset lisävirhepisteet ovat kesken. |
-| Ilmoittautumiset | Kilpailijan lisäys ja korvaus yhteiseen malliin, auto, Emit-kohdistus ja graafinen kilpailijaeditori. Lähtöaikojen arvonta puuttuu. |
+| Asemakohtaiset tiedot | Tallennetut asemarivit, käsikellot ja pistekorjaukset sekä erilliset Tarkista/Tutki-toiminnot. Emit-ajanoton leimaamattoman maalin Tutki on vielä rajattu pois. |
+| Tuloslaskenta | Ajanottotavat 0/1/2, erilliset lisävirhepisteet ja tulosviennit. Oikean kilpailun vastaavuusvertailu puuttuu. |
+| Ilmoittautumiset | Kilpailijaeditori, auto, Emit-kohdistus, tilat/perustelut ja lisenssit. Lähtöaikojen arvonta sekä HTML-/CSV-lähtöluettelot. |
 | Emit-rivin teko | Kehyksestä muodostetaan yhteisen mallin lukutapahtuma. Vanhan ohjelman koko erillistä rivinmuodostus- ja vientitoimintoa ei ole toteutettu. |
 
 Seuraavien ominaisuuksien tulee käyttää `ProjectStore::update`-rajapintaa ja samaa kilpailumallia kuten GUI:ssa ja komentorivillä nyt. Verkkopalvelinta tai monen koneen synkronointia ei ole toteutettu.

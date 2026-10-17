@@ -1,7 +1,6 @@
-name: Julkaise AS2026 0.5.7 kerran
+name: Julkaise AS2026 0.6.0 kerran
 
-# The public tag is created ONLY after both main CI jobs have passed.
-# This prevents a failed candidate from occupying an immutable version tag.
+# Julkaisutagi syntyy vasta saman main-commitin molempien CI-töiden läpäisystä.
 on:
   workflow_run:
     workflows: ["Linux ja Windows"]
@@ -13,7 +12,7 @@ permissions:
 
 jobs:
   launch:
-    name: Luo tarkistettu v0.5.7-tagi ja käynnistä allekirjoitettu julkaisu
+    name: Luo tarkistettu v0.6.0-tagi ja käynnistä allekirjoitettu julkaisu
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     runs-on: ubuntu-22.04
     permissions:
@@ -31,20 +30,22 @@ jobs:
         env:
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          set -euo pipefail
           test "$(git rev-parse HEAD)" = "$TESTED_SHA"
-          test "$(git log -1 --pretty=%s)" = 'Release AS2026 v0.5.7 [publish v0.5.7]'
-          test "$(grep -m1 '^version = ' Cargo.toml)" = 'version = "0.5.7"'
+          test "$(git log -1 --pretty=%s)" = 'Release AS2026 v0.6.0 [publish v0.6.0]'
+          test "$(grep -m1 '^version = ' Cargo.toml)" = 'version = "0.6.0"'
           test "$(grep -m1 '^license = ' Cargo.toml)" = 'license = "BSD-2-Clause"'
-          if git show-ref --verify --quiet refs/tags/v0.5.7; then
-            echo 'v0.5.7 on jo olemassa, julkaisua ei toisteta.' >&2
+          if git show-ref --verify --quiet refs/tags/v0.6.0; then
+            echo 'v0.6.0 on jo olemassa, julkaisua ei toisteta.' >&2
             exit 1
           fi
-      - name: Luo uusi tagi ja käynnistä julkaisu
+      - name: Luo tagi ja käynnistä allekirjoitettu julkaisu
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
-          gh api --method POST "repos/$GH_REPO/git/refs" -f ref='refs/tags/v0.5.7' -f sha="$TESTED_SHA" >/dev/null
-          gh workflow run release.yml -R "$GH_REPO" --ref main -f release_tag=v0.5.7 -F publish_release=true
+          set -euo pipefail
+          gh api --method POST "repos/$GH_REPO/git/refs" -f ref='refs/tags/v0.6.0' -f sha="$TESTED_SHA" >/dev/null
+          gh workflow run release.yml -R "$GH_REPO" --ref main -f release_tag=v0.6.0 -F publish_release=true

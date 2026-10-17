@@ -1,0 +1,60 @@
+# Slintin Fluent-komponentit — paikallinen sovitus
+
+Lähde: Slint **1.16.0**, paketti `i-slint-compiler`, hakemisto `widgets`.
+AS2026 käyttää saman version `slint`- ja `slint-build`-paketteja tarkasti
+lukittuina. Alkuperäisten tiedostojen nimet ja tiivisteet ovat tiedostossa
+`UPSTREAM.sha256`.
+
+Tässä on vain sovelluksen tarvitsemien Fluent-komponenttien riippuvuudet:
+Button, LineEdit, ComboBox, ScrollView, ListView, tekstikentän valikko ja
+AboutSlint. Käyttämättömiä säätimiä, päivämäärävalitsimia tai taulukoita ei
+ole kopioitu. Käyttöliittymän varsinainen taulukko säilyy AS2026:n omana
+hiirellä valittavana komponenttina.
+
+`build.rs` lisää `style`-hakemiston Slint-kääntäjän julkiseen hakemistopolkuun.
+Tällöin `std-widgets.slint` ja sen riippuvuudet löytyvät tästä ennen
+sisäänrakennettua oletustyyliä. `.with_style("fluent")` säilytetään.
+Kuvakkeet ja Slint-tunnus sisällytetään ohjelmatiedostoon; erillistä
+teemakansiota ei tarvita käyttäjän koneella.
+
+## Paikalliset muutokset
+
+- Kaikki komponenttien `animate`-lohkot on poistettu.
+- Varjojen määritykset on poistettu, myös valikoiden ponnahduspinnoista.
+- FluentPalette käyttää pelkästään `ui/theme.slint`-tiedoston peittäviä
+  Dark Spruce -värejä. Ei järjestelmän sinistä korostusta, läpikuultavia
+  täyttöjä tai reunojen liukuvärejä.
+- Vierityspalkin nuolten piilotus käyttää välitöntä `visible`-tilaa.
+  Käytöstä poistetun valikkorivin teksti saa peittävän vaimennetun värin.
+- Nuolikuvakkeiden läpikuultavat maskit on muutettu peittäviksi;
+  lopullinen kuvakeväri tulee yhteisestä paletista.
+- LineEditin sisäinen `interface`/`uses`-syntaksi on korvattu samoja
+  ominaisuuksia, kutsuja ja tapahtumia välittävillä tavallisilla
+  Slint-määrityksillä. Tekstikentän käytös on säilytetty.
+- Tekstikentän valikon tekstit ovat suomeksi. AboutSlintin version
+  otsikko on `Versio`; Slint-tunnuskuvat säilyvät muuttamattomina.
+
+Tekstikentän valikko käyttää Slint 1.16:n sisäistä
+`ContextMenuInternal`-tyyppiä. Siksi rakennusskripti asettaa vain omaan
+prosessiinsa `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` ennen kääntäjän luontia.
+Tämä ei aseta käyttäjän ympäristömuuttujia eikä tuo uusia kirjastoja.
+
+## Ylläpito
+
+Paikallinen kopio lisää ylläpidettävää lähdekoodia. Slint-versiota
+päivitettäessä vertaa jokainen tässä lueteltu tiedosto uuden version
+alkuperäiseen: sisäisten valikkojen, kohdistuksen ja tekstikentän rajapinnat
+voivat muuttua. Säilytä omat efektittömyysmuutokset, käännä käyttöliittymä,
+aja `fluent2_theme`-testit ja GUI-työnkulkukoe sekä tarkista valikot,
+leikepöytä, vieritys ja näyttöskaalaus Linuxissa ja Windowsissa.
+
+## Lisenssit
+
+Alkuperäiset tekijänoikeus- ja SPDX-merkinnät on säilytetty. Muokattuihin
+Slint-tiedostoihin on lisätty AS2026-merkintä. Tämä hakemisto **ei muutu
+AS2026:n BSD-2-Clause-lisenssin alaiseksi**.
+
+Slint-lähteiden tarjoamat lisenssivaihtoehdot ovat hakemistossa `licenses`:
+GPL-3.0-only, LicenseRef-Slint-Royalty-free-2.0 ja
+LicenseRef-Slint-Software-3.0. Muuttamattomiin MadeWithSlint-tunnuksiin
+liittyvä CC-BY-ND-4.0-teksti on samassa hakemistossa.

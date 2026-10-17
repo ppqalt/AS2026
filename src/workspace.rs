@@ -197,6 +197,17 @@ impl Workspace {
                 DriverField::Driver => driver.kuljettaja = required(value, "Kuljettaja")?,
                 DriverField::Navigator => driver.kartanlukija = value.trim().into(),
                 DriverField::Card => driver.emit = number(value, "Emit-numero")?,
+                DriverField::DriverLicence => driver.kuljettajan_lisenssi = value.trim().into(),
+                DriverField::NavigatorLicence => driver.kartanlukijan_lisenssi = value.trim().into(),
+                DriverField::Status => {
+                    driver.tila = if value.trim().is_empty() { None } else {
+                        Some(native::ManualStatus::new(value.trim(), driver.tila.as_ref().map_or("", |s| s.syy.as_str()))?)
+                    };
+                }
+                DriverField::StatusReason => {
+                    let state = driver.tila.as_mut().ok_or_else(|| invalid("Valitse ensin kilpailijan tila; automaattisen tilan syy määräytyy laskennasta"))?;
+                    state.syy = value.trim().into();
+                }
                 DriverField::Car => driver.auto = value.trim().into(),
                 DriverField::Start => driver.lahtoaika = value.trim().into(),
                 DriverField::Correction => {
@@ -225,6 +236,100 @@ impl Workspace {
             }
             Ok(())
         })
+    }
+
+    /// Tarkista muodostaa asematuloksen uudelleen kortinlukuhistoriasta.
+    pub fn review_results(&mut self, number: u32) -> Result<(), CoreError> {
+        self.update(|project| {
+            let result = application::capture_project_result(project, number)?;
+            project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?
+                .tallennettu_tulos = Some(result);
+            Ok(())
+        })
+    }
+
+    /// Tutki käyttää tallennettuja asemarivejä ja mahdollisia käsikelloja.
+    pub fn recalculate_stored(&mut self, number: u32) -> Result<(), CoreError> {
+        self.update(|project| {
+            let stored = project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == number)
+                .and_then(|d| d.tallennettu_tulos.as_ref())
+                .ok_or_else(|| invalid("Valitse ensin Tarkista tai tallenna asemakorjaus"))?;
+            let result = application::recalculate_stored_result(project, number, stored)?;
+            project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap()
+                .tallennettu_tulos = Some(result);
+            Ok(())
+        })
+    }
+
+    /// Muutos ja ensimmäisen tuloskopion luonti tallentuvat yhtenä tapahtumana.
+    pub fn edit_station_result(
+        &mut self,
+        competitor_number: u32,
+        row: u32,
+        field: ResultField,
+        value: &str,
+    ) -> Result<(), CoreError> {
+        self.update(|project| {
+            let mut result = match project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == competitor_number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?
+                .tallennettu_tulos
+                .clone()
+            {
+                Some(result) => result,
+                None => application::capture_project_result(project, competitor_number)?,
+            };
+            match field {
+                ResultField::Clock => {
+                    let clock = value
+                        .trim()
+                        .split(':')
+                        .map(|v| number(v, "Kello"))
+                        .collect::<Result<Vec<i64>, _>>()?;
+                    let clock: [i64; 3] = clock
+                        .try_into()
+                        .map_err(|_| invalid("Anna kello muodossa 15:00:00"))?;
+                    result.set_clock(row, clock)?;
+                }
+                ResultField::TimePenalty | ResultField::OtherPenalty => {
+                    let old = result
+                        .rivit
+                        .iter()
+                        .find(|r| r.output_index == row)
+                        .ok_or_else(|| invalid("Asemariviä ei löydy"))?;
+                    let (signed, other) = if field == ResultField::TimePenalty {
+                        (number(value, "Aikavirhe")?, old.other_penalty)
+                    } else {
+                        (old.signed_time_penalty, number(value, "Muu virhe")?)
+                    };
+                    result.set_row_penalties(row, signed, other)?;
+                }
+            }
+            project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == competitor_number)
+                .unwrap()
+                .tallennettu_tulos = Some(result);
+            Ok(())
+        })
+    }
+
+    pub fn apply_start_draw(&mut self, draw: &crate::starts::StartDraw) -> Result<(), CoreError> {
+        self.update(|project| draw.apply(project))
     }
 
     pub fn add_class(&mut self, edit: ClassEdit) -> Result<(), CoreError> {
@@ -493,6 +598,12 @@ fn find_track(project: &mut Project, number: u32) -> Result<&mut Track, CoreErro
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultField {
+    Clock,
+    TimePenalty,
+    OtherPenalty,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DriverField {
     Number,
     Class,
@@ -505,6 +616,10 @@ pub enum DriverField {
     MissingRtCount,
     ExtraRtCount,
     OtherPenalties,
+    DriverLicence,
+    NavigatorLicence,
+    Status,
+    StatusReason,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClassField {
@@ -580,6 +695,10 @@ impl DriverEdit {
             emit_korjaus_sekuntia: optional_number(&self.correction_seconds, "Emit-korjaus")?
                 .unwrap_or(0),
             lisavirheet: Default::default(),
+            kuljettajan_lisenssi: String::new(),
+            kartanlukijan_lisenssi: String::new(),
+            tila: None,
+            tallennettu_tulos: None,
         })
     }
 }

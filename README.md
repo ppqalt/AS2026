@@ -3,6 +3,10 @@
 Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 
 - Kilpailijat, luokat, radat ja asemat samassa sovelluksessa.
+- Fluent 2 / Dark Spruce koko käyttöliittymän suunnittelukielenä, ilman animaatioita ja koriste-efektejä.
+- Kilpailijan tilat, perustelut ja lisenssitiedot.
+- Lähtöaikojen arvonta esikatselulla sekä tulostettava HTML- ja CSV-lähtöluettelo.
+- Tallentuvat asemien käsi- ja pistekorjaukset: erilliset Tarkista- ja Tutki-toiminnot.
 - Pysyvät radan ja aseman muokkauspaneelit sekä tavoiteajan erilliset h/min/s-syöttökentät.
 - Jatkuva Emit-kortinluku ja automaattinen tallennus.
 - Tulosluettelot, asemakohtainen tarkastelu ja HTML-, CSV- sekä XLSX-viennit.
@@ -30,7 +34,7 @@ cargo test --manifest-path tools/release/Cargo.toml
 
 Rust 1.89 tai uudempi. Komentoriviohjelman voi kääntää ilman GUI-riippuvuuksia: `cargo build --release`.
 
-[Kääntäminen](BUILDING.md) · [Komentorivi ja tiedostot](CLI.md) · [Käyttöliittymän muokkaaminen](UI.md) · [Julkaisujen tekeminen](RELEASES.md)
+[Käsikorjaukset ja lähtöjärjestelyt](KILPAILUTOIMINNOT.md) · [Kääntäminen](BUILDING.md) · [Komentorivi ja tiedostot](CLI.md) · [Käyttöliittymän muokkaaminen](UI.md) · [Julkaisujen tekeminen](RELEASES.md)
 
 ## Lisenssi
 

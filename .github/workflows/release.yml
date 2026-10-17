@@ -122,3 +122,34 @@ jobs:
         run: |
           gh release create "$RELEASE_TAG" dist/* --verify-tag --title "AS2026 ${RELEASE_TAG#v}" --notes-file RELEASE_NOTES.md --draft
           gh release edit "$RELEASE_TAG" --draft=false --latest
+
+      # Vain erikseen hyväksytyn v0.6.0-julkaisun jälkeen. Jos haarassa on
+      # ainutlaatuista historiaa, se arkistoidaan tagiin ennen haaran poistoa.
+      - name: Siivoa aiemmat etähaarat v0.6.0-julkaisun jälkeen
+        if: ${{ inputs.release_tag == 'v0.6.0' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+          stable=$(git rev-parse refs/remotes/origin/main)
+          for branch in beta/fluent2-dark-spruce release/v0.5.7-station-ui integration/as2015a-scoring-parts-20261017 dev; do
+            if ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+              echo "Haara poistettu aiemmin: $branch"
+              continue
+            fi
+            current=$(git rev-parse "refs/remotes/origin/$branch")
+            if ! git merge-base --is-ancestor "$current" "$stable"; then
+              # Säilytä kaikki erilliset commitit myös haaran poistamisen jälkeen.
+              slug=$(printf '%s' "$branch" | tr '/.' '--')
+              archive="refs/tags/archive/pre-v0.6.0-$slug"
+              if ! gh api "repos/$GH_REPO/git/ref/$archive" >/dev/null 2>&1; then
+                gh api --method POST "repos/$GH_REPO/git/refs" -f ref="$archive" -f sha="$current" >/dev/null
+              fi
+              echo "Arkistoitu erillinen historia: $branch -> $archive"
+            fi
+            gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch"
+            echo "Poistettu vanha etähaara: $branch"
+          done

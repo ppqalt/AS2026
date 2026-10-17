@@ -1,6 +1,6 @@
 //! AS2026 release packaging and Ed25519 signing without Python.
 //! Keep schema 1, payload validation and archive layout compatible with the 0.5.4 updater.
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey, pkcs8::DecodePrivateKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, pkcs8::DecodePrivateKey};
 use flate2::{Compression, GzBuilder};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -265,15 +265,13 @@ fn collect_licenses(meta: &Value, destination: &Path, overrides: &Path) -> Resul
         let override_entry = list.iter().find(|item| item["name"] == name && item["version"] == version);
         let mut origin: Option<String> = None;
         let mut notice: Option<String> = None;
-        if copied.is_empty() {
-            if let Some(item) = override_entry {
-                let file = item["file"].as_str().ok_or("Lisenssin override-tiedosto puuttuu")?;
-                safe_relative(file)?;
-                copy_file(&overrides.join(file), &package_out.join("LICENSE-upstream.txt"))?;
-                copied.push("LICENSE-upstream.txt".to_owned());
-                origin = item["source"].as_str().map(str::to_owned);
-                notice = item["notice"].as_str().map(str::to_owned);
-            }
+        if copied.is_empty() && let Some(item) = override_entry {
+            let file = item["file"].as_str().ok_or("Lisenssin override-tiedosto puuttuu")?;
+            safe_relative(file)?;
+            copy_file(&overrides.join(file), &package_out.join("LICENSE-upstream.txt"))?;
+            copied.push("LICENSE-upstream.txt".to_owned());
+            origin = item["source"].as_str().map(str::to_owned);
+            notice = item["notice"].as_str().map(str::to_owned);
         }
         if copied.is_empty() { return Err(fail(format!("Riippuvuuden lisenssiteksti puuttuu: {id}"))); }
         let mut copyright = BTreeSet::new();

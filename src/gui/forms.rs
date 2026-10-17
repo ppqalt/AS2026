@@ -7,7 +7,7 @@ use as2026::{
     native::Project,
     workspace::{
         ClassEdit, ClassField, CompetitionField, DriverEdit, DriverField, OverrideField,
-        StationEdit, StationField, TrackEdit, TrackField, Workspace,
+        ResultField, StationEdit, StationField, TrackEdit, TrackField, Workspace,
     },
 };
 use slint::{ModelRc, SharedString, VecModel};
@@ -23,6 +23,10 @@ pub enum Selection {
     Station {
         track: u32,
         index: usize,
+    },
+    ResultStation {
+        number: u32,
+        row: u32,
     },
     Settings,
     NewDriver,
@@ -385,6 +389,14 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         "Erilliset kilpailijakohtaiset virhepisteet",
                     ),
                 ]);
+                fields.extend([
+                    text(11, "Kuljettajan lisenssi", &driver.kuljettajan_lisenssi, "Lisenssitieto sarjapisteiden tarkastelua varten"),
+                    text(12, "Kartanlukijan lisenssi", &driver.kartanlukijan_lisenssi, "Vanhan laskennan X-merkintä vaikuttaa sarjapistekelpoisuuteen"),
+                    choice(13, "Tila", driver.tila.as_ref().map_or("", |s| s.tunnus.as_str()), "Automaattinen tila määräytyy laskennasta; käsivalinta säilyy kortin uudelleenluvussa", named(&[
+                        ("Automaattinen", ""), ("Tarkastettu", "TRK"), ("Keskeyttänyt", "KESK"), ("Peruuttanut", "PER"), ("Hylätty", "HYL"), ("Suljettu", "SULJ"), ("Ilmoittautunut", "ILM"), ("Ei lähtenyt", "EILÄ")
+                    ])),
+                    text(14, "Tilan syy", driver.tila.as_ref().map_or("", |s| s.syy.as_str()), "Käsin valitun tilan perustelu näkyy tulosraportissa"),
+                ]);
                 fields
             })
             .unwrap_or_default(),
@@ -526,7 +538,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     2,
                     "Ajanottotapa",
                     project.kilpailu.ajanottotapa,
-                    "Tavat 0, 1 ja 2 ovat käytettävissä; erillinen käsiaikojen syöttö on vielä kesken",
+                    "Tavat 0, 1 ja 2 ovat käytettävissä; käsikellot korjataan Tulokset-näkymässä",
                     named(&[
                         ("Kellonaikapohjainen", "0"),
                         ("Emit", "1"),
@@ -605,6 +617,20 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
             }
             fields
         }
+        Selection::ResultStation { number, row } => as2026::application::calculated_project(project).ok()
+            .and_then(|archive| archive.competitors.into_iter().find(|d| d.number == *number))
+            .and_then(|driver| driver.results.into_iter().find(|r| r.output_index == *row))
+            .map_or_else(Vec::new, |station| {
+                let mut fields = Vec::new();
+                if station.expected_code == 0 && station.station_type != "L" && !(station.station_type == "M" && project.kilpailu.ajanottotapa != 0) {
+                    fields.push(text(100, "Kello", format!("{:02}:{:02}:{:02}", station.clock[0], station.clock[1], station.clock[2]), "Käsikellon tallennus säilyttää pisteet. Tutki laskee ne uudelleen."));
+                }
+                fields.extend([
+                text(101, "Aikavirhe (p)", station.signed_time_penalty, "Ennakko positiivisena, myöhä negatiivisena; summaan tulee itseisarvo"),
+                text(102, "Muu virhe (p)", station.other_penalty, "Ei-negatiivinen asemarivin virhe. Tutki korvaa pistekorjaukset laskennalla."),
+                ]);
+                fields
+            }),
         Selection::None => Vec::new(),
     }
 }
@@ -640,6 +666,10 @@ pub fn apply_field(
                 8 => DriverField::MissingRtCount,
                 9 => DriverField::ExtraRtCount,
                 10 => DriverField::OtherPenalties,
+                11 => DriverField::DriverLicence,
+                12 => DriverField::NavigatorLicence,
+                13 => DriverField::Status,
+                14 => DriverField::StatusReason,
                 _ => return Err(invalid()),
             };
             let new_number = if key == 0 {
@@ -700,6 +730,16 @@ pub fn apply_field(
                 value.to_owned()
             };
             ws.edit_station(*track, *index, field, &stored)?;
+            Ok(selection.clone())
+        }
+        Selection::ResultStation { number, row } => {
+            let field = match key {
+                100 => ResultField::Clock,
+                101 => ResultField::TimePenalty,
+                102 => ResultField::OtherPenalty,
+                _ => return Err(invalid()),
+            };
+            ws.edit_station_result(*number, *row, field, value)?;
             Ok(selection.clone())
         }
         Selection::Settings => {

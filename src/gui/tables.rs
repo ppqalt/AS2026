@@ -150,11 +150,20 @@ fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
             let state = match ws.project() {
                 Some(project) => {
                     let card = driver.emit_card.parse::<u32>().ok();
-                    if card.is_some_and(|card| project.active_readout(card).is_some()) {
-                        "Luettu".into()
+                    let read = if card.is_some_and(|card| project.active_readout(card).is_some()) {
+                        "Luettu"
                     } else {
-                        "Ei luettu".into()
-                    }
+                        "Ei luettu"
+                    };
+                    let manual = project
+                        .kilpailijat
+                        .iter()
+                        .find(|d| d.numero == driver.number)
+                        .and_then(|d| d.tila.as_ref());
+                    manual.map_or_else(
+                        || read.into(),
+                        |state| format!("{} · {read}", status(&state.tunnus)),
+                    )
                 }
                 None => status(&driver.status),
             };
@@ -350,7 +359,15 @@ fn results(
         driver.driver,
         driver.navigator,
         if ws.is_editable() {
-            "lasketut asematulokset"
+            if ws
+                .project()
+                .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == driver.number))
+                .is_some_and(|d| d.tallennettu_tulos.is_some())
+            {
+                "tallennetut asematulokset"
+            } else {
+                "lasketut asematulokset"
+            }
         } else {
             "tallennetut asematulokset"
         }
@@ -360,13 +377,14 @@ fn results(
         "Asema",
         "Emit od./luettu",
         "Tavoite, s",
+        "Kello",
         "Aika, s",
         "Aikavirhe, p",
         "Muut, p",
         "Yhteensä, p",
         "Huomautus",
     ]);
-    view.detail_weights = vec![0.04, 0.21, 0.07, 0.09, 0.09, 0.10, 0.07, 0.10, 0.23];
+    view.detail_weights = vec![0.04, 0.16, 0.08, 0.07, 0.10, 0.07, 0.09, 0.07, 0.09, 0.23];
     view.detail_rows = driver
         .results
         .iter()
@@ -379,6 +397,10 @@ fn results(
                     format!("{} {}", station.station_type, station.name),
                     format!("{} / {}", station.expected_code, station.received_code),
                     station.target_seconds.to_string(),
+                    format!(
+                        "{:02}:{:02}:{:02}",
+                        station.clock[0], station.clock[1], station.clock[2]
+                    ),
                     station.actual_seconds.to_string(),
                     station.signed_time_penalty.to_string(),
                     station.other_penalty.to_string(),

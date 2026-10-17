@@ -260,6 +260,7 @@ fn ranking_heading(html: &mut String, points: bool) {
     if points {
         html.push_str("<th scope=\"col\" class=\"numeric\" title=\"nousupisteet\">Np</th><th scope=\"col\" class=\"numeric\" title=\"sarjapisteet\">Sp</th>");
     }
+    html.push_str("<th scope=\"col\">Syy</th>");
     html.push_str("</tr></thead><tbody>\n");
 }
 
@@ -287,7 +288,10 @@ fn ranking_row(
             sp.map_or("—".to_owned(), |points| points.to_string())
         ));
     }
-    html.push_str("</tr>\n");
+    let reason = source
+        .and_then(|competitor| competitor.header_fields.get(29))
+        .map_or("", String::as_str);
+    html.push_str(&format!("<td>{}</td></tr>\n", escape(reason)));
 }
 
 /// Luokka- ja ratatulokset perustuvat tallennettuihin tuloksiin. Raportti ei
@@ -411,6 +415,7 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
             "Virhepisteet".into(),
             "Np".into(),
             "Sp".into(),
+            "Syy".into(),
         ],
     );
     for group in &report.groups {
@@ -450,6 +455,10 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
                     } else {
                         String::new()
                     },
+                    source
+                        .and_then(|competitor| competitor.header_fields.get(29))
+                        .cloned()
+                        .unwrap_or_default(),
                 ],
             );
         }
@@ -478,6 +487,10 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
                     source.map_or_else(String::new, |c| c.total_penalties.to_string()),
                     String::new(),
                     String::new(),
+                    source
+                        .and_then(|competitor| competitor.header_fields.get(29))
+                        .cloned()
+                        .unwrap_or_default(),
                 ],
             );
         }

@@ -5,7 +5,8 @@
 //! Kumpaakaan ei ole validoitu suorittamalla alkuperäistä ohjelmaa. Raakaleimaukset säilyvät
 //! `CalculatedRow::source`-kentässä, ja johdetut ajat ovat erillisissä kentissä.
 //! Vanhan ohjelman ristiriitaiset haarat ilmoitetaan diagnostiikassa. Ajanottotapa
-//! 2 ja tallennettujen tulosten uudelleenlaskenta eivät kuulu tähän rajapintaan.
+//! 2 käsittelee kortti- ja tallennuspoluissa eri aikaviitteen. `calculate_stored`
+//! pisteyttää tallennetut asemarivit ilman uutta korttikohdistusta.
 //!
 //! Vanhan ohjelman asemahuomiot ja tilasyyt on kopioitu sen merkkijonoista:
 //! lähtö 0x004d44eb, AT 0x004d458b, RT 0x004d457f, JAT 0x004d4597 /
@@ -842,6 +843,17 @@ pub fn calculate_live(
             "Maalikello asetettiin ensimmäisen kierroksen jälkeen; toteutunut aika pysyy nollassa",
         );
     }
+    score_prepared_rows(&mut result, options, cumulative_limit, false)?;
+    Ok(result)
+}
+
+fn score_prepared_rows(
+    result: &mut LiveCalculation,
+    options: &LiveCalculationOptions,
+    cumulative_limit: i64,
+    stored_context: bool,
+) -> Result<(), CoreError> {
+    let last = result.rows.len() - 1;
     // Toinen kierros säilyttää alkuperäisen järjestyksen. Synteettiset muutokset
     // eivät käynnistä ensimmäistä aikaviitekierrosta uudelleen.
     for index in 1..result.rows.len() {
@@ -849,7 +861,7 @@ pub fn calculate_live(
         let was_present = present(&result.rows[index]);
         if result.rows[index].effective_rule == Rule::Void {
             diagnostic(
-                &mut result,
+                result,
                 Some(index + 1),
                 "rule4-ordered-second-pass",
                 "Mitätöity rivi säilyy aikarakenteessa. Toisen kierroksen aikamuutoksia ei levitetä uudelleen myöhempien rivien ensimmäisen kierroksen aikoihin.",
@@ -858,7 +870,7 @@ pub fn calculate_live(
                 && result.rows[index].received_code == 0
                 && kind != Some(StationKind::Ula)
             {
-                synthesize_void_row(&mut result, index)?;
+                synthesize_void_row(result, index)?;
             }
             if kind == Some(StationKind::Jat)
                 && index + 1 < result.rows.len()
@@ -870,7 +882,7 @@ pub fn calculate_live(
                 result.rows[index + 1].received_code = 0;
                 result.rows[index + 1].effective_rule = Rule::Void;
                 trace(
-                    &mut result,
+                    result,
                     Some(index + 2),
                     "rule4-jat-ula",
                     "JAT:n koordinaatti siirretty ULA:lle; vastaanotettu koodi tyhjennetty ja sääntö 4 asetettu",
@@ -880,9 +892,9 @@ pub fn calculate_live(
                 && result.rows[index].received_code == 0
                 && expected(&result.rows[index]) != expected(&result.rows[index - 1])
             {
-                synthesize_void_row(&mut result, index)?;
+                synthesize_void_row(result, index)?;
             }
-        } else if !was_present && expected(&result.rows[index]) != 0 {
+        } else if !was_present && (expected(&result.rows[index]) != 0 || stored_context) {
             match kind {
                 Some(StationKind::At) => {
                     result.rows[index].other_points = options.parameters.missing_at;
@@ -891,7 +903,7 @@ pub fn calculate_live(
                 Some(StationKind::Jat | StationKind::Ula) => {
                     result.rows[index].other_points = options.parameters.missing_jat;
                     result.rows[index].note = "JAT puuttuu".into();
-                    interrupt(&mut result, Some(index + 1), "*JAT puuttuu");
+                    interrupt(result, Some(index + 1), "*JAT puuttuu");
                 }
                 Some(StationKind::Rt) => {
                     result.rows[index].other_points = options.parameters.missing_rt;
@@ -900,13 +912,13 @@ pub fn calculate_live(
                 Some(StationKind::Finish) => {
                     result.rows[index].other_points = 9999;
                     result.rows[index].note = "maali puuttuu".into();
-                    interrupt(&mut result, Some(index + 1), "*Maali puuttuu");
+                    interrupt(result, Some(index + 1), "*Maali puuttuu");
                 }
                 _ => {}
             }
         } else if !was_present && expected(&result.rows[index]) == 0 {
             diagnostic(
-                &mut result,
+                result,
                 Some(index + 1),
                 "missing-manual-row-unscored",
                 "Korttilaskenta ei määrää tavallista puuttumissakkoa asemalle, jonka aika oli tarkoitus kirjata käsin. Tallennettujen tulosten uudelleenlaskenta käsittelee nämä asemat erikseen.",
@@ -945,7 +957,7 @@ pub fn calculate_live(
             if penalty.capped {
                 result.rows[index].note = "max myöhä".into();
                 trace(
-                    &mut result,
+                    result,
                     Some(index + 1),
                     "time-cap",
                     "Aikavirhe ylitti katon; tallennettu etumerkki on vanhan kaavan mukaan negatiivinen",
@@ -971,17 +983,17 @@ pub fn calculate_live(
                         "jaksoero {difference} s; kertymä {} s",
                         result.cumulative_schedule_difference_seconds
                     );
-                    trace(&mut result, Some(index + 1), "section-difference", detail);
+                    trace(result, Some(index + 1), "section-difference", detail);
                     if kind == Some(StationKind::Finish) {
                         if finish_section_limit_exceeded(
                             difference,
                             options.parameters.section_limit_minutes,
                         )? {
-                            interrupt(&mut result, Some(index + 1), "*jaksomyöhä ylitetty");
+                            interrupt(result, Some(index + 1), "*jaksomyöhä ylitetty");
                         }
                     } else if options.parameters.section_limit_minutes != 0 {
                         diagnostic(
-                            &mut result,
+                            result,
                             Some(index + 1),
                             "legacy-jat-limit-comparison",
                             "Vanhan ohjelman JAT-aseman myöhästymisrajan vertailu ei voi laueta, kun raja on positiivinen. Laskenta säilyttää tämän vertailun. Kokonaismyöhästymisraja ja maalin jakson raja tarkistetaan erikseen.",
@@ -989,7 +1001,7 @@ pub fn calculate_live(
                     }
                 } else if !text.trim_matches(' ').is_empty() {
                     diagnostic(
-                        &mut result,
+                        result,
                         Some(index + 1),
                         "ignored-section-text",
                         "Jakso-kenttä ei läpäise palautettua numerotarkistusta; vanha polku lisää kertymään nollan.",
@@ -998,7 +1010,7 @@ pub fn calculate_live(
             }
         }
         if index == last && !was_present {
-            interrupt(&mut result, Some(index + 1), "*Maali puuttuu");
+            interrupt(result, Some(index + 1), "*Maali puuttuu");
         }
         result.rows[index].total_points = row_penalty_total(
             result.rows[index].signed_time_points,
@@ -1013,7 +1025,7 @@ pub fn calculate_live(
             row.other_points,
             row.total_points
         );
-        trace(&mut result, Some(index + 1), "row-result", detail);
+        trace(result, Some(index + 1), "row-result", detail);
     }
     let pairs: Vec<_> = result
         .rows
@@ -1025,14 +1037,14 @@ pub fn calculate_live(
         result.cumulative_schedule_difference_seconds,
         cumulative_limit,
     )? {
-        interrupt(&mut result, None, "*max myöhä ylitetty");
+        interrupt(result, None, "*max myöhä ylitetty");
     }
     let detail = format!(
         "aikavirheet {} p; muut virheet {} p; yhteensä {} p",
         result.totals.time_points, result.totals.other_points, result.totals.total_points
     );
-    trace(&mut result, None, "total", detail);
-    Ok(result)
+    trace(result, None, "total", detail);
+    Ok(())
 }
 
 fn synthesize_void_row(result: &mut LiveCalculation, index: usize) -> Result<(), CoreError> {
@@ -1089,4 +1101,216 @@ fn section_difference(
         .checked_mul(60)
         .ok_or(CoreError::ArithmeticOverflow("Jakso-kentän sekunnit"))?;
     Ok(Some(sub(seconds, actual_seconds, "jakson aikatauluero")?))
+}
+
+/// Tutki: pisteyttää tallennetut P-rivit ja käsikellot uudelleen ilman kohdistusta
+/// tai korttilokin lukemista. Ajanvalmistelu on tehtävä samalla menetelmällä ensin.
+/// Epämääräisiä AS2015A:n työmuistipaluun tuloksia ei hyväksytä viralliseksi tulokseksi.
+pub fn calculate_stored(
+    source: &[crate::legacy::StationResult],
+    route: &[crate::RouteStation],
+    prepared: &PreparedStoredTiming,
+    options: &LiveCalculationOptions,
+) -> Result<LiveCalculation, CoreError> {
+    options.parameters.validate()?;
+    let cumulative_limit = options
+        .cumulative_limit_minutes
+        .unwrap_or(options.parameters.section_limit_minutes);
+    if cumulative_limit < 0 {
+        return Err(CoreError::InvalidInput(
+            "Kokonaismyöhästymisraja ei saa olla negatiivinen".into(),
+        ));
+    }
+    let times = prepare_stored_station_times(
+        prepared,
+        &source
+            .iter()
+            .map(|r| StoredStationTime {
+                expected_code: r.expected_code,
+                elapsed_seconds: r.elapsed_seconds,
+                clock: r.clock,
+            })
+            .collect::<Vec<_>>(),
+    )?;
+    let official = options.official_start.seconds_since_midnight()?;
+    let mut result = LiveCalculation {
+        policy: CalculationPolicy::RecoveredAs2015aStaticV2,
+        rows: Vec::new(),
+        totals: PenaltyTotals::default(),
+        status: CalculationStatus::Checked,
+        reason: String::new(),
+        finish_clock_seconds: prepared.finish_clock_seconds,
+        total_duration_seconds: prepared.total_duration_seconds,
+        cumulative_schedule_difference_seconds: 0,
+        diagnostics: Vec::new(),
+        trace: Vec::new(),
+    };
+    for (index, (source, time)) in source.iter().zip(&times.rows).enumerate() {
+        if source.output_index as usize != index + 1 {
+            return Err(CoreError::InvalidInput(
+                "Tallennettujen asemarivien järjestys on virheellinen".into(),
+            ));
+        }
+        let station = if source.sequence == 0 {
+            None
+        } else {
+            Some(
+                route
+                    .iter()
+                    .find(|s| s.sequence == source.sequence)
+                    .ok_or_else(|| {
+                        CoreError::InvalidInput("Tallennetun rivin asemaa ei löydy radalta".into())
+                    })?
+                    .clone(),
+            )
+        };
+        let kind = match station.as_ref() {
+            None => MatchKind::Extra,
+            Some(s) if s.expected_code == 0 && s.kind == StationKind::Start => {
+                MatchKind::ManualStart
+            }
+            Some(s) if s.expected_code == 0 && s.kind == StationKind::Finish => {
+                MatchKind::ManualFinish
+            }
+            Some(s) if s.expected_code != 0 && s.expected_code == source.received_code => {
+                MatchKind::Matched
+            }
+            _ => MatchKind::RouteOnly,
+        };
+        let row = MatchedRow {
+            output_index: index + 1,
+            station: station.clone(),
+            punch: u32::try_from(time.elapsed_seconds)
+                .ok()
+                .filter(|_| source.received_code != 0)
+                .map(|elapsed_seconds| crate::Punch {
+                    code: source.received_code,
+                    elapsed_seconds,
+                }),
+            kind,
+            clock: None,
+        };
+        result.rows.push(CalculatedRow {
+            source: row,
+            received_code: source.received_code,
+            effective_rule: station.as_ref().map_or(Rule::Normal, |s| s.rule),
+            derived_elapsed_seconds: time.elapsed_seconds,
+            clock_seconds: if time.clock == [0; 3] {
+                None
+            } else {
+                Some(stored_clock_seconds(time.clock)?)
+            },
+            target_seconds: station.as_ref().map_or(0, |s| s.target_seconds),
+            actual_seconds: 0,
+            signed_time_points: 0,
+            other_points: 0,
+            total_points: 0,
+            note: String::new(),
+        });
+    }
+    if result.rows.len() < 2
+        || station_kind(&result.rows[0]) != Some(StationKind::Start)
+        || station_kind(result.rows.last().expect("vähintään kaksi riviä"))
+            != Some(StationKind::Finish)
+    {
+        return Err(CoreError::Unsupported("Tutki vaatii tallennettuun tulokseen lähdön ensimmäiseksi ja maalin viimeiseksi; jälkimaalirivejä ei tulkita arvaamalla".into()));
+    }
+    result.rows[0].clock_seconds = Some(official);
+    if !present(&result.rows[0]) || official == 0 {
+        return Err(CoreError::Unsupported("Tallennetun tuloksen lähtöaika tai lähtöleima puuttuu. Vanhan ohjelman kesken jääneitä summia ei käytetä".into()));
+    }
+    let mut reference = if expected(&result.rows[0]) == 0 {
+        match options.timing_method {
+            TimingMethod::ManualClock => result.rows[0].derived_elapsed_seconds,
+            TimingMethod::Emit | TimingMethod::LegacyMode2 => {
+                let anchor = if prepared.effective_reset_correction_seconds == 0 {
+                    120
+                } else {
+                    prepared.effective_reset_correction_seconds
+                };
+                result.rows[0].derived_elapsed_seconds = anchor;
+                anchor
+            }
+        }
+    } else {
+        add(
+            result.rows[0].derived_elapsed_seconds,
+            prepared.effective_reset_correction_seconds,
+            "tallennetun lähdön aikaviite",
+        )?
+    };
+    let mut pending_target = 0;
+    let mut pending_missing = 0;
+    for index in 1..result.rows.len() {
+        let kind = station_kind(&result.rows[index]);
+        if present(&result.rows[index]) {
+            match kind {
+                Some(StationKind::Ula) => {
+                    if matches!(
+                        result.rows[index].effective_rule,
+                        Rule::UlaNearestMinute | Rule::UlaFloorMinute | Rule::UlaCeilMinute
+                    ) {
+                        let e = u32::try_from(result.rows[index].derived_elapsed_seconds).map_err(
+                            |_| {
+                                CoreError::Unsupported(
+                                    "Negatiivista ULA-aikakoordinaattia ei pyöristetä".into(),
+                                )
+                            },
+                        )?;
+                        result.rows[index].derived_elapsed_seconds =
+                            i64::from(round_ula_elapsed(e, result.rows[index].effective_rule)?);
+                    }
+                    reference = result.rows[index].derived_elapsed_seconds;
+                }
+                Some(StationKind::At | StationKind::Jat | StationKind::Rt) => {
+                    result.rows[index].actual_seconds = sub(
+                        result.rows[index].derived_elapsed_seconds,
+                        reference,
+                        "tallennetun aseman toteutunut aika",
+                    )?;
+                    if pending_missing != 0 {
+                        result.rows[index].target_seconds = add(
+                            result.rows[index].target_seconds,
+                            pending_target,
+                            "tallennetun puuttuvan JAT:n tavoitesiirto",
+                        )?;
+                    }
+                    if kind == Some(StationKind::Jat) {
+                        reference = result.rows[index].derived_elapsed_seconds;
+                    }
+                }
+                _ => {}
+            }
+            pending_target = 0;
+            pending_missing = 0;
+        } else if kind == Some(StationKind::Jat) {
+            pending_target = add(
+                pending_target,
+                result.rows[index].target_seconds,
+                "tallennettujen puuttuvien JAT-tavoitteiden summa",
+            )?;
+            pending_missing += 1;
+        }
+    }
+    let last = result.rows.len() - 1;
+    if !present(&result.rows[last]) {
+        return Err(CoreError::Unsupported("Tallennetun tuloksen maali puuttuu. AS2015A:n kesken jäänyttä pistesummaa ei julkaista".into()));
+    }
+    result.rows[last].actual_seconds = sub(
+        result.rows[last].derived_elapsed_seconds,
+        reference,
+        "tallennetun maalin toteutunut aika",
+    )?;
+    result.rows[last].clock_seconds = Some(prepared.finish_clock_seconds);
+    for message in times.warnings {
+        diagnostic(&mut result, None, "stored-clock-order", message);
+    }
+    trace(
+        &mut result,
+        None,
+        "stored-result-recalculation",
+        "Tutki: tallennetut asemarivit ja käsikellot; korttilokin kohdistusta ei tehty",
+    );
+    score_prepared_rows(&mut result, options, cumulative_limit, true)?;
+    Ok(result)
 }

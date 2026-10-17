@@ -125,11 +125,13 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
     app.invoke_navigate(5);
     app.invoke_select_row(0);
     app.invoke_select_detail(1);
-    assert!(app.invoke_field_commit(3, "275".into()));
+    assert!(app.invoke_field_commit(3, "00:04:35".into()));
     app.invoke_navigate(3);
     assert!(!app.get_calculation_notes().contains("varmistamatta"));
     let results = state.borrow().workspace.as_ref().unwrap().results()?;
-    assert_eq!(results.competitors[0].total_penalties, 600);
+    // Staattisesti palautettu leimaamattoman maalin laskenta säilyy;
+    // AT:n tavoiteajan muutos poistaa alkuperäisen 45 pisteen ennakon.
+    assert_eq!(results.competitors[0].total_penalties, 2370);
     // Tallennusvirhe ei hävitä jo luettua kehystä; uudelleenyritys käyttää samaa kilpailua.
     let mut backup_name = path.as_os_str().to_owned();
     backup_name.push(".bak");
@@ -210,6 +212,123 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<(), Box<dyn std::erro
     assert!(app.invoke_field_commit(4, "0".into()));
     assert!(app.invoke_field_commit(0, "AT".into()));
     assert_eq!(rule_options(), 5);
+    // Käsikorjaus ja tilan/lisenssien tallennus kulkevat oikeiden callbackien kautta.
+    app.invoke_navigate(5);
+    app.invoke_select_row(0);
+    app.invoke_select_detail(1);
+    assert!(app.invoke_field_commit(2, "0".into()));
+    app.invoke_navigate(6);
+    assert!(app.invoke_field_commit(2, "0".into()));
+    app.invoke_navigate(3);
+    app.invoke_select_row(0);
+    app.invoke_review_results();
+    assert!(app.get_confirm_open());
+    app.invoke_confirm_action(false);
+    assert!(!app.get_result_stored());
+    app.invoke_review_results();
+    app.invoke_confirm_action(true);
+    assert!(app.get_result_stored());
+    app.invoke_select_detail(1);
+    let before_points = state
+        .borrow()
+        .workspace
+        .as_ref()
+        .unwrap()
+        .results()?
+        .competitors[0]
+        .total_penalties;
+    assert!(app.invoke_field_commit(100, "12:04:35".into()));
+    assert!(app.get_clock_pending());
+    assert_eq!(
+        state
+            .borrow()
+            .workspace
+            .as_ref()
+            .unwrap()
+            .results()?
+            .competitors[0]
+            .total_penalties,
+        before_points
+    );
+    assert!(app.invoke_field_commit(101, "-75".into()));
+    assert_eq!(
+        ProjectStore::open(&path)?.project().kilpailijat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .rivit[1]
+            .signed_time_penalty,
+        -75
+    );
+    app.invoke_examine_results();
+    assert!(!app.get_clock_pending());
+    assert_eq!(
+        state
+            .borrow()
+            .workspace
+            .as_ref()
+            .unwrap()
+            .results()?
+            .competitors[0]
+            .results[1]
+            .clock,
+        [12, 4, 35]
+    );
+    app.invoke_navigate(1);
+    app.invoke_select_row(0);
+    assert!(app.invoke_field_commit(11, "12345X".into()));
+    assert!(app.invoke_field_commit(12, "67890".into()));
+    assert!(app.invoke_field_commit(13, "HYL".into()));
+    assert!(app.invoke_field_commit(14, "Toimitsijan päätös".into()));
+    app.invoke_navigate(3);
+    assert_eq!(
+        state
+            .borrow()
+            .workspace
+            .as_ref()
+            .unwrap()
+            .results()?
+            .competitors[0]
+            .status,
+        "HYL"
+    );
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(
+        saved.project().kilpailijat[0].kuljettajan_lisenssi,
+        "12345X"
+    );
+    assert_eq!(
+        saved.project().kilpailijat[0].tila.as_ref().unwrap().syy,
+        "Toimitsijan päätös"
+    );
+
+    // Arvonnan esikatselu, peruutus ja hyväksyntä erillisessä lukemattomassa kopiossa.
+    let draw_dir = path.parent().unwrap().join("arvontakoe");
+    std::fs::create_dir_all(&draw_dir)?;
+    let draw_path = draw_dir.join(native::FILE_NAME);
+    let mut draw_project = original.clone();
+    draw_project.leimaluvut.clear();
+    let mut second = draw_project.kilpailijat[0].clone();
+    second.numero += 1;
+    second.emit += 1;
+    draw_project.kilpailijat.push(second);
+    ProjectStore::create(&draw_path, draw_project.clone())?;
+    open_workspace(&mut state.borrow_mut(), app, &draw_path, true)?;
+    app.invoke_navigate(1);
+    app.invoke_draw_starts();
+    assert!(app.get_confirm_open());
+    assert!(app.get_confirm_text().contains("Nro"));
+    app.invoke_confirm_action(false);
+    assert_eq!(ProjectStore::open(&draw_path)?.project(), &draw_project);
+    app.invoke_draw_starts();
+    app.invoke_confirm_action(true);
+    assert!(!app.get_confirm_open());
+    let drawn = ProjectStore::open(&draw_path)?;
+    assert_ne!(
+        drawn.project().kilpailijat[0].lahtoaika,
+        drawn.project().kilpailijat[1].lahtoaika
+    );
+    assert!(drawn.project().leimaluvut.is_empty());
     // Palautetaan vain tämän kokeen itse luoma synteettinen kopio kuvausta varten.
     ProjectStore::open(&path)?.update(|project| {
         *project = original.clone();

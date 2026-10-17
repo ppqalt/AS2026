@@ -36,8 +36,14 @@ enum UpdateEvent {
     Handoff(Result<(), String>),
 }
 
+enum PendingAction {
+    Review(u32),
+    Draw(Box<as2026::starts::StartDraw>),
+}
+
 #[derive(Default)]
 struct State {
+    pending: Option<PendingAction>,
     workspace: Option<Workspace>,
     preferences: Option<PreferencesStore>,
     update: Option<updates::Update>,
@@ -157,6 +163,27 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     app.set_calculation_notes(view.notes.into());
     app.set_selected_key(state.selected);
     app.set_detail_key(state.detail);
+    let stored = ws
+        .project()
+        .and_then(|p| {
+            usize::try_from(state.selected)
+                .ok()
+                .and_then(|i| p.kilpailijat.get(i))
+        })
+        .and_then(|d| d.tallennettu_tulos.as_ref());
+    let examine_supported = ws.project().is_some_and(|p| {
+        p.kilpailu.ajanottotapa == 0
+            || usize::try_from(state.selected)
+                .ok()
+                .and_then(|i| p.kilpailijat.get(i))
+                .and_then(|d| p.luokat.iter().find(|c| c.tunnus.trim() == d.luokka.trim()))
+                .and_then(|c| p.radat.iter().find(|r| r.numero == c.rata))
+                .and_then(|r| r.asemat.last())
+                .is_some_and(|s| s.emit_koodi != 0)
+    });
+    app.set_examine_supported(examine_supported);
+    app.set_result_stored(stored.is_some());
+    app.set_clock_pending(stored.is_some_and(|r| r.kasikellot_muuttuneet));
     update_header(state, app)
 }
 
@@ -171,6 +198,7 @@ fn update_form(state: &State, app: &AppWindow) {
         Selection::Class(_) => "Luokan tiedot",
         Selection::Track(_) => "Radan tiedot",
         Selection::Station { .. } => "Aseman tiedot",
+        Selection::ResultStation { .. } => "Asematuloksen korjaus",
         Selection::Settings => "Kilpailun asetukset",
         Selection::NewDriver => "Uusi kilpailija",
         Selection::NewClass => "Uusi luokka",
@@ -180,7 +208,9 @@ fn update_form(state: &State, app: &AppWindow) {
     };
     app.set_editor_title(title.into());
     app.set_editor_description(
-        if new {
+        if matches!(state.selection, Selection::ResultStation { .. }) {
+            "Kellokorjaus säilyttää pisteet. Tutki laskee tallennetuista kelloista. Tarkista palauttaa kortinlukutuloksen."
+        } else if new {
             "Täytä tiedot ja valitse Lisää. Kilpailu tallentuu automaattisesti."
         } else {
             "Hyväksy kenttä Enterillä tai siirtymällä seuraavaan. Muutos tallentuu automaattisesti."
@@ -614,6 +644,33 @@ fn poll_reader(state: &mut State, app: &AppWindow, timer: &Timer) {
     }
 }
 
+fn selected_number(state: &State) -> GuiResult<u32> {
+    state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .and_then(|p| {
+            usize::try_from(state.selected)
+                .ok()
+                .and_then(|i| p.kilpailijat.get(i))
+        })
+        .map(|d| d.numero)
+        .ok_or_else(|| invalid("Valitse kilpailija"))
+}
+
+fn confirmation(
+    state: &mut State,
+    app: &AppWindow,
+    action: PendingAction,
+    title: &str,
+    text: String,
+) {
+    state.pending = Some(action);
+    app.set_confirm_title(title.into());
+    app.set_confirm_text(text.into());
+    app.set_confirm_open(true);
+}
+
 fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     macro_rules! action {
         ($method:ident, |$s:ident, $a:ident $(, $arg:ident)*| $body:expr) => {{
@@ -743,7 +800,27 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_select_detail, |s, a, key| {
-        if can_leave(s, &a) && s.page == 5 {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        if s.page == 3 && current_workspace(s)?.is_editable() {
+            let number = selected_number(s)?;
+            let archive = current_workspace(s)?.results()?;
+            if let Some(row) = archive
+                .competitors
+                .iter()
+                .find(|d| d.number == number)
+                .and_then(|d| usize::try_from(key).ok().and_then(|i| d.results.get(i)))
+            {
+                s.detail = key;
+                s.selection = Selection::ResultStation {
+                    number,
+                    row: row.output_index,
+                };
+                a.set_detail_key(key);
+                update_form(s, &a);
+            }
+        } else if s.page == 5 {
             let project = s
                 .workspace
                 .as_ref()
@@ -850,6 +927,116 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         update_form(s, &a);
         status(&a, "Tallennetut tiedot palautettu näkymään.", false);
+        Ok(())
+    });
+    action!(on_review_results, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let number = selected_number(s)?;
+        confirmation(
+            s,
+            &a,
+            PendingAction::Review(number),
+            "Tarkista leimaukset",
+            format!(
+                "Kilpailijan {number} asemarivit muodostetaan uudelleen tallennetusta korttiluvusta. Asemien käsikellot ja pistekorjaukset korvataan. Erilliset lisävirheet ja käsin valittu tila säilyvät."
+            ),
+        );
+        Ok(())
+    });
+    action!(on_examine_results, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let number = selected_number(s)?;
+        current_workspace(s)?.recalculate_stored(number)?;
+        update_tables(s, &a)?;
+        update_form(s, &a);
+        status(
+            &a,
+            "Tutki: tallennetut asemarivit ja käsikellot laskettu. Asemarivien pistekorjaukset korvattiin laskennalla.",
+            false,
+        );
+        Ok(())
+    });
+    action!(on_draw_starts, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let project = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Aineisto on vain katseltavissa"))?;
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64;
+        let draw = as2026::starts::draw(project, seed)?;
+        let preview = draw
+            .assignments
+            .iter()
+            .map(|entry| {
+                format!(
+                    "{}   {:02}:{:02}:{:02}",
+                    entry.number, entry.time.hour, entry.time.minute, entry.time.second
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        confirmation(
+            s,
+            &a,
+            PendingAction::Draw(Box::new(draw)),
+            "Lähtöaikojen arvonta",
+            format!(
+                "Lähtöajat arvotaan luokittain luokan lähtöajasta ja lähtövälistä. Kilpailunumerot säilyvät. Hyväksy korvaa alla olevien kilpailijoiden lähtöajat.\n\nNro   Lähtö\n{preview}"
+            ),
+        );
+        Ok(())
+    });
+    action!(on_confirm_action, |s, a, accepted| {
+        a.set_confirm_open(false);
+        let Some(pending) = s.pending.take() else {
+            return Ok(());
+        };
+        if accepted {
+            let message = match pending {
+                PendingAction::Review(number) => {
+                    current_workspace(s)?.review_results(number)?;
+                    "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
+                }
+                PendingAction::Draw(draw) => {
+                    current_workspace(s)?.apply_start_draw(&draw)?;
+                    "Arvotut lähtöajat tallennettu."
+                }
+            };
+            update_tables(s, &a)?;
+            update_form(s, &a);
+            status(&a, message, false);
+        }
+        Ok(())
+    });
+    action!(on_export_starts, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let project = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Lähtöluettelo edellyttää AS2026-kilpailua"))?;
+        let html = as2026::starts::start_list_html(project)?;
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Tallenna lähtöluettelo")
+            .add_filter("HTML-lähtöluettelo", &["html"])
+            .set_file_name("lahtoluettelo.html")
+            .save_file()
+        {
+            report::save_new(&path, &html)?;
+            status(
+                &a,
+                "Lähtöluettelo tallennettu. Sen voi avata ja tulostaa selaimella.",
+                false,
+            );
+        }
         Ok(())
     });
     action!(on_export_report, |s, a| {
@@ -1057,6 +1244,18 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     }
 }
 
+fn save_view(app: &AppWindow, path: &Path) -> Result<(), String> {
+    let buffer = app.window().take_snapshot().map_err(|e| e.to_string())?;
+    image::save_buffer(
+        path,
+        buffer.as_bytes(),
+        buffer.width(),
+        buffer.height(),
+        image::ColorType::Rgba8,
+    )
+    .map_err(|e| e.to_string())
+}
+
 fn capture_views(
     app: &AppWindow,
     state: SharedState,
@@ -1075,6 +1274,12 @@ fn capture_views(
             return;
         };
         let current = *phase.borrow();
+        if current == 6
+            && !keyboard_test
+            && let Err(error) = save_view(&app, &directory.join("1b-kilpailijat-vieritetty.png"))
+        {
+            eprintln!("Kuvakaappaus epäonnistui: {error}");
+        }
         if current >= if keyboard_test { 31 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
@@ -1116,6 +1321,17 @@ fn capture_views(
                 );
             }
         } else if current < 24 && current % 3 == 1 {
+            if current == 10 || current == 16 {
+                app.invoke_select_detail(1);
+            }
+            if current == 16 && !keyboard_test {
+                app.window()
+                    .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                        position: slint::LogicalPosition::new(225., 400.),
+                        delta_x: 0.,
+                        delta_y: -600.,
+                    });
+            }
             app.window().request_redraw();
         } else {
             let index = if current == 30 { 9 } else { current / 3 };
@@ -1131,22 +1347,21 @@ fn capture_views(
                 "uusi-kilpailu",
                 "tietoja",
             ];
-            let result = app
-                .window()
-                .take_snapshot()
-                .map_err(|e| e.to_string())
-                .and_then(|buffer| {
-                    image::save_buffer(
-                        directory.join(format!("{index}-{}.png", names[index])),
-                        buffer.as_bytes(),
-                        buffer.width(),
-                        buffer.height(),
-                        image::ColorType::Rgba8,
-                    )
-                    .map_err(|e| e.to_string())
-                });
+            let result = save_view(
+                &app,
+                &directory.join(format!("{index}-{}.png", names[index])),
+            );
             if let Err(error) = result {
                 eprintln!("Kuvakaappaus epäonnistui: {error}");
+            }
+            if current == 5 && !keyboard_test {
+                app.window()
+                    .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                        position: slint::LogicalPosition::new(250., 275.),
+                        delta_x: -250.,
+                        delta_y: 0.,
+                    });
+                app.window().request_redraw();
             }
         }
         *phase.borrow_mut() += 1;
