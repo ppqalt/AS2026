@@ -370,6 +370,112 @@ fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculate
     finish(html)
 }
 
+/// Escape CSV text for spreadsheet programs. Treat user-provided formula-like
+/// strings as text rather than executable spreadsheet expressions.
+fn csv_cell(value: &str) -> String {
+    let first = value.trim_start().chars().next();
+    let prefix = if first.is_some_and(|c| matches!(c, '=' | '+' | '-' | '@')) {
+        "'"
+    } else {
+        ""
+    };
+    format!("\"{}\"", format!("{prefix}{value}").replace('"', "\"\""))
+}
+
+fn csv_record(csv: &mut String, cells: &[String]) {
+    for (index, value) in cells.iter().enumerate() {
+        if index > 0 {
+            csv.push(';');
+        }
+        csv.push_str(&csv_cell(value));
+    }
+    csv.push_str("\r\n");
+}
+
+/// Export the same class and route ranking as HTML, preserving stored totals,
+/// status sentinels, provisional Np/Sp suppression and shared positions.
+/// UTF-8, semicolon-delimited CSV with CRLF for Finnish spreadsheet defaults.
+pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
+    let mut csv = String::new();
+    csv_record(
+        &mut csv,
+        &[
+            "Ryhmän tyyppi".into(),
+            "Ryhmä".into(),
+            "Sija".into(),
+            "Numero".into(),
+            "Kuljettaja".into(),
+            "Kartanlukija".into(),
+            "Luokka".into(),
+            "Tila".into(),
+            "Virhepisteet".into(),
+            "Np".into(),
+            "Sp".into(),
+        ],
+    );
+    for group in &report.groups {
+        for entry in &group.entries {
+            let source = archive.competitors.get(entry.source_index.saturating_sub(1));
+            let pos = if entry.status == Status::Classified {
+                entry.primary_position.to_string()
+            } else {
+                entry.status.as_legacy().to_owned()
+            };
+            csv_record(
+                &mut csv,
+                &[
+                    (if group.kind == GroupKind::Combined { "Yhdistetty" } else { "Luokka" }).into(),
+                    group.code.clone(),
+                    pos,
+                    entry.number.to_string(),
+                    source.map_or("", |c| c.driver.as_str()).into(),
+                    source.map_or("", |c| c.navigator.as_str()).into(),
+                    source.map_or("", |c| c.class_code.as_str()).into(),
+                    entry.status.as_legacy().into(),
+                    source.map_or_else(String::new, |c| c.total_penalties.to_string()),
+                    if group.np_enabled && !group.provisional {
+                        entry.table_points.to_string()
+                    } else {
+                        String::new()
+                    },
+                    if group.series_method != 0 && !group.provisional {
+                        entry.series_points.to_string()
+                    } else {
+                        String::new()
+                    },
+                ],
+            );
+        }
+    }
+    for route in &report.routes {
+        for entry in &route.entries {
+            let source = archive.competitors.get(entry.source_index.saturating_sub(1));
+            let pos = if entry.status == Status::Classified {
+                entry.primary_position.to_string()
+            } else {
+                entry.status.as_legacy().to_owned()
+            };
+            csv_record(
+                &mut csv,
+                &[
+                    "Rata".into(),
+                    route.code.clone(),
+                    pos,
+                    entry.number.to_string(),
+                    source.map_or("", |c| c.driver.as_str()).into(),
+                    source.map_or("", |c| c.navigator.as_str()).into(),
+                    source.map_or("", |c| c.class_code.as_str()).into(),
+                    entry.status.as_legacy().into(),
+                    source.map_or_else(String::new, |c| c.total_penalties.to_string()),
+                    String::new(),
+                    String::new(),
+                ],
+            );
+        }
+    }
+    csv
+}
+
 /// Luo uuden UTF-8-tiedoston. Myös olemassa oleva symbolinen linkki estää
 /// tallennuksen; olemassa olevaa tiedostoa ei avata kirjoitettavaksi.
 pub fn save_new(path: &Path, html: &str) -> Result<(), CoreError> {

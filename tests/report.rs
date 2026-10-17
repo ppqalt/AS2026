@@ -12,7 +12,7 @@ use as2026::{
     ranking::{
         self, ClassDefinition, CompetitorInput, Diagnostic, DiagnosticKind, RankingInput, Status,
     },
-    report::{calculation_html, ranking_html, save_new, user_notice},
+    report::{calculation_html, ranking_csv, ranking_html, save_new, user_notice},
     scoring::PenaltyTotals,
     timing::{
         CalculatedRow, CalculationDiagnostic, CalculationPolicy, CalculationStatus, LiveCalculation,
@@ -300,4 +300,30 @@ fn native_reports_present_results_without_development_banners() {
         assert!(html.contains("Maalikello perustuu viimeiseen leimaan, mutta leimaamattoman maalin toteutunut aika on laskennassa 0 s."));
         assert!(html.contains("Virhepisteet") || html.contains("Tulos"));
     }
+}
+
+#[test]
+fn ranking_csv_escapes_delimiters_quotes_and_spreadsheet_formulas() {
+    let mut source = archive();
+    source.competitors[0].driver = "=1+2".into();
+    source.competitors[0].navigator = "A\";B".into();
+    let csv = ranking_csv(&source, &ranked(&source));
+    assert!(csv.starts_with("\"Ryhmän tyyppi\";\"Ryhmä\";"));
+    assert!(csv.contains("\"'=1+2\""));
+    assert!(csv.contains("\"A\"\";B\""));
+    assert!(csv.contains("\"23\""));
+    assert!(csv.contains("\r\n"));
+    assert!(!csv.contains("<script>"));
+}
+
+#[test]
+fn provisional_ranking_csv_leaves_np_and_sp_cells_blank() {
+    let source = archive();
+    let mut report = ranked(&source);
+    report.groups[0].provisional = true;
+    report.groups[0].np_enabled = false;
+    report.groups[0].series_method = 0;
+    let csv = ranking_csv(&source, &report);
+    let class_row = csv.lines().nth(1).unwrap();
+    assert!(class_row.ends_with("\"\";\"\""));
 }

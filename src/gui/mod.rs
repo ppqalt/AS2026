@@ -798,6 +798,37 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .map_err(|e| invalid(&io_message(&e)))?;
         Ok(())
     });
+    action!(on_export_csv, |s, a| {
+        let ws = s
+            .workspace
+            .as_ref()
+            .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
+        let archive = ws.results()?;
+        let ranking =
+            application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
+        let csv = report::ranking_csv(&archive, &ranking);
+        let weak = a.as_weak();
+        std::thread::Builder::new()
+            .name("as2026-csv".into())
+            .spawn(move || {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_title("Vie tulokset uutena CSV-tiedostona")
+                    .set_file_name("tulokset.csv")
+                    .add_filter("CSV-taulukko", &["csv"])
+                    .save_file()
+                {
+                    let result = report::save_new(&path, &csv);
+                    let message = match &result {
+                        Ok(()) => format!("CSV tallennettu: {}", path.display()),
+                        Err(error) => error.to_string(),
+                    };
+                    let failed = result.is_err();
+                    let _ = weak.upgrade_in_event_loop(move |app| status(&app, message, failed));
+                }
+            })
+            .map_err(|e| invalid(&io_message(&e)))?;
+        Ok(())
+    });
     action!(on_import_frame, |s, a| {
         if s.worker.is_some() || !can_leave(s, &a) {
             return Ok(());
