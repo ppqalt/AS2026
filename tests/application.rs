@@ -364,3 +364,24 @@ fn native_numeric_route_reference_ignores_a_colliding_route_name() {
     let archive = as2026::application::calculated_project(&project).unwrap();
     assert_eq!(archive.competitors[0].total_penalties, 2415);
 }
+
+#[test]
+fn imported_stored_timing_preparation_uses_a_separate_context() {
+    let mut a = archive();
+    // Menetelmä 1 ja M0 on vanhan ohjelman alustamaton pinotapaus.
+    assert!(matches!(
+        as2026::application::prepare_stored_competitor_timing(&a, 7),
+        Err(CoreError::Unsupported(_))
+    ));
+    a.basic.identity[7] = "0".into();
+    let prepared = as2026::application::prepare_stored_competitor_timing(&a, 7).unwrap();
+    assert_eq!(prepared.start_elapsed_seconds, 0);
+    assert_eq!(prepared.last_row_elapsed_seconds, 600);
+    assert_eq!(prepared.total_duration_seconds, 600);
+    a.basic.identity[7] = "2".into();
+    a.competitors[0].results.last_mut().unwrap().expected_code = 32;
+    let method_two = as2026::application::prepare_stored_competitor_timing(&a, 7).unwrap();
+    assert_eq!(method_two.start_elapsed_seconds, 600);
+    assert_eq!(method_two.effective_reset_correction_seconds, 600);
+    assert_eq!(a.competitors[0].total_penalties, 645);
+}

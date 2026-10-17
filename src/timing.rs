@@ -128,6 +128,92 @@ fn add(a: i64, b: i64, what: &'static str) -> Result<i64, CoreError> {
 fn sub(a: i64, b: i64, what: &'static str) -> Result<i64, CoreError> {
     a.checked_sub(b).ok_or(CoreError::ArithmeticOverflow(what))
 }
+/// Tallennettujen P-rivien tarkistuksen erillinen ajanvalmistelu
+/// (AS2015A 0x0041ef28). Tämä EI vielä laske asemien pisteitä uudelleen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredTimingInput {
+    pub official_start: ClockTime,
+    /// Tallennettu maalikello sekunteina vuorokauden alusta.
+    pub stored_finish_clock_seconds: i64,
+    /// Tallennetun viimeisen P-rivin alkuperäinen aikakoordinaatti.
+    pub last_row_elapsed_seconds: i64,
+    pub finish_expected_code: u32,
+    pub reset_correction_seconds: i64,
+    pub timing_method: TimingMethod,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedStoredTiming {
+    pub start_elapsed_seconds: i64,
+    pub last_row_elapsed_seconds: i64,
+    pub effective_reset_correction_seconds: i64,
+    pub finish_clock_seconds: i64,
+    pub total_duration_seconds: i64,
+}
+
+/// Staattisesti palautettu valmistelujärjestys. Alustamattomaan pinoarvoon
+/// riippuvia tuloksia ei arvata (ajanottotapa 1/2 ja käsimaali M0).
+pub fn prepare_stored_timing(
+    input: &StoredTimingInput,
+) -> Result<PreparedStoredTiming, CoreError> {
+    let start = input.official_start.seconds_since_midnight()?;
+    let mut finish = input.stored_finish_clock_seconds;
+    let mut correction = input.reset_correction_seconds;
+    let mut last_elapsed = input.last_row_elapsed_seconds;
+    let start_elapsed = match input.timing_method {
+        TimingMethod::ManualClock => {
+            if finish == 0 {
+                return Err(CoreError::Unsupported(
+                    "Tallennetun ajanottotavan 0 maalikello 00:00:00 ei kelpaa AS2015A:n tarkistuspolulle".into(),
+                ));
+            }
+            if finish < start {
+                finish = add(finish, 86_400, "tallennetun maalikellon vuorokausikorjaus")?;
+            }
+            last_elapsed = sub(finish, start, "tallennetun maalin koordinaatti")?;
+            0
+        }
+        TimingMethod::Emit | TimingMethod::LegacyMode2 => {
+            if input.finish_expected_code == 0 {
+                return Err(CoreError::Unsupported(
+                    "Tallennettujen tulosten ajanottotavoilla 1 ja 2 käsimaali käyttää AS2015A:ssa alustamatonta maalikelloa; tulosta ei arvata".into(),
+                ));
+            }
+            if input.timing_method == TimingMethod::Emit {
+                let anchor = if correction == 0 { 120 } else { correction };
+                finish = add(
+                    start,
+                    sub(last_elapsed, anchor, "tallennetun maalin aikaviite")?,
+                    "tallennettujen tulosten maalikello",
+                )?;
+                anchor
+            } else {
+                correction = sub(finish, start, "ajanottotavan 2 aikakorjaus")?;
+                if correction < -20_000 {
+                    correction = add(correction, 86_400, "ajanottotavan 2 vuorokausikorjaus")?;
+                }
+                correction
+            }
+        }
+    };
+    let mut duration = sub(finish, start, "tallennettujen tulosten kesto")?;
+    if duration < -20_000 {
+        duration = add(duration, 86_400, "tallennettujen tulosten vuorokausikorjaus")?;
+    }
+    if duration < 0 {
+        return Err(CoreError::Unsupported(
+            "Tallennettujen tulosten laskettu kesto on negatiivinen".into(),
+        ));
+    }
+    Ok(PreparedStoredTiming {
+        start_elapsed_seconds: start_elapsed,
+        last_row_elapsed_seconds: last_elapsed,
+        effective_reset_correction_seconds: correction,
+        finish_clock_seconds: finish,
+        total_duration_seconds: duration,
+    })
+}
+
 fn diagnostic(
     result: &mut LiveCalculation,
     row: Option<usize>,

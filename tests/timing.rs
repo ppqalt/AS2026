@@ -473,3 +473,76 @@ fn static_section_conversion_uses_numeric_prefix_not_joined_digits() {
     let result = calculate_live(&rows, &o).unwrap();
     assert_eq!(result.cumulative_schedule_difference_seconds, -540);
 }
+
+#[test]
+fn stored_timing_method_zero_recovers_midnight_rollover() {
+    let input = StoredTimingInput {
+        official_start: ClockTime::new(23, 58, 0).unwrap(),
+        stored_finish_clock_seconds: 120,
+        last_row_elapsed_seconds: 720,
+        finish_expected_code: 0,
+        reset_correction_seconds: 45,
+        timing_method: TimingMethod::ManualClock,
+    };
+    let prepared = prepare_stored_timing(&input).unwrap();
+    assert_eq!(prepared.start_elapsed_seconds, 0);
+    assert_eq!(prepared.last_row_elapsed_seconds, 240);
+    assert_eq!(prepared.finish_clock_seconds, 86_520);
+    assert_eq!(prepared.total_duration_seconds, 240);
+    assert_eq!(prepared.effective_reset_correction_seconds, 45);
+    let mut invalid = input;
+    invalid.stored_finish_clock_seconds = 0;
+    assert!(matches!(
+        prepare_stored_timing(&invalid),
+        Err(CoreError::Unsupported(_))
+    ));
+}
+
+#[test]
+fn stored_timing_method_two_uses_saved_clock_and_threshold_minus_20000() {
+    let mut input = StoredTimingInput {
+        official_start: ClockTime::new(12, 0, 0).unwrap(),
+        stored_finish_clock_seconds: 43_800,
+        last_row_elapsed_seconds: 720,
+        finish_expected_code: 32,
+        reset_correction_seconds: 120,
+        timing_method: TimingMethod::LegacyMode2,
+    };
+    let prepared = prepare_stored_timing(&input).unwrap();
+    assert_eq!(prepared.start_elapsed_seconds, 600);
+    assert_eq!(prepared.effective_reset_correction_seconds, 600);
+    assert_eq!(prepared.last_row_elapsed_seconds, 720);
+    assert_eq!(prepared.total_duration_seconds, 600);
+    input.official_start = ClockTime::new(23, 58, 0).unwrap();
+    input.stored_finish_clock_seconds = 0;
+    let wrapped = prepare_stored_timing(&input).unwrap();
+    assert_eq!(wrapped.start_elapsed_seconds, 120);
+    assert_eq!(wrapped.total_duration_seconds, 120);
+    assert_eq!(wrapped.finish_clock_seconds, 0);
+}
+
+#[test]
+fn stored_timing_method_one_reanchors_and_rejects_ambiguous_manual_finish() {
+    let mut input = StoredTimingInput {
+        official_start: clock(),
+        stored_finish_clock_seconds: 10,
+        last_row_elapsed_seconds: 720,
+        finish_expected_code: 32,
+        reset_correction_seconds: 120,
+        timing_method: TimingMethod::Emit,
+    };
+    let prepared = prepare_stored_timing(&input).unwrap();
+    assert_eq!(prepared.start_elapsed_seconds, 120);
+    assert_eq!(prepared.finish_clock_seconds, 43_800);
+    assert_eq!(prepared.total_duration_seconds, 600);
+    input.finish_expected_code = 0;
+    assert!(matches!(
+        prepare_stored_timing(&input),
+        Err(CoreError::Unsupported(_))
+    ));
+    input.timing_method = TimingMethod::LegacyMode2;
+    assert!(matches!(
+        prepare_stored_timing(&input),
+        Err(CoreError::Unsupported(_))
+    ));
+}

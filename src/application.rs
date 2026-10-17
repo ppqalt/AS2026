@@ -317,6 +317,47 @@ fn selector(value: Option<&String>, label: &str) -> Result<u8, CoreError> {
     let n = optional_nonnegative(value, label)?.unwrap_or(0);
     u8::try_from(n).map_err(|_| invalid(format!("{label}: liian suuri valinta")))
 }
+/// Valmistelee vanhojen tallennettujen P-rivien ajanottokontekstin, muuttamatta
+/// kilpailijaa tai laskematta asemien pisteitä uudelleen. Varsinainen context-1
+/// asemalaskenta on erillinen toteuttamaton vaihe.
+pub fn prepare_stored_competitor_timing(
+    archive: &Archive,
+    number: u32,
+) -> Result<timing::PreparedStoredTiming, CoreError> {
+    let c = archive
+        .competitors
+        .iter()
+        .find(|c| c.number == number)
+        .ok_or_else(|| invalid(format!("Kilpailijaa {number} ei löydy")))?;
+    let last = c
+        .results
+        .last()
+        .ok_or_else(|| invalid("Kilpailijalla ei ole tallennettuja asematuloksia"))?;
+    let hours = header_number(c, 16, "Maalin tunti")?;
+    let minutes = header_number(c, 17, "Maalin minuutti")?;
+    let seconds = header_number(c, 18, "Maalin sekunti")?;
+    if hours < 0 || !(0..60).contains(&minutes) || !(0..60).contains(&seconds) {
+        return Err(invalid("Tallennettu maalikello on virheellinen"));
+    }
+    let finish_clock = hours
+        .checked_mul(3600)
+        .and_then(|v| minutes.checked_mul(60).and_then(|m| v.checked_add(m)))
+        .and_then(|v| v.checked_add(seconds))
+        .ok_or(CoreError::ArithmeticOverflow("tallennettu maalikello"))?;
+    let method = integer(
+        archive.basic.identity.get(7).ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
+        "ajanottotapa",
+    )?;
+    timing::prepare_stored_timing(&timing::StoredTimingInput {
+        official_start: start(c)?,
+        stored_finish_clock_seconds: finish_clock,
+        last_row_elapsed_seconds: last.elapsed_seconds,
+        finish_expected_code: last.expected_code,
+        reset_correction_seconds: c.correction_seconds,
+        timing_method: TimingMethod::from_legacy(method)?,
+    })
+}
+
 /// Rank stored, imported totals. This operation does not silently substitute preview totals.
 pub fn rank_stored(
     a: &Archive,
