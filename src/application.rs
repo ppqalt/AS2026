@@ -362,6 +362,30 @@ pub fn prepare_stored_competitor_timing(
     })
 }
 
+/// Valmistelee tallennetut P-kellot erillisellä vanhan ohjelman
+/// uudelleenlaskentapolulla. Tämä ei vielä muuta asemien virhepisteitä.
+pub fn prepare_stored_competitor_station_times(
+    archive: &Archive,
+    number: u32,
+) -> Result<timing::PreparedStoredStationTimes, CoreError> {
+    let prepared = prepare_stored_competitor_timing(archive, number)?;
+    let c = archive
+        .competitors
+        .iter()
+        .find(|c| c.number == number)
+        .ok_or_else(|| invalid(format!("Kilpailijaa {number} ei löydy")))?;
+    let rows = c
+        .results
+        .iter()
+        .map(|row| timing::StoredStationTime {
+            expected_code: row.expected_code,
+            elapsed_seconds: row.elapsed_seconds,
+            clock: row.clock,
+        })
+        .collect::<Vec<_>>();
+    timing::prepare_stored_station_times(&prepared, &rows)
+}
+
 /// Rank stored, imported totals. This operation does not silently substitute preview totals.
 pub fn rank_stored(
     a: &Archive,

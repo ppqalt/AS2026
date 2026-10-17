@@ -216,6 +216,104 @@ pub fn prepare_stored_timing(input: &StoredTimingInput) -> Result<PreparedStored
     })
 }
 
+
+/// Tallennettujen asemarivien ajallinen tieto ennen uusintatarkistusta.
+/// Pistelaskentaa, aseman lajia tai korjaussääntöä ei muuteta tässä.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredStationTime {
+    pub expected_code: u32,
+    pub elapsed_seconds: i64,
+    pub clock: [i64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedStoredStationTimes {
+    pub rows: Vec<StoredStationTime>,
+    pub warnings: Vec<String>,
+}
+
+fn stored_hms(seconds: i64) -> [i64; 3] {
+    // AS2015A:n tässä kohdassa tapahtuva kokonaislukujako ei moduloidu
+    // vuorokauteen. Negatiiviset arvot säilytetään näkyvinä.
+    [seconds / 3600, (seconds % 3600) / 60, seconds % 60]
+}
+
+fn stored_clock_seconds(parts: [i64; 3]) -> Result<i64, CoreError> {
+    let hours = parts[0]
+        .checked_mul(3600)
+        .ok_or(CoreError::ArithmeticOverflow("tallennetun käsikellon tunnit"))?;
+    let minutes = parts[1]
+        .checked_mul(60)
+        .ok_or(CoreError::ArithmeticOverflow("tallennetun käsikellon minuutit"))?;
+    add(add(hours, minutes, "tallennettu käsikello")?, parts[2], "tallennettu käsikello")
+}
+
+/// AS2015A 0x0041ef28: talletettujen P-rivien kellot valmistellaan riveillä
+/// n−1 .. 2 käänteisessä järjestyksessä, *ennen* context=1-asemapistelaskentaa.
+/// Ei muuta kutsujan rivitaulukkoa eikä arvaa vanhan ohjelman muistivirheitä.
+pub fn prepare_stored_station_times(
+    prepared: &PreparedStoredTiming,
+    source: &[StoredStationTime],
+) -> Result<PreparedStoredStationTimes, CoreError> {
+    if source.len() < 2 {
+        return Err(CoreError::InvalidInput(
+            "Tallennettujen tulosten valmistelu vaatii lähtö- ja maalirivin".into(),
+        ));
+    }
+    let mut rows = source.to_vec();
+    let last = rows.len() - 1;
+    rows[0].elapsed_seconds = prepared.start_elapsed_seconds;
+    rows[last].elapsed_seconds = prepared.last_row_elapsed_seconds;
+    let mut warnings = Vec::new();
+    for index in (1..last).rev() {
+        let row = &mut rows[index];
+        if row.expected_code != 0 && row.elapsed_seconds != 0 {
+            let mut clock = add(
+                sub(
+                    prepared.finish_clock_seconds,
+                    prepared.last_row_elapsed_seconds,
+                    "leimatun aseman kelloviite",
+                )?,
+                row.elapsed_seconds,
+                "leimatun aseman kello",
+            )?;
+            if clock < -50_000 {
+                clock = add(clock, 86_400, "leimatun aseman vuorokausikorjaus")?;
+            }
+            row.clock = stored_hms(clock);
+        } else if row.expected_code == 0 {
+            // Historiallinen testi on kellokomponenttien summa, ei K != 0.
+            let components_sum = row
+                .clock
+                .iter()
+                .try_fold(0_i64, |a, value| a.checked_add(*value))
+                .ok_or(CoreError::ArithmeticOverflow("käsikellon komponentit"))?;
+            if components_sum == 0 {
+                row.elapsed_seconds = 0;
+            } else {
+                let mut clock = stored_clock_seconds(row.clock)?;
+                if sub(clock, prepared.finish_clock_seconds, "käsikellon vuorokausiraja")?
+                    < -50_000
+                {
+                    clock = add(clock, 86_400, "käsikellon vuorokausikorjaus")?;
+                }
+                row.elapsed_seconds = sub(
+                    prepared.last_row_elapsed_seconds,
+                    sub(prepared.finish_clock_seconds, clock, "käsikellon ero maalista")?,
+                    "käsikellon aikakoordinaatti",
+                )?;
+                if row.elapsed_seconds == 0 || row.elapsed_seconds >= rows[index + 1].elapsed_seconds {
+                    warnings.push(format!(
+                        "Tallennetun asemarivin {} käsiaika poikkeaa aikajärjestyksestä; AS2015A vain huomauttaa eikä korjaa sitä",
+                        index + 1
+                    ));
+                }
+            }
+        }
+    }
+    Ok(PreparedStoredStationTimes { rows, warnings })
+}
+
 fn diagnostic(
     result: &mut LiveCalculation,
     row: Option<usize>,

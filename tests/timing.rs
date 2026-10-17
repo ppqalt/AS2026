@@ -590,3 +590,88 @@ fn static_policy_does_not_publish_stale_legacy_early_return_scores() {
         Err(CoreError::Unsupported(_))
     ));
 }
+
+#[test]
+fn stored_intermediate_clock_reconstruction_is_reverse_ordered_and_read_only() {
+    let prepared = prepare_stored_timing(&StoredTimingInput {
+        official_start: ClockTime::new(23, 58, 0).unwrap(),
+        stored_finish_clock_seconds: 120,
+        last_row_elapsed_seconds: 999,
+        finish_expected_code: 0,
+        reset_correction_seconds: 0,
+        timing_method: TimingMethod::ManualClock,
+    })
+    .unwrap();
+    let source = vec![
+        StoredStationTime {
+            expected_code: 0,
+            elapsed_seconds: 7,
+            clock: [23, 58, 0],
+        },
+        StoredStationTime {
+            expected_code: 31,
+            elapsed_seconds: 120,
+            clock: [0, 0, 0],
+        },
+        StoredStationTime {
+            expected_code: 0,
+            elapsed_seconds: 0,
+            clock: [0, 1, 0],
+        },
+        StoredStationTime {
+            expected_code: 0,
+            elapsed_seconds: 999,
+            clock: [0, 2, 0],
+        },
+    ];
+    let result = prepare_stored_station_times(&prepared, &source).unwrap();
+    assert_eq!(result.rows[0].elapsed_seconds, 0);
+    assert_eq!(result.rows[1].elapsed_seconds, 120);
+    assert_eq!(result.rows[1].clock, [24, 0, 0]);
+    assert_eq!(result.rows[2].elapsed_seconds, 180);
+    assert_eq!(result.rows[2].clock, [0, 1, 0]);
+    assert_eq!(result.rows[3].elapsed_seconds, 240);
+    assert!(result.warnings.is_empty());
+    assert_eq!(source[0].elapsed_seconds, 7);
+    assert_eq!(source[3].elapsed_seconds, 999);
+}
+
+#[test]
+fn stored_manual_clock_zero_and_nonmonotonic_data_are_not_silently_fixed() {
+    let prepared = PreparedStoredTiming {
+        start_elapsed_seconds: 120,
+        last_row_elapsed_seconds: 600,
+        effective_reset_correction_seconds: 120,
+        finish_clock_seconds: 43_800,
+        total_duration_seconds: 600,
+    };
+    let first = StoredStationTime {
+        expected_code: 0,
+        elapsed_seconds: 0,
+        clock: [12, 0, 0],
+    };
+    let last = StoredStationTime {
+        expected_code: 32,
+        elapsed_seconds: 720,
+        clock: [12, 10, 0],
+    };
+    let zero_clock = StoredStationTime {
+        expected_code: 0,
+        elapsed_seconds: 77,
+        clock: [0, 0, 0],
+    };
+    let result = prepare_stored_station_times(
+        &prepared,
+        &[first.clone(), zero_clock, last.clone()],
+    )
+    .unwrap();
+    assert_eq!(result.rows[1].elapsed_seconds, 0);
+    let wrong_order = StoredStationTime {
+        expected_code: 0,
+        elapsed_seconds: 10,
+        clock: [12, 12, 0],
+    };
+    let result = prepare_stored_station_times(&prepared, &[first, wrong_order, last]).unwrap();
+    assert_eq!(result.rows[1].elapsed_seconds, 840);
+    assert_eq!(result.warnings.len(), 1);
+}
