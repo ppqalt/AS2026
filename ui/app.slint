@@ -92,6 +92,7 @@ export component AppWindow inherits Window {
     callback cancel-edit();
     callback export-report();
     callback export-csv();
+    callback export-xlsx();
     callback reader-start(string);
     callback reader-stop();
     callback retry-readouts();
@@ -329,6 +330,7 @@ export component AppWindow inherits Window {
                         spacing: 12px;
                         search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
                         if root.page != 3: Button { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; primary: true; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
+                        if root.page == 3: Button { height: Theme.control-height; text: "Vie XLSX…"; clicked => { root.export-xlsx(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie CSV…"; clicked => { root.export-csv(); } }
                         if root.page == 3: Button { height: Theme.control-height; text: "Vie HTML-raportti…"; clicked => { root.export-report(); } }
                     }

@@ -1,7 +1,7 @@
 use as2026::{
     ClockTime, CoreError, MatchKind, application, emit, io_message,
     legacy::{self, Archive, Encoding},
-    matching, native, ranking, reader, report, scoring, storage, terminal,
+    live_report, matching, native, ranking, reader, report, scoring, storage, terminal,
     timing::{self, CalculationPolicy, LiveCalculationOptions, TimingMethod},
 };
 use chrono::Timelike;
@@ -36,7 +36,7 @@ fn help() {
          Komennot:\n\
            as2026 tarkista KANSIO [--utf8]\n\
            as2026 laske KANSIO [--utf8] [--vaiheet] [--raportti TIEDOSTO.html]\n\
-           as2026 tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html] [--csv TIEDOSTO.csv]\n\
+           as2026 tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html] [--csv TIEDOSTO.csv] [--xlsx TIEDOSTO.xlsx] [--live PORTTI]\n\
            as2026 pura KEHYSTIEDOSTO [HH:MM:SS]\n\
            as2026 esimerkki\n\
            as2026 lue KANSIO [SARJAPORTTI]\n\
@@ -498,6 +498,28 @@ fn rank_csv(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<St
     Ok(report::ranking_csv(&archive, &ranked))
 }
 
+/// Render without terminal output for the localhost live report endpoint.
+fn rank_html_live(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String> {
+    let native_path = directory.join(native::FILE_NAME);
+    let native = native_path.is_file();
+    let archive = if native {
+        application::calculated_project(storage::ProjectStore::open(&native_path)?.project())?
+    } else {
+        load(directory, encoding)?
+    };
+    let policy = if break_ties {
+        ranking::TiePolicy::BestRowsWithExplicitCounts
+    } else {
+        ranking::TiePolicy::KeepSharedAndFlag
+    };
+    let ranked = application::rank_stored(&archive, policy)?;
+    Ok(if native {
+        report::project_ranking_html(&archive, &ranked)
+    } else {
+        report::ranking_html(&archive, &ranked)
+    })
+}
+
 fn demo() -> Result<()> {
     println!("SYNTEETTINEN ESIMERKKI — ei alkuperäisohjelman tai lukijalaitteen tuottama tulos.");
     let document = legacy::parse_document(
@@ -656,6 +678,8 @@ struct Options {
     break_ties: bool,
     html: Option<PathBuf>,
     csv: Option<PathBuf>,
+    xlsx: Option<PathBuf>,
+    live: Option<u16>,
 }
 fn options(args: &[OsString], calculation: bool) -> Result<Options> {
     let mut result = Options::default();
@@ -668,6 +692,23 @@ fn options(args: &[OsString], calculation: bool) -> Result<Options> {
                 if !calculation && !result.break_ties =>
             {
                 result.break_ties = true
+            }
+            Some("--xlsx") if !calculation && result.xlsx.is_none() => {
+                i += 1;
+                result.xlsx = Some(PathBuf::from(
+                    args.get(i)
+                        .ok_or_else(|| invalid("XLSX-tiedoston polku puuttuu"))?,
+                ));
+            }
+            Some("--live") if !calculation && result.live.is_none() => {
+                i += 1;
+                result.live = Some(
+                    args.get(i)
+                        .and_then(|value| value.to_str())
+                        .ok_or_else(|| invalid("Live-HTML-portti puuttuu"))?
+                        .parse::<u16>()
+                        .map_err(|_| invalid("Live-HTML-portti ei kelpaa"))?,
+                );
             }
             Some("--csv") if !calculation && result.csv.is_none() => {
                 i += 1;
@@ -753,6 +794,18 @@ fn run() -> Result<()> {
             if let Some(path) = options.csv {
                 let csv = rank_csv(Path::new(&args[1]), encoding, options.break_ties)?;
                 save(&path, &csv)?;
+            }
+            if let Some(path) = options.xlsx {
+                let csv = rank_csv(Path::new(&args[1]), encoding, options.break_ties)?;
+                let bytes = report::xlsx_from_csv(&csv)?;
+                report::save_new_bytes(&path, &bytes)?;
+                println!("XLSX tallennettu: {}", path.display());
+            }
+            if let Some(port) = options.live {
+                let directory = PathBuf::from(&args[1]);
+                live_report::serve(port, move || {
+                    rank_html_live(&directory, encoding, options.break_ties)
+                })?;
             }
             Ok(())
         }

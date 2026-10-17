@@ -517,6 +517,28 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     &format!("Tyhjä kenttä käyttää oletusta {}", default_values[index]),
                 ));
             }
+            for (index, group) in project.yhdistetyt_luokat.iter().enumerate() {
+                fields.push(text(
+                    30 + index as i32,
+                    &format!("Yhdistetty luokka {}", index + 1),
+                    format!(
+                        "{} | {} | {} | {}",
+                        group.nimi,
+                        group.luokat.join(","),
+                        group.nousupisteet,
+                        group.sarjapistetapa
+                    ),
+                    "Nimi | A,B | Np (0/1) | Sp (0–6); tyhjä arvo poistaa ryhmän",
+                ));
+            }
+            if project.yhdistetyt_luokat.len() < 4 {
+                fields.push(text(
+                    30 + project.yhdistetyt_luokat.len() as i32,
+                    "Lisää yhdistetty luokka",
+                    "",
+                    "Anna koko määritelmä: Nimi | A,B | 1 | 5",
+                ));
+            }
             fields
         }
         Selection::None => Vec::new(),
@@ -617,6 +639,7 @@ pub fn apply_field(
                 1 => ws.edit_competition(CompetitionField::Number, value)?,
                 2 => ws.edit_competition(CompetitionField::Timing, value)?,
                 3 => ws.edit_competition(CompetitionField::CustomSeries, value)?,
+                30..=33 => ws.edit_combined_class((key - 30) as usize, value)?,
                 10..=20 => {
                     let field = [
                         OverrideField::FreeTime,

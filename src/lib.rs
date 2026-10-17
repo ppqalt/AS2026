@@ -233,5 +233,6 @@ pub mod terminal;
 pub mod ranking;
 
 pub mod report;
+pub mod live_report;
 
 pub mod timing;

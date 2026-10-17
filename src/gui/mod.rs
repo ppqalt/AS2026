@@ -404,6 +404,9 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
             if key == 0 {
                 update_station_rules(state, app);
             }
+            if state.page == 6 && (30..=33).contains(&key) {
+                update_form(state, app);
+            }
             if let Err(error) = update_tables(state, app) {
                 status(app, error.to_string(), true);
             } else {
@@ -827,6 +830,37 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 }
             })
             .map_err(|e| invalid(&io_message(&e)))?;
+        Ok(())
+    });
+    action!(on_export_xlsx, |s, a| {
+        let ws = s
+            .workspace
+            .as_ref()
+            .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
+        let archive = ws.results()?;
+        let ranked =
+            application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
+        let bytes = report::ranking_xlsx(&archive, &ranked)?;
+        let weak = a.as_weak();
+        std::thread::Builder::new()
+            .name("as2026-xlsx".into())
+            .spawn(move || {
+                if let Some(path) = rfd::FileDialog::new()
+                    .set_title("Vie tulokset uutena XLSX-tiedostona")
+                    .set_file_name("tulokset.xlsx")
+                    .add_filter("Excel-työkirja", &["xlsx"])
+                    .save_file()
+                {
+                    let result = report::save_new_bytes(&path, &bytes);
+                    let message = match &result {
+                        Ok(()) => format!("XLSX tallennettu: {}", path.display()),
+                        Err(error) => error.to_string(),
+                    };
+                    let failed = result.is_err();
+                    let _ = weak.upgrade_in_event_loop(move |app| status(&app, message, failed));
+                }
+            })
+            .map_err(|error| invalid(&io_message(&error)))?;
         Ok(())
     });
     action!(on_import_frame, |s, a| {

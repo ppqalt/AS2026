@@ -133,7 +133,7 @@ fn calculate_punches(
         parameters: a.scoring_parameters().map_err(|e| invalid(e.to_string()))?,
         policy: CalculationPolicy::RecoveredAs2015aStaticV2,
     };
-    timing::calculate_live(&rows, &options)
+    timing::calculate_live_with_trailing_extras(&rows, &options)
 }
 
 /// Johdetun tulosarkiston HMS-kentät säilyttävät myös keskiyön ylittävän

@@ -22,11 +22,11 @@ sha2 = { version = "0.10", optional = true }
 ed25519-dalek = { version = "2", optional = true }
 tar = { version = "0.4", optional = true }
 flate2 = { version = "1", optional = true }
-zip = { version = "2", optional = true, default-features = false, features = ["deflate"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [features]
 default = []
-desktop = ["dep:directories", "dep:reqwest", "dep:serde_json", "dep:semver", "dep:sha2", "dep:ed25519-dalek", "dep:tar", "dep:flate2", "dep:zip"]
+desktop = ["dep:directories", "dep:reqwest", "dep:serde_json", "dep:semver", "dep:sha2", "dep:ed25519-dalek", "dep:tar", "dep:flate2"]
 gui = ["desktop", "dep:slint", "dep:slint-build", "dep:rfd", "dep:image"]
 
 [dependencies.slint]

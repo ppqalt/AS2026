@@ -485,9 +485,138 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
     csv
 }
 
+/// Parse our quoted Finnish CSV so the XLSX export uses identical ranks.
+fn csv_rows(csv: &str) -> Vec<Vec<String>> {
+    let mut rows = Vec::new();
+    let mut row = Vec::new();
+    let mut cell = String::new();
+    let mut quoted = false;
+    let mut chars = csv.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                chars.next();
+                cell.push('"');
+            }
+            '"' => quoted = !quoted,
+            ';' if !quoted => row.push(std::mem::take(&mut cell)),
+            '\n' if !quoted => {
+                if cell.ends_with('\r') {
+                    cell.pop();
+                }
+                row.push(std::mem::take(&mut cell));
+                rows.push(std::mem::take(&mut row));
+            }
+            _ => cell.push(ch),
+        }
+    }
+    if !cell.is_empty() || !row.is_empty() {
+        row.push(cell);
+        rows.push(row);
+    }
+    rows
+}
+
+fn xml_text(value: &str) -> String {
+    let mut output = String::new();
+    for ch in value.chars() {
+        if ch.is_control() && !matches!(ch, '\n' | '\r' | '\t') {
+            continue;
+        }
+        match ch {
+            '&' => output.push_str("&amp;"),
+            '<' => output.push_str("&lt;"),
+            '>' => output.push_str("&gt;"),
+            '"' => output.push_str("&quot;"),
+            '\'' => output.push_str("&apos;"),
+            _ => output.push(ch),
+        }
+    }
+    output
+}
+
+/// OOXML workbook with inline-string user data: no macros or formulas.
+pub fn xlsx_from_csv(csv: &str) -> Result<Vec<u8>, CoreError> {
+    use std::io::{Cursor, Write};
+    let mut sheet = String::from(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>",
+    );
+    for (row_index, values) in csv_rows(csv).iter().enumerate() {
+        sheet.push_str(&format!("<row r=\"{}\">", row_index + 1));
+        for (col_index, value) in values.iter().enumerate() {
+            if col_index >= 26 {
+                return Err(CoreError::InvalidInput(
+                    "XLSX-viennissä voi olla enintään 26 saraketta".into(),
+                ));
+            }
+            let column = char::from(b'A' + col_index as u8);
+            let reference = format!("{column}{}", row_index + 1);
+            if row_index > 0
+                && matches!(col_index, 2 | 3 | 8 | 9 | 10)
+                && !value.is_empty()
+                && value.parse::<i64>().is_ok()
+            {
+                sheet.push_str(&format!("<c r=\"{reference}\"><v>{value}</v></c>"));
+            } else {
+                sheet.push_str(&format!(
+                    "<c r=\"{reference}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
+                    xml_text(value)
+                ));
+            }
+        }
+        sheet.push_str("</row>");
+    }
+    sheet.push_str("</sheetData></worksheet>");
+    let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    let parts = [
+        (
+            "[Content_Types].xml",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>",
+        ),
+        (
+            "_rels/.rels",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>",
+        ),
+        (
+            "xl/workbook.xml",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Tulokset\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>",
+        ),
+        (
+            "xl/_rels/workbook.xml.rels",
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>",
+        ),
+    ];
+    for (name, content) in parts {
+        zip.start_file(name, options).map_err(|error| {
+            CoreError::InvalidInput(format!("XLSX-rakenne: {error}"))
+        })?;
+        zip.write_all(content.as_bytes()).map_err(|error| {
+            CoreError::InvalidInput(format!("XLSX-kirjoitus: {error}"))
+        })?;
+    }
+    zip.start_file("xl/worksheets/sheet1.xml", options)
+        .map_err(|error| CoreError::InvalidInput(format!("XLSX-arkki: {error}")))?;
+    zip.write_all(sheet.as_bytes())
+        .map_err(|error| CoreError::InvalidInput(format!("XLSX-arkki: {error}")))?;
+    let cursor = zip.finish()
+        .map_err(|error| CoreError::InvalidInput(format!("XLSX-paketti: {error}")))?;
+    Ok(cursor.into_inner())
+}
+
+pub fn ranking_xlsx(archive: &Archive, ranked: &RankingReport) -> Result<Vec<u8>, CoreError> {
+    xlsx_from_csv(&ranking_csv(archive, ranked))
+}
+
 /// Luo uuden UTF-8-tiedoston. Myös olemassa oleva symbolinen linkki estää
 /// tallennuksen; olemassa olevaa tiedostoa ei avata kirjoitettavaksi.
 pub fn save_new(path: &Path, html: &str) -> Result<(), CoreError> {
+    save_new_bytes(path, html.as_bytes())
+}
+
+/// Create only a new output file, including binary XLSX files.
+pub fn save_new_bytes(path: &Path, bytes: &[u8]) -> Result<(), CoreError> {
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -506,7 +635,7 @@ pub fn save_new(path: &Path, html: &str) -> Result<(), CoreError> {
                 )
             })
         })?;
-    file.write_all(html.as_bytes()).map_err(|error| {
+    file.write_all(bytes).map_err(|error| {
         CoreError::InvalidInput(format!(
             "Raportin kirjoitus epäonnistui; keskeneräinen tiedosto voi jäädä polkuun {}: {}",
             path.display(),

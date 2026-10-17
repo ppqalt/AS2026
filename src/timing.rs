@@ -455,6 +455,93 @@ fn validate_rows(rows: &[MatchedRow]) -> Result<(), CoreError> {
     Ok(())
 }
 
+/// Erillinen turvallinen AS2026-käytäntö maalin jälkeisille leimoille.
+/// Maalikello perustuu varsinaiseen maalileimaan, ei viimeiseen ylimääräiseen.
+/// Menetelmää ei ole varmennettu suorittamalla AS2015A:ta.
+pub fn calculate_live_with_trailing_extras(
+    rows: &[MatchedRow],
+    options: &LiveCalculationOptions,
+) -> Result<LiveCalculation, CoreError> {
+    let Some(finish) = rows.iter().position(|row| {
+        row.station
+            .as_ref()
+            .is_some_and(|station| station.kind == StationKind::Finish)
+    }) else {
+        return calculate_live(rows, options);
+    };
+    if finish + 1 == rows.len() {
+        return calculate_live(rows, options);
+    }
+    if !rows[finish + 1..].iter().all(|row| {
+        row.station.is_none()
+            && row.kind == MatchKind::Extra
+            && row.punch.is_some_and(|punch| punch.code != 0)
+    }) {
+        return Err(CoreError::InvalidInput(
+            "Maalin jälkeiset asemarivit eivät ole pelkkiä ylimääräisiä leimoja".into(),
+        ));
+    }
+    let finish_punch = rows[finish].punch.ok_or_else(|| {
+        CoreError::Unsupported(
+            "Käsimaalin jälkeisten leimojen ajanottoa ei ole vahvistettu".into(),
+        )
+    })?;
+    if rows[finish]
+        .station
+        .as_ref()
+        .is_none_or(|station| station.expected_code == 0)
+    {
+        return Err(CoreError::Unsupported(
+            "Käsimaalin jälkeisiä ylimääräisiä leimoja ei pisteytetä arvaamalla".into(),
+        ));
+    }
+    let mut finish_options = options.clone();
+    finish_options.last_punch_elapsed_seconds = finish_punch.elapsed_seconds;
+    let mut result = calculate_live(&rows[..=finish], &finish_options)?;
+    for source in &rows[finish + 1..] {
+        let punch = source.punch.expect("jälkileima tarkistettu");
+        let previous = result.rows.last().map(|row| row.received_code);
+        let two_back = result.rows.iter().rev().nth(1).map(|row| row.received_code);
+        let penalty = extra_punch_penalty(
+            punch.code,
+            previous,
+            two_back,
+            &options.parameters,
+        )?;
+        result.rows.push(CalculatedRow {
+            source: source.clone(),
+            received_code: punch.code,
+            effective_rule: Rule::Normal,
+            derived_elapsed_seconds: i64::from(punch.elapsed_seconds),
+            clock_seconds: None,
+            target_seconds: 0,
+            actual_seconds: 0,
+            signed_time_points: 0,
+            other_points: penalty,
+            total_points: penalty,
+            note: if matches!(punch.code, 99 | 999) {
+                String::new()
+            } else {
+                "at liikaa".into()
+            },
+        });
+    }
+    result.totals = sum_row_penalties(
+        &result
+            .rows
+            .iter()
+            .map(|row| (row.signed_time_points, row.other_points))
+            .collect::<Vec<_>>(),
+    )?;
+    diagnostic(
+        &mut result,
+        None,
+        "post-finish-extras-as2026-policy",
+        "Jälkimaalileimat säilytettiin ja maalikello sidottiin maalileimaan. Pisteytys on AS2026-käytäntö, ei vahvistettu AS2015A-tulos.",
+    );
+    Ok(result)
+}
+
 /// Laskee kohdistetun kortin. Tulos on tarkastettava ennen virallista käyttöä:
 /// diagnostiikka kertoo vanhan ohjelman ristiriidoista ja nimetyistä käytännöistä.
 /// Tallennettuja kilpailijatietoja ei muunnetta tähän APIin huomaamatta.

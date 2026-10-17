@@ -5,7 +5,7 @@ use crate::{
     ClockTime, CoreError, application,
     emit::EmitFrame,
     legacy::{Archive, Encoding},
-    native::{self, Class, Driver, Project, ReadOutcome, Station, Track},
+    native::{self, Class, CombinedClass, Driver, Project, ReadOutcome, Station, Track},
     ranking::{RankingReport, TiePolicy},
     storage::ProjectStore,
 };
@@ -268,6 +268,54 @@ impl Workspace {
                         driver.luokka = new_code.clone();
                     }
                 }
+                for group in &mut project.yhdistetyt_luokat {
+                    for member in &mut group.luokat {
+                        if member == id.trim() {
+                            *member = new_code.clone();
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    /// Atominen yhdistetyn luokan muokkaus: nimi | luokat | Np | Sp.
+    /// Tyhjä arvo poistaa olemassa olevan ryhmän.
+    pub fn edit_combined_class(&mut self, index: usize, value: &str) -> Result<(), CoreError> {
+        self.update(|project| {
+            if index > project.yhdistetyt_luokat.len() || index >= 4 {
+                return Err(invalid("Yhdistetyn luokan järjestysnumero ei kelpaa"));
+            }
+            if value.trim().is_empty() {
+                if index == project.yhdistetyt_luokat.len() {
+                    return Ok(());
+                }
+                project.yhdistetyt_luokat.remove(index);
+                return Ok(());
+            }
+            let parts = value.split('|').map(str::trim).collect::<Vec<_>>();
+            if parts.len() != 4 {
+                return Err(invalid(
+                    "Anna yhdistetty luokka muodossa Nimi | A,B | Np | Sp",
+                ));
+            }
+            let members = parts[1]
+                .split(',')
+                .map(str::trim)
+                .filter(|code| !code.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>();
+            let group = CombinedClass {
+                nimi: required(parts[0], "Yhdistetyn luokan nimi")?,
+                luokat: members,
+                nousupisteet: number(parts[2], "Yhdistetyn luokan Np")?,
+                sarjapistetapa: number(parts[3], "Yhdistetyn luokan Sp")?,
+            };
+            if index == project.yhdistetyt_luokat.len() {
+                project.yhdistetyt_luokat.push(group);
+            } else {
+                project.yhdistetyt_luokat[index] = group;
             }
             Ok(())
         })
