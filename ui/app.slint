@@ -41,6 +41,9 @@ export component AppWindow inherits Window {
     in-out property <string> editor-title;
     in-out property <string> editor-description;
     in-out property <[EditorField]> fields;
+    // The route editor is independent from station selection.
+    in-out property <bool> route-editor-visible;
+    in-out property <[EditorField]> route-fields;
     in-out property <bool> reader-running;
     in-out property <string> reader-status: "Lukijaa ei ole käynnistetty.";
     in-out property <string> reader-port;
@@ -88,6 +91,8 @@ export component AppWindow inherits Window {
     callback move-station(int);
     callback field-commit(int, string) -> bool;
     callback field-draft(int, string);
+    callback route-field-commit(int, string) -> bool;
+    callback route-field-draft(int, string);
     callback add-commit();
     callback cancel-edit();
     callback export-report();
@@ -365,16 +370,18 @@ export component AppWindow inherits Window {
                     }
                     if root.page == 3: Note { text: root.calculation-notes; }
                 }
-                // Radat ja asemat: sisällön korkeus määräytyy sen osista,
-                // eikä kaksi lähes tyhjää taulukkoa veny koko ikkunan mittaisiksi.
-                // Yhden sarakkeen rakenne säilyy käytettävänä myös Nirin pienissä laatoissa.
+                // Radat ja asemat: route details remain in place when a
+                // station is selected. Only the station editor changes.
                 if root.opened && root.page == 5: ScrollView {
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
                     VerticalLayout {
                         horizontal-stretch: 1;
-                        spacing: 14px;
+                        vertical-stretch: 0;
+                        spacing: 10px;
                         HorizontalLayout {
+                            vertical-stretch: 0;
+                            height: Theme.control-height;
                             spacing: 12px;
                             LineEdit {
                                 horizontal-stretch: 1;
@@ -390,20 +397,31 @@ export component AppWindow inherits Window {
                                 clicked => { root.add-record(); }
                             }
                         }
-                        Text { text: "Radat"; color: Theme.ink; font-size: 16px; font-weight: 700; }
+                        Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: 16px; font-weight: 700; }
                         DataTable {
                             horizontal-stretch: 1;
                             vertical-stretch: 0;
-                            height: 216px;
+                            table-min-height: 84px;
+                            height: min(170px, max(84px, 40px + root.rows.length * Theme.row-height));
                             rows: root.rows; headers: root.headers; weights: root.weights;
                             selected-key: root.selected-key;
                             empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
                             selected(key) => { root.select-row(key); }
                         }
-                        if root.editor-visible && root.editor-title != "Aseman tiedot" && root.editor-title != "Uusi asema": Editor {
+                        if root.route-editor-visible: Editor {
                             horizontal-stretch: 1;
                             vertical-stretch: 0;
-                            height: root.fields.length > 3 ? 384px : root.fields.length > 1 ? 270px : 222px;
+                            height: 238px;
+                            heading: "Radan tiedot";
+                            description: "Radan numero ja nimi tallentuvat automaattisesti.";
+                            fields: root.route-fields; writable: root.editable;
+                            field-commit(key, value) => { root.route-field-commit(key, value) }
+                            field-draft(key, value) => { root.route-field-draft(key, value); }
+                        }
+                        if root.editor-visible && root.editor-title == "Uusi rata": Editor {
+                            horizontal-stretch: 1;
+                            vertical-stretch: 0;
+                            height: 260px;
                             heading: root.editor-title; description: root.editor-description;
                             fields: root.fields; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
@@ -411,6 +429,8 @@ export component AppWindow inherits Window {
                             add => { root.add-commit(); } cancel => { root.cancel-edit(); }
                         }
                         HorizontalLayout {
+                            vertical-stretch: 0;
+                            height: Theme.control-height;
                             spacing: 10px;
                             Text {
                                 text: root.detail-title != "" ? root.detail-title : "Asemat";
@@ -438,7 +458,8 @@ export component AppWindow inherits Window {
                         DataTable {
                             horizontal-stretch: 1;
                             vertical-stretch: 0;
-                            height: 238px;
+                            table-min-height: 184px;
+                            height: min(320px, max(184px, 40px + root.detail-rows.length * Theme.row-height));
                             rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
                             selected-key: root.detail-key;
                             empty-text: "Valitse rata yllä olevasta luettelosta.";
@@ -447,7 +468,8 @@ export component AppWindow inherits Window {
                         if root.editor-visible && (root.editor-title == "Aseman tiedot" || root.editor-title == "Uusi asema"): Editor {
                             horizontal-stretch: 1;
                             vertical-stretch: 0;
-                            height: root.fields.length > 3 ? 384px : root.fields.length > 1 ? 270px : 222px;
+                            height: self.width >= 540px ? (root.new-record ? 382px : 350px) : (root.new-record ? 640px : 590px);
+                            station-layout: true;
                             heading: root.editor-title; description: root.editor-description;
                             fields: root.fields; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
