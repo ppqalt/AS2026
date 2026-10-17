@@ -1,23 +1,46 @@
-// Yhteiset värit ja mitoitukset. Näkymät käyttävät näitä arvoja.
+// Fluent 2 / Dark Spruce. 4 px spacing ramp, solid surfaces, no effects.
+// Only the interface is themed; competition data and scoring are unchanged.
 export global Theme {
     out property <ColorScheme> color-scheme: ColorScheme.dark;
-    out property <length> control-height: 34px;
+    out property <string> font-family: "Google Sans";
+    out property <length> control-height: 36px;
     out property <length> body-font-size: 14px;
     out property <length> heading-font-size: 22px;
-    out property <color> canvas: #0c1116;
-    out property <color> surface: #141c23;
-    out property <color> ink: #e7edf2;
-    out property <color> muted: #a1b1bd;
-    out property <color> line: #2c3b46;
-    out property <color> accent: #52cdb5;
-    out property <color> accent-fill: #087b72;
-    out property <color> accent-soft: #173a35;
-    out property <color> sidebar: #0b1720;
-    out property <color> sidebar-hover: #1c3342;
-    out property <color> danger: #ffb1a6;
-    out property <color> danger-soft: #3b2326;
-    out property <length> sidebar-width: 196px;
-    out property <length> gutter: 24px;
-    out property <length> row-height: 42px;
-    out property <length> radius: 6px;
+    out property <length> sidebar-width: 200px;
+    out property <length> gutter: 20px;
+    out property <length> row-height: 38px;
+    out property <length> radius: 5px;
+    out property <length> radius-large: 6px;
+    out property <length> space-1: 4px;
+    out property <length> space-2: 8px;
+    out property <length> space-3: 12px;
+    out property <length> space-4: 16px;
+    out property <length> space-5: 20px;
+    out property <length> space-6: 24px;
+
+    // Neutral surfaces deliberately carry only a very slight spruce tint.
+    out property <color> canvas: #0d1210;
+    out property <color> surface: #151c19;
+    out property <color> surface-raised: #1c2722;
+    out property <color> surface-hover: #23332a;
+    out property <color> table-header: #1b2420;
+    out property <color> line: #2c3931;
+    out property <color> ink: #e8eee9;
+    out property <color> muted: #a3b0a7;
+    out property <color> subtle-text: #819287;
+
+    // Dark forest green is an action/selection color, not panel decoration.
+    out property <color> accent: #9cbea8;
+    out property <color> accent-fill: #356f54;
+    out property <color> accent-hover: #438164;
+    out property <color> accent-soft: #233b2d;
+    out property <color> accent-text: #d8eddd;
+    out property <color> sidebar: #0b100d;
+    out property <color> sidebar-hover: #1b2821;
+    out property <color> danger: #d48a83;
+    out property <color> danger-soft: #352221;
+    out property <color> warning: #ceab71;
+    out property <color> success: #82b99a;
+    // Intentionally opaque: dialogs never use translucency, blur, or acrylic.
+    out property <color> modal-backdrop: #080d0a;
 }
