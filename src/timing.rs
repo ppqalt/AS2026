@@ -153,9 +153,7 @@ pub struct PreparedStoredTiming {
 
 /// Staattisesti palautettu valmistelujärjestys. Alustamattomaan pinoarvoon
 /// riippuvia tuloksia ei arvata (ajanottotapa 1/2 ja käsimaali M0).
-pub fn prepare_stored_timing(
-    input: &StoredTimingInput,
-) -> Result<PreparedStoredTiming, CoreError> {
+pub fn prepare_stored_timing(input: &StoredTimingInput) -> Result<PreparedStoredTiming, CoreError> {
     let start = input.official_start.seconds_since_midnight()?;
     let mut finish = input.stored_finish_clock_seconds;
     let mut correction = input.reset_correction_seconds;
@@ -198,7 +196,11 @@ pub fn prepare_stored_timing(
     };
     let mut duration = sub(finish, start, "tallennettujen tulosten kesto")?;
     if duration < -20_000 {
-        duration = add(duration, 86_400, "tallennettujen tulosten vuorokausikorjaus")?;
+        duration = add(
+            duration,
+            86_400,
+            "tallennettujen tulosten vuorokausikorjaus",
+        )?;
     }
     if duration < 0 {
         return Err(CoreError::Unsupported(

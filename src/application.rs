@@ -345,7 +345,11 @@ pub fn prepare_stored_competitor_timing(
         .and_then(|v| v.checked_add(seconds))
         .ok_or(CoreError::ArithmeticOverflow("tallennettu maalikello"))?;
     let method = integer(
-        archive.basic.identity.get(7).ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
+        archive
+            .basic
+            .identity
+            .get(7)
+            .ok_or_else(|| invalid("Ajanottotapa puuttuu"))?,
         "ajanottotapa",
     )?;
     timing::prepare_stored_timing(&timing::StoredTimingInput {
