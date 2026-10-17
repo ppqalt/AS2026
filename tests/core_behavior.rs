@@ -527,7 +527,11 @@ fn ghidra_m06_m07_finish_does_not_stop_matching_remaining_punches() {
     let rows = match_route(&manual, &punches(&[31]), clock(12, 0, 0)).unwrap();
     assert_eq!(
         rows.iter().map(|row| row.kind).collect::<Vec<_>>(),
-        [MatchKind::ManualStart, MatchKind::ManualFinish, MatchKind::Extra]
+        [
+            MatchKind::ManualStart,
+            MatchKind::ManualFinish,
+            MatchKind::Extra
+        ]
     );
     assert_eq!(rows[1].clock.unwrap(), clock(0, 0, 0));
     assert!(rows[1].punch.is_none());

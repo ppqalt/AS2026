@@ -221,7 +221,6 @@ pub fn prepare_stored_timing(input: &StoredTimingInput) -> Result<PreparedStored
     })
 }
 
-
 /// Tallennettujen asemarivien ajallinen tieto ennen uusintatarkistusta.
 /// Pistelaskentaa, aseman lajia tai korjaussääntöä ei muuteta tässä.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -246,11 +245,19 @@ fn stored_hms(seconds: i64) -> [i64; 3] {
 fn stored_clock_seconds(parts: [i64; 3]) -> Result<i64, CoreError> {
     let hours = parts[0]
         .checked_mul(3600)
-        .ok_or(CoreError::ArithmeticOverflow("tallennetun käsikellon tunnit"))?;
+        .ok_or(CoreError::ArithmeticOverflow(
+            "tallennetun käsikellon tunnit",
+        ))?;
     let minutes = parts[1]
         .checked_mul(60)
-        .ok_or(CoreError::ArithmeticOverflow("tallennetun käsikellon minuutit"))?;
-    add(add(hours, minutes, "tallennettu käsikello")?, parts[2], "tallennettu käsikello")
+        .ok_or(CoreError::ArithmeticOverflow(
+            "tallennetun käsikellon minuutit",
+        ))?;
+    add(
+        add(hours, minutes, "tallennettu käsikello")?,
+        parts[2],
+        "tallennettu käsikello",
+    )
 }
 
 /// AS2015A 0x0041ef28: talletettujen P-rivien kellot valmistellaan riveillä
@@ -298,14 +305,21 @@ pub fn prepare_stored_station_times(
                 row.elapsed_seconds = 0;
             } else {
                 let mut clock = stored_clock_seconds(row.clock)?;
-                if sub(clock, prepared.finish_clock_seconds, "käsikellon vuorokausiraja")?
-                    < -50_000
+                if sub(
+                    clock,
+                    prepared.finish_clock_seconds,
+                    "käsikellon vuorokausiraja",
+                )? < -50_000
                 {
                     clock = add(clock, 86_400, "käsikellon vuorokausikorjaus")?;
                 }
                 row.elapsed_seconds = sub(
                     prepared.last_row_elapsed_seconds,
-                    sub(prepared.finish_clock_seconds, clock, "käsikellon ero maalista")?,
+                    sub(
+                        prepared.finish_clock_seconds,
+                        clock,
+                        "käsikellon ero maalista",
+                    )?,
                     "käsikellon aikakoordinaatti",
                 )?;
                 if row.elapsed_seconds == 0 || row.elapsed_seconds >= next_elapsed {

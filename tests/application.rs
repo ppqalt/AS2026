@@ -391,8 +391,7 @@ fn imported_stored_clock_preparation_preserves_original_station_results() {
     let mut a = archive();
     a.basic.identity[7] = "0".into();
     let before = format!("{a:?}");
-    let prepared =
-        as2026::application::prepare_stored_competitor_station_times(&a, 7).unwrap();
+    let prepared = as2026::application::prepare_stored_competitor_station_times(&a, 7).unwrap();
     assert_eq!(prepared.rows.len(), a.competitors[0].results.len());
     assert_eq!(prepared.rows.last().unwrap().elapsed_seconds, 600);
     assert_eq!(format!("{a:?}"), before);

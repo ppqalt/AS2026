@@ -660,11 +660,9 @@ fn stored_manual_clock_zero_and_nonmonotonic_data_are_not_silently_fixed() {
         elapsed_seconds: 77,
         clock: [0, 0, 0],
     };
-    let result = prepare_stored_station_times(
-        &prepared,
-        &[first.clone(), zero_clock, last.clone()],
-    )
-    .unwrap();
+    let result =
+        prepare_stored_station_times(&prepared, &[first.clone(), zero_clock, last.clone()])
+            .unwrap();
     assert_eq!(result.rows[1].elapsed_seconds, 0);
     let wrong_order = StoredStationTime {
         expected_code: 0,
