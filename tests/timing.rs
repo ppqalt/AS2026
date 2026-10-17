@@ -395,3 +395,69 @@ fn manual_clock_live_method_is_distinct_from_stored_recheck_and_midnight_is_expl
     assert_eq!(result.rows[2].clock_seconds, Some(86700));
     assert_eq!(result.rows[0].derived_elapsed_seconds, 0);
 }
+
+#[test]
+fn static_legacy_manual_finish_keeps_zero_actual_and_calculates_2415() {
+    let route_document = parse_document(
+        include_bytes!("../fixtures/synthetic/Radat.txt"),
+        Encoding::Windows1252,
+    )
+    .unwrap();
+    let route = parse_routes(&route_document).unwrap().remove(0).to_core().unwrap();
+    let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
+    let readout = frame.accepted_readout(ClockTime::new(12, 11, 0).unwrap()).unwrap();
+    let rows = match_route(&route, &readout.interior_punches, clock()).unwrap();
+    let mut o = options(readout.last_punch_elapsed_seconds);
+    o.policy = CalculationPolicy::RecoveredAs2015aStaticV2;
+    let result = calculate_live(&rows, &o).unwrap();
+    assert_eq!(result.rows[4].derived_elapsed_seconds, 0);
+    assert_eq!(result.rows[4].actual_seconds, 0);
+    assert_eq!(result.rows[4].clock_seconds, Some(43_800));
+    assert_eq!(result.rows[4].signed_time_points, 1770);
+    assert_eq!(result.totals.time_points, 1815);
+    assert_eq!(result.totals.other_points, 600);
+    assert_eq!(result.totals.total_points, 2415);
+    assert_eq!(result.status, CalculationStatus::Checked);
+    assert!(has_diagnostic(&result, "manual-finish-legacy-order"));
+}
+
+#[test]
+fn static_live_method_two_uses_emit_anchoring_but_not_stored_recheck() {
+    let route = vec![
+        station(1, StationKind::Start, 0, 0),
+        station(2, StationKind::At, 31, 300),
+        station(3, StationKind::Finish, 32, 600),
+    ];
+    let mut o = options(720);
+    o.policy = CalculationPolicy::RecoveredAs2015aStaticV2;
+    o.timing_method = TimingMethod::LegacyMode2;
+    let result = calculate(&route, &[(31, 420), (32, 720)], o);
+    assert_eq!(result.rows[0].derived_elapsed_seconds, 120);
+    assert_eq!(result.rows[1].actual_seconds, 300);
+    assert_eq!(result.rows[2].actual_seconds, 600);
+    assert_eq!(result.totals.total_points, 0);
+    assert_eq!(result.finish_clock_seconds, 43_800);
+}
+
+#[test]
+fn static_section_conversion_uses_numeric_prefix_not_joined_digits() {
+    let route = vec![
+        station(1, StationKind::Start, 0, 0),
+        station(2, StationKind::At, 31, 300),
+        station(3, StationKind::Finish, 32, 600),
+    ];
+    let mut rows = match_route(
+        &route,
+        &[
+            Punch { code: 31, elapsed_seconds: 420 },
+            Punch { code: 32, elapsed_seconds: 720 },
+        ],
+        clock(),
+    )
+    .unwrap();
+    rows[2].station.as_mut().unwrap().section_time_text = "1 2".into();
+    let mut o = options(720);
+    o.policy = CalculationPolicy::RecoveredAs2015aStaticV2;
+    let result = calculate_live(&rows, &o).unwrap();
+    assert_eq!(result.cumulative_schedule_difference_seconds, -540);
+}

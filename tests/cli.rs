@@ -110,7 +110,7 @@ fn example_labels_synthetic_data_and_shows_recovered_full_scoring() {
         let text = successful_text(run([argument]));
         assert!(text.contains("SYNTEETTINEN ESIMERKKI"));
         assert!(text.contains("3: ylimääräinen"));
-        assert!(text.contains("Virhepisteet yhteensä: 645"));
+        assert!(text.contains("Virhepisteet yhteensä: 2415"));
         assert!(text.contains("Laskennan vaiheet:"));
         assert!(!text.contains("Koko kilpailun pisteitä ei laskettu"));
     }
@@ -136,7 +136,7 @@ fn finnish_laske_command_reconstructs_preview_without_changing_source_files() {
         OsStr::new("--vaiheet"),
     ]));
     assert!(text.contains("Tuloslaskennan esikatselu"));
-    assert!(text.contains("Virhepisteet yhteensä: 645"));
+    assert!(text.contains("Virhepisteet yhteensä: 2415"));
     assert!(text.contains("Laskettu 1/1 kilpailijaa"));
     assert!(text.contains("Laskennan vaiheet:"));
     assert_eq!(snapshot(&directory), before);
@@ -171,7 +171,7 @@ fn piped_menu_runs_example_and_exits_without_keyboard_input() {
         .unwrap();
     let text = successful_text(child.wait_with_output().unwrap());
     assert!(text.contains("SYNTEETTINEN ESIMERKKI"));
-    assert!(text.contains("Virhepisteet yhteensä: 645"));
+    assert!(text.contains("Virhepisteet yhteensä: 2415"));
     assert!(
         text.matches("AS2026 — autosuunnistuksen kilpailunhallinta")
             .count()
@@ -200,7 +200,7 @@ fn finnish_report_option_creates_html_and_never_overwrites_existing_bytes() {
         assert!(html.starts_with("<!doctype html>"));
         assert!(html.contains("<html lang=\"fi\">"));
         assert!(html.contains("Esimerkkikuljettaja"));
-        assert!(html.contains("645"));
+        assert!(html.contains(if operation == "laske" { "2415" } else { "645" }));
         assert!(!html.contains("<script"));
         assert!(!html.contains("https://"));
 
@@ -314,7 +314,7 @@ fn native_updates_autosave_and_current_results_follow_names_classes_and_station_
     );
     assert_eq!(reopened.project().leimaluvut.len(), 1);
     let current = as2026::application::calculated_project(reopened.project()).unwrap();
-    assert_eq!(current.competitors[0].total_penalties, 600);
+    assert_eq!(current.competitors[0].total_penalties, 2370);
     let html_path = temporary.0.join("ajantasaiset.html");
     let text = successful_text(run([
         OsStr::new("tulokset"),
@@ -377,7 +377,7 @@ fn stored_frames_keep_reread_history_without_duplicate_results_and_reject_bad_re
     assert_eq!(store.project().leimaluvut.len(), 3);
     let archive = as2026::application::calculated_project(store.project()).unwrap();
     assert_eq!(archive.competitors.len(), 1);
-    assert_eq!(archive.competitors[0].total_penalties, 645);
+    assert_eq!(archive.competitors[0].total_penalties, 2415);
     // Change the actual AT time, then check the derived result after reopening.
     decoded[14..16].copy_from_slice(&420u16.to_le_bytes());
     std::fs::write(&raw_path, decoded.map(|b| b ^ 0xdf)).unwrap();
@@ -393,7 +393,7 @@ fn stored_frames_keep_reread_history_without_duplicate_results_and_reject_bad_re
             .unwrap()
             .competitors[0]
             .total_penalties,
-        600
+        2370
     );
     let before = std::fs::read(directory.join("kilpailu.toml")).unwrap();
     decoded[22] = 0; // Remove the only reader marker.

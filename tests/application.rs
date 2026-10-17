@@ -29,7 +29,7 @@ fn calculation_error(archive: &Archive) -> String {
 }
 
 #[test]
-fn imported_archive_saved_emit_and_matched_route_calculate_645_without_mutations() {
+fn imported_archive_saved_emit_uses_static_legacy_manual_finish_order() {
     let a = archive();
     let files = [
         "Aspara.txt",
@@ -47,9 +47,9 @@ fn imported_archive_saved_emit_and_matched_route_calculate_645_without_mutations
     assert_eq!(preview.number, 7);
     assert_eq!(preview.imported_total, 645);
     let result = preview.calculation.as_ref().unwrap();
-    assert_eq!(result.totals.time_points, 45);
+    assert_eq!(result.totals.time_points, 1815);
     assert_eq!(result.totals.other_points, 600);
-    assert_eq!(result.totals.total_points, 645);
+    assert_eq!(result.totals.total_points, 2415);
     assert_eq!(result.status, CalculationStatus::Checked);
     assert_eq!(result.rows.len(), 5);
     assert_eq!(result.rows[1].source.punch.unwrap().elapsed_seconds, 395);
@@ -127,7 +127,7 @@ fn latest_saved_readout_is_selected_with_a_note_and_stored_total_is_retained() {
     assert_eq!(preview.imported_total, 645);
     let result = preview.calculation.as_ref().unwrap();
     assert_eq!(result.rows[1].source.punch.unwrap().elapsed_seconds, 420);
-    assert_eq!(result.totals.total_points, 600);
+    assert_eq!(result.totals.total_points, 2370);
     assert!(
         preview
             .notes
@@ -138,7 +138,7 @@ fn latest_saved_readout_is_selected_with_a_note_and_stored_total_is_retained() {
         preview
             .notes
             .iter()
-            .any(|note| note.contains("600") && note.contains("645") && note.contains("poikkeaa"))
+            .any(|note| note.contains("2370") && note.contains("645") && note.contains("poikkeaa"))
     );
     assert_eq!(format!("{a:?}"), before);
     assert_eq!(a.competitors[0].total_penalties, 645);
@@ -153,33 +153,30 @@ fn imported_total_mismatch_produces_a_note_without_replacing_the_original() {
     assert_eq!(preview.imported_total, 999);
     assert_eq!(
         preview.calculation.as_ref().unwrap().totals.total_points,
-        645
+        2415
     );
     assert!(
         preview
             .notes
             .iter()
-            .any(|note| note.contains("645") && note.contains("999") && note.contains("poikkeaa"))
+            .any(|note| note.contains("2415") && note.contains("999") && note.contains("poikkeaa"))
     );
     assert_eq!(a.competitors[0].total_penalties, 999);
 }
 
 #[test]
-fn legacy_timing_method_two_stays_explicitly_unsupported() {
+fn legacy_timing_method_two_is_supported_for_live_cards_only() {
     let mut a = archive();
     a.basic.identity[7] = "2".into();
     let report = calculate(&a).unwrap();
-    assert!(matches!(
-        report.competitors[0].calculation,
-        Err(CoreError::Unsupported(_))
-    ));
-    assert!(
+    assert_eq!(
         report.competitors[0]
             .calculation
             .as_ref()
-            .unwrap_err()
-            .to_string()
-            .contains("ajanottotavan 2")
+            .unwrap()
+            .totals
+            .total_points,
+        2415
     );
     assert_eq!(a.competitors[0].total_penalties, 645);
 }
@@ -240,7 +237,7 @@ fn stored_ranking_uses_imported_totals_even_after_a_different_preview() {
             .unwrap()
             .totals
             .total_points,
-        645
+        2415
     );
     let ranked = rank_stored(&a, TiePolicy::KeepSharedAndFlag).unwrap();
     let group = ranked
@@ -292,7 +289,7 @@ fn custom_series_method_requires_a_table_then_uses_its_first_place_value() {
 }
 
 #[test]
-fn live_card_from_reader_can_use_existing_competition_and_calculate_645() {
+fn live_card_from_reader_uses_static_legacy_manual_finish() {
     let a = archive();
     let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
     let before = format!("{a:?}");
@@ -300,7 +297,7 @@ fn live_card_from_reader_can_use_existing_competition_and_calculate_645() {
     assert_eq!(preview.card_number, 123456);
     assert_eq!(preview.competitor_number, 7);
     assert_eq!(preview.route_name, "DEMO");
-    assert_eq!(preview.calculation.totals.total_points, 645);
+    assert_eq!(preview.calculation.totals.total_points, 2415);
     assert_eq!(format!("{a:?}"), before);
 }
 
@@ -346,12 +343,12 @@ fn legacy_numeric_route_name_is_not_confused_with_another_route_index() {
             .unwrap()
             .totals
             .total_points,
-        645
+        2415
     );
     let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
     let live = calculate_live_frame(&a, &frame).unwrap();
     assert_eq!(live.route_name, "1");
-    assert_eq!(live.calculation.totals.total_points, 645);
+    assert_eq!(live.calculation.totals.total_points, 2415);
 }
 
 #[test]
@@ -365,5 +362,5 @@ fn native_numeric_route_reference_ignores_a_colliding_route_name() {
     wrong.asemat[1].tavoiteaika_sekuntia = 275;
     project.radat.push(wrong);
     let archive = as2026::application::calculated_project(&project).unwrap();
-    assert_eq!(archive.competitors[0].total_penalties, 645);
+    assert_eq!(archive.competitors[0].total_penalties, 2415);
 }

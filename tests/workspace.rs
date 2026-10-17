@@ -540,7 +540,7 @@ fn rt_counts_and_other_penalties_autosave_and_survive_normal_driver_edits() {
     assert_eq!(driver.lisavirheet.muut_virhepisteet, 100);
     assert_eq!(
         workspace.results().unwrap().competitors[0].total_penalties,
-        1945
+        3715
     );
     let reopened = Workspace::open(&directory.file()).unwrap();
     assert_eq!(
@@ -549,6 +549,6 @@ fn rt_counts_and_other_penalties_autosave_and_survive_normal_driver_edits() {
     );
     assert_eq!(
         reopened.results().unwrap().competitors[0].total_penalties,
-        1945
+        3715
     );
 }

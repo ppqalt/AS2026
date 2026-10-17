@@ -14,7 +14,7 @@ fn synthetic_toml_uses_the_existing_scoring_core() {
         .unwrap()
         .totals
         .total_points;
-    assert_eq!(total, 645);
+    assert_eq!(total, 2415);
 }
 
 #[test]
@@ -236,17 +236,17 @@ fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
 
     let results = application::calculated_project(&project).unwrap();
     let competitor = &results.competitors[0];
-    assert_eq!(competitor.header_fields[19], "45");
+    assert_eq!(competitor.header_fields[19], "1815");
     assert_eq!(competitor.header_fields[20], "600");
-    assert_eq!(competitor.header_fields[26], "2020");
-    assert_eq!(competitor.total_penalties, 2020);
+    assert_eq!(competitor.header_fields[26], "3790");
+    assert_eq!(competitor.total_penalties, 3790);
     assert_eq!(
         competitor
             .results
             .iter()
             .map(|row| row.total_penalty)
             .sum::<i64>(),
-        645
+        2415
     );
     assert_eq!(
         native::Project::from_toml(&project.to_toml().unwrap()).unwrap(),
@@ -264,7 +264,7 @@ fn native_keeps_stored_rt_sum_without_repricing_and_rejects_invalid_totals() {
             .unwrap()
             .competitors[0]
             .total_penalties,
-        1345
+        3115
     );
     project.kilpailijat[0].lisavirheet.muut_virhepisteet = -1;
     assert!(project.validate().is_err());
