@@ -403,9 +403,15 @@ fn static_legacy_manual_finish_keeps_zero_actual_and_calculates_2415() {
         Encoding::Windows1252,
     )
     .unwrap();
-    let route = parse_routes(&route_document).unwrap().remove(0).to_core().unwrap();
+    let route = parse_routes(&route_document)
+        .unwrap()
+        .remove(0)
+        .to_core()
+        .unwrap();
     let frame = parse_frame(include_bytes!("../fixtures/synthetic/emit-frame.raw")).unwrap();
-    let readout = frame.accepted_readout(ClockTime::new(12, 11, 0).unwrap()).unwrap();
+    let readout = frame
+        .accepted_readout(ClockTime::new(12, 11, 0).unwrap())
+        .unwrap();
     let rows = match_route(&route, &readout.interior_punches, clock()).unwrap();
     let mut o = options(readout.last_punch_elapsed_seconds);
     o.policy = CalculationPolicy::RecoveredAs2015aStaticV2;
@@ -449,8 +455,14 @@ fn static_section_conversion_uses_numeric_prefix_not_joined_digits() {
     let mut rows = match_route(
         &route,
         &[
-            Punch { code: 31, elapsed_seconds: 420 },
-            Punch { code: 32, elapsed_seconds: 720 },
+            Punch {
+                code: 31,
+                elapsed_seconds: 420,
+            },
+            Punch {
+                code: 32,
+                elapsed_seconds: 720,
+            },
         ],
         clock(),
     )

@@ -308,8 +308,12 @@ pub fn calculate_live(
         None,
         "policy",
         match options.policy {
-            CalculationPolicy::RecoveredLiveV1 => "Aikaisemman Rust-prototyypin korttilaskenta; ei historiallisesti varmennettu.",
-            CalculationPolicy::RecoveredAs2015aStaticV2 => "AS2015A:n live-korttilaskennasta staattisesti palautettu laskentatapa; ei alkuperäisohjelmalla ajamalla varmennettu.",
+            CalculationPolicy::RecoveredLiveV1 => {
+                "Aikaisemman Rust-prototyypin korttilaskenta; ei historiallisesti varmennettu."
+            }
+            CalculationPolicy::RecoveredAs2015aStaticV2 => {
+                "AS2015A:n live-korttilaskennasta staattisesti palautettu laskentatapa; ei alkuperäisohjelmalla ajamalla varmennettu."
+            }
         },
     );
     let start_is_manual = expected(&result.rows[0]) == 0;
@@ -398,7 +402,8 @@ pub fn calculate_live(
                 "AS2015A:n leimaamattoman maalin toteutunut aika jää nollaksi, ja maalikello kirjoitetaan vasta ennen toista sakkokierrosta. Tulos on staattinen ennuste.",
             );
         } else {
-            result.rows[last].derived_elapsed_seconds = i64::from(options.last_punch_elapsed_seconds);
+            result.rows[last].derived_elapsed_seconds =
+                i64::from(options.last_punch_elapsed_seconds);
             result.rows[last].clock_seconds = Some(result.finish_clock_seconds);
             diagnostic(
                 &mut result,
