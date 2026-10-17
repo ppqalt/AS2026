@@ -467,3 +467,89 @@ HH;Toinen rata;2;1;15.00.00;1;0;60;0;0;\n";
     assert_eq!(settings.classes[1].code, "HH");
     assert_eq!(settings.classes[1].route, "2");
 }
+
+#[test]
+fn ghidra_m02_m03_shared_ula_keeps_greedy_match_precedence() {
+    let route = [
+        station(1, StationKind::Jat, 31),
+        station(2, StationKind::Ula, 31),
+    ];
+    let result = match_route(&route, &punches(&[31, 31]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        result.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::Matched, MatchKind::Matched]
+    );
+    assert_eq!(result[1].punch.unwrap().elapsed_seconds, 200);
+    let shared = match_route(&route, &punches(&[31]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        shared.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::Matched, MatchKind::SharedUla]
+    );
+    assert_eq!(shared[1].punch.unwrap().elapsed_seconds, 100);
+}
+
+#[test]
+fn ghidra_m04_shared_ula_can_reuse_empty_anchor_after_missing_predecessor() {
+    let route = [
+        station(1, StationKind::At, 31),
+        station(2, StationKind::Ula, 31),
+    ];
+    let result = match_route(&route, &punches(&[41]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        result.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::Missing, MatchKind::SharedUla, MatchKind::Extra]
+    );
+    assert_eq!(result[1].punch.unwrap().elapsed_seconds, 0);
+    assert_eq!(result[2].punch.unwrap().code, 41);
+}
+
+#[test]
+fn ghidra_m05_lookahead_is_greedy_not_optimal_alignment() {
+    let route = [
+        station(1, StationKind::At, 31),
+        station(2, StationKind::At, 32),
+    ];
+    let result = match_route(&route, &punches(&[32, 31]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        result.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::Extra, MatchKind::Matched, MatchKind::Missing]
+    );
+    assert_eq!(result[0].punch.unwrap().elapsed_seconds, 100);
+    assert_eq!(result[1].punch.unwrap().elapsed_seconds, 200);
+}
+
+#[test]
+fn ghidra_m06_m07_finish_does_not_stop_matching_remaining_punches() {
+    let manual = [
+        station(1, StationKind::Start, 0),
+        station(2, StationKind::Finish, 0),
+    ];
+    let rows = match_route(&manual, &punches(&[31]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        rows.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::ManualStart, MatchKind::ManualFinish, MatchKind::Extra]
+    );
+    assert_eq!(rows[1].clock.unwrap(), clock(0, 0, 0));
+    assert!(rows[1].punch.is_none());
+    let stamped = [
+        station(1, StationKind::Start, 10),
+        station(2, StationKind::Finish, 20),
+    ];
+    let rows = match_route(&stamped, &punches(&[10, 20, 77]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        rows.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::Matched, MatchKind::Matched, MatchKind::Extra]
+    );
+    assert_eq!(rows[2].punch.unwrap().code, 77);
+}
+
+#[test]
+fn ghidra_m09_code_zero_never_matches_an_expected_zero() {
+    let route = [station(1, StationKind::Rt, 0)];
+    let rows = match_route(&route, &punches(&[0]), clock(12, 0, 0)).unwrap();
+    assert_eq!(
+        rows.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [MatchKind::RouteOnly, MatchKind::Extra]
+    );
+    assert_eq!(rows[1].punch.unwrap().code, 0);
+}

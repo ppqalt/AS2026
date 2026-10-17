@@ -675,3 +675,25 @@ fn stored_manual_clock_zero_and_nonmonotonic_data_are_not_silently_fixed() {
     assert_eq!(result.rows[1].elapsed_seconds, 720);
     assert_eq!(result.warnings.len(), 1);
 }
+
+#[test]
+fn stored_recheck_rejects_zero_start_before_any_timing_method() {
+    for method in [
+        TimingMethod::ManualClock,
+        TimingMethod::Emit,
+        TimingMethod::LegacyMode2,
+    ] {
+        let input = StoredTimingInput {
+            official_start: ClockTime::new(0, 0, 0).unwrap(),
+            stored_finish_clock_seconds: 43_800,
+            last_row_elapsed_seconds: 720,
+            finish_expected_code: 32,
+            reset_correction_seconds: 120,
+            timing_method: method,
+        };
+        assert!(matches!(
+            prepare_stored_timing(&input),
+            Err(CoreError::Unsupported(_))
+        ));
+    }
+}

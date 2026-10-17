@@ -155,6 +155,11 @@ pub struct PreparedStoredTiming {
 /// riippuvia tuloksia ei arvata (ajanottotapa 1/2 ja käsimaali M0).
 pub fn prepare_stored_timing(input: &StoredTimingInput) -> Result<PreparedStoredTiming, CoreError> {
     let start = input.official_start.seconds_since_midnight()?;
+    if start == 0 {
+        return Err(CoreError::Unsupported(
+            "Tallennettujen tulosten lähtöaika 00:00:00 palauttaa AS2015A:ssa ennen ajanottotavan valmistelua".into(),
+        ));
+    }
     let mut finish = input.stored_finish_clock_seconds;
     let mut correction = input.reset_correction_seconds;
     let mut last_elapsed = input.last_row_elapsed_seconds;
