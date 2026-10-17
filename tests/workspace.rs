@@ -560,12 +560,24 @@ fn workspace_accepts_timing_two_and_edits_custom_series_atomically() {
     use as2026::workspace::CompetitionField;
     let directory = Directory::new();
     let mut workspace = Workspace::create(&directory.0, "Sarjapistekoe").unwrap();
-    workspace.edit_competition(CompetitionField::Timing, "2").unwrap();
-    workspace.edit_competition(CompetitionField::CustomSeries, "42, 30, 17").unwrap();
+    workspace
+        .edit_competition(CompetitionField::Timing, "2")
+        .unwrap();
+    workspace
+        .edit_competition(CompetitionField::CustomSeries, "42, 30, 17")
+        .unwrap();
     assert_eq!(workspace.project().unwrap().kilpailu.ajanottotapa, 2);
     assert_eq!(workspace.project().unwrap().sarjapisteet, vec![42, 30, 17]);
-    assert!(workspace.edit_competition(CompetitionField::Timing, "3").is_err());
-    assert!(workspace.edit_competition(CompetitionField::CustomSeries, "10, -1").is_err());
+    assert!(
+        workspace
+            .edit_competition(CompetitionField::Timing, "3")
+            .is_err()
+    );
+    assert!(
+        workspace
+            .edit_competition(CompetitionField::CustomSeries, "10, -1")
+            .is_err()
+    );
     assert_eq!(workspace.project().unwrap().sarjapisteet, vec![42, 30, 17]);
     assert_eq!(
         workspace.project(),

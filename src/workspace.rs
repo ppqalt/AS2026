@@ -392,7 +392,8 @@ impl Workspace {
                     project.sarjapisteet = if value.trim().is_empty() {
                         Vec::new()
                     } else {
-                        value.split(',')
+                        value
+                            .split(',')
                             .map(|part| number(part, "Sarjapistetaulukon pisteet"))
                             .collect::<Result<Vec<i64>, _>>()?
                     };

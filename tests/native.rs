@@ -330,10 +330,9 @@ fn native_custom_series_schedule_is_persisted_and_used_for_sp_method_four() {
     let table = &archive.documents["sarjap.txt"].records[0].fields;
     assert_eq!(&table[..3], ["42", "30", "17"]);
     let calculated = application::calculated_project(&project).unwrap();
-    let ranked = application::rank_stored(
-        &calculated,
-        as2026::ranking::TiePolicy::KeepSharedAndFlag,
-    ).unwrap();
+    let ranked =
+        application::rank_stored(&calculated, as2026::ranking::TiePolicy::KeepSharedAndFlag)
+            .unwrap();
     assert_eq!(ranked.groups[0].entries[0].series_points, 42);
 }
 

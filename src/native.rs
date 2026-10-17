@@ -255,7 +255,9 @@ impl Project {
         }
         crate::timing::TimingMethod::from_legacy(i64::from(self.kilpailu.ajanottotapa))?;
         if self.sarjapisteet.len() > 1000 || self.sarjapisteet.iter().any(|&points| points < 0) {
-            return Err(invalid("Sarjapistetaulukossa saa olla enintään 1000 ei-negatiivista pistettä"));
+            return Err(invalid(
+                "Sarjapistetaulukossa saa olla enintään 1000 ei-negatiivista pistettä",
+            ));
         }
         let mut classes = Vec::new();
         let mut class_keys = HashSet::new();
@@ -277,7 +279,9 @@ impl Project {
                 return Err(invalid("Luokan sarjapistetapa ei voi olla suurempi kuin 6"));
             }
             if class.sarjapistetapa == 4 && self.sarjapisteet.is_empty() {
-                return Err(invalid("Sarjapistetapa 4 edellyttää kilpailun sarjapistetaulukkoa"));
+                return Err(invalid(
+                    "Sarjapistetapa 4 edellyttää kilpailun sarjapistetaulukkoa",
+                ));
             }
             let time = parse_clock(&class.lahtoaika)?;
             classes.push(ClassDefinition {
@@ -403,7 +407,11 @@ impl Project {
             // writing a second persistent source of truth beside kilpailu.toml.
             let content = format!(
                 "{};\n",
-                self.sarjapisteet.iter().map(i64::to_string).collect::<Vec<_>>().join(";")
+                self.sarjapisteet
+                    .iter()
+                    .map(i64::to_string)
+                    .collect::<Vec<_>>()
+                    .join(";")
             );
             documents.insert(
                 "sarjap.txt".to_owned(),
