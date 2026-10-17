@@ -300,11 +300,8 @@ fn native_class_np_sp_options_are_persisted_and_mapped_to_ranking_input() {
     assert_eq!(archive.basic.classes[0].fields[8], "1");
     assert_eq!(archive.basic.classes[0].fields[9], "1");
     let results = application::calculated_project(&project).unwrap();
-    let ranking = application::rank_stored(
-        &results,
-        as2026::ranking::TiePolicy::KeepSharedAndFlag,
-    )
-    .unwrap();
+    let ranking =
+        application::rank_stored(&results, as2026::ranking::TiePolicy::KeepSharedAndFlag).unwrap();
     let ordinary = ranking
         .groups
         .iter()
