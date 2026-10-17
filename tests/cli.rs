@@ -414,3 +414,27 @@ fn stored_frames_keep_reread_history_without_duplicate_results_and_reject_bad_re
         before
     );
 }
+
+#[test]
+fn ranking_csv_option_creates_a_safe_utf8_file_without_touching_legacy_sources() {
+    let temporary = TemporaryDirectory::new();
+    let directory = temporary.copy_fixture();
+    let original = snapshot(&directory);
+    let path = temporary.0.join("tulokset ääkkösillä.csv");
+    let args = [
+        OsStr::new("tulokset"),
+        directory.as_os_str(),
+        OsStr::new("--csv"),
+        path.as_os_str(),
+    ];
+    successful_text(run(args));
+    let csv = std::fs::read_to_string(&path).unwrap();
+    assert!(csv.starts_with("\"Ryhmän tyyppi\";\"Ryhmä\";"));
+    assert!(csv.contains("Esimerkkikuljettaja"));
+    assert!(csv.contains("\"645\""));
+    assert!(csv.contains("\r\n"));
+    let output = run(args);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("sitä ei korvata"));
+    assert_eq!(snapshot(&directory), original);
+}

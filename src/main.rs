@@ -36,7 +36,7 @@ fn help() {
          Komennot:\n\
            as2026 tarkista KANSIO [--utf8]\n\
            as2026 laske KANSIO [--utf8] [--vaiheet] [--raportti TIEDOSTO.html]\n\
-           as2026 tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html]\n\
+           as2026 tulokset KANSIO [--utf8] [--raportti TIEDOSTO.html] [--csv TIEDOSTO.csv]\n\
            as2026 pura KEHYSTIEDOSTO [HH:MM:SS]\n\
            as2026 esimerkki\n\
            as2026 lue KANSIO [SARJAPORTTI]\n\
@@ -481,6 +481,23 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
         report::ranking_html(&a, &result)
     })
 }
+/// CSV takes exactly the same ranking inputs and tie policy as the HTML path.
+fn rank_csv(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String> {
+    let native_path = directory.join(native::FILE_NAME);
+    let archive = if native_path.is_file() {
+        application::calculated_project(storage::ProjectStore::open(&native_path)?.project())?
+    } else {
+        load(directory, encoding)?
+    };
+    let policy = if break_ties {
+        ranking::TiePolicy::BestRowsWithExplicitCounts
+    } else {
+        ranking::TiePolicy::KeepSharedAndFlag
+    };
+    let ranked = application::rank_stored(&archive, policy)?;
+    Ok(report::ranking_csv(&archive, &ranked))
+}
+
 fn demo() -> Result<()> {
     println!("SYNTEETTINEN ESIMERKKI — ei alkuperäisohjelman tai lukijalaitteen tuottama tulos.");
     let document = legacy::parse_document(
@@ -638,6 +655,7 @@ struct Options {
     trace: bool,
     break_ties: bool,
     html: Option<PathBuf>,
+    csv: Option<PathBuf>,
 }
 fn options(args: &[OsString], calculation: bool) -> Result<Options> {
     let mut result = Options::default();
@@ -650,6 +668,13 @@ fn options(args: &[OsString], calculation: bool) -> Result<Options> {
                 if !calculation && !result.break_ties =>
             {
                 result.break_ties = true
+            }
+            Some("--csv") if !calculation && result.csv.is_none() => {
+                i += 1;
+                result.csv = Some(PathBuf::from(
+                    args.get(i)
+                        .ok_or_else(|| invalid("CSV-tiedoston polku puuttuu"))?,
+                ));
             }
             Some("--raportti" | "--html") if result.html.is_none() => {
                 i += 1;
@@ -724,6 +749,10 @@ fn run() -> Result<()> {
             };
             if let Some(path) = options.html {
                 save(&path, &html)?;
+            }
+            if let Some(path) = options.csv {
+                let csv = rank_csv(Path::new(&args[1]), encoding, options.break_ties)?;
+                save(&path, &csv)?;
             }
             Ok(())
         }
