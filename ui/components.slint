@@ -176,8 +176,9 @@ export component DataTable inherits Rectangle {
     in property <int> selected-key: -1;
     in property <string> empty-text: "Ei tietoja.";
     callback selected(int);
+    in property <length> table-min-height: 160px;
     min-width: 260px;
-    min-height: 160px;
+    min-height: root.table-min-height;
     horizontal-stretch: 1;
     vertical-stretch: 1;
     background: Theme.surface;
@@ -204,8 +205,6 @@ export component DataTable inherits Rectangle {
             list := ListView {
             for row[index] in root.rows: Rectangle {
                 property <bool> active: row.key == root.selected-key;
-                init => { if self.active { root.current-index = index; } }
-                changed active => { if self.active { root.current-index = index; } }
                 height: Theme.row-height;
                 background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? #1c2b35 : Theme.surface;
                 HorizontalLayout {
