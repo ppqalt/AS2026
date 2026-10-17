@@ -1,8 +1,11 @@
 //! Synthetic regression vectors. AS2015A has not been executed.
 use as2026::{
-    ClockTime, MatchKind, Punch, RouteStation, Rule, StationKind,
-    application, live_report, matching, native::Project, report,
-    ranking::TiePolicy, scoring::ScoringParameters,
+    ClockTime, MatchKind, Punch, RouteStation, Rule, StationKind, application, live_report,
+    matching,
+    native::Project,
+    ranking::TiePolicy,
+    report,
+    scoring::ScoringParameters,
     timing::{self, CalculationPolicy, LiveCalculationOptions, TimingMethod},
 };
 use std::io::{Cursor, Read};
@@ -55,10 +58,12 @@ fn stamped_finish_ignores_later_extras_for_finish_clock_and_keeps_extras() {
     assert_eq!(result.rows[2].other_points, 600);
     assert_eq!(result.total_duration_seconds, 480);
     assert_eq!(result.finish_clock_seconds, 12 * 3600 + 480);
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.code == "post-finish-extras-as2026-policy"));
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "post-finish-extras-as2026-policy")
+    );
 }
 
 #[test]
@@ -69,8 +74,7 @@ fn combined_class_editor_is_atomic_and_renaming_preserves_membership() {
         std::thread::current().id()
     ));
     std::fs::create_dir_all(&directory).unwrap();
-    let mut workspace =
-        as2026::workspace::Workspace::create(&directory, "Kooste").unwrap();
+    let mut workspace = as2026::workspace::Workspace::create(&directory, "Kooste").unwrap();
     assert!(workspace.edit_combined_class(0, "Kesken").is_err());
     assert!(workspace.project().unwrap().yhdistetyt_luokat.is_empty());
     workspace
@@ -101,14 +105,11 @@ fn combined_class_editor_is_atomic_and_renaming_preserves_membership() {
 
 #[test]
 fn xlsx_contains_real_zip_parts_and_xml_escaped_inline_text() {
-    let mut project = Project::from_toml(include_str!(
-        "../fixtures/native-demo/kilpailu.toml"
-    ))
-    .unwrap();
+    let mut project =
+        Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
     project.kilpailijat[0].kuljettaja = "=X&<Y>".into();
     let archive = application::calculated_project(&project).unwrap();
-    let ranked =
-        application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
+    let ranked = application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
     let bytes = report::ranking_xlsx(&archive, &ranked).unwrap();
     assert!(bytes.starts_with(b"PK"));
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();

@@ -482,9 +482,7 @@ pub fn calculate_live_with_trailing_extras(
         ));
     }
     let finish_punch = rows[finish].punch.ok_or_else(|| {
-        CoreError::Unsupported(
-            "Käsimaalin jälkeisten leimojen ajanottoa ei ole vahvistettu".into(),
-        )
+        CoreError::Unsupported("Käsimaalin jälkeisten leimojen ajanottoa ei ole vahvistettu".into())
     })?;
     if rows[finish]
         .station
@@ -502,12 +500,7 @@ pub fn calculate_live_with_trailing_extras(
         let punch = source.punch.expect("jälkileima tarkistettu");
         let previous = result.rows.last().map(|row| row.received_code);
         let two_back = result.rows.iter().rev().nth(1).map(|row| row.received_code);
-        let penalty = extra_punch_penalty(
-            punch.code,
-            previous,
-            two_back,
-            &options.parameters,
-        )?;
+        let penalty = extra_punch_penalty(punch.code, previous, two_back, &options.parameters)?;
         result.rows.push(CalculatedRow {
             source: source.clone(),
             received_code: punch.code,

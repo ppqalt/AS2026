@@ -589,18 +589,17 @@ pub fn xlsx_from_csv(csv: &str) -> Result<Vec<u8>, CoreError> {
         ),
     ];
     for (name, content) in parts {
-        zip.start_file(name, options).map_err(|error| {
-            CoreError::InvalidInput(format!("XLSX-rakenne: {error}"))
-        })?;
-        zip.write_all(content.as_bytes()).map_err(|error| {
-            CoreError::InvalidInput(format!("XLSX-kirjoitus: {error}"))
-        })?;
+        zip.start_file(name, options)
+            .map_err(|error| CoreError::InvalidInput(format!("XLSX-rakenne: {error}")))?;
+        zip.write_all(content.as_bytes())
+            .map_err(|error| CoreError::InvalidInput(format!("XLSX-kirjoitus: {error}")))?;
     }
     zip.start_file("xl/worksheets/sheet1.xml", options)
         .map_err(|error| CoreError::InvalidInput(format!("XLSX-arkki: {error}")))?;
     zip.write_all(sheet.as_bytes())
         .map_err(|error| CoreError::InvalidInput(format!("XLSX-arkki: {error}")))?;
-    let cursor = zip.finish()
+    let cursor = zip
+        .finish()
         .map_err(|error| CoreError::InvalidInput(format!("XLSX-paketti: {error}")))?;
     Ok(cursor.into_inner())
 }
