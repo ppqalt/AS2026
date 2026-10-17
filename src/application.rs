@@ -195,14 +195,17 @@ pub fn calculate(a: &Archive) -> Result<CalculationReport, CoreError> {
                 .iter()
                 .filter(|l| l.card_number == card)
                 .collect::<Vec<_>>();
-            let log = matching.last().ok_or_else(|| {
+            // AS2015A:n emit.txt-uusintahaku pysähtyy ensimmäiseen osuvaan
+            // tietueeseen (0x00414f5c). Uuden TOML-kilpailun sovitin valitsee
+            // erikseen uusimman kelvollisen fyysisen lukeman jo ennen tätä.
+            let log = matching.first().ok_or_else(|| {
                 invalid(format!(
                     "Kortin {card} raakaleimauksia ei löydy emit.txt-tiedostosta"
                 ))
             })?;
             if matching.len() > 1 {
                 notes.push(format!(
-                    "Kortille löytyi {} lukua; käytettiin tiedoston viimeistä lukua riviltä {}",
+                    "Kortille löytyi {} lukua; käytettiin tiedoston ensimmäistä lukua riviltä {}",
                     matching.len(),
                     log.line
                 ));

@@ -115,7 +115,7 @@ fn duplicate_card_is_never_assigned_by_competitor_order() {
 }
 
 #[test]
-fn latest_saved_readout_is_selected_with_a_note_and_stored_total_is_retained() {
+fn imported_legacy_log_selects_first_readout_without_changing_stored_total() {
     let mut a = archive();
     let raw = String::from_utf8(a.documents["emit.txt"].raw.clone()).unwrap();
     let latest = raw.replace("31;395;", "31;420;");
@@ -126,19 +126,19 @@ fn latest_saved_readout_is_selected_with_a_note_and_stored_total_is_retained() {
     let preview = &report.competitors[0];
     assert_eq!(preview.imported_total, 645);
     let result = preview.calculation.as_ref().unwrap();
-    assert_eq!(result.rows[1].source.punch.unwrap().elapsed_seconds, 420);
-    assert_eq!(result.totals.total_points, 2370);
+    assert_eq!(result.rows[1].source.punch.unwrap().elapsed_seconds, 395);
+    assert_eq!(result.totals.total_points, 2415);
     assert!(
         preview
             .notes
             .iter()
-            .any(|note| note.contains("2 lukua") && note.contains("riviltä 2"))
+            .any(|note| note.contains("2 lukua") && note.contains("riviltä 1"))
     );
     assert!(
         preview
             .notes
             .iter()
-            .any(|note| note.contains("2370") && note.contains("645") && note.contains("poikkeaa"))
+            .any(|note| note.contains("2415") && note.contains("645") && note.contains("poikkeaa"))
     );
     assert_eq!(format!("{a:?}"), before);
     assert_eq!(a.competitors[0].total_penalties, 645);
