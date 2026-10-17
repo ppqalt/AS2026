@@ -193,6 +193,25 @@ fn update_form(state: &State, app: &AppWindow) {
         .and_then(Workspace::project)
         .map_or_else(Vec::new, |p| forms::fields(p, &state.selection));
     app.set_fields(model(fields));
+    // Route details are independent of station selection, so the panel
+    // remains visible at a stable position whenever a route is selected.
+    let selected_route = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .and_then(|project| {
+            usize::try_from(state.selected)
+                .ok()
+                .and_then(|index| project.radat.get(index))
+                .map(|track| (project, track.numero))
+        });
+    let route_visible = state.page == 5
+        && !matches!(state.selection, Selection::NewTrack)
+        && selected_route.is_some();
+    app.set_route_editor_visible(route_visible);
+    app.set_route_fields(model(selected_route.map_or_else(Vec::new, |(project, number)| {
+        forms::fields(project, &Selection::Track(number))
+    })));
 }
 
 fn choose_row(state: &mut State, key: i32) -> GuiResult<()> {
@@ -428,6 +447,64 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
             state.invalid_fields.insert(key);
             app.set_form_blocked(true);
             status(app, format!("Muutosta ei tallennettu: {error}"), true);
+            false
+        }
+    }
+}
+
+// The parent route remains editable even while an individual station is open.
+// Do not replace state.selection with Selection::Track, as that would hide
+// the station editor and cause the old jumping layout.
+fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bool {
+    let route_number = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .and_then(|project| {
+            usize::try_from(state.selected)
+                .ok()
+                .and_then(|index| project.radat.get(index))
+                .map(|route| route.numero)
+        });
+    let Some(route_number) = route_number else {
+        status(app, "Valitse ensin rata.", true);
+        return false;
+    };
+    match current_workspace(state)
+        .and_then(|workspace| forms::apply_field(
+            workspace,
+            &Selection::Track(route_number),
+            key,
+            value,
+        ))
+    {
+        Ok(Selection::Track(updated_number)) => {
+            if key == 0 {
+                match &mut state.selection {
+                    Selection::Track(number) => *number = updated_number,
+                    Selection::Station { track, .. } | Selection::NewStation { track } => {
+                        *track = updated_number;
+                    }
+                    _ => {}
+                }
+            }
+            if let Err(error) = update_tables(state, app) {
+                status(app, error.to_string(), true);
+            } else {
+                status(app, "Radan tiedot tallennettu.", false);
+            }
+            // Updating route number changes the editor's referent.
+            if key == 0 {
+                update_form(state, app);
+            }
+            true
+        }
+        Ok(_) => {
+            status(app, "Radan muokkaus ei palauttanut rataa.", true);
+            false
+        }
+        Err(error) => {
+            status(app, format!("Radan tietoja ei tallennettu: {error}"), true);
             false
         }
     }
@@ -729,6 +806,19 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 .is_some_and(|app| commit_field(&mut state.borrow_mut(), &app, key, &value))
         });
     }
+    {
+        let state = state.clone();
+        let weak = app.as_weak();
+        app.on_route_field_commit(move |key, value| {
+            weak.upgrade().is_some_and(|app| {
+                commit_route_field(&mut state.borrow_mut(), &app, key, &value)
+            })
+        });
+    }
+    // The route field commits on Enter or focus loss via FormField itself.
+    // Keep station drafts separate, so changing station selection cannot
+    // accidentally apply a route field to the selected station.
+    app.on_route_field_draft(|_, _| {});
     action!(on_field_draft, |s, a, key, value| {
         if is_new(&s.selection) {
             s.draft.insert(key, value.to_string());
