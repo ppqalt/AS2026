@@ -538,8 +538,17 @@ fn rt_counts_and_other_penalties_autosave_and_survive_normal_driver_edits() {
     assert_eq!(driver.lisavirheet.puuttuvat_rt_kpl, 2);
     assert_eq!(driver.lisavirheet.puuttuvat_rt_pisteet, 1200);
     assert_eq!(driver.lisavirheet.muut_virhepisteet, 100);
-    assert_eq!(workspace.results().unwrap().competitors[0].total_penalties, 1945);
+    assert_eq!(
+        workspace.results().unwrap().competitors[0].total_penalties,
+        1945
+    );
     let reopened = Workspace::open(&directory.file()).unwrap();
-    assert_eq!(reopened.project().unwrap().kilpailijat[0].lisavirheet, driver.lisavirheet);
-    assert_eq!(reopened.results().unwrap().competitors[0].total_penalties, 1945);
+    assert_eq!(
+        reopened.project().unwrap().kilpailijat[0].lisavirheet,
+        driver.lisavirheet
+    );
+    assert_eq!(
+        reopened.results().unwrap().competitors[0].total_penalties,
+        1945
+    );
 }

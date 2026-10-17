@@ -229,7 +229,10 @@ fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
         muut_virhepisteet: 100,
     };
     let archive = project.to_archive().unwrap();
-    assert_eq!(&archive.competitors[0].header_fields[21..=25], ["2", "1200", "3", "75", "100"]);
+    assert_eq!(
+        &archive.competitors[0].header_fields[21..=25],
+        ["2", "1200", "3", "75", "100"]
+    );
 
     let results = application::calculated_project(&project).unwrap();
     let competitor = &results.competitors[0];
@@ -237,8 +240,18 @@ fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
     assert_eq!(competitor.header_fields[20], "600");
     assert_eq!(competitor.header_fields[26], "2020");
     assert_eq!(competitor.total_penalties, 2020);
-    assert_eq!(competitor.results.iter().map(|row| row.total_penalty).sum::<i64>(), 645);
-    assert_eq!(native::Project::from_toml(&project.to_toml().unwrap()).unwrap(), project);
+    assert_eq!(
+        competitor
+            .results
+            .iter()
+            .map(|row| row.total_penalty)
+            .sum::<i64>(),
+        645
+    );
+    assert_eq!(
+        native::Project::from_toml(&project.to_toml().unwrap()).unwrap(),
+        project
+    );
 }
 
 #[test]
@@ -246,7 +259,13 @@ fn native_keeps_stored_rt_sum_without_repricing_and_rejects_invalid_totals() {
     let mut project = project();
     project.kilpailijat[0].lisavirheet.puuttuvat_rt_kpl = 2;
     project.kilpailijat[0].lisavirheet.puuttuvat_rt_pisteet = 700;
-    assert_eq!(application::calculated_project(&project).unwrap().competitors[0].total_penalties, 1345);
+    assert_eq!(
+        application::calculated_project(&project)
+            .unwrap()
+            .competitors[0]
+            .total_penalties,
+        1345
+    );
     project.kilpailijat[0].lisavirheet.muut_virhepisteet = -1;
     assert!(project.validate().is_err());
     project.kilpailijat[0].lisavirheet.muut_virhepisteet = i64::MAX;

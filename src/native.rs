@@ -174,7 +174,9 @@ impl AdditionalPenalties {
             || self.ylimaaraiset_rt_pisteet < 0
             || self.muut_virhepisteet < 0
         {
-            return Err(invalid("Erilliset virhepisteet eivät saa olla negatiivisia"));
+            return Err(invalid(
+                "Erilliset virhepisteet eivät saa olla negatiivisia",
+            ));
         }
         Ok(())
     }
