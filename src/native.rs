@@ -34,6 +34,9 @@ pub struct Project {
     pub sarjapisteet: Vec<i64>,
     #[serde(default)]
     pub luokat: Vec<Class>,
+    /// Up to four explicit combined result classes from the G08 ranking model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub yhdistetyt_luokat: Vec<CombinedClass>,
     #[serde(default)]
     pub radat: Vec<Track>,
     #[serde(default)]
@@ -108,6 +111,18 @@ pub struct Class {
     #[serde(default)]
     pub sarjapistetapa: u8,
 }
+/// A combined ranking class. Member codes are exact, not legacy prefix matches.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CombinedClass {
+    pub nimi: String,
+    pub luokat: Vec<String>,
+    #[serde(default)]
+    pub nousupisteet: u8,
+    #[serde(default)]
+    pub sarjapistetapa: u8,
+}
+
 fn one() -> u32 {
     1
 }
@@ -302,6 +317,39 @@ impl Project {
                 ],
             });
         }
+        if self.yhdistetyt_luokat.len() > 4 {
+            return Err(invalid("Yhdistettyjä luokkia saa olla enintään neljä"));
+        }
+        let mut combined_classes = Vec::new();
+        let mut combined_names = HashSet::new();
+        for (index, group) in self.yhdistetyt_luokat.iter().enumerate() {
+            let name = group.nimi.trim();
+            if name.is_empty() || !combined_names.insert(name.to_owned()) {
+                return Err(invalid("Yhdistetyn luokan nimi puuttuu tai toistuu"));
+            }
+            if group.luokat.is_empty() || group.nousupisteet > 1 || group.sarjapistetapa > 6 {
+                return Err(invalid(format!("Yhdistetyn luokan {name} jäsenet tai Np/Sp-valinta on virheellinen")));
+            }
+            if group.sarjapistetapa == 4 && self.sarjapisteet.is_empty() {
+                return Err(invalid("Yhdistetyn luokan Sp 4 edellyttää sarjapistetaulukkoa"));
+            }
+            let mut members = HashSet::new();
+            for code in &group.luokat {
+                if !class_keys.contains(code.as_str()) || !members.insert(code.as_str()) {
+                    return Err(invalid(format!("Yhdistetyssä luokassa {name} on tuntematon tai toistuva jäsenluokka {code}")));
+                }
+            }
+            let mut fields = vec![
+                (index + 1).to_string(),
+                name.to_owned(),
+                group.nousupisteet.to_string(),
+                group.sarjapistetapa.to_string(),
+            ];
+            fields.extend(classes.iter().map(|class| {
+                if members.contains(class.code.as_str()) { "1" } else { "0" }.to_owned()
+            }));
+            combined_classes.push(fields);
+        }
         let mut routes = Vec::new();
         let mut route_keys = HashSet::new();
         for track in &self.radat {
@@ -463,7 +511,7 @@ impl Project {
             ],
             output_names: vec!["tulokset".into(), "asemat".into()],
             classes,
-            combined_classes: Vec::new(),
+            combined_classes,
         };
         let archive = Archive {
             documents,
@@ -492,6 +540,7 @@ impl Project {
             },
             virhepisteet: Overrides::default(),
             sarjapisteet: Vec::new(),
+            yhdistetyt_luokat: Vec::new(),
             luokat: vec![Class {
                 tunnus: "H".into(),
                 nimi: "Harjoitus".into(),

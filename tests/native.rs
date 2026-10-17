@@ -348,3 +348,52 @@ fn native_rejects_missing_invalid_or_oversized_custom_series_schedule() {
     project.sarjapisteet = vec![1; 1001];
     assert!(project.validate().is_err());
 }
+
+#[test]
+fn combined_classes_are_persisted_and_ranked_from_native_toml() {
+    let mut project = project();
+    project.luokat[0].sarjapistetapa = 1;
+    project.yhdistetyt_luokat.push(native::CombinedClass {
+        nimi: "Yhteinen".into(),
+        luokat: vec!["H".into()],
+        nousupisteet: 1,
+        sarjapistetapa: 5,
+    });
+    let toml = project.to_toml().unwrap();
+    assert_eq!(native::Project::from_toml(&toml).unwrap(), project);
+    let archive = application::calculated_project(&project).unwrap();
+    assert_eq!(archive.basic.combined_classes[0], ["1", "Yhteinen", "1", "5", "1"]);
+    let ranking = application::rank_stored(
+        &archive,
+        as2026::ranking::TiePolicy::KeepSharedAndFlag,
+    ).unwrap();
+    let group = ranking.groups.iter()
+        .find(|g| g.kind == as2026::ranking::GroupKind::Combined).unwrap();
+    assert_eq!(group.entries.len(), 1);
+    assert_eq!(group.entries[0].series_points, 100);
+}
+
+#[test]
+fn combined_class_member_codes_are_exact_and_invalid_configs_are_rejected() {
+    let mut project = project();
+    let group = native::CombinedClass {
+        nimi: "Kooste".into(),
+        luokat: vec!["H".into()],
+        nousupisteet: 1,
+        sarjapistetapa: 0,
+    };
+    project.yhdistetyt_luokat.push(group);
+    assert!(project.validate().is_ok());
+    project.yhdistetyt_luokat[0].luokat = vec!["HX".into()];
+    assert!(project.validate().is_err());
+    project.yhdistetyt_luokat[0].luokat = vec!["H".into(), "H".into()];
+    assert!(project.validate().is_err());
+    project.yhdistetyt_luokat[0].luokat = vec!["H".into()];
+    project.yhdistetyt_luokat[0].sarjapistetapa = 4;
+    assert!(project.validate().is_err());
+    project.sarjapisteet = vec![100, 90];
+    assert!(project.validate().is_ok());
+    let first = project.yhdistetyt_luokat[0].clone();
+    project.yhdistetyt_luokat = vec![first; 5];
+    assert!(project.validate().is_err());
+}
