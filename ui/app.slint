@@ -300,10 +300,12 @@ export component AppWindow inherits Window {
                                 Note { text: root.reader-status; }
                             }
                             Rectangle { horizontal-stretch: 1; }
-                            VerticalLayout {
-                                spacing: 7px;
-                                Text { text: "Sarjaportti"; color: Theme.muted; font-size: 11px; }
-                                LineEdit { width: 200px; text <=> root.reader-port; placeholder-text: "Automaattinen / COM3"; enabled: !root.reader-running; }
+                            LineEdit {
+                                width: 200px; height: Theme.control-height;
+                                text <=> root.reader-port;
+                                placeholder-text: "Automaattinen / COM3";
+                                enabled: !root.reader-running;
+                                vertical-alignment: center;
                             }
                             Button { height: Theme.control-height; text: root.reader-running ? "Pysäytä luku" : "Käynnistä lukija"; primary: true; enabled: root.editable; clicked => { if root.reader-running { root.reader-stop(); } else { root.reader-start(root.reader-port); } } }
                         }
