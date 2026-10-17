@@ -415,7 +415,9 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
     );
     for group in &report.groups {
         for entry in &group.entries {
-            let source = archive.competitors.get(entry.source_index.saturating_sub(1));
+            let source = archive
+                .competitors
+                .get(entry.source_index.saturating_sub(1));
             let pos = if entry.status == Status::Classified {
                 entry.primary_position.to_string()
             } else {
@@ -424,7 +426,12 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
             csv_record(
                 &mut csv,
                 &[
-                    (if group.kind == GroupKind::Combined { "Yhdistetty" } else { "Luokka" }).into(),
+                    (if group.kind == GroupKind::Combined {
+                        "Yhdistetty"
+                    } else {
+                        "Luokka"
+                    })
+                    .into(),
                     group.code.clone(),
                     pos,
                     entry.number.to_string(),
@@ -449,7 +456,9 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
     }
     for route in &report.routes {
         for entry in &route.entries {
-            let source = archive.competitors.get(entry.source_index.saturating_sub(1));
+            let source = archive
+                .competitors
+                .get(entry.source_index.saturating_sub(1));
             let pos = if entry.status == Status::Classified {
                 entry.primary_position.to_string()
             } else {

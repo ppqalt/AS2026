@@ -313,7 +313,8 @@ fn ranking_csv_escapes_delimiters_quotes_and_spreadsheet_formulas() {
     assert!(csv.contains("\"A\"\";B\""));
     assert!(csv.contains("\"23\""));
     assert!(csv.contains("\r\n"));
-    assert!(!csv.contains("<script>"));
+    // CSV is plain text, not HTML. Preserve angle brackets as data.
+    assert!(csv.contains("<script>"));
 }
 
 #[test]
