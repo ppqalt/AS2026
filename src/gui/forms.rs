@@ -52,6 +52,10 @@ fn text(key: i32, label: &str, value: impl ToString, hint: &str) -> EditorField 
         options: ModelRc::default(),
         values: ModelRc::default(),
         choice: -1,
+        duration: false,
+        hours: "".into(),
+        minutes: "".into(),
+        seconds: "".into(),
     }
 }
 
@@ -75,6 +79,10 @@ fn choice(
         options: strings(options.iter().map(|(name, _)| name.clone())),
         values: strings(options.into_iter().map(|(_, id)| id)),
         choice: selected,
+        duration: false,
+        hours: "".into(),
+        minutes: "".into(),
+        seconds: "".into(),
     }
 }
 
@@ -236,6 +244,64 @@ pub fn station_rule_field(kind: &str, rule: &str) -> EditorField {
     )
 }
 
+// Only the station target uses HH:MM:SS in the form; the native model stores seconds.
+// Target durations are allowed to exceed 24 hours.
+fn format_target_duration(raw: &str) -> String {
+    match raw.parse::<i64>() {
+        Ok(seconds) if seconds >= 0 => format!(
+            "{:02}:{:02}:{:02}",
+            seconds / 3600,
+            (seconds % 3600) / 60,
+            seconds % 60,
+        ),
+        _ => raw.to_owned(),
+    }
+}
+
+fn parse_target_duration(raw: &str) -> Result<String, CoreError> {
+    let invalid_time = || CoreError::InvalidInput(
+        "Anna tavoiteaika muodossa hh:mm:ss (esim. 00:05:00)".into(),
+    );
+    let parts = raw.trim().split(':').collect::<Vec<_>>();
+    if parts.len() != 3
+        || parts
+            .iter()
+            .any(|part| part.is_empty() || !part.bytes().all(|byte| byte.is_ascii_digit()))
+    {
+        return Err(invalid_time());
+    }
+    let hours = parts[0].parse::<i64>().map_err(|_| invalid_time())?;
+    let minutes = parts[1].parse::<i64>().map_err(|_| invalid_time())?;
+    let seconds = parts[2].parse::<i64>().map_err(|_| invalid_time())?;
+    if minutes >= 60 || seconds >= 60 {
+        return Err(invalid_time());
+    }
+    let total = hours
+        .checked_mul(3600)
+        .and_then(|hours| minutes.checked_mul(60).and_then(|minutes| hours.checked_add(minutes)))
+        .and_then(|value| value.checked_add(seconds))
+        .ok_or_else(invalid_time)?;
+    Ok(total.to_string())
+}
+
+fn station_target_field(seconds: &str) -> EditorField {
+    let formatted = format_target_duration(seconds);
+    let parts = formatted.split(':').collect::<Vec<_>>();
+    let mut field = text(
+        3,
+        "Tavoiteaika (h : min : s)",
+        &formatted,
+        "Tunnit, minuutit ja sekunnit erikseen",
+    );
+    field.duration = true;
+    if parts.len() == 3 {
+        field.hours = parts[0].into();
+        field.minutes = parts[1].into();
+        field.seconds = parts[2].into();
+    }
+    field
+}
+
 fn station_fields(station: &StationEdit) -> Vec<EditorField> {
     vec![
         choice(
@@ -259,12 +325,7 @@ fn station_fields(station: &StationEdit) -> Vec<EditorField> {
             &station.code,
             "Lähtö- ja maaliasemalla voidaan käyttää nollaa",
         ),
-        text(
-            3,
-            "Tavoiteaika (s)",
-            &station.target_seconds,
-            "Tavoiteaika sekunteina, esimerkiksi 300 = 5 minuuttia",
-        ),
+        station_target_field(&station.target_seconds),
         station_rule_field(&station.kind, &station.rule),
         text(
             5,
@@ -630,7 +691,12 @@ pub fn apply_field(
                 5 => StationField::Section,
                 _ => return Err(invalid()),
             };
-            ws.edit_station(*track, *index, field, value)?;
+            let stored = if key == 3 {
+                parse_target_duration(value)?
+            } else {
+                value.to_owned()
+            };
+            ws.edit_station(*track, *index, field, &stored)?;
             Ok(selection.clone())
         }
         Selection::Settings => {
@@ -721,7 +787,7 @@ pub fn add(
                     kind: value(0),
                     name: value(1),
                     code: value(2),
-                    target_seconds: value(3),
+                    target_seconds: parse_target_duration(&value(3))?,
                     rule: value(4),
                     section_minutes: value(5),
                 },
@@ -732,5 +798,30 @@ pub fn add(
             })
         }
         _ => Err(invalid()),
+    }
+}
+
+#[cfg(test)]
+mod target_duration_tests {
+    use super::{format_target_duration, parse_target_duration};
+
+    #[test]
+    fn targets_display_as_hms() {
+        assert_eq!(format_target_duration("0"), "00:00:00");
+        assert_eq!(format_target_duration("30"), "00:00:30");
+        assert_eq!(format_target_duration("300"), "00:05:00");
+        assert_eq!(format_target_duration("90061"), "25:01:01");
+    }
+
+    #[test]
+    fn only_valid_hms_durations_become_seconds() {
+        assert_eq!(parse_target_duration("00:05:00").unwrap(), "300");
+        assert_eq!(parse_target_duration("25:01:01").unwrap(), "90061");
+        for invalid in [
+            "300", "00:60:00", "00:00:60", "1:2",
+            "-1:00:00", "999999999999999999999:00:00",
+        ] {
+            assert!(parse_target_duration(invalid).is_err(), "{invalid}");
+        }
     }
 }
