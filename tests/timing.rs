@@ -557,8 +557,14 @@ fn static_policy_does_not_publish_stale_legacy_early_return_scores() {
     let mut o = options(720);
     o.policy = CalculationPolicy::RecoveredAs2015aStaticV2;
     let punches = vec![
-        Punch { code: 32, elapsed_seconds: 420 },
-        Punch { code: 33, elapsed_seconds: 720 },
+        Punch {
+            code: 32,
+            elapsed_seconds: 420,
+        },
+        Punch {
+            code: 33,
+            elapsed_seconds: 720,
+        },
     ];
     let rows = match_route(&missing_start, &punches, clock()).unwrap();
     assert!(matches!(
@@ -572,7 +578,10 @@ fn static_policy_does_not_publish_stale_legacy_early_return_scores() {
     ];
     let rows = match_route(
         &missing_finish,
-        &[Punch { code: 32, elapsed_seconds: 420 }],
+        &[Punch {
+            code: 32,
+            elapsed_seconds: 420,
+        }],
         clock(),
     )
     .unwrap();
