@@ -85,6 +85,9 @@ pub fn user_notice(message: &str) -> Option<String> {
         "Palautettu korttilaskenta johtaa leimattoman maalin ajan kortin viimeisestä leimasta. Vanhan ohjelman tämän kohdan käsittely on ristiriitainen. Valitun laskentatavan vastaavuus vanhoihin kilpailutuloksiin on vielä tarkistettava." => {
             "Maaliaika on johdettu kortin viimeisestä leimasta."
         }
+        "AS2015A:n leimaamattoman maalin toteutunut aika jää nollaksi, ja maalikello kirjoitetaan vasta ennen toista sakkokierrosta. Tulos on staattinen ennuste." => {
+            "Maalikello perustuu viimeiseen leimaan, mutta leimaamattoman maalin toteutunut aika on laskennassa 0 s."
+        }
         "Palautettu ensimmäinen kierros tyhjentää puuttuvan JAT:n tavoitesiirron ennen erillistä maalilaskentaa; tavoitetta ei lisätä maaliin." => {
             "Puuttuvan JAT-aseman tavoiteaikaa ei lisätä maalijaksoon."
         }

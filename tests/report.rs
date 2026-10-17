@@ -297,7 +297,7 @@ fn native_reports_present_results_without_development_banners() {
         assert!(!html.contains("varmistamatta"));
         assert!(!html.contains("Vanhan ohjelman"));
         assert!(!html.contains("vastaavuus"));
-        assert!(html.contains("Maaliaika on johdettu kortin viimeisestä leimasta."));
+        assert!(html.contains("Maalikello perustuu viimeiseen leimaan, mutta leimaamattoman maalin toteutunut aika on laskennassa 0 s."));
         assert!(html.contains("Virhepisteet") || html.contains("Tulos"));
     }
 }

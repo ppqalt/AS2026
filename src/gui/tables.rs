@@ -673,7 +673,7 @@ mod tests {
         assert!(
             results
                 .notes
-                .contains("Maaliaika on johdettu kortin viimeisestä leimasta.")
+                .contains("Maalikello perustuu viimeiseen leimaan, mutta leimaamattoman maalin toteutunut aika on laskennassa 0 s.")
         );
     }
 
