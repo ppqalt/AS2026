@@ -265,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "as2026"
-version = "0.5.5"
+version = "0.5.6"
 dependencies = [
  "chrono",
  "ctrlc",

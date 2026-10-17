@@ -4,7 +4,8 @@ Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 
 - Kilpailijat, luokat, radat ja asemat samassa sovelluksessa.
 - Jatkuva Emit-kortinluku ja automaattinen tallennus.
-- Tulosluettelot, asemakohtainen tarkastelu ja HTML-raportit.
+- Tulosluettelot, asemakohtainen tarkastelu ja HTML-, CSV- sekä XLSX-viennit.
+- Paikallinen live-HTML-tulosnäkymä ja yhdistettyjen luokkien hallinta.
 - Vanhojen AS2015A-kilpailutiedostojen luku.
 - Suomenkielinen, tumma käyttöliittymä ja päivitykset sovelluksen asetuksista.
 

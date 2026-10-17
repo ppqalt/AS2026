@@ -144,7 +144,7 @@ Vanhojen aineistojen tuonti ja uuden kilpailun tallennus ovat erillisiä polkuja
 ```sh
 as2026 tarkista KANSIO [--utf8]
 as2026 laske KANSIO [--utf8] [--vaiheet] [--raportti laskenta.html]
-as2026 tulokset KANSIO [--utf8] [--raportti tulokset.html]
+as2026 tulokset KANSIO [--utf8] [--raportti tulokset.html] [--csv tulokset.csv] [--xlsx tulokset.xlsx] [--live PORTTI]
 as2026 tulokset KANSIO --ratkaise-tasatulokset
 as2026 pura KEHYSTIEDOSTO [HH:MM:SS]
 as2026 esimerkki
@@ -196,3 +196,26 @@ cargo build --release --features gui --bin as2026-gui
 ```
 
 Testit kattavat vanhojen tiedostojen lukua, TOML-yhteensopivuutta, kohdistuksia, laskentaa ja järjestystä, uusintalukuja, jatkuvan lukijan tavupuskurointia sekä tallennuksen epäonnistumista ja paikallisia ristiriitoja. Testiaineisto on synteettistä. Erillisessä Linux-laitetestissä oikea kortti 538747 luettiin toistuvasti samassa jatkuvassa istunnossa, historia tallentui ja kilpailu avautui uudelleen. Tämä ei varmista kaikkia laite- ja kilpailutilanteita eikä laskennan täydellistä vastaavuutta alkuperäisiin kilpailutuloksiin.
+
+## 0.5.6: taulukkovienti ja paikallinen live-HTML
+
+```sh
+as2026 tulokset oma-kilpailu --csv tulokset.csv
+as2026 tulokset oma-kilpailu --xlsx tulokset.xlsx
+as2026 tulokset oma-kilpailu --live 8765
+```
+
+CSV on UTF-8-muotoinen, puolipistein erotettu tiedosto. XLSX on tavallinen
+Excel-työkirja ilman makroja tai kaavoja, ja sen laskenta perustuu samaan
+tulosjärjestykseen kuin HTML- ja CSV-vienti. Molemmat viennit säilyttävät
+olemassa olevan tiedoston, eivätkä korvaa sitä.
+
+Live-HTML toimii vain samalla koneella osoitteessa
+`http://127.0.0.1:8765/` ja lukee kilpailun uudestaan jokaisella pyynnöllä.
+Selaimen päivitysväli on viisi sekuntia. Lopeta palvelin Ctrl+C:llä.
+Kyseessä ei ole julkinen verkkopalvelin tai usean tietokoneen synkronointi.
+
+0.5.6 sisältää myös AS2015A:n rakenteista pääteltyjä laskentapolkuja,
+mutta alkuperäisen AS2015A:n suoritusta vastaavia vertailutestejä ei ole
+tehty. Tallennettujen vanhojen asematulosten täydellinen uudelleenlaskenta
+ja epäselvät käsikorjauspolut eivät vielä ole käytettävissä.
