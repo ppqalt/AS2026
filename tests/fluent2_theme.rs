@@ -11,7 +11,13 @@ fn fluent2_beta_is_effect_free_and_uses_centralized_colors() {
         ("components", include_str!("../ui/components.slint")),
     ] {
         assert!(!source.contains("background: #"), "{name} bypasses theme");
-        for effect in ["animate ", "drop-shadow:", "opacity:", "linear-gradient(", "radial-gradient("] {
+        for effect in [
+            "animate ",
+            "drop-shadow:",
+            "opacity:",
+            "linear-gradient(",
+            "radial-gradient(",
+        ] {
             assert!(!source.contains(effect), "{name} contains effect: {effect}");
         }
     }
