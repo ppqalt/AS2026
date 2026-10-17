@@ -437,7 +437,7 @@ fn settings_patch_does_not_clear_unrelated_overrides() {
     assert_eq!(workspace.project().unwrap().kilpailu.ajanottotapa, 0);
     assert!(
         workspace
-            .edit_competition(CompetitionField::Timing, "2")
+            .edit_competition(CompetitionField::Timing, "3")
             .is_err()
     );
     assert_eq!(

@@ -297,10 +297,7 @@ pub fn parse_competitors(document: &Document) -> Result<Vec<Competitor>, ImportE
                     let old = record.data(28)?;
                     let mut normalized = vec![String::new(); 31];
                     normalized[..5].clone_from_slice(&old[..5]);
-                    normalized[7] = format!(
-                        "{:<15}",
-                        old[5].chars().take(15).collect::<String>()
-                    );
+                    normalized[7] = format!("{:<15}", old[5].chars().take(15).collect::<String>());
                     normalized[9] = old[6].clone();
                     for (index, dest) in normalized.iter_mut().enumerate().skip(10) {
                         *dest = old[index - 3].clone();
@@ -382,7 +379,10 @@ pub struct BasicSettings {
 }
 pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
     let mut result = BasicSettings::default();
-    let first = document.records.first().ok_or_else(|| error("Asperus.txt on tyhjä"))?;
+    let first = document
+        .records
+        .first()
+        .ok_or_else(|| error("Asperus.txt on tyhjä"))?;
     let old_format = first.tag() != "PE";
     if old_format {
         // Before PE the six initial columns omitted competition/organizer IDs.
