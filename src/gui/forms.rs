@@ -259,9 +259,8 @@ fn format_target_duration(raw: &str) -> String {
 }
 
 fn parse_target_duration(raw: &str) -> Result<String, CoreError> {
-    let invalid_time = || CoreError::InvalidInput(
-        "Anna tavoiteaika muodossa hh:mm:ss (esim. 00:05:00)".into(),
-    );
+    let invalid_time =
+        || CoreError::InvalidInput("Anna tavoiteaika muodossa hh:mm:ss (esim. 00:05:00)".into());
     let parts = raw.trim().split(':').collect::<Vec<_>>();
     if parts.len() != 3
         || parts
@@ -278,7 +277,11 @@ fn parse_target_duration(raw: &str) -> Result<String, CoreError> {
     }
     let total = hours
         .checked_mul(3600)
-        .and_then(|hours| minutes.checked_mul(60).and_then(|minutes| hours.checked_add(minutes)))
+        .and_then(|hours| {
+            minutes
+                .checked_mul(60)
+                .and_then(|minutes| hours.checked_add(minutes))
+        })
         .and_then(|value| value.checked_add(seconds))
         .ok_or_else(invalid_time)?;
     Ok(total.to_string())
@@ -818,8 +821,12 @@ mod target_duration_tests {
         assert_eq!(parse_target_duration("00:05:00").unwrap(), "300");
         assert_eq!(parse_target_duration("25:01:01").unwrap(), "90061");
         for invalid in [
-            "300", "00:60:00", "00:00:60", "1:2",
-            "-1:00:00", "999999999999999999999:00:00",
+            "300",
+            "00:60:00",
+            "00:00:60",
+            "1:2",
+            "-1:00:00",
+            "999999999999999999999:00:00",
         ] {
             assert!(parse_target_duration(invalid).is_err(), "{invalid}");
         }

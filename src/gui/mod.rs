@@ -209,9 +209,11 @@ fn update_form(state: &State, app: &AppWindow) {
         && !matches!(state.selection, Selection::NewTrack)
         && selected_route.is_some();
     app.set_route_editor_visible(route_visible);
-    app.set_route_fields(model(selected_route.map_or_else(Vec::new, |(project, number)| {
-        forms::fields(project, &Selection::Track(number))
-    })));
+    app.set_route_fields(model(
+        selected_route.map_or_else(Vec::new, |(project, number)| {
+            forms::fields(project, &Selection::Track(number))
+        }),
+    ));
 }
 
 fn choose_row(state: &mut State, key: i32) -> GuiResult<()> {
@@ -470,14 +472,9 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
         status(app, "Valitse ensin rata.", true);
         return false;
     };
-    match current_workspace(state)
-        .and_then(|workspace| forms::apply_field(
-            workspace,
-            &Selection::Track(route_number),
-            key,
-            value,
-        ))
-    {
+    match current_workspace(state).and_then(|workspace| {
+        forms::apply_field(workspace, &Selection::Track(route_number), key, value)
+    }) {
         Ok(Selection::Track(updated_number)) => {
             if key == 0 {
                 match &mut state.selection {
@@ -810,9 +807,8 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         let state = state.clone();
         let weak = app.as_weak();
         app.on_route_field_commit(move |key, value| {
-            weak.upgrade().is_some_and(|app| {
-                commit_route_field(&mut state.borrow_mut(), &app, key, &value)
-            })
+            weak.upgrade()
+                .is_some_and(|app| commit_route_field(&mut state.borrow_mut(), &app, key, &value))
         });
     }
     // The route field commits on Enter or focus loss via FormField itself.
