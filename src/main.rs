@@ -526,7 +526,7 @@ fn demo() -> Result<()> {
         last_punch_elapsed_seconds: read.last_punch_elapsed_seconds,
         cumulative_limit_minutes: Some(60),
         parameters: scoring::ScoringParameters::default(),
-        policy: CalculationPolicy::RecoveredLiveV1,
+        policy: CalculationPolicy::RecoveredAs2015aStaticV2,
     };
     print_calculation(&timing::calculate_live(&rows, &options)?, true);
     Ok(())
