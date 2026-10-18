@@ -118,12 +118,14 @@ impl ImportPreview {
             });
             route_for_class.insert(source.luokka.clone(), number);
         }
-        let mut codes: BTreeSet<String> = route_for_class.keys().cloned().collect();
-        codes.extend(
-            self.kilpailijat
-                .iter()
-                .map(|driver| driver.tiedot.luokka.clone()),
-        );
+        // Säilytä RATA-välilehden luokkajärjestys ja lisää vasta sitten
+        // KILP-välilehdessä esiintyvät uudet luokat.
+        let mut codes = self.radat.iter().map(|track| track.luokka.clone()).collect::<Vec<_>>();
+        for driver in &self.kilpailijat {
+            if !codes.contains(&driver.tiedot.luokka) {
+                codes.push(driver.tiedot.luokka.clone());
+            }
+        }
         for code in codes {
             let route = route_for_class
                 .get(&code)
