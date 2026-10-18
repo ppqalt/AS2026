@@ -374,7 +374,7 @@ impl Project {
             if code.is_empty() || !class_keys.insert(code.to_owned()) {
                 return Err(invalid("Luokan tunnus puuttuu tai toistuu"));
             }
-            if !self.radat.iter().any(|r| r.numero == class.rata) {
+            if class.rata != 0 && !self.radat.iter().any(|r| r.numero == class.rata) {
                 return Err(invalid(format!(
                     "Luokan {code} rataa {} ei löydy",
                     class.rata
@@ -505,7 +505,7 @@ impl Project {
             if driver.numero == 0 || !numbers.insert(driver.numero) {
                 return Err(invalid("Kilpailijan numero puuttuu tai toistuu"));
             }
-            if driver.emit == 0 || !emit_cards.insert(driver.emit) {
+            if driver.emit != 0 && !emit_cards.insert(driver.emit) {
                 return Err(invalid(format!(
                     "Kilpailijan {} Emit-kortin numero puuttuu tai on käytössä",
                     driver.numero
@@ -526,7 +526,11 @@ impl Project {
                     "Vahvistettu keskeytys edellyttää KESK-tilaa ja keskeytyksen syytä",
                 ));
             }
-            let time = parse_clock(&driver.lahtoaika)?;
+            let time = if driver.lahtoaika.trim().is_empty() {
+                None
+            } else {
+                Some(parse_clock(&driver.lahtoaika)?)
+            };
             let mut fields = vec!["0".to_owned(); 31];
             fields[0] = driver.numero.to_string();
             fields[1] = driver.luokka.trim().to_owned();
@@ -538,9 +542,9 @@ impl Project {
             fields[7] = driver.kuljettajan_seura.clone();
             fields[8] = driver.kartanlukijan_seura.clone();
             fields[9] = driver.auto.clone();
-            fields[10] = time.hour.to_string();
-            fields[11] = time.minute.to_string();
-            fields[12] = time.second.to_string();
+            fields[10] = time.map_or_else(String::new, |time| time.hour.to_string());
+            fields[11] = time.map_or_else(String::new, |time| time.minute.to_string());
+            fields[12] = time.map_or_else(String::new, |time| time.second.to_string());
             fields[21] = driver.lisavirheet.puuttuvat_rt_kpl.to_string();
             fields[22] = driver.lisavirheet.puuttuvat_rt_pisteet.to_string();
             fields[23] = driver.lisavirheet.ylimaaraiset_rt_kpl.to_string();
