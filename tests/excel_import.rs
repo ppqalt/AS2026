@@ -74,23 +74,24 @@ fn invalid_competitor_rows_are_explained_and_all_valid_rows_are_retained() {
     drivers.set_value((1, 2), Data::Empty);
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import());
-    assert_eq!(preview.kilpailijat.len(), 1);
-    assert_eq!(preview.kilpailijat[0].tiedot.numero, 2);
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert_eq!(preview.kilpailijat[0].tiedot.numero, 1);
+    assert_eq!(preview.kilpailijat[0].tiedot.emit, 0);
     assert!(preview.summary().contains("KILP rivi 2"));
     assert!(preview.summary().contains("Emit-numero puuttuu"));
     assert_eq!(
         preview
-            .to_project("Vain kelvolliset")
+            .to_project("Keskeneräisetkin mukana")
             .unwrap()
             .kilpailijat
             .len(),
-        1
+        2
     );
 
     drivers.set_value((2, 1), Data::String("Tuntematon".into()));
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
-    assert!(preview.kilpailijat.is_empty());
-    assert!(preview.summary().contains("ei ole kelvollista rataa"));
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert!(preview.summary().contains("rata puuttuu"));
 }
 
 #[test]
@@ -101,23 +102,27 @@ fn unknown_station_does_not_create_an_incomplete_or_guessed_route() {
     assert!(preview.can_import());
     assert_eq!(preview.radat.len(), 1);
     assert_eq!(preview.radat[0].luokka, "B");
-    assert_eq!(preview.kilpailijat.len(), 1);
-    assert_eq!(preview.kilpailijat[0].tiedot.luokka, "B");
+    assert_eq!(preview.kilpailijat.len(), 2);
     assert!(preview.summary().contains("Asematyyppiä ei tunnisteta"));
-    assert_eq!(preview.to_project("Rata B").unwrap().luokat[0].tunnus, "B");
+    let project = preview.to_project("Rata B").unwrap();
+    assert!(project.luokat.iter().any(|class| class.tunnus == "C" && class.rata == 0));
 }
 
 #[test]
-fn duplicate_competitor_or_emit_identifiers_block_confirmation() {
-    for column in [0, 2] {
-        let (track, mut drivers) = sheets();
-        drivers.set_value((2, column), drivers.get_value((1, column)).unwrap().clone());
-        let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
-        assert!(!preview.can_import());
-        assert!(preview.huomautukset.iter().any(|issue| issue.estaa_tuonnin));
-        assert!(preview.to_project("Ei tallenneta").is_err());
-        assert!(preview.summary().contains("esiintyy useasti"));
-    }
+fn duplicate_competitor_numbers_block_but_duplicate_emit_cards_remain_unassigned() {
+    let (track, mut drivers) = sheets();
+    drivers.set_value((2, 0), drivers.get_value((1, 0)).unwrap().clone());
+    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert!(!preview.can_import());
+    assert!(preview.to_project("Ei tallenneta").is_err());
+
+    let (track, mut drivers) = sheets();
+    drivers.set_value((2, 2), drivers.get_value((1, 2)).unwrap().clone());
+    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert!(preview.can_import());
+    assert!(preview.kilpailijat.iter().all(|d| d.tiedot.emit == 0));
+    assert!(preview.summary().contains("esiintyy useasti"));
+    preview.to_project("Korjattavat kortit").unwrap();
 }
 
 #[test]
@@ -127,10 +132,10 @@ fn duplicate_class_codes_and_wrong_headers_are_never_guessed() {
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(!preview.can_import());
     let (track, mut drivers) = sheets();
-    drivers.set_value((0, 2), Data::String("Muu numero".into()));
+    drivers.set_value((0, 5), Data::String("Muu numero".into()));
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(!preview.can_import());
-    assert!(preview.summary().contains("otsikot"));
+    assert!(preview.summary().contains("Kuski-otsikko"));
 }
 
 #[test]
@@ -196,4 +201,73 @@ fn actual_empty_as2014a_template_is_diagnosed_without_importing_example_or_macro
     assert!(preview.summary().contains("rata on tyhjä"));
     assert!(preview.summary().contains("Emit-numero puuttuu"));
     assert_eq!(std::fs::read(path).unwrap(), before);
+}
+
+#[test]
+fn incomplete_registration_sheet_keeps_competitors_without_guessing_cards_times_or_routes() {
+    let (track, mut drivers) = sheets();
+    for row in [1, 2] {
+        drivers.set_value((row, 3), Data::Empty);
+        drivers.set_value((row, 4), Data::Empty);
+    }
+    drivers.set_value((1, 2), Data::String("212".into()));
+    drivers.set_value((2, 2), Data::String("212".into()));
+    drivers.set_value((2, 1), Data::String("SM-M".into()));
+    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert!(preview.can_import(), "{}", preview.summary());
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert!(preview.kilpailijat.iter().all(|d| d.tiedot.emit == 0 && d.tiedot.lahtoaika.is_empty()));
+    let project = preview.to_project("Keskeneräinen ilmoittautuminen").unwrap();
+    assert_eq!(project.kilpailijat.len(), 2);
+    assert!(project.luokat.iter().any(|c| c.tunnus == "SM-M" && c.rata == 0));
+    assert!(as2026::starts::start_list_html(&project).unwrap().contains("Lähtöluettelo"));
+    assert_eq!(Project::from_toml(&project.to_toml().unwrap()).unwrap(), project);
+}
+
+#[test]
+fn either_sheet_can_be_missing_without_losing_usable_content() {
+    let (track, drivers) = sheets();
+    let missing = Range::<Data>::new((0, 0), (0, 0));
+    let routes_only = excel_import::preview_sheets(&track, &missing).unwrap();
+    assert!(routes_only.can_import(), "{}", routes_only.summary());
+    assert_eq!(routes_only.kilpailijat.len(), 0);
+    assert_eq!(routes_only.to_project("Ratatiedot").unwrap().radat.len(), 2);
+    let drivers_only = excel_import::preview_sheets(&missing, &drivers).unwrap();
+    assert!(drivers_only.can_import(), "{}", drivers_only.summary());
+    let project = drivers_only.to_project("Vain ilmoittautumiset").unwrap();
+    assert!(project.radat.is_empty());
+    assert!(project.luokat.iter().all(|c| c.rata == 0));
+    assert_eq!(project.kilpailijat.len(), 2);
+}
+
+#[test]
+fn optional_kilp_columns_and_rata_settings_may_be_blank() {
+    let (mut track, mut drivers) = sheets();
+    track.set_value((2, 3), Data::Empty);
+    track.set_value((2, 4), Data::Empty);
+    drivers.set_value((0, 2), Data::Empty);
+    drivers.set_value((0, 3), Data::Empty);
+    drivers.set_value((0, 9), Data::Empty);
+    for row in [1, 2] {
+        drivers.set_value((row, 3), Data::Empty);
+        drivers.set_value((row, 4), Data::Empty);
+    }
+    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert!(preview.can_import(), "{}", preview.summary());
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert!(preview.kilpailijat.iter().all(|d| d.tiedot.emit == 0 && d.tiedot.lahtoaika.is_empty()));
+}
+
+#[test]
+fn exact_sm_prefix_can_use_matching_route_but_combined_code_cannot_be_guessed() {
+    let (mut track, mut drivers) = sheets();
+    track.set_value((0, 1), Data::String("M".into()));
+    drivers.set_value((1, 1), Data::String("SM-M".into()));
+    drivers.set_value((2, 1), Data::String("SM-M+NAC-K".into()));
+    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert!(preview.can_import());
+    let project = preview.to_project("Luokkien kohdistus").unwrap();
+    assert!(project.luokat.iter().any(|c| c.tunnus == "SM-M" && c.rata == 1));
+    assert!(project.luokat.iter().any(|c| c.tunnus == "SM-M+NAC-K" && c.rata == 0));
+    assert!(preview.summary().contains("Tarkista kohdistus"));
 }
