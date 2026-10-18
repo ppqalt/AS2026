@@ -664,7 +664,7 @@ pub fn preview_sheets(
                     }
                 }
             };
-            Ok((native::Driver {
+            let imported = native::Driver {
                 numero: number,
                 luokka: class,
                 emit: card,
@@ -681,7 +681,8 @@ pub fn preview_sheets(
                 tila: None,
                 keskeytys_vahvistettu: false,
                 tallennettu_tulos: None,
-            }, optional_issues))
+            };
+            Ok((imported, optional_issues))
         })();
         match parsed {
             Ok((driver, optional_issues)) => {
