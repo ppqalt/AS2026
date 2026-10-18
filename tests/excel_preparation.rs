@@ -33,7 +33,9 @@ fn drafts_roundtrip_without_card_or_clock_and_do_not_publish_results() {
             .all(|d| d.emit_number().is_none() && d.start_clock().unwrap().is_none())
     );
     let toml = project.to_toml().unwrap();
-    assert!(!toml.contains("emit = 0"));
+    // Julkaistun 0.6.2:n lukija edellyttää nämä kentät myös keskeneräiselle riville.
+    assert!(toml.contains("emit = 0"));
+    assert!(toml.contains("lahtoaika = \"\""));
     assert_eq!(Project::from_toml(&toml).unwrap(), project);
     assert!(application::capture_project_result(&project, 1).is_err());
     let archive = application::calculated_project(&project).unwrap();
@@ -78,7 +80,7 @@ fn unused_route_block_is_ignored_but_unlabelled_data_blocks_import() {
 #[test]
 fn tracks_only_import_ignores_competitor_conflicts_but_keeps_route_validation() {
     let (mut tracks, mut drivers) = sheets();
-    drivers.set_value((2, 2), drivers.get_value((1, 2)).unwrap().clone());
+    drivers.set_value((2, 0), drivers.get_value((1, 0)).unwrap().clone());
     let preview = excel_import::preview_sheets(&tracks, &drivers).unwrap();
     assert!(!preview.can_import());
     assert!(preview.has_importable_tracks());
@@ -103,7 +105,8 @@ fn excel_clock_is_not_misread_as_separate_hour_and_conflicts_are_reported() {
     assert_eq!(preview.kilpailijat[0].tiedot.lahtoaika, "12:00:00");
     drivers.set_value((1, 4), Data::Int(15));
     let preview = excel_import::preview_sheets(&tracks, &drivers).unwrap();
-    assert_eq!(preview.kilpailijat.len(), 1);
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert!(preview.kilpailijat[0].tiedot.lahtoaika.is_empty());
     assert!(preview.issue_details().contains("ristiriidassa"));
 }
 
@@ -145,7 +148,7 @@ fn local_preparation_workbook_retains_all_named_rows_without_guessing_routes() {
             .all(|d| d.tiedot.start_clock().unwrap().is_none())
     );
     assert!(preview.huomautukset.is_empty());
-    assert!(!preview.can_import());
+    assert!(!preview.can_confirm_import());
     assert!(!preview.unresolved_classes().is_empty());
     assert_eq!(std::fs::read(&path).unwrap(), before);
     println!(

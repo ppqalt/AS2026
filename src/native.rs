@@ -178,11 +178,11 @@ pub struct Driver {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kartanlukijan_seura: String,
     /// Puuttuva kenttä on valmistelutieto, ei fyysinen kortti numero 0.
-    #[serde(default, skip_serializing_if = "is_zero")]
+    #[serde(default)]
     pub emit: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub auto: String,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
     pub lahtoaika: String,
     #[serde(default)]
     pub emit_korjaus_sekuntia: i64,
@@ -204,10 +204,6 @@ pub struct Driver {
 
 fn is_false(value: &bool) -> bool {
     !value
-}
-
-fn is_zero(value: &u32) -> bool {
-    *value == 0
 }
 
 /// Vahvistettava syy on yksi ei-tyhjä tekstirivi. Keskeneräinen tyhjä
@@ -392,7 +388,7 @@ impl Project {
             if code.is_empty() || !class_keys.insert(code.to_owned()) {
                 return Err(invalid("Luokan tunnus puuttuu tai toistuu"));
             }
-            if !self.radat.iter().any(|r| r.numero == class.rata) {
+            if class.rata != 0 && !self.radat.iter().any(|r| r.numero == class.rata) {
                 return Err(invalid(format!(
                     "Luokan {code} rataa {} ei löydy",
                     class.rata

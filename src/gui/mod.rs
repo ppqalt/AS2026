@@ -873,7 +873,7 @@ fn offer_excel_import(
     directory: Option<PathBuf>,
 ) -> GuiResult<()> {
     let summary = preview.summary();
-    if !preview.has_importable_tracks() {
+    if !preview.has_importable_tracks() && !preview.can_import() {
         confirmation(
             state,
             app,
@@ -988,7 +988,7 @@ fn offer_excel_import(
             summary,
         );
         app.set_import_open(true);
-        app.set_confirm_acceptable(preview.can_import());
+        app.set_confirm_acceptable(preview.can_confirm_import());
     }
     Ok(())
 }
@@ -1355,7 +1355,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if let Some(PendingAction::Import { preview, .. }) = s.pending.as_mut() {
             preview.set_class_route(&code, &route)?;
             a.set_confirm_text(preview.summary().into());
-            a.set_confirm_acceptable(preview.can_import() || a.get_import_only_tracks());
+            a.set_confirm_acceptable(preview.can_confirm_import() || a.get_import_only_tracks());
         }
         Ok(())
     });
@@ -1365,7 +1365,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             a.set_confirm_acceptable(if only {
                 preview.has_importable_tracks()
             } else {
-                preview.can_import()
+                preview.can_confirm_import()
             });
             a.set_confirm_text(
                 if only {
@@ -1879,7 +1879,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 45 } else { 24 } {
+        if current >= if keyboard_test { 49 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -1964,6 +1964,14 @@ fn capture_views(
                 42 => save_view(&app, &directory.join("14-excel-radat.png")).unwrap(),
                 43 => {
                     app.invoke_confirm_action(false);
+                }
+                44 => { app.invoke_show_extras_menu(); }
+                45 => save_view(&app, &directory.join("15-lisatoiminnot.png")).unwrap(),
+                46 => {
+                    smoke::key(&app, slint::platform::Key::Return);
+                    assert_eq!(app.get_status_text().as_str(), "Kilpailun tiedot päivitetty levyltä.", "Valikon toiminto suoritetaan Enterillä");
+                    assert!(!app.get_status_error());
+                    println!("GUI-lisätoimintojen koe hyväksytty: valikko avautuu ja Päivitä tiedot toimii Enterillä.");
                 }
                 _ => {}
             }

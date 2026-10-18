@@ -37,7 +37,7 @@ ajanottotietoja. Lähtöluetteloon puuttuvat ajat jätetään tyhjiksi.
 
 ## Ohitettavat ja estävät virheet
 
-Viallinen kilpailijarivi tai kokonainen viallinen rata ohitetaan selitteen kanssa. Muut kelvolliset rivit säilyvät esikatselussa. Tunnistekonflikti (toistuva kilpailunumero, Emit-numero tai luokkaryhmä) estää vahvistuksen, samoin vieraat otsikot. Jos kelvollisia ratoja ei ole, uutta kilpailua ei muodosteta.
+Vain pakollisilta tunnistetiedoiltaan viallinen kilpailijarivi tai kokonainen viallinen rata ohitetaan selitteen kanssa. Virheellinen tai keskeneräinen valinnainen Emit-numero tai lähtöaika ei pudota kilpailijaa pois: kortti jää asettamatta tai lähtöaika tyhjäksi, ja puute näkyy esikatselussa. Muut rivit säilyvät esikatselussa. Toistuva kilpailunumero tai rataluokan tunnus estää tuonnin. Toistuvan Emit-numeron kaikilta kilpailijoilta numero jätetään asettamatta, jotta kortinlukua ei kohdisteta väärin. Puuttuva Emit merkitään numerolla 0, puuttuva lähtöaika tyhjällä tekstillä ja puuttuva luokkarata numerolla 0. Ne on täydennettävä ennen kilpailua. KILP- tai RATA-välilehti saa puuttua kokonaan: yksinään olemassa oleva osa voidaan tuoda. Apulehdet ohitetaan eikä niitä tulkita kilpailutiedoiksi.
 
 Pelkkien ratojen tuonnissa KILP-välilehden kilpailijavirheet eivät estä tuontia.
 Ratojen omat estävät virheet tarkistetaan silti aina.
