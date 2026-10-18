@@ -120,7 +120,11 @@ impl ImportPreview {
         }
         // Säilytä RATA-välilehden luokkajärjestys ja lisää vasta sitten
         // KILP-välilehdessä esiintyvät uudet luokat.
-        let mut codes = self.radat.iter().map(|track| track.luokka.clone()).collect::<Vec<_>>();
+        let mut codes = self
+            .radat
+            .iter()
+            .map(|track| track.luokka.clone())
+            .collect::<Vec<_>>();
         for driver in &self.kilpailijat {
             if !codes.contains(&driver.tiedot.luokka) {
                 codes.push(driver.tiedot.luokka.clone());
