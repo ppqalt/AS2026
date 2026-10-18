@@ -5,7 +5,7 @@ Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 - Kilpailijat, luokat, radat ja asemat samassa sovelluksessa.
 - Fluent 2 / Dark Spruce koko käyttöliittymän suunnittelukielenä, ilman animaatioita ja koriste-efektejä.
 - Kilpailijan tilat ja perustelut sekä molempien lisenssi- ja seuratiedot.
-- Luokittain valittava lähtöaikojen arvonta esikatselulla sekä HTML- ja CSV-lähtöluettelo.
+- Lähtöarvonnan luokkavalinnat arvontapainikkeen vieressä, kellonaikojen esikatselu sekä HTML- ja CSV-lähtöluettelo.
 - Usean käsiaika-aseman kellot, pistekorjaukset sekä erilliset Tarkista-, Tutki- ja Hyväksy tulos -toiminnot.
 - Pysyvät radan ja aseman muokkauspaneelit sekä tavoiteajan erilliset h/min/s-syöttökentät.
 - Jatkuva Emit-kortinluku, automaattinen tallennus ja siirtyminen luetun kilpailijaparin tulokseen.

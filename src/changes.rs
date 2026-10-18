@@ -22,6 +22,7 @@ struct ProvidedDriverFields {
     driver_club: bool,
     navigator_club: bool,
     status: bool,
+    confirmed_interruption: bool,
     penalties: bool,
     stored_result: bool,
 }
@@ -50,6 +51,7 @@ impl<'de> Deserialize<'de> for Changes {
                 driver_club: fields.contains_key("kuljettajan_seura"),
                 navigator_club: fields.contains_key("kartanlukijan_seura"),
                 status: fields.contains_key("tila"),
+                confirmed_interruption: fields.contains_key("keskeytys_vahvistettu"),
                 penalties: fields.contains_key("lisavirheet"),
                 stored_result: fields.contains_key("tallennettu_tulos"),
             });
@@ -91,6 +93,8 @@ impl Changes {
     pub fn apply(self, project: &mut native::Project) -> Result<(), CoreError> {
         let mut candidate = project.clone();
         self.apply_inner(&mut candidate)?;
+        crate::corrections::invalidate_input_changes(project, &mut candidate);
+        candidate.validate()?;
         *project = candidate;
         Ok(())
     }
@@ -138,6 +142,20 @@ impl Changes {
                         value.tallennettu_tulos = old.tallennettu_tulos.clone();
                     }
                 }
+                // Muutostiedoston tilamuutos ei ole toimitsijan erillinen
+                // vahvistus. Vanha, tilaa muuttamaton tiedosto säilyttää päätöksen.
+                let same_status = self
+                    .provided_driver_fields
+                    .get(index)
+                    .map_or(value.tila == old.tila, |provided| !provided.status);
+                let explicitly_revoked =
+                    self.provided_driver_fields
+                        .get(index)
+                        .is_some_and(|provided| {
+                            provided.confirmed_interruption && !value.keskeytys_vahvistettu
+                        });
+                value.keskeytys_vahvistettu =
+                    old.keskeytys_vahvistettu && same_status && !explicitly_revoked;
                 // TOMLissa ei ole null-arvoa: tyhjä tila palauttaa automatiikan.
                 if value
                     .tila
@@ -148,6 +166,7 @@ impl Changes {
                 }
                 *old = value;
             } else {
+                value.keskeytys_vahvistettu = false;
                 project.kilpailijat.push(value);
             }
         }

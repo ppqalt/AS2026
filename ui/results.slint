@@ -18,6 +18,7 @@ export component ResultSummary inherits Rectangle {
     in property <ResultOverview> data;
     in property <bool> editable;
     in property <bool> approvable;
+    in property <bool> interrupted;
     callback edit-competitor();
     callback approve();
     height: content.min-height;
@@ -81,7 +82,8 @@ export component ResultSummary inherits Rectangle {
                 clicked => { root.edit-competitor(); }
             }
             if root.editable: AccentButton {
-                text: "Hyväksy tulos"; enabled: root.approvable;
+                text: root.interrupted ? "Vahvista keskeytys…" : "Hyväksy tulos";
+                enabled: root.approvable;
                 clicked => { root.approve(); }
             }
         }

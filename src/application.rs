@@ -483,7 +483,13 @@ pub fn rank_stored(
             number: i64::from(c.number),
             class_code: c.class_code.clone(),
             route_code: class.route.clone(),
-            status: ranking::Status::from_legacy(&c.status),
+            status: if a.can_publish_competitor(c) {
+                ranking::Status::from_legacy(&c.status)
+            } else {
+                // Säilytä lähtijä- ja keskeneräisyystilastot, mutta älä anna
+                // hyväksymättömälle tulokselle sijaa, Np:tä tai Sp:tä.
+                ranking::Status::Unknown("HYVÄKSYMÄTÖN".into())
+            },
             total_penalty: c.total_penalties,
             start_hour: header_number(c, 10, "Lähtötunti")?,
             driver_licence: c
@@ -783,6 +789,7 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
     let mut automatic = project.clone();
     for driver in &mut automatic.kilpailijat {
         driver.tila = None;
+        driver.keskeytys_vahvistettu = false;
     }
     let mut archive = automatic.to_archive()?;
     let mut resolved = Vec::new();
@@ -816,6 +823,14 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                     == crate::corrections::StoredCalculationPolicy::As2026Operational
                     && !r.can_approve())
         });
+        let approved = result
+            .as_ref()
+            .is_ok_and(|r| r.hyvaksytty && r.can_approve());
+        let confirmed_interruption = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .is_some_and(|d| d.has_confirmed_interruption());
         let requested_status = project
             .kilpailijat
             .iter()
@@ -844,11 +859,13 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                 }
                 apply_result(competitor, &result)?;
             }
+            Err(_) if confirmed_interruption => {}
             Err(error) => archive
                 .warnings
                 .push(format!("Kilpailijan {number} tulos puuttuu: {error}")),
         }
         let missing_classified_result = !has_result
+            && !confirmed_interruption
             && requested_status.is_some_and(|s| matches!(s.tunnus.as_str(), "TRK" | "KESK"));
         if missing_classified_result {
             archive.warnings.push(format!("Kilpailija {number}: käsin valittua tarkastustilaa ei käytetä ilman laskettua asematulosta. Valittu tila säilyy kilpailijan tiedoissa."));
@@ -877,6 +894,21 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
             competitor.header_fields[28] = status.tunnus.clone();
             competitor.header_fields[29] = status.syy.clone();
         }
+        let publication = if confirmed_interruption {
+            competitor.status = "KESK".into();
+            competitor.header_fields[28] = "KESK".into();
+            competitor.header_fields[29] = requested_status.map_or("", |s| s.syy.as_str()).into();
+            crate::legacy::ResultPublication::ConfirmedInterruption
+        } else if approved && competitor.status != "ILM" && !blocked {
+            crate::legacy::ResultPublication::Approved
+        } else {
+            crate::legacy::ResultPublication::Pending
+        };
+        archive
+            .result_publication
+            .as_mut()
+            .expect("AS2026:n hyväksyntätila")
+            .insert(number, publication);
     }
     Ok(archive)
 }

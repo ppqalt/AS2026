@@ -50,11 +50,11 @@ Tuodut luokat eivät aluksi osallistu lähtöarvontaan. Näin KILP-välilehden l
 
 ## Lähtöajat ja lähtöluettelo
 
-Aseta luokan lähtöaika, lähtöväli sekä **Osallistuu lähtöarvontaan**. A- ja M-luokkia ei ole suljettu arvonnasta kiinteällä säännöllä: toimitsija valitsee osallistuvat luokat.
+Aseta luokan lähtöaika ja lähtöväli. Avaa arvontapainikkeen vierestä **Arvonnan luokat…**: samassa ikkunassa näkyvät kaikkien luokkien valintaruudut. Voit valita kaikki tai tyhjentää valinnan. **Tallenna valinnat** tallentaa luokkavalinnat yhdessä; **Peruuta** jättää ne ennalleen. Valinta ei vielä muuta lähtöaikoja. Sama asetus näkyy luokan **Osallistuu lähtöarvontaan** -kentässä. A- ja M-luokille ei ole kiinteää poikkeussääntöä.
 
 **Arvo lähtöajat…** löytyy Kilpailijat- ja Luokat-näkymistä. Esikatselu näyttää kilpailunumerot ja arvotut kellot. **Peruuta** ei muuta kilpailua; **Hyväksy** tallentaa näytetyt lähtöajat yhdessä. Arvonnan ulkopuolisten luokkien ajat sekä kilpailunumerot, kortit ja muut tiedot säilyvät.
 
-Valituista luokista arvotaan automaattiset/ILM-kilpailijat. Jo luettu kortti tai tallennettu asematulos estää kyseisen arvonnan. Muut käsin valitut tilat eivät osallistu. Kilpailun muuttuminen mitätöi vanhan esikatselun.
+Valituista luokista arvotaan automaattiset/ILM-kilpailijat, joiden korttia ei ole luettu eikä asematulosta tallennettu. Jo luetut, asematuloksen saaneet ja muut käsin valitut tilat ohitetaan: heidän lähtöaikansa ja tuloksensa säilyvät, mutta muiden arvonta jatkuu. Jos yhtään arvottavaa ei jää, ohjelma ilmoittaa asiasta. Kilpailun muuttuminen mitätöi vanhan esikatselun.
 
 **Lähtöluettelo…** tallentaa HTML:n selaimella tulostettavaksi tai CSV:n jatkokäsittelyyn. Lista on luokkajärjestyksessä ja luokan sisällä lähtöjärjestyksessä myös keskiyön yli.
 

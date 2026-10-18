@@ -173,7 +173,7 @@ Tunnetun kilpailijaparin korttiluku avaa käyttöliittymässä automaattisesti T
 
 **Tuo Excel…** lukee `.xls`- tai `.xlsx`-pohjan RATA- ja KILP-välilehdet esikatseluun. Hyväksyntä luo uuden kilpailun valittuun kansioon. Seuratiedot säilyvät, eikä puuttuvia luokkia tai ratoja arvata. Tuonti ja sen vahvistus ovat käyttöliittymässä. Katso [Excel-kenttäkartta](docs/EXCEL_TUONTI.md).
 
-Luokan **Osallistuu lähtöarvontaan** määrää arvottavat luokat. **Arvo lähtöajat…** näyttää esikatselun; ulkopuoliset luokat säilyttävät aikansa. Jo luettua tai tarkastettua kilpailijaa ei arvota uudelleen. Lähtöluettelon voi tallentaa HTML:nä tai CSV:nä.
+**Arvonnan luokat…** avaa arvontapainikkeen vierestä kaikkien luokkien valintaruudut. Valintojen tallennus muuttaa vain luokkien **Osallistuu lähtöarvontaan** -asetusta; peruuttaminen ei muuta tietoja. **Arvo lähtöajat…** näyttää erikseen arvottujen kellonaikojen esikatselun. Ulkopuoliset luokat sekä jo luetut tai asematuloksen saaneet kilpailijat ohitetaan ja säilyttävät aikansa. Muut valitut lukemattomat arvotaan normaalisti. Lähtöluettelon voi tallentaa HTML:nä tai CSV:nä.
 
 Vanhan AS2015A-aineiston staattinen laskentapolku on erillään uuden kilpailun toimitsijalaskennasta. Kaikkia vanhan ohjelman epäselviä poikkeustapauksia tai historiallisten tulosten täydellistä vastaavuutta ei ole varmennettu.
 

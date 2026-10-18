@@ -52,6 +52,16 @@ fn complete_manual_finish(project: &mut native::Project) {
     project.kilpailijat[0].tallennettu_tulos = Some(result);
 }
 
+/// Sijoitus- ja sarjapistetesteissä käytetään nimenomaisesti hyväksyttyä tulosta.
+fn approve_completed_result(project: &mut native::Project) {
+    let result = project.kilpailijat[0]
+        .tallennettu_tulos
+        .as_mut()
+        .expect("Tarkastettu asematulos puuttuu");
+    assert!(result.can_approve());
+    result.hyvaksytty = true;
+}
+
 fn read(card: u32, marker_time: u32, finish_time: u32) -> native::Readout {
     native::Readout {
         emit: card,
@@ -366,6 +376,7 @@ fn native_class_np_sp_options_are_persisted_and_mapped_to_ranking_input() {
     let archive = project.to_archive().unwrap();
     assert_eq!(archive.basic.classes[0].fields[8], "1");
     assert_eq!(archive.basic.classes[0].fields[9], "1");
+    approve_completed_result(&mut project);
     let results = application::calculated_project(&project).unwrap();
     let ranking =
         application::rank_stored(&results, as2026::ranking::TiePolicy::KeepSharedAndFlag).unwrap();
@@ -397,6 +408,7 @@ fn native_custom_series_schedule_is_persisted_and_used_for_sp_method_four() {
     let archive = project.to_archive().unwrap();
     let table = &archive.documents["sarjap.txt"].records[0].fields;
     assert_eq!(&table[..3], ["42", "30", "17"]);
+    approve_completed_result(&mut project);
     let calculated = application::calculated_project(&project).unwrap();
     let ranked =
         application::rank_stored(&calculated, as2026::ranking::TiePolicy::KeepSharedAndFlag)
@@ -430,6 +442,7 @@ fn combined_classes_are_persisted_and_ranked_from_native_toml() {
     });
     let toml = project.to_toml().unwrap();
     assert_eq!(native::Project::from_toml(&toml).unwrap(), project);
+    approve_completed_result(&mut project);
     let archive = application::calculated_project(&project).unwrap();
     assert_eq!(
         archive.basic.combined_classes[0],
