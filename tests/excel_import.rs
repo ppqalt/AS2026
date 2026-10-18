@@ -105,7 +105,12 @@ fn unknown_station_does_not_create_an_incomplete_or_guessed_route() {
     assert_eq!(preview.kilpailijat.len(), 2);
     assert!(preview.summary().contains("Asematyyppiä ei tunnisteta"));
     let project = preview.to_project("Rata B").unwrap();
-    assert!(project.luokat.iter().any(|class| class.tunnus == "C" && class.rata == 0));
+    assert!(
+        project
+            .luokat
+            .iter()
+            .any(|class| class.tunnus == "C" && class.rata == 0)
+    );
 }
 
 #[test]
@@ -216,12 +221,31 @@ fn incomplete_registration_sheet_keeps_competitors_without_guessing_cards_times_
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import(), "{}", preview.summary());
     assert_eq!(preview.kilpailijat.len(), 2);
-    assert!(preview.kilpailijat.iter().all(|d| d.tiedot.emit == 0 && d.tiedot.lahtoaika.is_empty()));
-    let project = preview.to_project("Keskeneräinen ilmoittautuminen").unwrap();
+    assert!(
+        preview
+            .kilpailijat
+            .iter()
+            .all(|d| d.tiedot.emit == 0 && d.tiedot.lahtoaika.is_empty())
+    );
+    let project = preview
+        .to_project("Keskeneräinen ilmoittautuminen")
+        .unwrap();
     assert_eq!(project.kilpailijat.len(), 2);
-    assert!(project.luokat.iter().any(|c| c.tunnus == "SM-M" && c.rata == 0));
-    assert!(as2026::starts::start_list_html(&project).unwrap().contains("Lähtöluettelo"));
-    assert_eq!(Project::from_toml(&project.to_toml().unwrap()).unwrap(), project);
+    assert!(
+        project
+            .luokat
+            .iter()
+            .any(|c| c.tunnus == "SM-M" && c.rata == 0)
+    );
+    assert!(
+        as2026::starts::start_list_html(&project)
+            .unwrap()
+            .contains("Lähtöluettelo")
+    );
+    assert_eq!(
+        Project::from_toml(&project.to_toml().unwrap()).unwrap(),
+        project
+    );
 }
 
 #[test]
@@ -255,7 +279,12 @@ fn optional_kilp_columns_and_rata_settings_may_be_blank() {
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import(), "{}", preview.summary());
     assert_eq!(preview.kilpailijat.len(), 2);
-    assert!(preview.kilpailijat.iter().all(|d| d.tiedot.emit == 0 && d.tiedot.lahtoaika.is_empty()));
+    assert!(
+        preview
+            .kilpailijat
+            .iter()
+            .all(|d| d.tiedot.emit == 0 && d.tiedot.lahtoaika.is_empty())
+    );
 }
 
 #[test]
@@ -267,7 +296,17 @@ fn exact_sm_prefix_can_use_matching_route_but_combined_code_cannot_be_guessed() 
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import());
     let project = preview.to_project("Luokkien kohdistus").unwrap();
-    assert!(project.luokat.iter().any(|c| c.tunnus == "SM-M" && c.rata == 1));
-    assert!(project.luokat.iter().any(|c| c.tunnus == "SM-M+NAC-K" && c.rata == 0));
+    assert!(
+        project
+            .luokat
+            .iter()
+            .any(|c| c.tunnus == "SM-M" && c.rata == 1)
+    );
+    assert!(
+        project
+            .luokat
+            .iter()
+            .any(|c| c.tunnus == "SM-M+NAC-K" && c.rata == 0)
+    );
     assert!(preview.summary().contains("Tarkista kohdistus"));
 }
