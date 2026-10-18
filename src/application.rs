@@ -823,9 +823,14 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                     == crate::corrections::StoredCalculationPolicy::As2026Operational
                     && !r.can_approve())
         });
-        let approved = result.as_ref().is_ok_and(|r| r.hyvaksytty && r.can_approve());
-        let confirmed_interruption = project.kilpailijat.iter()
-            .find(|d| d.numero == number).is_some_and(|d| d.has_confirmed_interruption());
+        let approved = result
+            .as_ref()
+            .is_ok_and(|r| r.hyvaksytty && r.can_approve());
+        let confirmed_interruption = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .is_some_and(|d| d.has_confirmed_interruption());
         let requested_status = project
             .kilpailijat
             .iter()
@@ -854,12 +859,13 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                 }
                 apply_result(competitor, &result)?;
             }
-            Err(_) if confirmed_interruption => {},
+            Err(_) if confirmed_interruption => {}
             Err(error) => archive
                 .warnings
                 .push(format!("Kilpailijan {number} tulos puuttuu: {error}")),
         }
-        let missing_classified_result = !has_result && !confirmed_interruption
+        let missing_classified_result = !has_result
+            && !confirmed_interruption
             && requested_status.is_some_and(|s| matches!(s.tunnus.as_str(), "TRK" | "KESK"));
         if missing_classified_result {
             archive.warnings.push(format!("Kilpailija {number}: käsin valittua tarkastustilaa ei käytetä ilman laskettua asematulosta. Valittu tila säilyy kilpailijan tiedoissa."));
@@ -898,7 +904,11 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
         } else {
             crate::legacy::ResultPublication::Pending
         };
-        archive.result_publication.as_mut().expect("AS2026:n hyväksyntätila").insert(number, publication);
+        archive
+            .result_publication
+            .as_mut()
+            .expect("AS2026:n hyväksyntätila")
+            .insert(number, publication);
     }
     Ok(archive)
 }

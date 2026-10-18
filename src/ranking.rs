@@ -472,7 +472,10 @@ pub fn rank(input: &RankingInput) -> Result<RankingReport, CoreError> {
         }
     }
 
-    let mut report = RankingReport { tie_policy: input.tie_policy, ..Default::default() };
+    let mut report = RankingReport {
+        tie_policy: input.tie_policy,
+        ..Default::default()
+    };
     let codes: Vec<_> = class_codes.iter().copied().collect();
     for (index, code) in codes.iter().enumerate() {
         for other in &codes[index + 1..] {

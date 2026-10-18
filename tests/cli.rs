@@ -330,12 +330,18 @@ fn native_updates_autosave_and_current_results_follow_names_classes_and_station_
     assert!(!text.contains(" | 600 | ILM |"), "{text}");
     assert!(text.contains("Tulosluettelon ulkopuolelle jäi"), "{text}");
     let html = std::fs::read_to_string(html_path).unwrap();
-    assert!(html.contains("Vain hyväksytyt asematulokset sijoitetaan."), "{html}");
+    assert!(
+        html.contains("Vain hyväksytyt asematulokset sijoitetaan."),
+        "{html}"
+    );
     assert!(!html.contains("Korjattu kuljettaja"), "{html}");
     // Erillisessä asematulosraportissa korjattu nimi ja tarkastuksen tila
     // näkyvät toimitsijalle, mutta tulosta ei merkitä hyväksytyksi.
     let asemaraportti = as2026::report::project_results_html(reopened.project()).unwrap();
-    assert!(asemaraportti.contains("Korjattu kuljettaja"), "{asemaraportti}");
+    assert!(
+        asemaraportti.contains("Korjattu kuljettaja"),
+        "{asemaraportti}"
+    );
     assert!(asemaraportti.contains("Tulos odottaa tarkastusta"));
     assert!(asemaraportti.contains("Kokonaistulos: —"));
     assert!(!html.contains("kehitysversio"));

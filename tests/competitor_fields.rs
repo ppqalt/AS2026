@@ -168,12 +168,12 @@ fn either_licence_uses_the_recovered_left_to_right_series_eligibility() {
         // Tämä koe eristää lisenssien sarjapistekelpoisuuden. Laskennan
         // hyväksyntä testataan erikseen; sijoitettava tulos on tässä hyväksytty.
         let mut archive = project.to_archive().unwrap();
-        archive.result_publication.as_mut().unwrap().insert(
-            7,
-            as2026::legacy::ResultPublication::Approved,
-        );
-        let ranked =
-            application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
+        archive
+            .result_publication
+            .as_mut()
+            .unwrap()
+            .insert(7, as2026::legacy::ResultPublication::Approved);
+        let ranked = application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
         let entry = &ranked.groups[0].entries[0];
         assert_eq!(entry.series_excluded, excluded);
         assert_eq!(entry.series_points, if excluded { 0 } else { 100 });

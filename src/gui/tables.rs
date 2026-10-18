@@ -370,7 +370,8 @@ fn results(
                 } else {
                     "—".into()
                 };
-                view.rows.push(result_row(ws, archive, index, driver, position));
+                view.rows
+                    .push(result_row(ws, archive, index, driver, position));
             }
         }
     }
@@ -378,7 +379,8 @@ fn results(
         if let Some(index) = source_index.checked_sub(1)
             && let Some(driver) = archive.competitors.get(index)
         {
-            view.rows.push(result_row(ws, archive, index, driver, "—".into()));
+            view.rows
+                .push(result_row(ws, archive, index, driver, "—".into()));
         }
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));

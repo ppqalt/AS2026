@@ -111,10 +111,11 @@ fn xlsx_contains_real_zip_parts_and_xml_escaped_inline_text() {
     let mut archive = application::calculated_project(&project).unwrap();
     // Testataan XML-merkkausta nimenomaan virallisesti hyväksytyn tuloksen viennissä.
     // Hyväksymätön tulos ei kuulu julkiseen XLSX-tulosluetteloon.
-    archive.result_publication.as_mut().unwrap().insert(
-        7,
-        as2026::legacy::ResultPublication::Approved,
-    );
+    archive
+        .result_publication
+        .as_mut()
+        .unwrap()
+        .insert(7, as2026::legacy::ResultPublication::Approved);
     let ranked = application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
     let bytes = report::ranking_xlsx(&archive, &ranked).unwrap();
     assert!(bytes.starts_with(b"PK"));

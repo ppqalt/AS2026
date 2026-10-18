@@ -144,10 +144,7 @@ pub fn project_calculation_html(report: &CalculationReport) -> String {
 }
 
 fn calculation_html_with_source(report: &CalculationReport, native: bool) -> String {
-    let mut html = document(
-        "Tuloslaskennan esikatselu",
-        &report.competition_name,
-    );
+    let mut html = document("Tuloslaskennan esikatselu", &report.competition_name);
     if native {
         html.push_str("<section class=\"notice\"><p>Hyväksymätön esikatselu. Tämä raportti ei vahvista tuloksia eikä sijoituksia. Asematulokset on laskettu kilpailutiedoista ja Emit-leimauksista.</p></section>\n");
     } else {
@@ -276,16 +273,20 @@ fn ranking_row(
     let navigator = source.map_or("—", |competitor| competitor.navigator.as_str());
     let class = source.map_or("—", |competitor| competitor.class_code.as_str());
     let approved = source.is_some_and(|c| archive.has_approved_result(c.number));
-    let total = source.filter(|_| approved).map_or("—".to_owned(), |competitor| {
-        format!("{} p", competitor.total_penalties)
-    });
+    let total = source
+        .filter(|_| approved)
+        .map_or("—".to_owned(), |competitor| {
+            format!("{} p", competitor.total_penalties)
+        });
     html.push_str(&format!("<tr><td>{}</td><td>{number}</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">{total}</td>",
         place(position, status), escape(driver), escape(navigator), escape(class)));
     if let Some((np, sp)) = points {
         html.push_str(&format!(
             "<td class=\"numeric\">{}</td><td class=\"numeric\">{}</td>",
-            np.filter(|_| approved).map_or("—".to_owned(), |points| points.to_string()),
-            sp.filter(|_| approved).map_or("—".to_owned(), |points| points.to_string())
+            np.filter(|_| approved)
+                .map_or("—".to_owned(), |points| points.to_string()),
+            sp.filter(|_| approved)
+                .map_or("—".to_owned(), |points| points.to_string())
         ));
     }
     let reason = source
@@ -310,7 +311,10 @@ fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculate
     let report = match publication_ranking(archive, report) {
         Ok(report) => report,
         Err(error) => {
-            html.push_str(&format!("<p>Tulosten muodostaminen epäonnistui: {}</p>", escape(&error.to_string())));
+            html.push_str(&format!(
+                "<p>Tulosten muodostaminen epäonnistui: {}</p>",
+                escape(&error.to_string())
+            ));
             return finish(html);
         }
     };
@@ -383,7 +387,10 @@ fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculate
 
 /// Vienti ei luota vanhentuneeseen tai käsin muodostettuun sijoitusraporttiin.
 /// Säilytä käyttäjän valitsema tasapistekäytäntö, mutta käytä nykyisiä hyväksyntöjä.
-fn publication_ranking<'a>(archive: &Archive, report: &'a RankingReport) -> Result<Cow<'a, RankingReport>, CoreError> {
+fn publication_ranking<'a>(
+    archive: &Archive,
+    report: &'a RankingReport,
+) -> Result<Cow<'a, RankingReport>, CoreError> {
     if archive.result_publication.is_some() {
         crate::application::rank_stored(archive, report.tie_policy).map(Cow::Owned)
     } else {
@@ -447,7 +454,9 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
             let source = archive
                 .competitors
                 .get(entry.source_index.saturating_sub(1));
-            if source.is_none_or(|c| !archive.can_publish_competitor(c)) { continue; }
+            if source.is_none_or(|c| !archive.can_publish_competitor(c)) {
+                continue;
+            }
             let approved = source.is_some_and(|c| archive.has_approved_result(c.number));
             let pos = if entry.status == Status::Classified {
                 entry.primary_position.to_string()
@@ -470,7 +479,9 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
                     source.map_or("", |c| c.navigator.as_str()).into(),
                     source.map_or("", |c| c.class_code.as_str()).into(),
                     entry.status.as_legacy().into(),
-                    source.filter(|_| approved).map_or_else(String::new, |c| c.total_penalties.to_string()),
+                    source
+                        .filter(|_| approved)
+                        .map_or_else(String::new, |c| c.total_penalties.to_string()),
                     if approved && group.np_enabled && !group.provisional {
                         entry.table_points.to_string()
                     } else {
@@ -494,7 +505,9 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
             let source = archive
                 .competitors
                 .get(entry.source_index.saturating_sub(1));
-            if source.is_none_or(|c| !archive.can_publish_competitor(c)) { continue; }
+            if source.is_none_or(|c| !archive.can_publish_competitor(c)) {
+                continue;
+            }
             let pos = if entry.status == Status::Classified {
                 entry.primary_position.to_string()
             } else {
@@ -511,7 +524,9 @@ pub fn ranking_csv(archive: &Archive, report: &RankingReport) -> String {
                     source.map_or("", |c| c.navigator.as_str()).into(),
                     source.map_or("", |c| c.class_code.as_str()).into(),
                     entry.status.as_legacy().into(),
-                    source.filter(|c| archive.has_approved_result(c.number)).map_or_else(String::new, |c| c.total_penalties.to_string()),
+                    source
+                        .filter(|c| archive.has_approved_result(c.number))
+                        .map_or_else(String::new, |c| c.total_penalties.to_string()),
                     String::new(),
                     String::new(),
                     source
@@ -758,11 +773,12 @@ pub fn project_results_html(project: &crate::native::Project) -> Result<String, 
         if approved {
             html.push_str(&format!(
                 "<p class=\"totals\">Kokonaistulos: {} p</p><p>{}</p>\n",
-                driver.total_penalties,
-                "Hyväksytty tulos."
+                driver.total_penalties, "Hyväksytty tulos."
             ));
         } else {
-            html.push_str("<p class=\"notice warning\">Hyväksymätön esikatselu. Kokonaistulos: —</p>\n");
+            html.push_str(
+                "<p class=\"notice warning\">Hyväksymätön esikatselu. Kokonaistulos: —</p>\n",
+            );
             if !complete {
                 html.push_str("<p>Tulos odottaa tarkastusta.</p>\n");
             }

@@ -466,14 +466,17 @@ pub struct Archive {
 }
 impl Archive {
     pub fn has_approved_result(&self, number: u32) -> bool {
-        self.result_publication.as_ref().is_none_or(|states| {
-            matches!(states.get(&number), Some(ResultPublication::Approved))
-        })
+        self.result_publication
+            .as_ref()
+            .is_none_or(|states| matches!(states.get(&number), Some(ResultPublication::Approved)))
     }
 
     pub fn has_confirmed_interruption(&self, number: u32) -> bool {
         self.result_publication.as_ref().is_some_and(|states| {
-            matches!(states.get(&number), Some(ResultPublication::ConfirmedInterruption))
+            matches!(
+                states.get(&number),
+                Some(ResultPublication::ConfirmedInterruption)
+            )
         })
     }
 
