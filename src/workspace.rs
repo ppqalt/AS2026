@@ -160,7 +160,45 @@ impl Workspace {
         application::capture_project_result(project, number).map(Some)
     }
 
+    /// Keskeytyspäätös voidaan vahvistaa ilman korttia tai asematulosta.
+    pub fn can_confirm_interruption(&self, number: u32) -> bool {
+        self.project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .is_some_and(|driver| {
+                driver.can_confirm_interruption() && !driver.has_confirmed_interruption()
+            })
+    }
+    pub fn interruption_confirmed(&self, number: u32) -> bool {
+        self.project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .is_some_and(|driver| driver.has_confirmed_interruption())
+    }
+    /// Tallentaa vain toimitsijan KESK-päätöksen ja perustelun. Raakaleimat,
+    /// asemarivit, kellot ja pisteet säilyvät täsmälleen ennallaan.
+    pub fn confirm_interruption(&mut self, number: u32, reason: &str) -> Result<(), CoreError> {
+        let reason = native::validate_interruption_reason(reason)?.to_owned();
+        self.update(|project| {
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+            driver.tila = Some(native::ManualStatus::new("KESK", &reason)?);
+            driver.keskeytys_vahvistettu = true;
+            Ok(())
+        })
+    }
+
     pub fn approve_result(&mut self, number: u32) -> Result<(), CoreError> {
+        if let Some(reason) = self
+            .project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .and_then(|d| d.tila.as_ref())
+            .filter(|status| status.tunnus == "KESK")
+            .map(|status| status.syy.clone())
+        {
+            return self.confirm_interruption(number, &reason);
+        }
         let mut snapshot = self
             .result_snapshot(number)?
             .ok_or_else(|| invalid("Lue ensin kilpailijan kortti"))?;
@@ -213,7 +251,12 @@ impl Workspace {
         edit: impl FnOnce(&mut Project) -> Result<T, CoreError>,
     ) -> Result<T, CoreError> {
         match &mut self.source {
-            Source::Native(store) => store.update(edit),
+            Source::Native(store) => store.update(|project| {
+                let before = project.clone();
+                let value = edit(project)?;
+                crate::corrections::invalidate_input_changes(&before, project);
+                Ok(value)
+            }),
             Source::Legacy(_) => Err(invalid(
                 "AS2015A-aineisto on avattu vain katselua varten. Luo AS2026-kilpailu muokkaamista varten",
             )),
@@ -301,6 +344,9 @@ impl Workspace {
                     let points: i64 = number(value, "Muut virhepisteet")?;
                     driver.lisavirheet.muut_virhepisteet = points;
                 }
+            }
+            if matches!(field, DriverField::Status | DriverField::StatusReason) {
+                driver.keskeytys_vahvistettu = false;
             }
             if matches!(field, DriverField::Class | DriverField::Card | DriverField::Start | DriverField::Correction | DriverField::MissingRtCount | DriverField::ExtraRtCount | DriverField::OtherPenalties | DriverField::Status | DriverField::StatusReason)
                 && let Some(result) = &mut driver.tallennettu_tulos {
@@ -397,6 +443,34 @@ impl Workspace {
                 .find(|d| d.numero == competitor_number)
                 .unwrap()
                 .tallennettu_tulos = Some(result);
+            Ok(())
+        })
+    }
+
+    /// Tallentaa arvonnan luokkavalinnat yhdessä; muiden tietojen arvot säilyvät.
+    pub fn set_draw_classes(&mut self, codes: &[String]) -> Result<(), CoreError> {
+        self.update(|project| {
+            let mut selected = std::collections::HashSet::new();
+            for code in codes {
+                let code = code.trim();
+                if !project
+                    .luokat
+                    .iter()
+                    .any(|class| class.tunnus.trim() == code)
+                {
+                    return Err(invalid(format!(
+                        "Luokkaa {code:?} ei löydy lähtöarvonnan valinnoista"
+                    )));
+                }
+                if !selected.insert(code) {
+                    return Err(invalid(format!(
+                        "Luokka {code} on valittu useammin kuin kerran"
+                    )));
+                }
+            }
+            for class in &mut project.luokat {
+                class.osallistuu_lahtoarvontaan = selected.contains(class.tunnus.trim());
+            }
             Ok(())
         })
     }
@@ -783,6 +857,7 @@ impl DriverEdit {
             kuljettajan_lisenssi: String::new(),
             kartanlukijan_lisenssi: String::new(),
             tila: None,
+            keskeytys_vahvistettu: false,
             tallennettu_tulos: None,
         })
     }

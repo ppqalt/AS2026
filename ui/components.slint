@@ -320,6 +320,25 @@ component EditorEntry inherits FormField {
     draft(value) => { root.field-draft(root.data.key, value); }
 }
 
+// Tulospaneelissa ulompi vieritys omistaa koko lomakkeen korkeuden.
+component EditorFields inherits VerticalLayout {
+    in property <[EditorField]> fields;
+    in property <bool> writable;
+    callback field-commit(int, string) -> bool;
+    callback field-draft(int, string);
+    height: self.min-height;
+    vertical-stretch: 0;
+    spacing: Theme.space-3;
+    padding-right: Theme.space-2;
+    for field in root.fields: EditorEntry {
+        min-height: 64px;
+        max-height: 64px;
+        data: field; writable: root.writable;
+        field-commit(key, value) => { root.field-commit(key, value) }
+        field-draft(key, value) => { root.field-draft(key, value); }
+    }
+}
+
 export component Editor inherits Rectangle {
     in property <string> heading;
     in property <string> description;
@@ -328,16 +347,24 @@ export component Editor inherits Rectangle {
     in property <bool> new-record;
     in property <bool> blocked;
     in property <bool> station-layout: false;
+    // Ulompi ScrollView vastaa koko paneelista: tämän editorin kenttiä ei rajata.
+    in property <bool> fit-content: false;
+    min-height: root.fit-content ? editor-content.min-height : 0px;
     callback field-commit(int, string) -> bool;
     callback field-draft(int, string);
     callback add();
     callback cancel();
     background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
-    VerticalLayout {
+    editor-content := VerticalLayout {
         padding: Theme.space-4; spacing: Theme.space-3;
         Text { text: root.heading; color: Theme.ink; font-size: 17px; font-weight: 700; wrap: word-wrap; }
         Note { text: root.description; }
-        ScrollView {
+        if root.fit-content: EditorFields {
+            fields: root.fields; writable: root.writable;
+            field-commit(key, value) => { root.field-commit(key, value) }
+            field-draft(key, value) => { root.field-draft(key, value); }
+        }
+        if !root.fit-content: ScrollView {
             VerticalLayout {
                 spacing: 12px; padding-right: 8px;
                 if root.station-layout && root.fields.length == 6 && root.width >= 540px: GridLayout {

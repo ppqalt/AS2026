@@ -38,6 +38,10 @@ enum UpdateEvent {
 
 enum PendingAction {
     Review(u32),
+    ConfirmInterruption {
+        number: u32,
+        reason: String,
+    },
     Draw(Box<as2026::starts::StartDraw>),
     Import {
         project: Box<Project>,
@@ -201,12 +205,28 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
         })
         .map(|d| d.numero);
     let snapshot = selected_number.and_then(|number| ws.result_snapshot(number).ok().flatten());
-    let approvable = snapshot.as_ref().is_some_and(|r| r.can_approve())
-        && ws.project().is_some_and(|p| {
-            selected_number.is_some_and(|number| {
-                application::validate_project_result(p, number, snapshot.as_ref().unwrap()).is_ok()
+    let interrupted = ws.project().is_some_and(|project| {
+        selected_number.is_some_and(|number| {
+            project
+                .kilpailijat
+                .iter()
+                .find(|driver| driver.numero == number)
+                .and_then(|driver| driver.tila.as_ref())
+                .is_some_and(|status| status.tunnus == "KESK")
+        })
+    });
+    let approvable = if interrupted {
+        selected_number.is_some_and(|number| ws.can_confirm_interruption(number))
+    } else {
+        snapshot.as_ref().is_some_and(|r| r.can_approve())
+            && ws.project().is_some_and(|p| {
+                selected_number.is_some_and(|number| {
+                    application::validate_project_result(p, number, snapshot.as_ref().unwrap())
+                        .is_ok()
+                })
             })
-        });
+    };
+    app.set_result_interrupted(interrupted);
     app.set_result_approvable(approvable);
     app.set_result_stored(stored.is_some());
     app.set_clock_pending(stored.is_some_and(|r| r.kasikellot_muuttuneet));
@@ -584,6 +604,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_dialog_open()
         && !app.get_about_open()
         && !app.get_confirm_open()
+        && !app.get_draw_classes_open()
         && !app.get_setup_open()
         && !app.get_install_busy()
 }
@@ -628,6 +649,14 @@ fn defer_pending_result(state: &SharedState, app: &AppWindow) {
             }
         });
     }
+}
+
+fn update_draw_class_summary(app: &AppWindow) {
+    let classes = app.get_draw_classes();
+    let selected = classes.iter().filter(|entry| entry.selected).count();
+    app.set_draw_class_summary(
+        format!("Valittuna {selected} / {} luokkaa", classes.row_count()).into(),
+    );
 }
 
 fn show_read_notice(state: &mut State, app: &AppWindow, text: String) {
@@ -1162,6 +1191,37 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             return Ok(());
         }
         let number = selected_number(s)?;
+        let interrupted = current_workspace(s)?
+            .project()
+            .and_then(|project| {
+                project
+                    .kilpailijat
+                    .iter()
+                    .find(|driver| driver.numero == number)
+            })
+            .and_then(|driver| driver.tila.as_ref())
+            .filter(|status| status.tunnus == "KESK")
+            .map(|status| status.syy.clone());
+        if let Some(reason) = interrupted {
+            if !current_workspace(s)?.can_confirm_interruption(number) {
+                return Err(invalid(
+                    "Tarkista keskeytyksen syy kilpailijan tiedoista. Jo vahvistettua keskeytystä ei tarvitse vahvistaa uudelleen.",
+                ));
+            }
+            confirmation(
+                s,
+                &a,
+                PendingAction::ConfirmInterruption {
+                    number,
+                    reason: reason.clone(),
+                },
+                "Vahvista keskeytys",
+                format!(
+                    "Kilpailija {number} merkitään vahvistetusti keskeyttäneeksi.\n\nSyy: {reason}\n\nPäätös ei edellytä korttilukua tai maaliaikaa eikä muodosta kilpailijalle sijoitusta."
+                ),
+            );
+            return Ok(());
+        }
         current_workspace(s)?.approve_result(number)?;
         update_tables(s, &a)?;
         update_form(s, &a);
@@ -1208,6 +1268,86 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         );
         Ok(())
     });
+    action!(on_configure_draw_classes, |s, a| {
+        if !can_switch(s, &a) {
+            return Ok(());
+        }
+        let project = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Luokkavalinta edellyttää muokattavaa kilpailua"))?;
+        let options = project
+            .luokat
+            .iter()
+            .map(|class| {
+                let count = project
+                    .kilpailijat
+                    .iter()
+                    .filter(|d| d.luokka == class.tunnus)
+                    .count();
+                let label = if class.nimi == class.tunnus {
+                    class.tunnus.clone()
+                } else {
+                    format!("{} — {}", class.tunnus, class.nimi)
+                };
+                let count_label = if count == 1 {
+                    "1 kilpailija".into()
+                } else {
+                    format!("{count} kilpailijaa")
+                };
+                DrawClassOption {
+                    code: class.tunnus.clone().into(),
+                    label: format!("{label} ({count_label})").into(),
+                    selected: class.osallistuu_lahtoarvontaan,
+                }
+            })
+            .collect();
+        a.set_draw_classes(model(options));
+        update_draw_class_summary(&a);
+        a.set_draw_classes_open(true);
+        Ok(())
+    });
+    action!(on_draw_class_toggled, |_s, a, index, selected| {
+        if let Ok(index) = usize::try_from(index) {
+            let classes = a.get_draw_classes();
+            if let Some(mut entry) = classes.row_data(index) {
+                entry.selected = selected;
+                classes.set_row_data(index, entry);
+                update_draw_class_summary(&a);
+            }
+        }
+        Ok(())
+    });
+    action!(on_draw_classes_all, |_s, a, selected| {
+        let classes = a.get_draw_classes();
+        for index in 0..classes.row_count() {
+            if let Some(mut entry) = classes.row_data(index) {
+                entry.selected = selected;
+                classes.set_row_data(index, entry);
+            }
+        }
+        update_draw_class_summary(&a);
+        Ok(())
+    });
+    action!(on_draw_classes_close, |s, a, accepted| {
+        if accepted {
+            let selected = a
+                .get_draw_classes()
+                .iter()
+                .filter(|entry| entry.selected)
+                .map(|entry| entry.code.to_string())
+                .collect::<Vec<_>>();
+            current_workspace(s)?.set_draw_classes(&selected)?;
+            update_tables(s, &a)?;
+            update_form(s, &a);
+            status(
+                &a,
+                "Arvonnan luokkavalinnat tallennettu. Valitse Arvo lähtöajat nähdäksesi esikatselun.",
+                false,
+            );
+        }
+        a.set_draw_classes_open(false);
+        follow_pending_result(s, &a)
+    });
     action!(on_draw_starts, |s, a| {
         if !can_leave(s, &a) {
             return Ok(());
@@ -1220,12 +1360,24 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .unwrap_or_default()
             .as_nanos() as u64;
         let draw = as2026::starts::draw(project, seed)?;
+        let selected_classes = project
+            .luokat
+            .iter()
+            .filter(|class| class.osallistuu_lahtoarvontaan)
+            .map(|class| class.tunnus.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
         let preview = draw
             .assignments
             .iter()
             .map(|entry| {
+                let class = project
+                    .kilpailijat
+                    .iter()
+                    .find(|d| d.numero == entry.number)
+                    .map_or("", |d| d.luokka.as_str());
                 format!(
-                    "{}   {:02}:{:02}:{:02}",
+                    "{class}   {}   {:02}:{:02}:{:02}",
                     entry.number, entry.time.hour, entry.time.minute, entry.time.second
                 )
             })
@@ -1237,7 +1389,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             PendingAction::Draw(Box::new(draw)),
             "Lähtöaikojen arvonta",
             format!(
-                "Lähtöajat arvotaan luokittain luokan lähtöajasta ja lähtövälistä. Kilpailunumerot säilyvät. Hyväksy korvaa alla olevien kilpailijoiden lähtöajat.\n\nNro   Lähtö\n{preview}"
+                "Valitut luokat: {selected_classes}\n\nLähtöajat arvotaan luokkien lähtöajoista ja lähtöväleistä. Jo luetut kortit ja tallennetut tulokset ohitetaan. Hyväksy korvaa vain alla olevien kilpailijoiden lähtöajat.\n\nLuokka   Nro   Lähtö\n{preview}"
             ),
         );
         Ok(())
@@ -1252,6 +1404,10 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 PendingAction::Review(number) => {
                     current_workspace(s)?.review_results(number)?;
                     "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
+                }
+                PendingAction::ConfirmInterruption { number, reason } => {
+                    current_workspace(s)?.confirm_interruption(number, &reason)?;
+                    "Keskeytys ja sen syy vahvistettu ja tallennettu."
                 }
                 PendingAction::Import { project, directory } => {
                     if !can_switch(s, &a) {
@@ -1529,6 +1685,7 @@ fn capture_views(
     state: SharedState,
     directory: PathBuf,
     keyboard_test: bool,
+    lifecycle_path: Option<PathBuf>,
 ) -> GuiResult<()> {
     std::fs::create_dir_all(&directory).map_err(|e| invalid(&io_message(&e)))?;
     let weak = app.as_weak();
@@ -1548,7 +1705,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 31 } else { 24 } {
+        if current >= if keyboard_test { 40 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -1558,6 +1715,61 @@ fn capture_views(
             }
             owner.borrow_mut().take();
             let _ = slint::quit_event_loop();
+            return;
+        }
+        if current >= 31 {
+            match current {
+                31 => {
+                    if app.get_about_open() {
+                        smoke::key(&app, slint::platform::Key::Escape);
+                    }
+                    if let Some(path) = &lifecycle_path {
+                        open_workspace(&mut state.borrow_mut(), &app, path, true).unwrap();
+                        app.invoke_navigate(3);
+                        app.invoke_select_row(0);
+                        app.invoke_edit_result_competitor();
+                    }
+                }
+                32 => save_view(&app, &directory.join("10-kilpailu-valmis.png")).unwrap(),
+                33 => {
+                    let scale = app.window().scale_factor();
+                    let size = app.window().size();
+                    app.window()
+                        .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                            position: slint::LogicalPosition::new(
+                                size.width as f32 / scale - 60.,
+                                size.height as f32 / scale * 0.6,
+                            ),
+                            delta_x: 0.,
+                            delta_y: -3000.,
+                        });
+                }
+                34 => save_view(&app, &directory.join("11-kilpailijan-tiedot-alas.png")).unwrap(),
+                35 => {
+                    app.invoke_navigate(4);
+                    app.invoke_configure_draw_classes();
+                }
+                36 => save_view(&app, &directory.join("12-arvonnan-luokat.png")).unwrap(),
+                37 => {
+                    let before = app.get_draw_classes().row_data(0).unwrap().selected;
+                    for _ in 0..4 {
+                        smoke::key(&app, slint::platform::Key::Tab);
+                    }
+                    smoke::key(&app, slint::platform::Key::Space);
+                    assert_ne!(
+                        app.get_draw_classes().row_data(0).unwrap().selected,
+                        before,
+                        "Luokan valintaruutu toimii Tabilla ja välilyönnillä"
+                    );
+                    smoke::key(&app, slint::platform::Key::Escape);
+                    assert!(!app.get_draw_classes_open());
+                    println!(
+                        "GUI-luokkavalinnan näppäimistökoe hyväksytty: Tab, valintaruutu ja Esc."
+                    );
+                }
+                _ => {}
+            }
+            *phase.borrow_mut() += 1;
             return;
         }
         if current == 24 {
@@ -1756,11 +1968,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
     }
-    if smoke_test {
-        smoke::run(&app, &state)?;
-    }
+    let lifecycle_path = if smoke_test {
+        Some(smoke::run(&app, &state)?)
+    } else {
+        None
+    };
     if let Some(directory) = captures {
-        capture_views(&app, state.clone(), directory, smoke_test)?;
+        capture_views(&app, state.clone(), directory, smoke_test, lifecycle_path)?;
     }
     slint::run_event_loop()?;
     update_timer.stop();

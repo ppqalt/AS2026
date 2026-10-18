@@ -361,8 +361,12 @@ fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<S
                 competitor.status,
                 competitor.header_fields.get(29).map_or("", String::as_str)
             );
-            if complete {
+            if archive.has_confirmed_interruption(competitor.number) {
+                println!("Vahvistettu keskeytys. Maaliaikaa tai pisteitä ei ole vahvistettu.");
+            } else if complete && archive.has_approved_result(competitor.number) {
                 println!("Virhepisteet yhteensä: {}", competitor.total_penalties);
+            } else if complete {
+                println!("Hyväksymätön esikatselu, virhepisteet: {}", competitor.total_penalties);
             } else {
                 println!("Tulos odottaa käsikellojen täydentämistä tai tarkastusta.");
             }
@@ -496,12 +500,12 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
             } else {
                 "—".to_owned()
             };
-            let np = if group.np_enabled && !group.provisional {
+            let np = if a.has_approved_result(c.number) && group.np_enabled && !group.provisional {
                 entry.table_points.to_string()
             } else {
                 "—".to_owned()
             };
-            let sp = if group.series_method != 0 && !group.provisional {
+            let sp = if a.has_approved_result(c.number) && group.series_method != 0 && !group.provisional {
                 entry.series_points.to_string()
             } else {
                 "—".to_owned()
@@ -511,7 +515,7 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
                 c.number,
                 c.driver,
                 c.navigator,
-                c.total_penalties,
+                if a.has_approved_result(c.number) { c.total_penalties.to_string() } else { "—".into() },
                 entry.status.as_legacy()
             );
         }
@@ -530,7 +534,7 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
                 "  {position} | Nro. {} | {} | {} p | {}",
                 c.number,
                 c.driver,
-                c.total_penalties,
+                if a.has_approved_result(c.number) { c.total_penalties.to_string() } else { "—".into() },
                 entry.status.as_legacy()
             );
         }

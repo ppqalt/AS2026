@@ -324,17 +324,18 @@ fn native_updates_autosave_and_current_results_follow_names_classes_and_station_
         html_path.as_os_str(),
     ]));
     assert!(text.contains("ajantasainen asemalaskenta"));
-    assert!(text.contains("Korjattu kuljettaja"));
-    // Käsimaalin kellonaika puuttuu vielä. Uusi laskentapolku pitää
-    // tuloksen ILM-tilassa eikä saa julkaista vanhaa 2370 p esikatseluarvoa.
-    // Jo muodostettu osasumma (600 p) näkyy CLI:ssä alustavana.
-    assert!(text.contains(" | 600 | ILM |"), "{text}");
+    // Hyväksymätöntä kilpailijaa tai alustavaa pistemäärää ei julkaista
+    // CLI:n virallisessa tulosluettelossa.
+    assert!(!text.contains("Korjattu kuljettaja"), "{text}");
+    assert!(!text.contains(" | 600 | ILM |"), "{text}");
+    assert!(text.contains("Tulosluettelon ulkopuolelle jäi"), "{text}");
     let html = std::fs::read_to_string(html_path).unwrap();
-    // tulokset --raportti tekee LUOKITTAISEN tulosluettelon, ei
-    // asemakohtaista tulostarkastusta. Tarkista kummankin oikea sisältö.
-    assert!(html.contains("Alustavat tulokset."), "{html}");
-    assert!(html.contains("Korjattu kuljettaja"));
+    assert!(html.contains("Vain hyväksytyt asematulokset sijoitetaan."), "{html}");
+    assert!(!html.contains("Korjattu kuljettaja"), "{html}");
+    // Erillisessä asematulosraportissa korjattu nimi ja tarkastuksen tila
+    // näkyvät toimitsijalle, mutta tulosta ei merkitä hyväksytyksi.
     let asemaraportti = as2026::report::project_results_html(reopened.project()).unwrap();
+    assert!(asemaraportti.contains("Korjattu kuljettaja"), "{asemaraportti}");
     assert!(asemaraportti.contains("Tulos odottaa tarkastusta"));
     assert!(asemaraportti.contains("Kokonaistulos: —"));
     assert!(!html.contains("kehitysversio"));

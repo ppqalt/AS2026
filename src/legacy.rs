@@ -445,6 +445,13 @@ pub fn parse_basic(document: &Document) -> Result<BasicSettings, ImportError> {
     Ok(result)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultPublication {
+    Pending,
+    Approved,
+    ConfirmedInterruption,
+}
+
 #[derive(Debug, Clone)]
 pub struct Archive {
     pub documents: BTreeMap<String, Document>,
@@ -453,8 +460,31 @@ pub struct Archive {
     pub routes: Vec<Route>,
     pub competitors: Vec<Competitor>,
     pub warnings: Vec<String>,
+    /// None = alkuperäisestä AS2015A-aineistosta tuodut tallennetut tulokset.
+    /// Some = AS2026:n erillinen hyväksyntäportti; puuttuva avain ei ole hyväksyntä.
+    pub result_publication: Option<BTreeMap<u32, ResultPublication>>,
 }
 impl Archive {
+    pub fn has_approved_result(&self, number: u32) -> bool {
+        self.result_publication.as_ref().is_none_or(|states| {
+            matches!(states.get(&number), Some(ResultPublication::Approved))
+        })
+    }
+
+    pub fn has_confirmed_interruption(&self, number: u32) -> bool {
+        self.result_publication.as_ref().is_some_and(|states| {
+            matches!(states.get(&number), Some(ResultPublication::ConfirmedInterruption))
+        })
+    }
+
+    /// HYL/PER ja muut ei-sijoitettavat toimitsijatilat säilyvät tulosluettelossa.
+    /// Niillekään ei anneta hyväksymättömän asematuloksen pisteitä.
+    pub fn can_publish_competitor(&self, competitor: &Competitor) -> bool {
+        self.has_approved_result(competitor.number)
+            || self.has_confirmed_interruption(competitor.number)
+            || matches!(competitor.status.as_str(), "HYL" | "PER" | "SULJ" | "EILÄ")
+    }
+
     /// Reads fixed filenames only. Never writes, recalculates or changes source files.
     pub fn load(directory: &Path, encoding: Encoding) -> Result<Self, ImportError> {
         let names = [
@@ -599,6 +629,7 @@ impl Archive {
             routes,
             competitors,
             warnings,
+            result_publication: None,
         })
     }
 }

@@ -12,6 +12,7 @@ fn fluent2_application_surfaces_are_effect_free_and_use_theme_tokens() {
         ("app", include_str!("../ui/app.slint")),
         ("components", include_str!("../ui/components.slint")),
         ("results", include_str!("../ui/results.slint")),
+        ("draw-classes", include_str!("../ui/draw-classes.slint")),
     ] {
         assert!(!source.contains("background: #"), "{name} bypasses theme");
         for effect in [

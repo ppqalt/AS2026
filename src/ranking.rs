@@ -332,6 +332,7 @@ impl fmt::Display for Diagnostic {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RankingReport {
+    pub tie_policy: TiePolicy,
     pub groups: Vec<GroupResult>,
     pub routes: Vec<RouteResult>,
     pub omitted_source_indices: Vec<usize>,
@@ -471,7 +472,7 @@ pub fn rank(input: &RankingInput) -> Result<RankingReport, CoreError> {
         }
     }
 
-    let mut report = RankingReport::default();
+    let mut report = RankingReport { tie_policy: input.tie_policy, ..Default::default() };
     let codes: Vec<_> = class_codes.iter().copied().collect();
     for (index, code) in codes.iter().enumerate() {
         for other in &codes[index + 1..] {

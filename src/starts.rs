@@ -18,11 +18,16 @@ pub struct StartDraw {
     seed: u64,
 }
 
-fn eligible(driver: &crate::native::Driver) -> bool {
+fn eligible(driver: &crate::native::Driver, project: &Project) -> bool {
     driver
         .tila
         .as_ref()
         .is_none_or(|status| status.tunnus == "ILM")
+        && driver.tallennettu_tulos.is_none()
+        && !project
+            .leimaluvut
+            .iter()
+            .any(|read| read.emit == driver.emit)
 }
 
 /// Esikatselu ei muuta kilpailijoita eikä kilpailunumeroita.
@@ -39,7 +44,9 @@ pub fn draw(project: &Project, seed: u64) -> Result<StartDraw, CoreError> {
         let mut drivers = project
             .kilpailijat
             .iter()
-            .filter(|driver| driver.luokka.trim() == class.tunnus.trim() && eligible(driver))
+            .filter(|driver| {
+                driver.luokka.trim() == class.tunnus.trim() && eligible(driver, project)
+            })
             .collect::<Vec<_>>();
         if drivers.is_empty() {
             continue;
@@ -49,19 +56,6 @@ pub fn draw(project: &Project, seed: u64) -> Result<StartDraw, CoreError> {
                 "Luokan {} lähtövälin pitää olla vähintään yksi minuutti",
                 class.tunnus
             )));
-        }
-        for driver in &drivers {
-            if driver.tallennettu_tulos.is_some()
-                || project
-                    .leimaluvut
-                    .iter()
-                    .any(|read| read.emit == driver.emit)
-            {
-                return Err(invalid(format!(
-                    "Kilpailijan {} kortti on jo luettu tai asematulos tallennettu; lähtöaikoja ei arvottu",
-                    driver.numero
-                )));
-            }
         }
         let spacing = u64::from(class.lahtovali_minuutteina) * 60;
         let span = (drivers.len() as u64 - 1)
@@ -90,8 +84,15 @@ pub fn draw(project: &Project, seed: u64) -> Result<StartDraw, CoreError> {
         }
     }
     if assignments.is_empty() {
+        if !project
+            .luokat
+            .iter()
+            .any(|class| class.osallistuu_lahtoarvontaan)
+        {
+            return Err(invalid("Valitse vähintään yksi luokka lähtöarvontaan"));
+        }
         return Err(invalid(
-            "Lähtöaikojen arvontaan ei ole ilmoittautuneita kilpailijoita",
+            "Valituissa luokissa ei ole arvottavia lukemattomia kilpailijoita. Jo luetut ja asematuloksen saaneet ohitetaan",
         ));
     }
     Ok(StartDraw {

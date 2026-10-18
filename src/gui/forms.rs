@@ -395,7 +395,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     choice(13, "Tila", driver.tila.as_ref().map_or("", |s| s.tunnus.as_str()), "Automaattinen tila määräytyy laskennasta; käsivalinta säilyy kortin uudelleenluvussa", named(&[
                         ("Automaattinen", ""), ("Tarkastettu", "TRK"), ("Keskeyttänyt", "KESK"), ("Peruuttanut", "PER"), ("Hylätty", "HYL"), ("Suljettu", "SULJ"), ("Ilmoittautunut", "ILM"), ("Ei lähtenyt", "EILÄ")
                     ])),
-                    text(14, "Tilan syy", driver.tila.as_ref().map_or("", |s| s.syy.as_str()), "Käsin valitun tilan perustelu näkyy tulosraportissa"),
+                    text(14, "Tilan syy", driver.tila.as_ref().map_or("", |s| s.syy.as_str()), if driver.tila.as_ref().is_some_and(|s| s.tunnus == "KESK") { "Keskeytyksen syy. Vahvista päätös Tulokset-paneelista." } else { "Käsin valitun tilan perustelu näkyy tulosraportissa" }),
                     text(15, "Kuljettajan seura", &driver.kuljettajan_seura, "Kuljettajan seuratieto"),
                     text(16, "Kartanlukijan seura", &driver.kartanlukijan_seura, "Kartanlukijan seuratieto"),
                 ]);

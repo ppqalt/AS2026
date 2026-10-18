@@ -44,6 +44,7 @@ fn archive() -> Archive {
             results: Vec::new(),
         }],
         warnings: vec![IMPORTED.into()],
+        result_publication: None,
     }
 }
 

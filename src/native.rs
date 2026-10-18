@@ -190,9 +190,47 @@ pub struct Driver {
     /// Myös TRK ja KESK voidaan valita nimenomaisesti käsin.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tila: Option<ManualStatus>,
+    /// Toimitsijan erikseen vahvistama, perusteltu KESK-päätös.
+    /// Ei merkitse asemarivejä, maaliaikaa tai pisteitä lasketuiksi/hyväksytyiksi.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keskeytys_vahvistettu: bool,
     /// Tarkista tallentaa asemat; Tutki laskee tallennetuista käsikorjauksista.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tallennettu_tulos: Option<crate::corrections::StoredResult>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
+/// Vahvistettava syy on yksi ei-tyhjä tekstirivi. Keskeneräinen tyhjä
+/// syykenttä on sallittu kilpailijan muokkauksessa, mutta ei vahvistuksessa.
+pub fn validate_interruption_reason(reason: &str) -> Result<&str, CoreError> {
+    if reason.chars().any(char::is_control) {
+        return Err(invalid(
+            "Keskeytyksen syy ei saa sisältää rivinvaihtoja tai ohjausmerkkejä",
+        ));
+    }
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return Err(invalid("Anna keskeytyksen syy ennen vahvistamista"));
+    }
+    if reason.chars().any(char::is_control) {
+        return Err(invalid(
+            "Keskeytyksen syy ei saa sisältää rivinvaihtoja tai ohjausmerkkejä",
+        ));
+    }
+    Ok(reason)
+}
+impl Driver {
+    pub fn can_confirm_interruption(&self) -> bool {
+        self.tila.as_ref().is_some_and(|status| {
+            status.tunnus == "KESK" && validate_interruption_reason(&status.syy).is_ok()
+        })
+    }
+    pub fn has_confirmed_interruption(&self) -> bool {
+        self.keskeytys_vahvistettu && self.can_confirm_interruption()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -483,6 +521,11 @@ impl Project {
             if let Some(status) = &driver.tila {
                 status.validate()?;
             }
+            if driver.keskeytys_vahvistettu && !driver.has_confirmed_interruption() {
+                return Err(invalid(
+                    "Vahvistettu keskeytys edellyttää KESK-tilaa ja keskeytyksen syytä",
+                ));
+            }
             let time = parse_clock(&driver.lahtoaika)?;
             let mut fields = vec!["0".to_owned(); 31];
             fields[0] = driver.numero.to_string();
@@ -593,6 +636,7 @@ impl Project {
             combined_classes,
         };
         let archive = Archive {
+            result_publication: Some(BTreeMap::new()),
             documents,
             parameters: params,
             basic,

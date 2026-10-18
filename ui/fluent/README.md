@@ -6,7 +6,7 @@ lukittuina. Alkuperäisten tiedostojen nimet ja tiivisteet ovat tiedostossa
 `UPSTREAM.sha256`.
 
 Tässä on vain sovelluksen tarvitsemien Fluent-komponenttien riippuvuudet:
-Button, LineEdit, ComboBox, ScrollView, ListView, tekstikentän valikko ja
+Button, LineEdit, ComboBox, CheckBox, ScrollView, ListView, tekstikentän valikko ja
 AboutSlint. Käyttämättömiä säätimiä, päivämäärävalitsimia tai taulukoita ei
 ole kopioitu. Käyttöliittymän varsinainen taulukko säilyy AS2026:n omana
 hiirellä valittavana komponenttina.

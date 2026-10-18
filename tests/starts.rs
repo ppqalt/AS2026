@@ -109,7 +109,7 @@ fn each_class_uses_its_configured_schedule_and_midnight_wraps() {
 }
 
 #[test]
-fn read_competitors_are_protected_from_redraw() {
+fn read_competitors_are_skipped_while_other_competitors_are_drawn() {
     let mut project = project();
     let mut read = Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
         .unwrap()
@@ -118,17 +118,21 @@ fn read_competitors_are_protected_from_redraw() {
     read.emit = project.kilpailijat[0].emit;
     project.leimaluvut.push(read);
     let before = project.clone();
+    let draw = starts::draw(&project, 1).unwrap();
+    assert_eq!(draw.assignments.len(), 9);
     assert!(
-        starts::draw(&project, 1)
-            .unwrap_err()
-            .to_string()
-            .contains("jo luettu")
+        draw.assignments
+            .iter()
+            .all(|assignment| assignment.number != 1)
     );
     assert_eq!(project, before);
-    // Perutun kilpailijan historia ei estä muiden lähtöaikojen arvontaa.
-    project.kilpailijat[0].tila = Some(ManualStatus::new("PER", "").unwrap());
-    let draw = starts::draw(&project, 1).unwrap();
     draw.apply(&mut project).unwrap();
+    assert_eq!(project.kilpailijat[0], before.kilpailijat[0]);
+    assert!(
+        project.kilpailijat[1..]
+            .iter()
+            .any(|driver| driver.lahtoaika != "11:00:00")
+    );
     assert_eq!(project.leimaluvut, before.leimaluvut);
 }
 
@@ -139,11 +143,41 @@ fn stored_result_is_protected_even_if_readout_history_is_missing() {
     let result = as2026::application::capture_project_result(&project, 7).unwrap();
     project.kilpailijat[0].tallennettu_tulos = Some(result);
     project.leimaluvut.clear();
+    let completed = project.kilpailijat[0].clone();
+    let mut unread = completed.clone();
+    unread.numero += 1;
+    unread.emit += 1;
+    unread.tallennettu_tulos = None;
+    project.kilpailijat.push(unread);
+    let draw = starts::draw(&project, 1).unwrap();
+    assert_eq!(draw.assignments.len(), 1);
+    assert_eq!(draw.assignments[0].number, 8);
+    draw.apply(&mut project).unwrap();
+    assert_eq!(project.kilpailijat[0], completed);
+}
+
+#[test]
+fn no_eligible_competitors_produces_an_actionable_finnish_error() {
+    let mut project = project();
+    project.kilpailijat.truncate(1);
+    let mut read = Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+        .unwrap()
+        .leimaluvut
+        .remove(0);
+    read.emit = project.kilpailijat[0].emit;
+    project.leimaluvut.push(read);
     assert!(
         starts::draw(&project, 1)
             .unwrap_err()
             .to_string()
-            .contains("asematulos")
+            .contains("ei ole arvottavia lukemattomia")
+    );
+    project.luokat[0].osallistuu_lahtoarvontaan = false;
+    assert!(
+        starts::draw(&project, 1)
+            .unwrap_err()
+            .to_string()
+            .contains("Valitse vähintään yksi luokka")
     );
 }
 
@@ -281,4 +315,143 @@ fn old_class_files_default_to_participation_and_old_changes_preserve_explicit_ex
         .apply(&mut project)
         .unwrap();
     assert!(project.luokat[0].osallistuu_lahtoarvontaan);
+}
+
+static NEXT_WORKSPACE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+struct WorkspaceDirectory(std::path::PathBuf);
+impl WorkspaceDirectory {
+    fn new() -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "as2026-arvontaluokat-{}-{}",
+            std::process::id(),
+            NEXT_WORKSPACE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&path).unwrap();
+        Self(path)
+    }
+    fn file(&self) -> std::path::PathBuf {
+        self.0.join(as2026::native::FILE_NAME)
+    }
+    fn workspace(&self) -> as2026::workspace::Workspace {
+        let mut project = project();
+        let mut second = project.luokat[0].clone();
+        second.tunnus = "M".into();
+        second.nimi = "Toinen luokka".into();
+        project.luokat.push(second);
+        for driver in &mut project.kilpailijat[5..] {
+            driver.luokka = "M".into();
+        }
+        project.kilpailijat[0].kuljettajan_seura = "Seura Ä".into();
+        project.kilpailijat[0].lisavirheet.muut_virhepisteet = 12;
+        as2026::workspace::Workspace::create_imported(&self.0, project).unwrap()
+    }
+}
+impl Drop for WorkspaceDirectory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn selecting_draw_classes_changes_only_flags_and_persists_all_choices_together() {
+    let directory = WorkspaceDirectory::new();
+    let mut workspace = directory.workspace();
+    let mut expected = workspace.project().unwrap().clone();
+    expected.luokat[0].osallistuu_lahtoarvontaan = false;
+    workspace.set_draw_classes(&["M".into()]).unwrap();
+    assert_eq!(workspace.project(), Some(&expected));
+    assert_eq!(
+        as2026::workspace::Workspace::open(&directory.0)
+            .unwrap()
+            .project(),
+        Some(&expected)
+    );
+    let draw = starts::draw(workspace.project().unwrap(), 123).unwrap();
+    assert!(
+        draw.assignments
+            .iter()
+            .all(|assignment| assignment.number > 5)
+    );
+    workspace.apply_start_draw(&draw).unwrap();
+    assert_eq!(
+        workspace.project().unwrap().kilpailijat[..5],
+        expected.kilpailijat[..5]
+    );
+}
+
+#[test]
+fn unknown_and_duplicate_draw_classes_do_not_partially_update_or_write() {
+    let directory = WorkspaceDirectory::new();
+    let mut workspace = directory.workspace();
+    let original = workspace.project().unwrap().clone();
+    let original_bytes = std::fs::read(directory.file()).unwrap();
+    for selection in [
+        vec!["A".into(), "Puuttuva".into()],
+        vec!["A".into(), " A ".into()],
+        vec![String::new()],
+    ] {
+        assert!(workspace.set_draw_classes(&selection).is_err());
+        assert_eq!(workspace.project(), Some(&original));
+        assert_eq!(std::fs::read(directory.file()).unwrap(), original_bytes);
+        assert!(!directory.0.join("kilpailu.toml.bak").exists());
+    }
+}
+
+#[test]
+fn empty_draw_class_selection_is_valid_and_unchanged_selection_does_not_write() {
+    let directory = WorkspaceDirectory::new();
+    let mut workspace = directory.workspace();
+    let original_bytes = std::fs::read(directory.file()).unwrap();
+    workspace
+        .set_draw_classes(&["A".into(), "M".into()])
+        .unwrap();
+    assert_eq!(std::fs::read(directory.file()).unwrap(), original_bytes);
+    assert!(!directory.0.join("kilpailu.toml.bak").exists());
+    workspace.set_draw_classes(&[]).unwrap();
+    assert!(
+        workspace
+            .project()
+            .unwrap()
+            .luokat
+            .iter()
+            .all(|class| !class.osallistuu_lahtoarvontaan)
+    );
+    assert!(
+        as2026::workspace::Workspace::open(&directory.0)
+            .unwrap()
+            .project()
+            .unwrap()
+            .luokat
+            .iter()
+            .all(|class| !class.osallistuu_lahtoarvontaan)
+    );
+    assert!(starts::draw(workspace.project().unwrap(), 1).is_err());
+}
+
+#[test]
+fn stale_workspace_cannot_overwrite_external_changes_with_draw_class_selection() {
+    let directory = WorkspaceDirectory::new();
+    let mut stale = directory.workspace();
+    let before = stale.project().unwrap().clone();
+    let mut other = as2026::workspace::Workspace::open(&directory.0).unwrap();
+    other
+        .edit_driver(
+            1,
+            as2026::workspace::DriverField::Car,
+            "Toisen ikkunan auto",
+        )
+        .unwrap();
+    let current_bytes = std::fs::read(directory.file()).unwrap();
+    assert!(stale.set_draw_classes(&["M".into()]).is_err());
+    assert_eq!(stale.project(), Some(&before));
+    assert_eq!(std::fs::read(directory.file()).unwrap(), current_bytes);
+    assert_eq!(
+        as2026::workspace::Workspace::open(&directory.0)
+            .unwrap()
+            .project()
+            .unwrap()
+            .kilpailijat[0]
+            .auto,
+        "Toisen ikkunan auto"
+    );
 }

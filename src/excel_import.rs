@@ -545,6 +545,7 @@ pub fn preview_sheets(
                 emit_korjaus_sekuntia: 0,
                 lisavirheet: native::AdditionalPenalties::default(),
                 tila: None,
+                keskeytys_vahvistettu: false,
                 tallennettu_tulos: None,
             })
         })();

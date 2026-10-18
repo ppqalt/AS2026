@@ -274,7 +274,19 @@ fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
         .collect();
 }
 
-fn result_row(ws: &Workspace, index: usize, driver: &Competitor, position: String) -> TableRow {
+fn result_row(
+    ws: &Workspace,
+    archive: &Archive,
+    index: usize,
+    driver: &Competitor,
+    position: String,
+) -> TableRow {
+    let native = ws.project().and_then(|project| {
+        project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == driver.number)
+    });
     let pending = ws
         .project()
         .and_then(|project| {
@@ -293,8 +305,22 @@ fn result_row(ws: &Workspace, index: usize, driver: &Competitor, position: Strin
             driver.class_code.clone(),
             driver.driver.clone(),
             driver.navigator.clone(),
-            status(&driver.status),
-            if pending
+            if native.is_some_and(|d| {
+                d.tila.as_ref().is_some_and(|s| s.tunnus == "KESK")
+                    && !d.has_confirmed_interruption()
+            }) {
+                "Keskeytys vahvistamatta".into()
+            } else if archive.result_publication.is_some()
+                && !archive.has_approved_result(driver.number)
+                && matches!(driver.status.as_str(), "TRK" | "KESK")
+                && !archive.has_confirmed_interruption(driver.number)
+            {
+                "Hyväksymätön esikatselu".into()
+            } else {
+                status(&driver.status)
+            },
+            if archive.has_confirmed_interruption(driver.number)
+                || pending
                 || driver.results.is_empty()
                 || !matches!(
                     Status::from_legacy(&driver.status),
@@ -302,6 +328,8 @@ fn result_row(ws: &Workspace, index: usize, driver: &Competitor, position: Strin
                 )
             {
                 "—".into()
+            } else if !archive.has_approved_result(driver.number) {
+                format!("{} p (esikatselu)", driver.total_penalties)
             } else {
                 format!("{} p", driver.total_penalties)
             },
@@ -342,7 +370,7 @@ fn results(
                 } else {
                     "—".into()
                 };
-                view.rows.push(result_row(ws, index, driver, position));
+                view.rows.push(result_row(ws, archive, index, driver, position));
             }
         }
     }
@@ -350,7 +378,7 @@ fn results(
         if let Some(index) = source_index.checked_sub(1)
             && let Some(driver) = archive.competitors.get(index)
         {
-            view.rows.push(result_row(ws, index, driver, "—".into()));
+            view.rows.push(result_row(ws, archive, index, driver, "—".into()));
         }
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));
@@ -367,6 +395,16 @@ fn results(
     else {
         return Ok(());
     };
+    let native = ws.project().and_then(|project| {
+        project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == driver.number)
+    });
+    let interrupted = native
+        .and_then(|d| d.tila.as_ref())
+        .is_some_and(|s| s.tunnus == "KESK");
+    let interruption_confirmed = native.is_some_and(|d| d.has_confirmed_interruption());
     let (snapshot, snapshot_error) = match ws.result_snapshot(driver.number) {
         Ok(snapshot) => (snapshot, None),
         Err(error) => (None, Some(error.to_string())),
@@ -378,7 +416,9 @@ fn results(
         && snapshot_error.is_none()
         && snapshot.as_ref().is_none_or(|result| result.can_approve());
     let points = |index: usize| -> SharedString {
-        if !calculated && matches!(index, 19 | 20) {
+        // Korttiluvusta laskettuja aikapisteitä ei näytetä ilman laskentatulosta,
+        // mutta kilpailijalle käsin tallennetut lisävirheet ovat silti tiedossa.
+        if interrupted || (!calculated && matches!(index, 19 | 20)) {
             return "—".into();
         }
         driver
@@ -388,7 +428,7 @@ fn results(
             .map_or_else(|| "—".into(), |value| format!("{value} p").into())
     };
     let clock = |offset: usize| -> SharedString {
-        if !calculated {
+        if !calculated || interruption_confirmed {
             return "—".into();
         }
         let fields = (0..3)
@@ -407,44 +447,67 @@ fn results(
         }
     };
     let quantity = |index: usize| -> SharedString {
+        // Lisävirheiden lukumäärät ovat tallennettuja tietoja, eivät
+        // korttiluvusta keksittyjä pisteitä. KESK ei kuitenkaan näytä niitä.
+        if interrupted {
+            return "—".into();
+        }
         driver
             .header_fields
             .get(index)
             .and_then(|value| value.trim().parse::<u32>().ok())
             .map_or_else(|| "—".into(), |value| value.to_string().into())
     };
-    let read_state = ws.project().map_or_else(
-        || "AS2015A-aineisto · vain katselu".to_string(),
-        |project| {
-            if driver
-                .emit_card
-                .parse::<u32>()
-                .ok()
-                .is_some_and(|card| project.active_readout(card).is_some())
-            {
-                if calculated && snapshot.as_ref().is_some_and(|result| result.hyvaksytty) {
-                    "Tulos hyväksytty".to_owned()
-                } else if calculated {
-                    "Emit-kortti luettu · tulos odottaa hyväksymistä".to_owned()
+    let read_state = if interrupted {
+        if interruption_confirmed {
+            "Keskeytys vahvistettu".to_owned()
+        } else {
+            "Keskeytys odottaa vahvistusta".to_owned()
+        }
+    } else {
+        ws.project().map_or_else(
+            || "AS2015A-aineisto · vain katselu".to_string(),
+            |project| {
+                if driver
+                    .emit_card
+                    .parse::<u32>()
+                    .ok()
+                    .is_some_and(|card| project.active_readout(card).is_some())
+                {
+                    if calculated && snapshot.as_ref().is_some_and(|result| result.hyvaksytty) {
+                        "Tulos hyväksytty".to_owned()
+                    } else if calculated {
+                        "Emit-kortti luettu · tulos odottaa hyväksymistä".to_owned()
+                    } else {
+                        "Emit-kortti luettu · tulos vaatii tarkastuksen (katso huomautukset)"
+                            .to_owned()
+                    }
                 } else {
-                    "Emit-kortti luettu · tulos vaatii tarkastuksen (katso huomautukset)".to_owned()
+                    "Emit-korttia ei ole vielä luettu".to_owned()
                 }
-            } else {
-                "Emit-korttia ei ole vielä luettu".to_owned()
-            }
-        },
-    );
+            },
+        )
+    };
     // A calculation failure must be visible next to the selected competitor,
     // not buried among other competitors' diagnostics at the bottom of the page.
     let missing_result_prefix = format!("Kilpailijan {} tulos puuttuu: ", driver.number);
-    let mut issues: Vec<String> = archive
-        .warnings
-        .iter()
-        .find_map(|warning| warning.strip_prefix(&missing_result_prefix))
-        .map(str::to_owned)
-        .into_iter()
-        .collect();
-    if let Some(result) = &snapshot {
+    let mut issues: Vec<String> = if interrupted {
+        Vec::new()
+    } else {
+        archive
+            .warnings
+            .iter()
+            .find_map(|warning| warning.strip_prefix(&missing_result_prefix))
+            .map(str::to_owned)
+            .into_iter()
+            .collect()
+    };
+    if interrupted && !interruption_confirmed {
+        issues.push(
+            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Vahvista keskeytys.".into(),
+        );
+    }
+    if !interrupted && let Some(result) = &snapshot {
         if !pending_clocks.is_empty() {
             issues.push(format!(
                 "Syötä käsikellot asemille {} ja valitse Tutki.",
@@ -457,7 +520,8 @@ fn results(
         }
         issues.extend(result.virheelliset_ajat.iter().cloned());
     }
-    if let Some(error) = snapshot_error
+    if !interrupted
+        && let Some(error) = snapshot_error
         && !issues.contains(&error)
     {
         issues.push(error);
@@ -470,8 +534,24 @@ fn results(
             driver.class_code, driver.navigator, driver.emit_card
         )
         .into(),
-        status: status(&driver.status).into(),
-        reason: field(&driver.header_fields, 29).into(),
+        status: if interrupted {
+            "Keskeyttänyt".into()
+        } else if archive.result_publication.is_some()
+            && !archive.has_approved_result(driver.number)
+            && matches!(driver.status.as_str(), "TRK" | "KESK")
+        {
+            "Hyväksymätön esikatselu".into()
+        } else {
+            status(&driver.status).into()
+        },
+        reason: if interrupted {
+            native
+                .and_then(|d| d.tila.as_ref())
+                .map_or("", |s| s.syy.as_str())
+                .into()
+        } else {
+            field(&driver.header_fields, 29).into()
+        },
         read_state: read_state.into(),
         issue: issues.join("\n").into(),
         start: start(driver).into(),
@@ -484,8 +564,12 @@ fn results(
         extra_rt: points(24),
         extra_rt_count: quantity(23),
         other_points: points(25),
-        total: if calculated {
-            format!("{} p", driver.total_penalties).into()
+        total: if calculated && !interruption_confirmed {
+            if archive.has_approved_result(driver.number) {
+                format!("{} p", driver.total_penalties).into()
+            } else {
+                format!("{} p (esikatselu)", driver.total_penalties).into()
+            }
         } else {
             "—".into()
         },
@@ -860,6 +944,7 @@ mod tests {
             .edit_station_result(7, finish, as2026::workspace::ResultField::Clock, "12:10:00")
             .unwrap();
         fixture.workspace.recalculate_stored(7).unwrap();
+        fixture.workspace.approve_result(7).unwrap();
         let filtered = data(&fixture.workspace, 1, -1, "TOINEN").unwrap();
         assert_eq!(filtered.rows.len(), 1);
         assert_eq!(filtered.rows[0].key, 1);
@@ -961,6 +1046,42 @@ mod tests {
         let entered = data(&fixture.workspace, 3, 0, "").unwrap();
         assert_eq!(text(entered.detail_rows.last().unwrap(), 4), "00:00:00");
         assert_eq!(entered.result_overview.total, "—");
+    }
+
+    #[test]
+    fn manual_interruption_has_its_own_confirmation_state_without_readout() {
+        let mut fixture = Fixture::new(|project| {
+            project.leimaluvut.clear();
+            project.kilpailijat[0].tila =
+                Some(as2026::native::ManualStatus::new("KESK", "Moottorivika").unwrap());
+        });
+        let pending = data(&fixture.workspace, 3, 0, "").unwrap();
+        assert_eq!(text(&pending.rows[0], 0), "—");
+        assert_eq!(text(&pending.rows[0], 5), "Keskeytys vahvistamatta");
+        assert_eq!(
+            pending.result_overview.read_state,
+            "Keskeytys odottaa vahvistusta"
+        );
+        assert_eq!(pending.result_overview.reason, "Moottorivika");
+        assert_eq!(pending.result_overview.total, "—");
+        assert_eq!(pending.result_overview.finish, "—");
+        assert!(!pending.result_overview.issue.contains("kortti"));
+
+        fixture
+            .workspace
+            .confirm_interruption(7, "Moottorivika")
+            .unwrap();
+        let confirmed = data(&fixture.workspace, 3, 0, "").unwrap();
+        assert_eq!(text(&confirmed.rows[0], 0), "—");
+        assert_eq!(text(&confirmed.rows[0], 5), "Keskeyttänyt");
+        assert_eq!(
+            confirmed.result_overview.read_state,
+            "Keskeytys vahvistettu"
+        );
+        assert_eq!(confirmed.result_overview.reason, "Moottorivika");
+        assert_eq!(confirmed.result_overview.finish, "—");
+        assert_eq!(confirmed.result_overview.total, "—");
+        assert!(confirmed.result_overview.issue.is_empty());
     }
 
     #[test]
