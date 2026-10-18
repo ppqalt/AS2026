@@ -2,7 +2,7 @@
 //! Pohjautuu käyttäjän AS2026-RATA-KILP-prototype.zip-paketin kenttäkarttaan.
 use crate::{CoreError, native};
 use calamine::{Data, Range, Reader, open_workbook_auto};
-use std::{collections::HashSet, path::Path};
+use std::{collections::{BTreeMap, BTreeSet, HashSet}, path::Path};
 
 const MAX_ROWS: u32 = 10_000;
 const MAX_COLUMNS: u32 = 200;
@@ -44,7 +44,8 @@ impl ImportPreview {
         });
     }
     pub fn can_import(&self) -> bool {
-        !self.radat.is_empty() && !self.huomautukset.iter().any(|issue| issue.estaa_tuonnin)
+        (!self.radat.is_empty() || !self.kilpailijat.is_empty())
+            && !self.huomautukset.iter().any(|issue| issue.estaa_tuonnin)
     }
     pub fn summary(&self) -> String {
         let stations: usize = self.radat.iter().map(|track| track.asemat.len()).sum();
@@ -64,17 +65,20 @@ impl ImportPreview {
                     .count()
             ));
         }
-        text.push_str("\nVain RATA- ja KILP-välilehtien tunnistetut tiedot tuodaan. Työkirjaa ei muuteta. Kilpailun asetuksissa käytetään AS2026:n oletuksia. Luokat eivät osallistu lähtöarvontaan ennen erillistä valintaa.\n");
+        text.push_str("\nRATA- ja KILP-välilehtien tunnistetut tiedot tuodaan riippumatta siitä, onko toinen välilehti tyhjä tai puuttuuko se. Puuttuva Emit, lähtöaika tai rata jää täydennettäväksi (ei arvata). Apulehdet ohitetaan. Työkirjaa ei muuteta. Luokat eivät osallistu lähtöarvontaan ennen erillistä valintaa.\n");
+        let mut groups: BTreeMap<(bool, String), (usize, String)> = BTreeMap::new();
         for issue in &self.huomautukset {
+            let item = groups
+                .entry((issue.estaa_tuonnin, issue.viesti.clone()))
+                .or_insert((0, issue.sijainti.clone()));
+            item.0 += 1;
+        }
+        for ((blocking, message), (count, example)) in groups {
             text.push_str(&format!(
-                "\n{}{}: {}",
-                if issue.estaa_tuonnin {
-                    "Tuonnin este — "
-                } else {
-                    "Huomautus — "
-                },
-                issue.sijainti,
-                issue.viesti
+                "\n{}{} ({} kpl; esim. {}): {}",
+                if blocking { "Tuonnin este — " } else { "Huomautus — " },
+                if count > 1 { "toistuva" } else { "yksittäinen" },
+                count, example, message
             ));
         }
         if !self.can_import() {
@@ -85,12 +89,13 @@ impl ImportPreview {
     pub fn to_project(&self, name: &str) -> Result<native::Project, CoreError> {
         if !self.can_import() {
             return Err(invalid(
-                "Excel-tuonnissa on ratkaisemattomia esteitä tai ei yhtään kelvollista rataa",
+                "Excel-tuonnissa on ratkaisemattomia esteitä tai ei yhtään kelvollista rataa tai kilpailijaa",
             ));
         }
         let mut project = native::Project::new(name)?;
         project.luokat.clear();
         project.radat.clear();
+        let mut route_for_class = BTreeMap::new();
         for (index, source) in self.radat.iter().enumerate() {
             let number = u32::try_from(index + 1).map_err(|_| invalid("Ratoja on liikaa"))?;
             project.radat.push(native::Track {
@@ -98,17 +103,23 @@ impl ImportPreview {
                 nimi: source.luokka.clone(),
                 asemat: source.asemat.clone(),
             });
+            route_for_class.insert(source.luokka.clone(), number);
+        }
+        let mut codes: BTreeSet<String> = route_for_class.keys().cloned().collect();
+        codes.extend(self.kilpailijat.iter().map(|driver| driver.tiedot.luokka.clone()));
+        for code in codes {
+            let route = route_for_class.get(&code).copied().or_else(|| {
+                code.strip_prefix("SM-")
+                    .filter(|suffix| !suffix.contains('+'))
+                    .and_then(|suffix| route_for_class.get(suffix).copied())
+            }).unwrap_or(0);
             project.luokat.push(native::Class {
-                tunnus: source.luokka.clone(),
-                nimi: source.luokka.clone(),
-                rata: number,
-                ensimmainen_numero: self
-                    .kilpailijat
-                    .iter()
-                    .filter(|driver| driver.tiedot.luokka == source.luokka)
-                    .map(|driver| driver.tiedot.numero)
-                    .min()
-                    .unwrap_or(1),
+                tunnus: code.clone(),
+                nimi: code.clone(),
+                rata: route, // 0 = puuttuva rata, ei keksittyä asemaluetteloa.
+                ensimmainen_numero: self.kilpailijat.iter()
+                    .filter(|driver| driver.tiedot.luokka == code)
+                    .map(|driver| driver.tiedot.numero).min().unwrap_or(1),
                 lahtoaika: "00:00:00".into(),
                 lahtovali_minuutteina: 1,
                 myohastymisraja_minuutteina: 60,
@@ -151,25 +162,30 @@ pub fn read(path: &Path) -> Result<ImportPreview, CoreError> {
         invalid("Excel-tiedostoa ei voi avata. Tarkista tiedostomuoto ja tiedoston eheys")
     })?;
     let names = workbook.sheet_names();
-    let sheet = |expected: &str| -> Result<String, CoreError> {
-        let matches = names
-            .iter()
-            .filter(|name| name.eq_ignore_ascii_case(expected))
-            .collect::<Vec<_>>();
-        if matches.len() != 1 {
-            return Err(invalid(format!(
-                "Työkirjassa pitää olla yksi {expected}-välilehti"
-            )));
-        }
-        Ok(matches[0].to_string())
+    let find_sheet = |expected: &str| -> Option<String> {
+        names.iter().find(|name| name.trim().eq_ignore_ascii_case(expected)).cloned()
     };
-    let track = workbook
-        .worksheet_range(&sheet("RATA")?)
-        .map_err(|_| invalid("RATA-välilehden lukeminen epäonnistui"))?;
-    let drivers = workbook
-        .worksheet_range(&sheet("KILP")?)
-        .map_err(|_| invalid("KILP-välilehden lukeminen epäonnistui"))?;
-    preview_sheets(&track, &drivers)
+    if find_sheet("RATA").is_none() && find_sheet("KILP").is_none() {
+        return Err(invalid("Excelistä ei löydy RATA- eikä KILP-välilehteä"));
+    }
+    let track = match find_sheet("RATA") {
+        Some(name) => workbook.worksheet_range(&name)
+            .map_err(|_| invalid("RATA-välilehden lukeminen epäonnistui"))?,
+        None => Range::<Data>::new((0, 0), (0, 0)),
+    };
+    let drivers = match find_sheet("KILP") {
+        Some(name) => workbook.worksheet_range(&name)
+            .map_err(|_| invalid("KILP-välilehden lukeminen epäonnistui"))?,
+        None => Range::<Data>::new((0, 0), (0, 0)),
+    };
+    let mut preview = preview_sheets(&track, &drivers)?;
+    if find_sheet("RATA").is_none() {
+        preview.issue(false, "RATA", "RATA-välilehti puuttuu. Kilpailijat tuodaan ilman arvattuja ratoja.");
+    }
+    if find_sheet("KILP").is_none() {
+        preview.issue(false, "KILP", "KILP-välilehti puuttuu. Radat tuodaan ilman kilpailijoita.");
+    }
+    Ok(preview)
 }
 fn cell(sheet: &Range<Data>, row: u32, column: u32) -> Data {
     sheet
