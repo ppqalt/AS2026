@@ -627,7 +627,7 @@ pub fn preview_sheets(
             continue;
         }
         let location = format!("KILP rivi {}", row + 1);
-        let parsed = (|| -> Result<native::Driver, String> {
+        let parsed = (|| -> Result<(native::Driver, Vec<String>), String> {
             let number = integer(&field(row, num_col))?
                 .filter(|value| *value > 0)
                 .ok_or("Kilpailijan numero puuttuu tai on virheellinen")?;
@@ -639,13 +639,32 @@ pub fn preview_sheets(
             if name.is_empty() {
                 return Err("Kuljettajan nimi puuttuu".into());
             }
-            let card = integer(&field(row, emit_col))?.unwrap_or(0);
+            // Viallisetkin valinnaiset kentät jätetään täydennettäviksi:
+            // ilmoittautunutta ei saa hukata puuttuvan kellominuutin vuoksi.
+            let mut optional_issues = Vec::new();
+            let card = match integer(&field(row, emit_col)) {
+                Ok(number) => number.unwrap_or(0),
+                Err(error) => {
+                    optional_issues.push(format!(
+                        "Emit-numero on virheellinen ({error}); kortti jätettiin täydennettäväksi"
+                    ));
+                    0
+                }
+            };
             let time = if empty(&field(row, time_col)) && empty(&field(row, minute_col)) {
                 String::new()
             } else {
-                clock(&field(row, time_col), &field(row, minute_col))?
+                match clock(&field(row, time_col), &field(row, minute_col)) {
+                    Ok(time) => time,
+                    Err(error) => {
+                        optional_issues.push(format!(
+                            "Lähtöaika on puutteellinen tai virheellinen ({error}); aika jätettiin täydennettäväksi"
+                        ));
+                        String::new()
+                    }
+                }
             };
-            Ok(native::Driver {
+            Ok((native::Driver {
                 numero: number,
                 luokka: class,
                 emit: card,
@@ -662,10 +681,10 @@ pub fn preview_sheets(
                 tila: None,
                 keskeytys_vahvistettu: false,
                 tallennettu_tulos: None,
-            })
+            }, optional_issues))
         })();
         match parsed {
-            Ok(driver) => {
+            Ok((driver, optional_issues)) => {
                 if !numbers.insert(driver.numero) {
                     preview.issue(
                         true,
@@ -673,6 +692,9 @@ pub fn preview_sheets(
                         "Kilpailijan numero esiintyy useasti. Korjaa tunniste ennen tuontia.",
                     );
                     continue;
+                }
+                for issue in optional_issues {
+                    preview.issue(false, &location, issue);
                 }
                 if driver.emit != 0 {
                     *cards.entry(driver.emit).or_default() += 1;
