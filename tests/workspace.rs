@@ -109,7 +109,11 @@ fn invalid_or_incomplete_edit_cannot_replace_the_saved_row() {
     let mut workspace = directory.example();
     let original = fs::read(directory.file()).unwrap();
     let before = workspace.project().unwrap().clone();
-    assert!(workspace.edit_driver(7, DriverField::Card, "").is_err());
+    assert!(
+        workspace
+            .edit_driver(7, DriverField::Card, "ei numero")
+            .is_err()
+    );
     assert!(workspace.edit_driver(7, DriverField::Start, "12:").is_err());
     assert!(
         workspace
@@ -120,6 +124,49 @@ fn invalid_or_incomplete_edit_cannot_replace_the_saved_row() {
     assert!(workspace.add_driver(driver("7", "42")).is_err());
     assert_eq!(workspace.project().unwrap(), &before);
     assert_eq!(fs::read(directory.file()).unwrap(), original);
+}
+
+#[test]
+fn optional_preparation_fields_can_be_cleared_without_deleting_raw_reads() {
+    let directory = Directory::new();
+    let mut workspace = directory.example();
+    let reads = workspace.project().unwrap().leimaluvut.clone();
+    workspace.ensure_readout_result(7).unwrap();
+    assert!(workspace.edit_driver(7, DriverField::Card, "0").is_err());
+    workspace.edit_driver(7, DriverField::Start, "").unwrap();
+    assert!(
+        workspace.project().unwrap().kilpailijat[0]
+            .start_clock()
+            .unwrap()
+            .is_none()
+    );
+    assert!(workspace.approve_result(7).is_err());
+    workspace.edit_driver(7, DriverField::Card, "").unwrap();
+    assert!(
+        workspace.project().unwrap().kilpailijat[0]
+            .emit_number()
+            .is_none()
+    );
+    assert!(
+        workspace.project().unwrap().kilpailijat[0]
+            .tallennettu_tulos
+            .is_none()
+    );
+    assert_eq!(workspace.project().unwrap().leimaluvut, reads);
+    workspace.reload().unwrap();
+    assert_eq!(workspace.project().unwrap().leimaluvut, reads);
+    assert!(
+        workspace.project().unwrap().kilpailijat[0]
+            .start_clock()
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        workspace.project().unwrap().kilpailijat[0]
+            .emit_number()
+            .is_none()
+    );
+    workspace.ranking().unwrap();
 }
 
 #[test]

@@ -43,6 +43,14 @@ fn optional_number<T: FromStr>(value: &str, label: &str) -> Result<Option<T>, Co
     }
 }
 
+fn card_number(value: &str) -> Result<u32, CoreError> {
+    match optional_number(value, "Emit-numero")? {
+        Some(0) => Err(invalid("Anna Emit-numero tai jätä kenttä tyhjäksi")),
+        Some(number) => Ok(number),
+        None => Ok(0),
+    }
+}
+
 enum Source {
     Native(ProjectStore),
     Legacy(Archive),
@@ -160,7 +168,45 @@ impl Workspace {
         application::capture_project_result(project, number).map(Some)
     }
 
+    /// Keskeytyspäätös voidaan vahvistaa ilman korttia tai asematulosta.
+    pub fn can_confirm_interruption(&self, number: u32) -> bool {
+        self.project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .is_some_and(|driver| {
+                driver.can_confirm_interruption() && !driver.has_confirmed_interruption()
+            })
+    }
+    pub fn interruption_confirmed(&self, number: u32) -> bool {
+        self.project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .is_some_and(|driver| driver.has_confirmed_interruption())
+    }
+    /// Tallentaa vain toimitsijan KESK-päätöksen ja perustelun. Raakaleimat,
+    /// asemarivit, kellot ja pisteet säilyvät täsmälleen ennallaan.
+    pub fn confirm_interruption(&mut self, number: u32, reason: &str) -> Result<(), CoreError> {
+        let reason = native::validate_interruption_reason(reason)?.to_owned();
+        self.update(|project| {
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+            driver.tila = Some(native::ManualStatus::new("KESK", &reason)?);
+            driver.keskeytys_vahvistettu = true;
+            Ok(())
+        })
+    }
+
     pub fn approve_result(&mut self, number: u32) -> Result<(), CoreError> {
+        if let Some(reason) = self
+            .project()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .and_then(|d| d.tila.as_ref())
+            .filter(|status| status.tunnus == "KESK")
+            .map(|status| status.syy.clone())
+        {
+            return self.confirm_interruption(number, &reason);
+        }
         let mut snapshot = self
             .result_snapshot(number)?
             .ok_or_else(|| invalid("Lue ensin kilpailijan kortti"))?;
@@ -213,7 +259,12 @@ impl Workspace {
         edit: impl FnOnce(&mut Project) -> Result<T, CoreError>,
     ) -> Result<T, CoreError> {
         match &mut self.source {
-            Source::Native(store) => store.update(edit),
+            Source::Native(store) => store.update(|project| {
+                let before = project.clone();
+                let value = edit(project)?;
+                crate::corrections::invalidate_input_changes(&before, project);
+                Ok(value)
+            }),
             Source::Legacy(_) => Err(invalid(
                 "AS2015A-aineisto on avattu vain katselua varten. Luo AS2026-kilpailu muokkaamista varten",
             )),
@@ -262,7 +313,7 @@ impl Workspace {
                 DriverField::Class => driver.luokka = required(value, "Luokka")?,
                 DriverField::Driver => driver.kuljettaja = required(value, "Kuljettaja")?,
                 DriverField::Navigator => driver.kartanlukija = value.trim().into(),
-                DriverField::Card => driver.emit = number(value, "Emit-numero")?,
+                DriverField::Card => driver.emit = card_number(value)?,
                 DriverField::DriverClub => driver.kuljettajan_seura = value.trim().into(),
                 DriverField::NavigatorClub => driver.kartanlukijan_seura = value.trim().into(),
                 DriverField::DriverLicence => driver.kuljettajan_lisenssi = value.trim().into(),
@@ -301,6 +352,9 @@ impl Workspace {
                     let points: i64 = number(value, "Muut virhepisteet")?;
                     driver.lisavirheet.muut_virhepisteet = points;
                 }
+            }
+            if matches!(field, DriverField::Status | DriverField::StatusReason) {
+                driver.keskeytys_vahvistettu = false;
             }
             if matches!(field, DriverField::Class | DriverField::Card | DriverField::Start | DriverField::Correction | DriverField::MissingRtCount | DriverField::ExtraRtCount | DriverField::OtherPenalties | DriverField::Status | DriverField::StatusReason)
                 && let Some(result) = &mut driver.tallennettu_tulos {
@@ -800,7 +854,7 @@ impl DriverEdit {
             luokka: required(&self.class_code, "Luokka")?,
             kuljettaja: required(&self.driver, "Kuljettaja")?,
             kartanlukija: self.navigator.trim().into(),
-            emit: number(&self.card_number, "Emit-numero")?,
+            emit: card_number(&self.card_number)?,
             auto: self.car.trim().into(),
             lahtoaika: self.start_time.trim().into(),
             emit_korjaus_sekuntia: optional_number(&self.correction_seconds, "Emit-korjaus")?
@@ -811,6 +865,7 @@ impl DriverEdit {
             kuljettajan_lisenssi: String::new(),
             kartanlukijan_lisenssi: String::new(),
             tila: None,
+            keskeytys_vahvistettu: false,
             tallennettu_tulos: None,
         })
     }

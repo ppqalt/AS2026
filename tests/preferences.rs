@@ -117,6 +117,33 @@ fn same_name_and_existing_files_are_never_replaced() {
 }
 
 #[test]
+fn excel_import_uses_unique_default_directory_and_preserves_preparation_fields() {
+    let directory = Directory::new();
+    let store = directory.open();
+    let mut project =
+        native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
+    project.kilpailu.nimi = "Excel-kilpailu".into();
+    project.kilpailijat[0].emit = 0;
+    project.kilpailijat[0].lahtoaika.clear();
+    project.leimaluvut.clear();
+    let first = store
+        .create_imported_in(project.clone(), &directory.root())
+        .unwrap();
+    let before = fs::read(first.path()).unwrap();
+    let second = store
+        .create_imported_in(project.clone(), &directory.root())
+        .unwrap();
+    assert_ne!(first.path(), second.path());
+    assert_eq!(first.project().unwrap(), &project);
+    assert_eq!(
+        Workspace::open(second.path()).unwrap().project().unwrap(),
+        &project
+    );
+    assert_eq!(fs::read(first.path()).unwrap(), before);
+    assert!(!directory.settings().exists());
+}
+
+#[test]
 fn path_separators_controls_and_windows_device_names_are_safe_on_both_platforms() {
     let directory = Directory::new();
     let store = directory.open();

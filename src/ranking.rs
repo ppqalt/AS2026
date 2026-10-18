@@ -98,7 +98,7 @@ pub struct CompetitorInput {
     pub route_code: String,
     pub status: Status,
     pub total_penalty: i64,
-    pub start_hour: i64,
+    pub start_hour: Option<i64>,
     pub driver_licence: String,
     pub navigator_licence: String,
     /// None means unavailable; Some(empty) explicitly means zero stored rows.
@@ -164,7 +164,7 @@ impl ClassStatistics {
     fn count(&mut self, entry: &CompetitorInput) {
         self.all_entries += 1;
         self.nonpositive_numbers += usize::from(entry.number <= 0);
-        self.start_hour_zero += usize::from(entry.start_hour == 0);
+        self.start_hour_zero += usize::from(entry.start_hour == Some(0));
         match entry.status {
             Status::Classified => self.classified += 1,
             Status::Interrupted | Status::Excluded => self.interrupted_or_excluded += 1,
@@ -332,6 +332,7 @@ impl fmt::Display for Diagnostic {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RankingReport {
+    pub tie_policy: TiePolicy,
     pub groups: Vec<GroupResult>,
     pub routes: Vec<RouteResult>,
     pub omitted_source_indices: Vec<usize>,
@@ -471,7 +472,10 @@ pub fn rank(input: &RankingInput) -> Result<RankingReport, CoreError> {
         }
     }
 
-    let mut report = RankingReport::default();
+    let mut report = RankingReport {
+        tie_policy: input.tie_policy,
+        ..Default::default()
+    };
     let codes: Vec<_> = class_codes.iter().copied().collect();
     for (index, code) in codes.iter().enumerate() {
         for other in &codes[index + 1..] {

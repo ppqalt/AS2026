@@ -108,6 +108,18 @@ fn xlsx_contains_real_zip_parts_and_xml_escaped_inline_text() {
     let mut project =
         Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
     project.kilpailijat[0].kuljettaja = "=X&<Y>".into();
+    let mut result = application::capture_project_result(&project, 7).unwrap();
+    let finish = result
+        .rivit
+        .iter()
+        .find(|r| r.station_type == "M")
+        .unwrap()
+        .output_index;
+    result.set_clock(finish, [12, 11, 0]).unwrap();
+    let mut result = application::recalculate_stored_result(&project, 7, &result).unwrap();
+    assert!(result.can_approve());
+    result.hyvaksytty = true;
+    project.kilpailijat[0].tallennettu_tulos = Some(result);
     let archive = application::calculated_project(&project).unwrap();
     let ranked = application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
     let bytes = report::ranking_xlsx(&archive, &ranked).unwrap();

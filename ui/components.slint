@@ -109,7 +109,7 @@ export component NavItem inherits Rectangle {
 
 // Vain luonnos elää tässä komponentissa; hyväksytty arvo tulee kilpailumallista.
 export component FormField inherits VerticalLayout {
-    height: 64px; vertical-stretch: 0;
+    height: root.invalid ? 84px : 64px; vertical-stretch: 0;
     in property <string> label;
     in property <string> value;
     in property <string> hint;
@@ -124,7 +124,7 @@ export component FormField inherits VerticalLayout {
     callback commit(string) -> bool;
     callback draft(string);
     property <bool> dirty: false;
-    property <bool> invalid: false;
+    out property <bool> invalid: false;
     function duration-value() -> string {
         return hour-input.text + ":" + minute-input.text + ":" + second-input.text;
     }
@@ -214,6 +214,7 @@ export component FormField inherits VerticalLayout {
             }
         }
     }
+    if root.invalid: Text { text: "Tarkista kentän arvo."; color: Theme.danger; font-size: 12px; }
 }
 
 export component DataTable inherits Rectangle {
@@ -324,18 +325,32 @@ component EditorEntry inherits FormField {
 component EditorFields inherits VerticalLayout {
     in property <[EditorField]> fields;
     in property <bool> writable;
+    in property <bool> blocked;
+    in property <bool> driver-layout;
     callback field-commit(int, string) -> bool;
     callback field-draft(int, string);
     height: self.min-height;
     vertical-stretch: 0;
     spacing: Theme.space-3;
     padding-right: Theme.space-2;
-    for field in root.fields: EditorEntry {
-        min-height: 64px;
-        max-height: 64px;
+    in-out property <bool> details-open: false;
+    property <bool> grouped: root.driver-layout && root.fields.length == 17;
+    property <[EditorField]> basic-fields: root.grouped ? [root.fields[0], root.fields[1], root.fields[2], root.fields[3], root.fields[4], root.fields[5], root.fields[6], root.fields[7], root.fields[8], root.fields[9], root.fields[10], root.fields[13], root.fields[14]] : root.fields;
+    for field in root.basic-fields: EditorEntry {
+        min-height: self.invalid ? 84px : 64px;
+        max-height: self.invalid ? 84px : 64px;
         data: field; writable: root.writable;
         field-commit(key, value) => { root.field-commit(key, value) }
         field-draft(key, value) => { root.field-draft(key, value); }
+    }
+    if root.grouped: Button { text: root.details-open ? "Piilota seurat ja lisenssit" : "Seurat ja lisenssit…"; enabled: !root.blocked; clicked => { root.details-open = !root.details-open; } }
+    if root.grouped && root.details-open: VerticalLayout {
+        spacing: Theme.space-3;
+        for field in [root.fields[15], root.fields[16], root.fields[11], root.fields[12]]: EditorEntry {
+            data: field; writable: root.writable;
+            field-commit(key, value) => { root.field-commit(key, value) }
+            field-draft(key, value) => { root.field-draft(key, value); }
+        }
     }
 }
 
@@ -347,6 +362,8 @@ export component Editor inherits Rectangle {
     in property <bool> new-record;
     in property <bool> blocked;
     in property <bool> station-layout: false;
+    in property <bool> driver-layout: false;
+    in-out property <bool> details-open;
     // Ulompi ScrollView vastaa koko paneelista: tämän editorin kenttiä ei rajata.
     in property <bool> fit-content: false;
     min-height: root.fit-content ? editor-content.min-height : 0px;
@@ -360,7 +377,9 @@ export component Editor inherits Rectangle {
         Text { text: root.heading; color: Theme.ink; font-size: 17px; font-weight: 700; wrap: word-wrap; }
         Note { text: root.description; }
         if root.fit-content: EditorFields {
-            fields: root.fields; writable: root.writable;
+            fields: root.fields; writable: root.writable; blocked: root.blocked;
+            driver-layout: root.driver-layout;
+            details-open <=> root.details-open;
             field-commit(key, value) => { root.field-commit(key, value) }
             field-draft(key, value) => { root.field-draft(key, value); }
         }
@@ -401,13 +420,12 @@ export component Editor inherits Rectangle {
                         }
                     }
                 }
-                if !root.station-layout || root.fields.length != 6 || root.width < 540px: VerticalLayout {
-                    spacing: 12px;
-                    for field in root.fields: EditorEntry {
-                        data: field; writable: root.writable;
-                        field-commit(key, value) => { root.field-commit(key, value) }
-                        field-draft(key, value) => { root.field-draft(key, value); }
-                    }
+                if !root.station-layout || root.fields.length != 6 || root.width < 540px: EditorFields {
+                    fields: root.fields; writable: root.writable; blocked: root.blocked;
+                    driver-layout: root.driver-layout;
+                    details-open <=> root.details-open;
+                    field-commit(key, value) => { root.field-commit(key, value) }
+                    field-draft(key, value) => { root.field-draft(key, value); }
                 }
                 Rectangle { vertical-stretch: 1; }
             }

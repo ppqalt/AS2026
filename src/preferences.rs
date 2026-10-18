@@ -141,7 +141,13 @@ impl PreferencesStore {
 
     /// Kilpailukohtainen sijainti ei muuta seuraavien kilpailujen oletusta.
     pub fn create_competition_in(&self, name: &str, root: &Path) -> Result<Workspace, String> {
-        Project::new(name).map_err(|error| error.to_string())?;
+        let project = Project::new(name).map_err(|error| error.to_string())?;
+        self.create_imported_in(project, root)
+    }
+
+    pub fn create_imported_in(&self, project: Project, root: &Path) -> Result<Workspace, String> {
+        project.validate().map_err(|error| error.to_string())?;
+        let name = &project.kilpailu.nimi;
         let root = absolute(root)?;
         self.ensure_persistent(&root)?;
         fs::create_dir_all(&root).map_err(|error| file_error(&root, &error))?;
@@ -157,7 +163,7 @@ impl PreferencesStore {
             let directory = root.join(folder);
             match fs::create_dir(&directory) {
                 Ok(()) => {
-                    return Workspace::create(&directory, name).map_err(|error| {
+                    return Workspace::create_imported(&directory, project).map_err(|error| {
                         format!(
                             "Kilpailua ei voitu luoda kansioon {}: {error}",
                             directory.display()

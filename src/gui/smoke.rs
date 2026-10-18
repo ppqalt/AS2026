@@ -494,6 +494,94 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
             .is_empty()
     );
     finish_imported_race(app, state, &import_directory)?;
+    let imported_before_retry = std::fs::read(import_directory.join(native::FILE_NAME))?;
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &preview,
+        Some(import_directory.clone()),
+    )?;
+    app.invoke_confirm_action(true);
+    assert!(app.get_status_error());
+    assert!(
+        app.get_confirm_open() && app.get_import_open(),
+        "Tallennusvirhe säilyttää esikatselun"
+    );
+    assert_eq!(
+        std::fs::read(import_directory.join(native::FILE_NAME))?,
+        imported_before_retry
+    );
+    app.invoke_confirm_action(false);
+    // Valmistelutuonti ja keskeytyspäätös ilman korttia, lähtöä tai maalia.
+    let mut draft_preview = preview.clone();
+    for driver in &mut draft_preview.kilpailijat {
+        driver.tiedot.emit = 0;
+        driver.tiedot.lahtoaika.clear();
+    }
+    draft_preview.kilpailijat[0].tiedot.luokka = "SM-A".into();
+    let tracks_directory = path.parent().unwrap().join("pelkat-radat");
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &draft_preview,
+        Some(tracks_directory.clone()),
+    )?;
+    app.invoke_import_tracks_only(true);
+    assert!(app.get_confirm_acceptable());
+    app.invoke_confirm_action(true);
+    let tracks = ProjectStore::open(&tracks_directory.join(native::FILE_NAME))?;
+    assert!(tracks.project().kilpailijat.is_empty());
+    assert_eq!(tracks.project().radat.len(), 2);
+    drop(tracks);
+    let draft_directory = path.parent().unwrap().join("valmistelukoe");
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &draft_preview,
+        Some(draft_directory.clone()),
+    )?;
+    assert!(!app.get_confirm_acceptable());
+    assert_eq!(app.get_import_rows().row_count(), 2);
+    app.invoke_import_class_route("SM-A".into(), "C".into());
+    assert!(app.get_confirm_acceptable());
+    app.set_import_name("Valmistelukoe".into());
+    app.invoke_confirm_action(true);
+    assert!(!app.get_status_error(), "{}", app.get_status_text());
+    app.invoke_navigate(1);
+    app.invoke_select_row(0);
+    assert!(
+        app.get_fields()
+            .iter()
+            .find(|field| field.key == 4)
+            .unwrap()
+            .value
+            .is_empty()
+    );
+    assert!(app.invoke_field_commit(13, "KESK".into()));
+    assert!(app.invoke_field_commit(14, "Auto rikkoutui ennen lähtöä".into()));
+    app.invoke_navigate(3);
+    app.invoke_select_row(0);
+    assert!(app.get_result_approvable());
+    app.invoke_approve_results();
+    assert!(app.get_confirm_open());
+    app.invoke_confirm_action(true);
+    let interrupted = ProjectStore::open(&draft_directory.join(native::FILE_NAME))?;
+    assert!(interrupted.project().kilpailijat[0].has_confirmed_interruption());
+    assert!(
+        interrupted.project().kilpailijat[0]
+            .tallennettu_tulos
+            .is_none()
+    );
+    assert!(interrupted.project().leimaluvut.is_empty());
+    drop(interrupted);
+    app.invoke_reload();
+    assert_eq!(app.get_result_overview().total.as_str(), "—");
+    println!(
+        "GUI-valmistelukoe hyväksytty: ratavalinta → tuonti ilman Emitiä ja lähtöä → perusteltu KESK → uudelleenavaus ilman aikoja tai pisteitä."
+    );
     // Palautetaan vain tämän kokeen itse luoma synteettinen kopio kuvausta varten.
     ProjectStore::open(&path)?.update(|project| {
         *project = original.clone();
@@ -629,6 +717,13 @@ fn finish_imported_race(
     app.invoke_select_detail(row_index as i32);
     assert!(app.invoke_field_commit(101, "-17".into()));
     assert!(app.invoke_field_commit(102, "9".into()));
+    let pending_archive = state.borrow().workspace.as_ref().unwrap().results()?;
+    let pending_ranking = application::rank_stored(
+        &pending_archive,
+        as2026::ranking::TiePolicy::KeepSharedAndFlag,
+    )?;
+    assert!(!report::ranking_html(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
+    assert!(!report::ranking_csv(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
     app.invoke_approve_results();
     let approved = ProjectStore::open(&path)?.project().kilpailijat[0].clone();
     assert!(approved.tallennettu_tulos.as_ref().unwrap().hyvaksytty);

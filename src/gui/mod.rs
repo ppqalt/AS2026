@@ -38,10 +38,14 @@ enum UpdateEvent {
 
 enum PendingAction {
     Review(u32),
+    ConfirmInterruption {
+        number: u32,
+        reason: String,
+    },
     Draw(Box<as2026::starts::StartDraw>),
     Import {
-        project: Box<Project>,
-        directory: PathBuf,
+        preview: Box<as2026::excel_import::ImportPreview>,
+        directory: Option<PathBuf>,
     },
     Notice,
 }
@@ -91,7 +95,22 @@ fn status(app: &AppWindow, text: impl Into<SharedString>, error: bool) {
 }
 fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
     if let Err(error) = operation() {
-        status(app, error.to_string(), true);
+        let message = error.to_string();
+        if app.get_import_open() {
+            app.set_import_error(
+                message
+                    .strip_prefix("Virheellinen syöte: ")
+                    .unwrap_or(&message)
+                    .into(),
+            );
+        }
+        status(
+            app,
+            message
+                .strip_prefix("Virheellinen syöte: ")
+                .unwrap_or(&message),
+            true,
+        );
     }
 }
 
@@ -179,6 +198,12 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     app.set_detail_headers(model(view.detail_headers));
     app.set_detail_weights(model(view.detail_weights));
     app.set_detail_title(view.detail_title.into());
+    app.set_calculation_note_count(
+        view.notes
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count() as i32,
+    );
     app.set_calculation_notes(view.notes.into());
     app.set_result_overview(view.result_overview);
     app.set_selected_key(state.selected);
@@ -201,12 +226,28 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
         })
         .map(|d| d.numero);
     let snapshot = selected_number.and_then(|number| ws.result_snapshot(number).ok().flatten());
-    let approvable = snapshot.as_ref().is_some_and(|r| r.can_approve())
-        && ws.project().is_some_and(|p| {
-            selected_number.is_some_and(|number| {
-                application::validate_project_result(p, number, snapshot.as_ref().unwrap()).is_ok()
+    let interrupted = ws.project().is_some_and(|project| {
+        selected_number.is_some_and(|number| {
+            project
+                .kilpailijat
+                .iter()
+                .find(|driver| driver.numero == number)
+                .and_then(|driver| driver.tila.as_ref())
+                .is_some_and(|status| status.tunnus == "KESK")
+        })
+    });
+    let approvable = if interrupted {
+        selected_number.is_some_and(|number| ws.can_confirm_interruption(number))
+    } else {
+        snapshot.as_ref().is_some_and(|r| r.can_approve())
+            && ws.project().is_some_and(|p| {
+                selected_number.is_some_and(|number| {
+                    application::validate_project_result(p, number, snapshot.as_ref().unwrap())
+                        .is_ok()
+                })
             })
-        });
+    };
+    app.set_result_interrupted(interrupted);
     app.set_result_approvable(approvable);
     app.set_result_stored(stored.is_some());
     app.set_clock_pending(stored.is_some_and(|r| r.kasikellot_muuttuneet));
@@ -239,7 +280,7 @@ fn update_form(state: &State, app: &AppWindow) {
         } else if new {
             "Täytä tiedot ja valitse Lisää. Kilpailu tallentuu automaattisesti."
         } else {
-            "Hyväksy kenttä Enterillä tai siirtymällä seuraavaan. Muutos tallentuu automaattisesti."
+            "Automaattinen tallennus"
         }
         .into(),
     );
@@ -832,38 +873,122 @@ fn offer_excel_import(
     directory: Option<PathBuf>,
 ) -> GuiResult<()> {
     let summary = preview.summary();
-    if !preview.can_import() {
+    if !preview.has_importable_tracks() {
         confirmation(
             state,
             app,
             PendingAction::Notice,
             "Excel-tuonnin tarkistus",
             format!(
-                "{summary}\n\nTietoja ei voida vielä tuoda. Korjaa ilmoitetut kohdat alkuperäisessä työkirjassa."
+                "{summary}\n\n{}\n\nKorjaa tuonnin estävät kohdat työkirjassa.",
+                preview.issue_details()
             ),
         );
         app.set_confirm_acceptable(false);
-    } else if let Some(directory) = directory {
+    } else {
         let name = source
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("Tuotu kilpailu");
-        let project = preview.to_project(name)?;
-        let text = format!(
-            "Lähde: {}\n{summary}\n\nTallennetaan uutena kilpailuna: {}\nOlemassa olevaa kilpailutiedostoa ei korvata.",
-            source.display(),
-            directory.join(native::FILE_NAME).display()
-        );
+        app.set_import_name(name.into());
+        app.set_import_details(preview.issue_details().into());
+        app.set_import_only_tracks(false);
+        app.set_import_tab(0);
+        app.set_import_details_open(false);
+        app.set_import_error("".into());
+        app.set_import_location_open(false);
+        app.set_import_root(app.get_default_root());
+        app.set_import_classes(model(
+            preview
+                .kilpailijat
+                .iter()
+                .map(|d| d.tiedot.luokka.clone())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .map(SharedString::from)
+                .collect(),
+        ));
+        app.set_import_routes(model(
+            preview
+                .radat
+                .iter()
+                .map(|r| SharedString::from(r.luokka.as_str()))
+                .collect(),
+        ));
+        app.set_import_route_choices(model(
+            preview
+                .kilpailijat
+                .iter()
+                .map(|d| d.tiedot.luokka.clone())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .map(|code| {
+                    preview
+                        .route_for_class(&code)
+                        .and_then(|route| preview.radat.iter().position(|r| r.luokka == route))
+                        .map_or(-1, |index| index as i32)
+                })
+                .collect(),
+        ));
+        app.set_import_rows(model(
+            preview
+                .kilpailijat
+                .iter()
+                .map(|d| TableRow {
+                    key: d.tiedot.numero as i32,
+                    cells: model(vec![
+                        d.tiedot.numero.to_string().into(),
+                        d.tiedot.luokka.clone().into(),
+                        d.tiedot.kuljettaja.clone().into(),
+                        d.tiedot.kartanlukija.clone().into(),
+                        d.tiedot
+                            .emit_number()
+                            .map(|n| n.to_string())
+                            .unwrap_or_else(|| "Puuttuu".into())
+                            .into(),
+                        if d.tiedot.lahtoaika.is_empty() {
+                            "Puuttuu".into()
+                        } else {
+                            d.tiedot.lahtoaika.clone().into()
+                        },
+                    ]),
+                })
+                .collect(),
+        ));
+        app.set_import_station_rows(model(
+            preview
+                .radat
+                .iter()
+                .flat_map(|r| {
+                    r.asemat
+                        .iter()
+                        .enumerate()
+                        .map(move |(i, station)| TableRow {
+                            key: i as i32,
+                            cells: model(vec![
+                                r.luokka.clone().into(),
+                                (i + 1).to_string().into(),
+                                station.nimi.clone().into(),
+                                station.tyyppi.clone().into(),
+                                station.emit_koodi.to_string().into(),
+                                station.tavoiteaika_sekuntia.to_string().into(),
+                            ]),
+                        })
+                })
+                .collect(),
+        ));
         confirmation(
             state,
             app,
             PendingAction::Import {
-                project: Box::new(project),
+                preview: Box::new(preview.clone()),
                 directory,
             },
             "Tuo Excel-kilpailu",
-            text,
+            summary,
         );
+        app.set_import_open(true);
+        app.set_confirm_acceptable(preview.can_import());
     }
     Ok(())
 }
@@ -1171,6 +1296,37 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             return Ok(());
         }
         let number = selected_number(s)?;
+        let interrupted = current_workspace(s)?
+            .project()
+            .and_then(|project| {
+                project
+                    .kilpailijat
+                    .iter()
+                    .find(|driver| driver.numero == number)
+            })
+            .and_then(|driver| driver.tila.as_ref())
+            .filter(|status| status.tunnus == "KESK")
+            .map(|status| status.syy.clone());
+        if let Some(reason) = interrupted {
+            if !current_workspace(s)?.can_confirm_interruption(number) {
+                return Err(invalid(
+                    "Tarkista keskeytyksen syy kilpailijan tiedoista. Jo vahvistettua keskeytystä ei tarvitse vahvistaa uudelleen.",
+                ));
+            }
+            confirmation(
+                s,
+                &a,
+                PendingAction::ConfirmInterruption {
+                    number,
+                    reason: reason.clone(),
+                },
+                "Vahvista keskeytys",
+                format!(
+                    "Kilpailija {number} merkitään vahvistetusti keskeyttäneeksi.\n\nSyy: {reason}\n\nPäätös ei edellytä korttilukua tai maaliaikaa eikä muodosta kilpailijalle sijoitusta."
+                ),
+            );
+            return Ok(());
+        }
         current_workspace(s)?.approve_result(number)?;
         update_tables(s, &a)?;
         update_form(s, &a);
@@ -1191,14 +1347,44 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .pick_file()
         {
             let preview = as2026::excel_import::read(&path)?;
-            let directory = if preview.can_import() {
-                rfd::FileDialog::new()
-                    .set_title("Valitse uuden kilpailun kansio")
-                    .pick_folder()
+            offer_excel_import(s, &a, &path, &preview, None)?;
+        }
+        Ok(())
+    });
+    action!(on_import_class_route, |s, a, code, route| {
+        if let Some(PendingAction::Import { preview, .. }) = s.pending.as_mut() {
+            preview.set_class_route(&code, &route)?;
+            a.set_confirm_text(preview.summary().into());
+            a.set_confirm_acceptable(preview.can_import() || a.get_import_only_tracks());
+        }
+        Ok(())
+    });
+    action!(on_import_tracks_only, |s, a, only| {
+        a.set_import_only_tracks(only);
+        if let Some(PendingAction::Import { preview, .. }) = s.pending.as_ref() {
+            a.set_confirm_acceptable(if only {
+                preview.has_importable_tracks()
             } else {
-                None
-            };
-            offer_excel_import(s, &a, &path, &preview, directory)?;
+                preview.can_import()
+            });
+            a.set_confirm_text(
+                if only {
+                    preview.tracks_only().summary()
+                } else {
+                    preview.summary()
+                }
+                .into(),
+            );
+        }
+        Ok(())
+    });
+    action!(on_browse_import_root, |s, a| {
+        if matches!(s.pending, Some(PendingAction::Import { .. }))
+            && let Some(root) = rfd::FileDialog::new()
+                .set_title("Valitse kilpailukansioiden sijainti")
+                .pick_folder()
+        {
+            a.set_import_root(root.display().to_string().into());
         }
         Ok(())
     });
@@ -1245,7 +1431,11 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 };
                 DrawClassOption {
                     code: class.tunnus.clone().into(),
-                    label: format!("{label} ({count_label})").into(),
+                    label: format!(
+                        "{label} ({count_label}) · {} · {} min",
+                        class.lahtoaika, class.lahtovali_minuutteina
+                    )
+                    .into(),
                     selected: class.osallistuu_lahtoarvontaan,
                 }
             })
@@ -1344,7 +1534,48 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_confirm_action, |s, a, accepted| {
+        if accepted && a.get_import_open() && a.get_import_name().trim().is_empty() {
+            a.set_import_error("Anna kilpailun nimi.".into());
+            status(&a, "Anna kilpailun nimi.", true);
+            return Ok(());
+        }
+        // Esikatselu ja ratavalinnat säilyvät myös tallennusvirheen jälkeen.
+        if accepted && let Some(PendingAction::Import { preview, directory }) = s.pending.as_ref() {
+            let mut preview = preview.clone();
+            let directory = directory.clone();
+            if !can_switch(s, &a) {
+                return Ok(());
+            }
+            if a.get_import_only_tracks() {
+                *preview = preview.tracks_only();
+            }
+            let project = preview.to_project(&a.get_import_name())?;
+            let imported = if let Some(directory) = directory {
+                Workspace::create_imported(&directory, project)?
+            } else {
+                let preferences = s
+                    .preferences
+                    .as_ref()
+                    .ok_or_else(|| invalid("Tallennusasetukset puuttuvat"))?;
+                let root = if a.get_import_root().trim().is_empty() {
+                    preferences.competition_root().map_err(|e| invalid(&e))?
+                } else {
+                    PathBuf::from(a.get_import_root().as_str())
+                };
+                preferences
+                    .create_imported_in(project, &root)
+                    .map_err(|e| invalid(&e))?
+            };
+            let path = imported.path().to_owned();
+            open_workspace(s, &a, &path, false)?;
+            s.pending = None;
+            a.set_confirm_open(false);
+            a.set_import_open(false);
+            status(&a, "Excel-kilpailu tuotu ja tallennettu.", false);
+            return Ok(());
+        }
         a.set_confirm_open(false);
+        a.set_import_open(false);
         let Some(pending) = s.pending.take() else {
             return Ok(());
         };
@@ -1354,14 +1585,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     current_workspace(s)?.review_results(number)?;
                     "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
                 }
-                PendingAction::Import { project, directory } => {
-                    if !can_switch(s, &a) {
-                        return Ok(());
-                    }
-                    let imported = Workspace::create_imported(&directory, *project)?;
-                    let path = imported.path().to_owned();
-                    open_workspace(s, &a, &path, false)?;
-                    "Excel-kilpailu tuotu ja tallennettu."
+                PendingAction::ConfirmInterruption { number, reason } => {
+                    current_workspace(s)?.confirm_interruption(number, &reason)?;
+                    "Keskeytys ja sen syy vahvistettu ja tallennettu."
+                }
+                PendingAction::Import { .. } => {
+                    return Err(invalid("Avaa Excel-tuonnin esikatselu uudelleen"));
                 }
                 PendingAction::Notice => "Esikatselu suljettu.",
                 PendingAction::Draw(draw) => {
@@ -1650,7 +1879,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 40 } else { 24 } {
+        if current >= if keyboard_test { 45 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -1677,6 +1906,7 @@ fn capture_views(
                 }
                 32 => save_view(&app, &directory.join("10-kilpailu-valmis.png")).unwrap(),
                 33 => {
+                    app.set_competitor_details_open(true);
                     let scale = app.window().scale_factor();
                     let size = app.window().size();
                     app.window()
@@ -1711,6 +1941,29 @@ fn capture_views(
                     println!(
                         "GUI-luokkavalinnan näppäimistökoe hyväksytty: Tab, valintaruutu ja Esc."
                     );
+                }
+                38 => {
+                    app.invoke_navigate(0);
+                }
+                39 => {
+                    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("fixtures/excel-import/synteettinen.xlsx");
+                    let mut preview = as2026::excel_import::read(&source).unwrap();
+                    for driver in &mut preview.kilpailijat {
+                        driver.tiedot.emit = 0;
+                        driver.tiedot.lahtoaika.clear();
+                    }
+                    preview.kilpailijat[0].tiedot.luokka = "SM-A".into();
+                    offer_excel_import(&mut state.borrow_mut(), &app, &source, &preview, None)
+                        .unwrap();
+                }
+                40 => save_view(&app, &directory.join("13-excel-kilpailijat.png")).unwrap(),
+                41 => {
+                    app.set_import_tab(1);
+                }
+                42 => save_view(&app, &directory.join("14-excel-radat.png")).unwrap(),
+                43 => {
+                    app.invoke_confirm_action(false);
                 }
                 _ => {}
             }

@@ -1,4 +1,4 @@
-import { Button, LineEdit, Palette, AboutSlint, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, Palette, AboutSlint, ScrollView, ComboBox, CheckBox } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { TableRow, EditorField, ResultOverview, DrawClassOption } from "types.slint";
 import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton } from "components.slint";
@@ -39,6 +39,7 @@ export component AppWindow inherits Window {
     in-out property <int> detail-key: -1;
     in-out property <string> detail-title;
     in-out property <bool> editor-visible;
+    in-out property <bool> competitor-details-open;
     in-out property <bool> new-record;
     in-out property <bool> form-blocked;
     in-out property <string> editor-title;
@@ -53,6 +54,7 @@ export component AppWindow inherits Window {
     in-out property <string> read-notice;
     in-out property <bool> read-notice-visible;
     in-out property <string> calculation-notes;
+    in-out property <int> calculation-note-count;
     in-out property <ResultOverview> result-overview;
     in-out property <string> app-version;
     in-out property <string> default-root;
@@ -92,8 +94,29 @@ export component AppWindow inherits Window {
     callback select-detail(int);
     callback edit-result-competitor();
     callback import-excel();
+    in-out property <bool> import-open;
+    in-out property <string> import-name;
+    in-out property <string> import-details;
+    in-out property <string> import-error;
+    in-out property <string> import-root;
+    in-out property <bool> import-location-open;
+    callback browse-import-root();
+    in-out property <bool> import-details-open;
+    in-out property <bool> import-only-tracks;
+    in-out property <int> import-tab;
+    in-out property <[string]> import-classes;
+    in-out property <[string]> import-routes;
+    in-out property <[int]> import-route-choices;
+    in-out property <[TableRow]> import-rows;
+    in-out property <[TableRow]> import-station-rows;
+    callback import-class-route(string, string);
+    callback import-tracks-only(bool);
+    private property <bool> exports-open;
+    private property <bool> notes-open;
+    private property <int> extras-page: -1;
     callback approve-results();
     in-out property <bool> result-approvable: false;
+    in-out property <bool> result-interrupted: false;
     callback add-record();
     callback add-station();
     callback move-station(int);
@@ -254,7 +277,8 @@ export component AppWindow inherits Window {
                         Note { text: ["Kilpailun tiedot ja tärkeimmät työvaiheet yhdessä paikassa.", "Ilmoittautumiset, lähtöajat ja korttien kohdistus.", "Aseta kortti lukijaan. Tiedot kohdistuvat ja tallentuvat automaattisesti.", "Ajantasaiset tulokset ja kilpailijan asemakohtainen tarkastelu.", "Luokkien ratavalinnat ja lähtötiedot.", "Valitse rata ja tarkastele sen asemia järjestyksessä.", "Tallennuspaikka ja avoimen kilpailun asetukset."][root.page]; }
                     }
                     Rectangle { horizontal-stretch: 1; }
-                    if root.opened && root.page < 5: Button { height: Theme.control-height; text: "Päivitä tiedot"; enabled: !root.reader-running && !root.new-record && !root.form-blocked; clicked => { root.reload(); } }
+                    if root.opened && root.page < 5: Button { height: Theme.control-height; text: "Lisätoiminnot…"; clicked => { root.extras-page = root.extras-page == root.page ? -1 : root.page; } }
+                    if root.opened && root.page < 5 && root.extras-page == root.page: Button { height: Theme.control-height; text: "Päivitä tiedot"; enabled: !root.reader-running && !root.new-record && !root.form-blocked; clicked => { root.reload(); root.extras-page = -1; } }
                 }
                 if root.page == 0: ScrollView {
                     horizontal-stretch: 1;
@@ -262,6 +286,7 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                     horizontal-stretch: 1;
                     spacing: Theme.space-4;
+                    if root.opened: Button { height: Theme.control-height; text: "Tuo kilpailu Excelistä…"; enabled: !root.reader-running && !root.form-blocked && !root.new-record; clicked => { root.import-excel(); } }
                     if !root.opened: Rectangle {
                         height: 360px; vertical-stretch: 0;
                         horizontal-stretch: 1;
@@ -353,7 +378,7 @@ export component AppWindow inherits Window {
                         spacing: 12px;
                         Text { text: "Lukuhistoria"; color: Theme.ink; font-size: 15px; font-weight: 700; vertical-alignment: center; }
                         Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.success; font-size: 12px; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
-                        Button { height: Theme.control-height; text: "Lue kehystiedosto…"; enabled: root.editable && !root.reader-running; clicked => { root.import-frame(); } }
+                        if root.extras-page == root.page: Button { height: Theme.control-height; text: "Lue kehystiedosto…"; enabled: root.editable && !root.reader-running; clicked => { root.import-frame(); root.extras-page = -1; } }
                     }
                     DataTable { rows: root.rows; headers: root.headers; weights: root.weights; selected-key: root.selected-key; empty-text: "Tallennetut korttiluvut tulevat tähän."; selected(key) => { root.select-row(key); } }
                     if root.detail-rows.length > 0: VerticalLayout {
@@ -372,9 +397,10 @@ export component AppWindow inherits Window {
                         spacing: 12px;
                         search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla…" : root.page == 3 ? "Hae kilpailijaa tai luokkaa…" : "Hae luettelosta…"; edited => { root.filter-changed(self.text); } }
                         if root.page != 3: AccentButton { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); } }
-                        if root.page == 3: Button { height: Theme.control-height; text: "Vie XLSX…"; clicked => { root.export-xlsx(); } }
-                        if root.page == 3: Button { height: Theme.control-height; text: "Vie CSV…"; clicked => { root.export-csv(); } }
-                        if root.page == 3: Button { height: Theme.control-height; text: "Vie HTML-raportti…"; clicked => { root.export-report(); } }
+                        if root.page == 3: Button { height: Theme.control-height; text: "Vie…"; clicked => { root.exports-open = !root.exports-open; } }
+                        if root.page == 3 && root.exports-open: Button { height: Theme.control-height; text: "Excel"; clicked => { root.export-xlsx(); root.exports-open = false; } }
+                        if root.page == 3 && root.exports-open: Button { height: Theme.control-height; text: "CSV"; clicked => { root.export-csv(); root.exports-open = false; } }
+                        if root.page == 3 && root.exports-open: Button { height: Theme.control-height; text: "HTML"; clicked => { root.export-report(); root.exports-open = false; } }
                     }
                     if root.page == 1 || root.page == 4: HorizontalLayout {
                         spacing: Theme.space-2;
@@ -431,10 +457,13 @@ export component AppWindow inherits Window {
                                     data: root.result-overview;
                                     editable: root.editable;
                                     approvable: root.result-approvable && !root.form-blocked;
+                                    interrupted: root.result-interrupted;
                                     edit-competitor => { root.edit-result-competitor(); }
                                     approve => { root.approve-results(); }
                                 }
                                 if root.editor-visible: Editor {
+                                    details-open <=> root.competitor-details-open;
+                                    driver-layout: root.editor-title == "Kilpailijan tiedot";
                                     horizontal-stretch: 1;
                                     vertical-stretch: 0;
                                     fit-content: true;
@@ -447,6 +476,8 @@ export component AppWindow inherits Window {
                             }
                         }
                         if root.page != 3 && root.editor-visible: Editor {
+                            details-open <=> root.competitor-details-open;
+                            driver-layout: root.editor-title == "Kilpailijan tiedot";
                             preferred-width: 344px;
                             min-width: 280px;
                             max-width: 360px;
@@ -460,7 +491,8 @@ export component AppWindow inherits Window {
                     }
                     if root.page == 3: ScrollView {
                         min-height: 24px; preferred-height: 72px; max-height: 96px; vertical-stretch: 0;
-                        Note { text: root.calculation-notes; }
+                        if root.calculation-notes != "": Button { text: root.notes-open ? "Piilota tarkistettavat tiedot" : "Tarkistettavaa: " + root.calculation-note-count; clicked => { root.notes-open = !root.notes-open; } }
+                        if root.notes-open: Note { text: root.calculation-notes; }
                     }
                 }
                 // Radat ja asemat: route details remain in place when a
@@ -684,6 +716,7 @@ export component AppWindow inherits Window {
                 Note { text: "Sijainti: " + (root.new-path == "" ? root.default-root : root.new-path); }
                 dialog-location := Button { height: Theme.control-height; text: "Vaihda sijaintia"; clicked => { root.new-location-visible = true; root.browse-new-path(); } }
                 HorizontalLayout {
+                    spacing: Theme.space-2;
                     Rectangle { horizontal-stretch: 1; }
                     dialog-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.dialog-open = false; } }
                     dialog-create := AccentButton { height: Theme.control-height; text: "Luo kilpailu"; clicked => { root.create-project(root.new-path, root.new-name); } }
@@ -757,7 +790,7 @@ export component AppWindow inherits Window {
             init => { confirm-cancel.focus(); }
             capture-key-pressed(event) => {
                 if event.text == Key.Escape { root.confirm-action(false); return accept; }
-                if event.text == Key.Tab {
+                if event.text == Key.Tab && !root.import-open {
                     if !root.confirm-acceptable { confirm-cancel.focus(); }
                     else if confirm-cancel.has-focus { confirm-accept.focus(); }
                     else { confirm-cancel.focus(); }
@@ -766,17 +799,52 @@ export component AppWindow inherits Window {
                 reject
             }
             Rectangle {
-                width: min(600px, root.width - 24px); height: min(520px, root.height - 24px);
+                width: min(root.import-open ? 940px : 600px, root.width - 24px); height: min(root.import-open ? 760px : 520px, root.height - 24px);
                 x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                 VerticalLayout {
                     padding: Theme.space-6; spacing: Theme.space-4;
                     Heading { text: root.confirm-title; }
-                    ScrollView { vertical-stretch: 1; Note { text: root.confirm-text; } }
+                    if !root.import-open: ScrollView { vertical-stretch: 1; Note { text: root.confirm-text; } }
+                    if root.import-open: ScrollView {
+                        VerticalLayout {
+                            spacing: Theme.space-3;
+                            Note { text: root.confirm-text; }
+                            Text { text: "Kilpailun nimi"; color: Theme.ink; }
+                            LineEdit { text <=> root.import-name; placeholder-text: "Kilpailun nimi"; }
+                            if root.import-error != "": Text { text: root.import-error; color: Theme.danger; wrap: word-wrap; }
+                            Note { text: "Tallennetaan uutena kilpailuna oletuskansioon. Samannimisiä kilpailuja ei korvata."; }
+                            Button { text: root.import-location-open ? "Piilota tallennuspaikka" : "Tallennuspaikka…"; clicked => { root.import-location-open = !root.import-location-open; } }
+                            if root.import-location-open: HorizontalLayout {
+                                spacing: Theme.space-2;
+                                Note { text: root.import-root; horizontal-stretch: 1; }
+                                Button { text: "Vaihda sijaintia…"; clicked => { root.browse-import-root(); } }
+                            }
+                            CheckBox { text: "Tuo vain radat"; checked <=> root.import-only-tracks; toggled => { root.import-tracks-only(self.checked); } }
+                            if !root.import-only-tracks: VerticalLayout {
+                                spacing: Theme.space-2;
+                                Text { text: "Luokkien radat"; color: Theme.ink; font-weight: 600; }
+                                for code[index] in root.import-classes: HorizontalLayout {
+                                    spacing: Theme.space-3;
+                                    Text { text: code; color: Theme.ink; width: 160px; vertical-alignment: center; }
+                                    ComboBox { model: root.import-routes; current-index: root.import-route-choices[index]; selected(value) => { root.import-class-route(code, value); } }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: Theme.space-2;
+                                Button { text: "Kilpailijat"; clicked => { root.import-tab = 0; } }
+                                Button { text: "Radat ja asemat"; clicked => { root.import-tab = 1; } }
+                            }
+                            DataTable { height: 230px; rows: root.import-tab == 0 ? root.import-rows : root.import-station-rows; headers: root.import-tab == 0 ? ["Nro", "Luokka", "Kuljettaja", "Kartanlukija", "Emit", "Lähtö"] : ["Rata", "Järj.", "Asema", "Tyyppi", "Emit", "Tavoite, s"]; weights: [0.7, 1, 1.7, 1.7, 1, 1]; }
+                            if root.import-details != "": Button { text: root.import-details-open ? "Piilota huomautukset" : "Näytä huomautukset"; clicked => { root.import-details-open = !root.import-details-open; } }
+                            if root.import-details-open: Note { text: root.import-details; }
+                        }
+                    }
                     HorizontalLayout {
+                        spacing: Theme.space-2;
                         Rectangle { horizontal-stretch: 1; }
                         confirm-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.confirm-action(false); } }
-                        confirm-accept := AccentButton { height: Theme.control-height; text: "Hyväksy"; enabled: root.confirm-acceptable; clicked => { root.confirm-action(true); } }
+                        confirm-accept := AccentButton { height: Theme.control-height; text: root.import-open ? "Tuo kilpailu" : "Hyväksy"; enabled: root.confirm-acceptable; clicked => { root.confirm-action(true); } }
                     }
                 }
             }

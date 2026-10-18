@@ -8,7 +8,7 @@ fn competitor(id: usize, total: i64) -> CompetitorInput {
         route_code: "1".into(),
         status: Status::Classified,
         total_penalty: total,
-        start_hour: 10,
+        start_hour: Some(10),
         driver_licence: "12345".into(),
         navigator_licence: "67890".into(),
         tie_rows: None,
@@ -107,7 +107,7 @@ fn status_filtering_sentinels_and_starter_count_include_all_source_entries() {
         })
         .collect();
     entries[0].number = 0;
-    entries[1].start_hour = 0;
+    entries[1].start_hour = Some(0);
     let report = rank(&input(entries)).unwrap();
     let group = &report.groups[0];
     assert_eq!(group.entries.len(), 6);

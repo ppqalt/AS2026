@@ -250,6 +250,20 @@ fn imported_competition_reaches_approved_reopened_and_exported_results_without_d
         let checked = workspace.result_snapshot(number).unwrap().unwrap();
         assert_eq!(checked.tila, "TRK");
         assert!(checked.can_approve());
+        assert!(!checked.hyvaksytty);
+        let unpublished = workspace.ranking().unwrap();
+        assert!(unpublished.groups.iter().all(|group| {
+            group
+                .entries
+                .iter()
+                .all(|entry| entry.number != i64::from(number))
+        }));
+        assert!(unpublished.routes.iter().all(|route| {
+            route
+                .entries
+                .iter()
+                .all(|entry| entry.number != i64::from(number))
+        }));
         assert_eq!(checked.kesto_sekuntia, 1228);
         assert_eq!(
             checked

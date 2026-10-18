@@ -177,9 +177,12 @@ pub struct Driver {
     pub kuljettajan_seura: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kartanlukijan_seura: String,
+    /// Puuttuva kenttä on valmistelutieto, ei fyysinen kortti numero 0.
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub emit: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub auto: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub lahtoaika: String,
     #[serde(default)]
     pub emit_korjaus_sekuntia: i64,
@@ -190,9 +193,62 @@ pub struct Driver {
     /// Myös TRK ja KESK voidaan valita nimenomaisesti käsin.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tila: Option<ManualStatus>,
+    /// Toimitsijan erikseen vahvistama, perusteltu KESK-päätös.
+    /// Ei merkitse asemarivejä, maaliaikaa tai pisteitä lasketuiksi/hyväksytyiksi.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keskeytys_vahvistettu: bool,
     /// Tarkista tallentaa asemat; Tutki laskee tallennetuista käsikorjauksista.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tallennettu_tulos: Option<crate::corrections::StoredResult>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
+/// Vahvistettava syy on yksi ei-tyhjä tekstirivi. Keskeneräinen tyhjä
+/// syykenttä on sallittu kilpailijan muokkauksessa, mutta ei vahvistuksessa.
+pub fn validate_interruption_reason(reason: &str) -> Result<&str, CoreError> {
+    if reason.chars().any(char::is_control) {
+        return Err(invalid(
+            "Keskeytyksen syy ei saa sisältää rivinvaihtoja tai ohjausmerkkejä",
+        ));
+    }
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return Err(invalid("Anna keskeytyksen syy ennen vahvistamista"));
+    }
+    if reason.chars().any(char::is_control) {
+        return Err(invalid(
+            "Keskeytyksen syy ei saa sisältää rivinvaihtoja tai ohjausmerkkejä",
+        ));
+    }
+    Ok(reason)
+}
+impl Driver {
+    pub fn emit_number(&self) -> Option<u32> {
+        (self.emit != 0).then_some(self.emit)
+    }
+
+    pub fn start_clock(&self) -> Result<Option<crate::ClockTime>, CoreError> {
+        if self.lahtoaika.trim().is_empty() {
+            Ok(None)
+        } else {
+            parse_clock(&self.lahtoaika).map(Some)
+        }
+    }
+    pub fn can_confirm_interruption(&self) -> bool {
+        self.tila.as_ref().is_some_and(|status| {
+            status.tunnus == "KESK" && validate_interruption_reason(&status.syy).is_ok()
+        })
+    }
+    pub fn has_confirmed_interruption(&self) -> bool {
+        self.keskeytys_vahvistettu && self.can_confirm_interruption()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -467,7 +523,10 @@ impl Project {
             if driver.numero == 0 || !numbers.insert(driver.numero) {
                 return Err(invalid("Kilpailijan numero puuttuu tai toistuu"));
             }
-            if driver.emit == 0 || !emit_cards.insert(driver.emit) {
+            if driver
+                .emit_number()
+                .is_some_and(|card| !emit_cards.insert(card))
+            {
                 return Err(invalid(format!(
                     "Kilpailijan {} Emit-kortin numero puuttuu tai on käytössä",
                     driver.numero
@@ -483,11 +542,18 @@ impl Project {
             if let Some(status) = &driver.tila {
                 status.validate()?;
             }
-            let time = parse_clock(&driver.lahtoaika)?;
+            if driver.keskeytys_vahvistettu && !driver.has_confirmed_interruption() {
+                return Err(invalid(
+                    "Vahvistettu keskeytys edellyttää KESK-tilaa ja keskeytyksen syytä",
+                ));
+            }
+            let time = driver.start_clock()?;
             let mut fields = vec!["0".to_owned(); 31];
             fields[0] = driver.numero.to_string();
             fields[1] = driver.luokka.trim().to_owned();
-            fields[2] = driver.emit.to_string();
+            fields[2] = driver
+                .emit_number()
+                .map_or_else(String::new, |card| card.to_string());
             fields[3] = driver.kuljettaja.clone();
             fields[4] = driver.kartanlukija.clone();
             fields[5] = driver.kuljettajan_lisenssi.clone();
@@ -495,9 +561,9 @@ impl Project {
             fields[7] = driver.kuljettajan_seura.clone();
             fields[8] = driver.kartanlukijan_seura.clone();
             fields[9] = driver.auto.clone();
-            fields[10] = time.hour.to_string();
-            fields[11] = time.minute.to_string();
-            fields[12] = time.second.to_string();
+            fields[10] = time.map_or_else(String::new, |time| time.hour.to_string());
+            fields[11] = time.map_or_else(String::new, |time| time.minute.to_string());
+            fields[12] = time.map_or_else(String::new, |time| time.second.to_string());
             fields[21] = driver.lisavirheet.puuttuvat_rt_kpl.to_string();
             fields[22] = driver.lisavirheet.puuttuvat_rt_pisteet.to_string();
             fields[23] = driver.lisavirheet.ylimaaraiset_rt_kpl.to_string();
@@ -593,6 +659,7 @@ impl Project {
             combined_classes,
         };
         let archive = Archive {
+            result_publication: Some(BTreeMap::new()),
             documents,
             parameters: params,
             basic,

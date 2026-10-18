@@ -324,3 +324,66 @@ impl StoredResult {
         Ok(())
     }
 }
+
+/// Samat laskennan lähtötietomuutokset mitätöivät hyväksynnän sekä lomakkeissa
+/// että muutostiedostossa. Pelkät sijoitusasetukset eivät muuta asemalaskentaa.
+pub(crate) fn invalidate_input_changes(
+    before: &crate::native::Project,
+    after: &mut crate::native::Project,
+) {
+    let global_timing_changed = before.kilpailu.ajanottotapa != after.kilpailu.ajanottotapa
+        || before.virhepisteet != after.virhepisteet;
+    for driver in &mut after.kilpailijat {
+        let Some(old) = before
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == driver.numero)
+            .or_else(|| before.kilpailijat.iter().find(|d| d.emit == driver.emit))
+        else {
+            continue;
+        };
+        // Snapshotissa ei ole uuden kortin todistetta. Uusi kortti luetaan ja
+        // kohdistetaan erikseen; aiempaa kortinhistoriaa ei poisteta.
+        if driver.emit != old.emit {
+            driver.tallennettu_tulos = None;
+            continue;
+        }
+        let old_class = before
+            .luokat
+            .iter()
+            .find(|c| c.tunnus.trim() == old.luokka.trim());
+        let new_class = after
+            .luokat
+            .iter()
+            .find(|c| c.tunnus.trim() == driver.luokka.trim());
+        let class_timing_changed = match (old_class, new_class) {
+            (Some(old_class), Some(new_class)) => {
+                old_class.myohastymisraja_minuutteina != new_class.myohastymisraja_minuutteina
+                    || old_class.rata != new_class.rata
+                    || before
+                        .radat
+                        .iter()
+                        .find(|r| r.numero == old_class.rata)
+                        .map(|r| &r.asemat)
+                        != after
+                            .radat
+                            .iter()
+                            .find(|r| r.numero == new_class.rata)
+                            .map(|r| &r.asemat)
+            }
+            _ => true,
+        };
+        let timing_changed = global_timing_changed
+            || class_timing_changed
+            || old.lahtoaika != driver.lahtoaika
+            || old.emit_korjaus_sekuntia != driver.emit_korjaus_sekuntia;
+        if let Some(result) = &mut driver.tallennettu_tulos {
+            if timing_changed {
+                result.hyvaksytty = false;
+                result.kasikellot_muuttuneet = true;
+            } else if old.lisavirheet != driver.lisavirheet || old.tila != driver.tila {
+                result.hyvaksytty = false;
+            }
+        }
+    }
+}

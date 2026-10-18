@@ -2,7 +2,10 @@
 //! Pohjautuu käyttäjän AS2026-RATA-KILP-prototype.zip-paketin kenttäkarttaan.
 use crate::{CoreError, native};
 use calamine::{Data, Range, Reader, open_workbook_auto};
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashSet},
+    path::Path,
+};
 
 const MAX_ROWS: u32 = 10_000;
 const MAX_COLUMNS: u32 = 200;
@@ -34,8 +37,60 @@ pub struct ImportPreview {
     pub radat: Vec<ImportedTrack>,
     pub kilpailijat: Vec<ImportedDriver>,
     pub huomautukset: Vec<ImportIssue>,
+    pub luokkien_radat: BTreeMap<String, String>,
 }
 impl ImportPreview {
+    pub fn unresolved_classes(&self) -> Vec<String> {
+        self.kilpailijat
+            .iter()
+            .map(|d| d.tiedot.luokka.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .filter(|code| self.route_for_class(code).is_none())
+            .collect()
+    }
+    pub fn route_for_class(&self, code: &str) -> Option<&str> {
+        self.luokkien_radat
+            .get(code)
+            .map(String::as_str)
+            .or_else(|| {
+                self.radat
+                    .iter()
+                    .find(|r| r.luokka == code)
+                    .map(|r| r.luokka.as_str())
+            })
+    }
+    pub fn set_class_route(&mut self, code: &str, route: &str) -> Result<(), CoreError> {
+        if !self.kilpailijat.iter().any(|d| d.tiedot.luokka == code)
+            && !self.radat.iter().any(|r| r.luokka == code)
+        {
+            return Err(invalid("Luokkaa ei löydy tuontiaineistosta"));
+        }
+        if !self.radat.iter().any(|r| r.luokka == route) {
+            return Err(invalid("Valitse tuotava rata"));
+        }
+        self.luokkien_radat.insert(code.into(), route.into());
+        Ok(())
+    }
+    pub fn has_importable_data(&self) -> bool {
+        !self.radat.is_empty() && !self.huomautukset.iter().any(|issue| issue.estaa_tuonnin)
+    }
+    pub fn has_importable_tracks(&self) -> bool {
+        !self.radat.is_empty()
+            && !self
+                .huomautukset
+                .iter()
+                .any(|issue| issue.estaa_tuonnin && !issue.sijainti.starts_with("KILP"))
+    }
+    pub fn tracks_only(&self) -> Self {
+        let mut preview = self.clone();
+        preview.kilpailijat.clear();
+        preview.luokkien_radat.clear();
+        preview
+            .huomautukset
+            .retain(|issue| !issue.sijainti.starts_with("KILP"));
+        preview
+    }
     fn issue(&mut self, blocking: bool, location: impl Into<String>, message: impl Into<String>) {
         self.huomautukset.push(ImportIssue {
             estaa_tuonnin: blocking,
@@ -44,43 +99,51 @@ impl ImportPreview {
         });
     }
     pub fn can_import(&self) -> bool {
-        !self.radat.is_empty() && !self.huomautukset.iter().any(|issue| issue.estaa_tuonnin)
+        self.has_importable_data() && self.unresolved_classes().is_empty()
     }
     pub fn summary(&self) -> String {
         let stations: usize = self.radat.iter().map(|track| track.asemat.len()).sum();
         let mut text = format!(
-            "Tuotavat tiedot: {} luokkaa ja rataa, {stations} asemaa, {} kilpailijaparia.\n",
-            self.radat.len(),
-            self.kilpailijat.len()
+            "{} kilpailijaparia · {} rataa · {stations} asemaa",
+            self.kilpailijat.len(),
+            self.radat.len()
         );
-        for track in &self.radat {
+        let cards = self
+            .kilpailijat
+            .iter()
+            .filter(|d| d.tiedot.emit_number().is_none())
+            .count();
+        let starts = self
+            .kilpailijat
+            .iter()
+            .filter(|d| d.tiedot.lahtoaika.is_empty())
+            .count();
+        if cards + starts > 0 {
             text.push_str(&format!(
-                "Luokka {}: {} asemaa, {} kilpailijaparia.\n",
-                track.luokka,
-                track.asemat.len(),
-                self.kilpailijat
-                    .iter()
-                    .filter(|driver| driver.tiedot.luokka == track.luokka)
-                    .count()
+                "\nTäydennettävää: {cards} Emit-numeroa, {starts} lähtöaikaa."
             ));
         }
-        text.push_str("\nVain RATA- ja KILP-välilehtien tunnistetut tiedot tuodaan. Työkirjaa ei muuteta. Kilpailun asetuksissa käytetään AS2026:n oletuksia. Luokat eivät osallistu lähtöarvontaan ennen erillistä valintaa.\n");
-        for issue in &self.huomautukset {
+        let unresolved = self.unresolved_classes();
+        if !unresolved.is_empty() {
             text.push_str(&format!(
-                "\n{}{}: {}",
-                if issue.estaa_tuonnin {
-                    "Tuonnin este — "
-                } else {
-                    "Huomautus — "
-                },
-                issue.sijainti,
-                issue.viesti
+                "\nValitse rata luokille: {}.",
+                unresolved.join(", ")
             ));
         }
-        if !self.can_import() {
-            text.push_str("\n\nTuontia ei voi vahvistaa. Tarkista lähdetyökirjan tiedot.");
+        if !self.huomautukset.is_empty() {
+            text.push_str(&format!(
+                "\nTarkistettavaa: {} kohtaa.",
+                self.huomautukset.len()
+            ));
         }
         text
+    }
+    pub fn issue_details(&self) -> String {
+        self.huomautukset
+            .iter()
+            .map(|i| format!("{}: {}", i.sijainti, i.viesti))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
     pub fn to_project(&self, name: &str) -> Result<native::Project, CoreError> {
         if !self.can_import() {
@@ -116,6 +179,38 @@ impl ImportPreview {
                 sarjapistetapa: 0,
                 osallistuu_lahtoarvontaan: false,
             });
+        }
+        for code in self
+            .kilpailijat
+            .iter()
+            .map(|d| d.tiedot.luokka.clone())
+            .collect::<BTreeSet<_>>()
+        {
+            let route = self
+                .route_for_class(&code)
+                .ok_or_else(|| invalid("Luokan ratavalinta puuttuu"))?;
+            let number = self
+                .radat
+                .iter()
+                .position(|r| r.luokka == route)
+                .ok_or_else(|| invalid("Rataa ei löydy"))? as u32
+                + 1;
+            if let Some(class) = project.luokat.iter_mut().find(|c| c.tunnus == code) {
+                class.rata = number;
+            } else {
+                let mut class = project.luokat[0].clone();
+                class.tunnus = code.clone();
+                class.nimi = code.clone();
+                class.rata = number;
+                class.ensimmainen_numero = self
+                    .kilpailijat
+                    .iter()
+                    .filter(|d| d.tiedot.luokka == code)
+                    .map(|d| d.tiedot.numero)
+                    .min()
+                    .unwrap_or(1);
+                project.luokat.push(class);
+            }
         }
         project.kilpailijat = self
             .kilpailijat
@@ -224,6 +319,27 @@ fn time_text(seconds: u32) -> Result<String, String> {
     ))
 }
 fn clock(value: &Data, minutes: &Data) -> Result<String, String> {
+    if empty(value) && empty(minutes) {
+        return Ok(String::new());
+    }
+    let excel = match value {
+        Data::DateTime(v) => Some(v.as_f64()),
+        Data::Float(v) if *v > 0.0 && *v < 1.0 => Some(*v),
+        _ => None,
+    };
+    if let Some(days) = excel {
+        if !days.is_finite() || !(0.0..1.0).contains(&days) {
+            return Err("Excel-kellonaika ei ole kelvollinen".into());
+        }
+        let seconds = (days * 86400.0).round() as u32;
+        if !empty(minutes) {
+            let m = integer(minutes)?.ok_or("Lähtöminuutti puuttuu")?;
+            if m != 0 && m != (seconds / 60) % 60 {
+                return Err("Lähtöajan D- ja E-solut ovat ristiriidassa".into());
+            }
+        }
+        return time_text(seconds);
+    }
     if !empty(minutes) {
         let hour = integer(value)?.ok_or("Lähtötunti puuttuu")?;
         let minute = integer(minutes)?.ok_or("Lähtöminuutti puuttuu")?;
@@ -375,6 +491,12 @@ pub fn preview_sheets(
         }
         groups += 1;
         let code = text(&cell(track, 0, column + 1)).unwrap_or_default();
+        if code.is_empty()
+            && !(3..=track.end().map_or(0, |(row, _)| row))
+                .any(|row| (0..5).any(|offset| !empty(&cell(track, row, column + offset))))
+        {
+            continue;
+        }
         let location = format!("RATA {}1", column_name(column));
         if code.is_empty() || !classes.insert(code.clone()) {
             preview.issue(true, location, "Luokan tunnus puuttuu tai esiintyy useasti");
@@ -517,14 +639,14 @@ pub fn preview_sheets(
             let number = integer(&cell(drivers, row, 0))?
                 .filter(|number| *number > 0)
                 .ok_or("Kilpailijan numero puuttuu tai on virheellinen")?;
-            let card = integer(&cell(drivers, row, 2))?
-                .filter(|number| *number > 0)
-                .ok_or("Emit-numero puuttuu tai on virheellinen")?;
+            let card = match integer(&cell(drivers, row, 2))? {
+                None => 0,
+                Some(0) => return Err("Emit-numero ei voi olla 0".into()),
+                Some(card) => card,
+            };
             let class = text(&cell(drivers, row, 1))?;
-            if !preview.radat.iter().any(|track| track.luokka == class) {
-                return Err(format!(
-                    "Luokalle {class:?} ei ole kelvollista rataa; kilpailijaa ei tuoda"
-                ));
+            if class.is_empty() {
+                return Err("Luokka puuttuu".into());
             }
             let driver = text(&cell(drivers, row, 5))?;
             if driver.is_empty() {
@@ -545,13 +667,14 @@ pub fn preview_sheets(
                 emit_korjaus_sekuntia: 0,
                 lisavirheet: native::AdditionalPenalties::default(),
                 tila: None,
+                keskeytys_vahvistettu: false,
                 tallennettu_tulos: None,
             })
         })();
         match parsed {
             Ok(driver) => {
                 let duplicate_number = !numbers.insert(driver.numero);
-                let duplicate_card = !cards.insert(driver.emit);
+                let duplicate_card = driver.emit_number().is_some_and(|card| !cards.insert(card));
                 if duplicate_number || duplicate_card {
                     preview.issue(true, location, "Kilpailijan numero tai Emit-numero esiintyy useasti; korjaa tunnisteet ennen tuontia");
                 } else {

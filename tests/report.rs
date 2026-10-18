@@ -44,6 +44,7 @@ fn archive() -> Archive {
             results: Vec::new(),
         }],
         warnings: vec![IMPORTED.into()],
+        result_publication: None,
     }
 }
 
@@ -61,7 +62,7 @@ fn ranked(archive: &Archive) -> ranking::RankingReport {
             route_code: IMPORTED.into(),
             status: Status::from_legacy(&archive.competitors[0].status),
             total_penalty: archive.competitors[0].total_penalties,
-            start_hour: 10,
+            start_hour: Some(10),
             driver_licence: "123".into(),
             navigator_licence: "456".into(),
             tie_rows: None,

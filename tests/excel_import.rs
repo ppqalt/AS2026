@@ -69,28 +69,40 @@ fn both_excel_formats_import_only_the_two_supported_sheets_without_modifying_the
 }
 
 #[test]
-fn invalid_competitor_rows_are_explained_and_all_valid_rows_are_retained() {
+fn incomplete_competitors_are_retained_and_unknown_classes_require_explicit_mapping() {
     let (track, mut drivers) = sheets();
     drivers.set_value((1, 2), Data::Empty);
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import());
-    assert_eq!(preview.kilpailijat.len(), 1);
-    assert_eq!(preview.kilpailijat[0].tiedot.numero, 2);
-    assert!(preview.summary().contains("KILP rivi 2"));
-    assert!(preview.summary().contains("Emit-numero puuttuu"));
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert_eq!(preview.kilpailijat[0].tiedot.emit_number(), None);
+    assert!(preview.summary().contains("1 Emit-numeroa"));
     assert_eq!(
         preview
             .to_project("Vain kelvolliset")
             .unwrap()
             .kilpailijat
             .len(),
-        1
+        2
     );
 
     drivers.set_value((2, 1), Data::String("Tuntematon".into()));
-    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
-    assert!(preview.kilpailijat.is_empty());
-    assert!(preview.summary().contains("ei ole kelvollista rataa"));
+    let mut preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert!(!preview.can_import());
+    assert_eq!(preview.unresolved_classes(), ["Tuntematon"]);
+    assert!(preview.to_project("Ei arvata").is_err());
+    preview.set_class_route("Tuntematon", "B").unwrap();
+    let project = preview.to_project("Valittu rata").unwrap();
+    assert_eq!(
+        project
+            .luokat
+            .iter()
+            .find(|c| c.tunnus == "Tuntematon")
+            .unwrap()
+            .rata,
+        2
+    );
 }
 
 #[test]
@@ -98,13 +110,17 @@ fn unknown_station_does_not_create_an_incomplete_or_guessed_route() {
     let (mut track, drivers) = sheets();
     track.set_value((4, 1), Data::String("Tuntematon piste".into()));
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
-    assert!(preview.can_import());
+    assert!(!preview.can_import());
     assert_eq!(preview.radat.len(), 1);
     assert_eq!(preview.radat[0].luokka, "B");
-    assert_eq!(preview.kilpailijat.len(), 1);
-    assert_eq!(preview.kilpailijat[0].tiedot.luokka, "B");
-    assert!(preview.summary().contains("Asematyyppiä ei tunnisteta"));
-    assert_eq!(preview.to_project("Rata B").unwrap().luokat[0].tunnus, "B");
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert_eq!(preview.unresolved_classes(), ["C"]);
+    assert!(
+        preview
+            .issue_details()
+            .contains("Asematyyppiä ei tunnisteta")
+    );
+    assert!(preview.to_project("Ei arvata rataa").is_err());
 }
 
 #[test]
@@ -116,7 +132,7 @@ fn duplicate_competitor_or_emit_identifiers_block_confirmation() {
         assert!(!preview.can_import());
         assert!(preview.huomautukset.iter().any(|issue| issue.estaa_tuonnin));
         assert!(preview.to_project("Ei tallenneta").is_err());
-        assert!(preview.summary().contains("esiintyy useasti"));
+        assert!(preview.issue_details().contains("esiintyy useasti"));
     }
 }
 
@@ -130,7 +146,7 @@ fn duplicate_class_codes_and_wrong_headers_are_never_guessed() {
     drivers.set_value((0, 2), Data::String("Muu numero".into()));
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(!preview.can_import());
-    assert!(preview.summary().contains("otsikot"));
+    assert!(preview.issue_details().contains("otsikot"));
 }
 
 #[test]
@@ -193,7 +209,6 @@ fn actual_empty_as2014a_template_is_diagnosed_without_importing_example_or_macro
     assert!(preview.radat.is_empty());
     assert!(preview.kilpailijat.is_empty());
     assert!(!preview.can_import());
-    assert!(preview.summary().contains("rata on tyhjä"));
-    assert!(preview.summary().contains("Emit-numero puuttuu"));
+    assert!(preview.issue_details().contains("rata on tyhjä"));
     assert_eq!(std::fs::read(path).unwrap(), before);
 }

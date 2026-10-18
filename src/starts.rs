@@ -180,8 +180,16 @@ fn sorted_drivers(project: &Project) -> Result<Vec<&crate::native::Driver>, Core
                 .enumerate()
                 .find(|(_, (code, _))| *code == driver.luokka.trim())
                 .ok_or_else(|| invalid("Kilpailijan luokkaa ei löydy"))?;
-            let clock = parse_clock(&driver.lahtoaika)?.seconds_since_midnight()?;
-            Ok((class_index, (clock - first).rem_euclid(86_400), driver))
+            let offset = driver
+                .start_clock()?
+                .map(|clock| {
+                    clock
+                        .seconds_since_midnight()
+                        .map(|clock| (clock - first).rem_euclid(86_400))
+                })
+                .transpose()?
+                .unwrap_or(86_400);
+            Ok((class_index, offset, driver))
         })
         .collect::<Result<Vec<_>, CoreError>>()?;
     rows.sort_by_key(|(class, offset, driver)| (*class, *offset, driver.numero));
@@ -207,13 +215,13 @@ pub fn start_list_html(project: &Project) -> Result<String, CoreError> {
     for driver in rows {
         html.push_str(&format!(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            clock_text(parse_clock(&driver.lahtoaika)?),
+            driver.start_clock()?.map(clock_text).unwrap_or_else(|| "—".into()),
             driver.numero,
             escape(&driver.luokka),
             escape(&driver.kuljettaja),
             escape(&driver.kartanlukija),
             escape(&driver.auto),
-            driver.emit,
+            driver.emit_number().map(|n| n.to_string()).unwrap_or_default(),
             driver.tila.as_ref().map_or("ILM", |status| status.tunnus.as_str()),
         ));
     }
@@ -234,13 +242,16 @@ pub fn start_list_csv(project: &Project) -> Result<String, CoreError> {
     let mut csv = "\"Lähtöaika\";\"Nro\";\"Luokka\";\"Kuljettaja\";\"Kartanlukija\";\"Auto\";\"Emit\";\"Tila\"\r\n".to_owned();
     for driver in sorted_drivers(project)? {
         let cells = [
-            clock_text(parse_clock(&driver.lahtoaika)?),
+            driver.start_clock()?.map(clock_text).unwrap_or_default(),
             driver.numero.to_string(),
             driver.luokka.clone(),
             driver.kuljettaja.clone(),
             driver.kartanlukija.clone(),
             driver.auto.clone(),
-            driver.emit.to_string(),
+            driver
+                .emit_number()
+                .map(|n| n.to_string())
+                .unwrap_or_default(),
             driver
                 .tila
                 .as_ref()
