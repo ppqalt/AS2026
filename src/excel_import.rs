@@ -381,7 +381,7 @@ pub fn preview_sheets(
     let mut preview = ImportPreview::default();
     let mut classes = HashSet::new();
     let mut groups = 0;
-    for column in (0..MAX_COLUMNS).step_by(5) {
+    for column in 0..MAX_COLUMNS {
         if text(&cell(track, 0, column))
             .unwrap_or_default()
             .to_lowercase()
@@ -392,16 +392,23 @@ pub fn preview_sheets(
         groups += 1;
         let code = text(&cell(track, 0, column + 1)).unwrap_or_default();
         let location = format!("RATA {}1", column_name(column));
-        if code.is_empty() || !classes.insert(code.clone()) {
-            preview.issue(true, location, "Luokan tunnus puuttuu tai esiintyy useasti");
+        if code.is_empty() {
+            // AS2014A:n tyhjä neljäs Luokka-lohko ei estä tuontia.
+            if (3..=track.end().map_or(0, |(row, _)| row)).any(|row| {
+                !empty(&cell(track, row, column)) || !empty(&cell(track, row, column + 1))
+            }) {
+                preview.issue(false, location, "Luokan tunnus puuttuu; keskeneräinen ratalohko ohitettiin");
+            }
+            continue;
+        }
+        if !classes.insert(code.clone()) {
+            preview.issue(true, location, "Luokan tunnus esiintyy useasti");
             continue;
         }
         let headings = [
             (0, &["emit no"][..]),
             (1, &["asemanimi"][..]),
             (2, &["ihanneaika", "ihannea"][..]),
-            (3, &["kdi"][..]),
-            (4, &["jakso"][..]),
         ];
         if headings.iter().any(|(offset, expected)| {
             !expected.contains(
@@ -493,71 +500,84 @@ pub fn preview_sheets(
         }
     }
     if groups == 0 {
-        preview.issue(true, "RATA", "Ryhmiteltyjä Luokka-otsikoita ei löytynyt");
+        preview.issue(false, "RATA", "Ratoja ei löytynyt. Puuttuvat radat pitää täydentää ennen tuloslaskentaa.");
     }
-    let headings = [
-        (0, "nro"),
-        (1, "lka"),
-        (2, "emit"),
-        (3, "l-aika"),
-        (5, "kuski"),
-        (6, "seura"),
-        (7, "kartturi"),
-        (8, "seura"),
-        (9, "auto"),
-    ];
-    if headings.iter().any(|(column, expected)| {
-        text(&cell(drivers, 0, *column))
-            .unwrap_or_default()
-            .to_lowercase()
-            != *expected
-    }) {
-        preview.issue(
-            true,
-            "KILP A1:J1",
-            "Kilpailijataulukon otsikot eivät vastaa KILP-pohjaa",
-        );
+    // Otsikot tunnistetaan nimen perusteella, eivät kiinteistä sarakkeista.
+    let mut header = None;
+    for row in 0..=drivers.end().map_or(0, |(row, _)| row).min(9) {
+        let headings = (0..=drivers.end().map_or(0, |(_, col)| col))
+            .map(|col| text(&cell(drivers, row, col)).unwrap_or_default().to_lowercase())
+            .collect::<Vec<_>>();
+        if headings.iter().any(|h| matches!(h.as_str(), "nro" | "numero")) {
+            header = Some((row, headings));
+            break;
+        }
+    }
+    let Some((header_row, headings)) = header else {
+        if drivers.rows().any(|row| row.iter().any(|value| !empty(value))) {
+            preview.issue(true, "KILP", "Kilpailijataulukon nro-otsikkoa ei löytynyt");
+        } else {
+            preview.issue(false, "KILP", "Kilpailijoita ei löytynyt");
+        }
+        return Ok(preview);
+    };
+    let find = |aliases: &[&str]| -> Option<u32> {
+        headings.iter().position(|value| aliases.contains(&value.as_str())).map(|index| index as u32)
+    };
+    let num_col = find(&["nro", "numero"]);
+    let class_col = find(&["lka", "luokka"]);
+    let driver_col = find(&["kuski", "kuljettaja"]);
+    let emit_col = find(&["emit", "emit no", "emit numero", "emit-nro"]);
+    let time_col = find(&["l-aika", "lähtöaika", "lahtoaika"]);
+    let minute_col = time_col.filter(|index| {
+        headings.get((*index + 1) as usize).is_some_and(|h| h.is_empty() || h == "min")
+    }).map(|index| index + 1);
+    let navigator_col = find(&["kartturi", "kartanlukija"]);
+    let car_col = find(&["auto", "ajoneuvo"]);
+    let club_cols = headings.iter().enumerate()
+        .filter(|(_, h)| h.as_str() == "seura")
+        .map(|(i, _)| i as u32).collect::<Vec<_>>();
+    if num_col.is_none() || class_col.is_none() || driver_col.is_none() {
+        preview.issue(true, "KILP", "Kilpailijataulukosta puuttuu nro-, Lka- tai Kuski-otsikko");
         return Ok(preview);
     }
+    let field = |row, col: Option<u32>| -> Data {
+        col.map_or(Data::Empty, |index| cell(drivers, row, index))
+    };
     let mut numbers = HashSet::new();
-    let mut cards = HashSet::new();
-    for row in 1..=drivers.end().map_or(0, |(row, _)| row) {
-        if empty(&cell(drivers, row, 0))
-            && empty(&cell(drivers, row, 2))
-            && empty(&cell(drivers, row, 5))
-        {
+    let mut cards: BTreeMap<u32, usize> = BTreeMap::new();
+    for row in header_row + 1..=drivers.end().map_or(0, |(row, _)| row) {
+        if empty(&field(row, num_col)) && empty(&field(row, driver_col)) {
             continue;
         }
         let location = format!("KILP rivi {}", row + 1);
         let parsed = (|| -> Result<native::Driver, String> {
-            let number = integer(&cell(drivers, row, 0))?
-                .filter(|number| *number > 0)
+            let number = integer(&field(row, num_col))?.filter(|value| *value > 0)
                 .ok_or("Kilpailijan numero puuttuu tai on virheellinen")?;
-            let card = integer(&cell(drivers, row, 2))?
-                .filter(|number| *number > 0)
-                .ok_or("Emit-numero puuttuu tai on virheellinen")?;
-            let class = text(&cell(drivers, row, 1))?;
-            if !preview.radat.iter().any(|track| track.luokka == class) {
-                return Err(format!(
-                    "Luokalle {class:?} ei ole kelvollista rataa; kilpailijaa ei tuoda"
-                ));
+            let class = text(&field(row, class_col))?;
+            if class.is_empty() {
+                return Err("Kilpailijan luokka puuttuu".into());
             }
-            let driver = text(&cell(drivers, row, 5))?;
-            if driver.is_empty() {
+            let name = text(&field(row, driver_col))?;
+            if name.is_empty() {
                 return Err("Kuljettajan nimi puuttuu".into());
             }
+            let card = integer(&field(row, emit_col))?.unwrap_or(0);
+            let time = if empty(&field(row, time_col)) && empty(&field(row, minute_col)) {
+                String::new()
+            } else {
+                clock(&field(row, time_col), &field(row, minute_col))?
+            };
             Ok(native::Driver {
-                numero: number,
-                luokka: class,
-                emit: card,
-                kuljettaja: driver,
-                kartanlukija: text(&cell(drivers, row, 7))?,
-                kuljettajan_seura: text(&cell(drivers, row, 6))?,
-                kartanlukijan_seura: text(&cell(drivers, row, 8))?,
+                numero: number, luokka: class, emit: card,
+                kuljettaja: name,
+                kartanlukija: text(&field(row, navigator_col))?,
+                kuljettajan_seura: text(&field(row, club_cols.first().copied()))?,
+                kartanlukijan_seura: text(&field(row, club_cols.get(1).copied()))?,
                 kuljettajan_lisenssi: String::new(),
                 kartanlukijan_lisenssi: String::new(),
-                auto: text(&cell(drivers, row, 9))?,
-                lahtoaika: clock(&cell(drivers, row, 3), &cell(drivers, row, 4))?,
+                auto: text(&field(row, car_col))?,
+                lahtoaika: time,
                 emit_korjaus_sekuntia: 0,
                 lisavirheet: native::AdditionalPenalties::default(),
                 tila: None,
@@ -567,18 +587,46 @@ pub fn preview_sheets(
         })();
         match parsed {
             Ok(driver) => {
-                let duplicate_number = !numbers.insert(driver.numero);
-                let duplicate_card = !cards.insert(driver.emit);
-                if duplicate_number || duplicate_card {
-                    preview.issue(true, location, "Kilpailijan numero tai Emit-numero esiintyy useasti; korjaa tunnisteet ennen tuontia");
-                } else {
-                    preview.kilpailijat.push(ImportedDriver {
-                        alkuperainen_rivi: row + 1,
-                        tiedot: driver,
-                    });
+                if !numbers.insert(driver.numero) {
+                    preview.issue(true, location, "Kilpailijan numero esiintyy useasti. Korjaa tunniste ennen tuontia.");
+                    continue;
                 }
+                if driver.emit != 0 {
+                    *cards.entry(driver.emit).or_default() += 1;
+                } else {
+                    preview.issue(false, &location, "Emit-numero puuttuu: täydennä kortti ennen lukemista");
+                }
+                if driver.lahtoaika.is_empty() {
+                    preview.issue(false, &location, "Lähtöaika puuttuu: täydennä aika tai arvo lähtöajat");
+                }
+                preview.kilpailijat.push(ImportedDriver {
+                    alkuperainen_rivi: row + 1,
+                    tiedot: driver,
+                });
             }
             Err(error) => preview.issue(false, location, format!("Riviä ei tuoda: {error}")),
+        }
+    }
+    // Toistuvia kortteja ei koskaan kohdisteta kilpailijoihin arvaamalla.
+    for driver in &mut preview.kilpailijat {
+        if driver.tiedot.emit != 0 && cards.get(&driver.tiedot.emit).is_some_and(|count| *count > 1) {
+            preview.huomautukset.push(ImportIssue {
+                estaa_tuonnin: false,
+                sijainti: format!("KILP rivi {}", driver.alkuperainen_rivi),
+                viesti: format!("Emit-numero {} esiintyy useasti; kortti jätettiin täydennettäväksi", driver.tiedot.emit),
+            });
+            driver.tiedot.emit = 0;
+        }
+    }
+    // Puuttuvia ratoja ei päätellä yhdistetyistä luokkatunnuksista.
+    for code in preview.kilpailijat.iter().map(|driver| driver.tiedot.luokka.clone()).collect::<BTreeSet<_>>() {
+        if !preview.radat.iter().any(|track| track.luokka == code) {
+            let alias = code.strip_prefix("SM-").filter(|suffix| !suffix.contains('+'));
+            if alias.is_none_or(|suffix| !preview.radat.iter().any(|track| track.luokka == suffix)) {
+                preview.issue(false, "KILP", format!("Luokan {code} rata puuttuu tai vastaa eri tunnusta. Kilpailijat tuodaan, mutta rata pitää valita ennen tuloslaskentaa."));
+            } else {
+                preview.issue(false, "KILP", format!("Luokan {code} radaksi tunnistettiin RATA-välilehden {}. Tarkista kohdistus.", alias.unwrap()));
+            }
         }
     }
     Ok(preview)
