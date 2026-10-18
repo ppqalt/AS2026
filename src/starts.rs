@@ -180,8 +180,13 @@ fn sorted_drivers(project: &Project) -> Result<Vec<&crate::native::Driver>, Core
                 .enumerate()
                 .find(|(_, (code, _))| *code == driver.luokka.trim())
                 .ok_or_else(|| invalid("Kilpailijan luokkaa ei löydy"))?;
-            let clock = parse_clock(&driver.lahtoaika)?.seconds_since_midnight()?;
-            Ok((class_index, (clock - first).rem_euclid(86_400), driver))
+            let offset = if driver.lahtoaika.trim().is_empty() {
+                86_400 // Arvontaa tai aikaa odottavat luokan viimeisiksi.
+            } else {
+                let clock = parse_clock(&driver.lahtoaika)?.seconds_since_midnight()?;
+                (clock - first).rem_euclid(86_400)
+            };
+            Ok((class_index, offset, driver))
         })
         .collect::<Result<Vec<_>, CoreError>>()?;
     rows.sort_by_key(|(class, offset, driver)| (*class, *offset, driver.numero));
@@ -207,13 +212,13 @@ pub fn start_list_html(project: &Project) -> Result<String, CoreError> {
     for driver in rows {
         html.push_str(&format!(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            clock_text(parse_clock(&driver.lahtoaika)?),
+            if driver.lahtoaika.is_empty() { "—".into() } else { clock_text(parse_clock(&driver.lahtoaika)?) },
             driver.numero,
             escape(&driver.luokka),
             escape(&driver.kuljettaja),
             escape(&driver.kartanlukija),
             escape(&driver.auto),
-            driver.emit,
+            if driver.emit == 0 { "—".to_owned() } else { driver.emit.to_string() },
             driver.tila.as_ref().map_or("ILM", |status| status.tunnus.as_str()),
         ));
     }
@@ -234,13 +239,21 @@ pub fn start_list_csv(project: &Project) -> Result<String, CoreError> {
     let mut csv = "\"Lähtöaika\";\"Nro\";\"Luokka\";\"Kuljettaja\";\"Kartanlukija\";\"Auto\";\"Emit\";\"Tila\"\r\n".to_owned();
     for driver in sorted_drivers(project)? {
         let cells = [
-            clock_text(parse_clock(&driver.lahtoaika)?),
+            if driver.lahtoaika.is_empty() {
+                String::new()
+            } else {
+                clock_text(parse_clock(&driver.lahtoaika)?)
+            },
             driver.numero.to_string(),
             driver.luokka.clone(),
             driver.kuljettaja.clone(),
             driver.kartanlukija.clone(),
             driver.auto.clone(),
-            driver.emit.to_string(),
+            if driver.emit == 0 {
+                String::new()
+            } else {
+                driver.emit.to_string()
+            },
             driver
                 .tila
                 .as_ref()
