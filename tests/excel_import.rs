@@ -327,7 +327,11 @@ fn incomplete_optional_clock_and_malformed_card_do_not_drop_registered_entrant()
     assert!(preview.summary().contains("Emit-numero on virheellinen"));
     assert!(preview.summary().contains("Lähtöaika on puutteellinen"));
     assert_eq!(
-        preview.to_project("Vajaa ilmoittautuminen").unwrap().kilpailijat.len(),
+        preview
+            .to_project("Vajaa ilmoittautuminen")
+            .unwrap()
+            .kilpailijat
+            .len(),
         2
     );
 }
