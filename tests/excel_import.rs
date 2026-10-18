@@ -310,3 +310,28 @@ fn exact_sm_prefix_can_use_matching_route_but_combined_code_cannot_be_guessed() 
     );
     assert!(preview.summary().contains("Tarkista kohdistus"));
 }
+
+#[test]
+fn incomplete_optional_clock_and_malformed_card_do_not_drop_registered_entrant() {
+    let (track, mut drivers) = sheets();
+    // Vain tunti annettu, minuuttisolu puuttuu; Emit on virheellinen merkkijono.
+    drivers.set_value((1, 2), Data::String("ei numero".into()));
+    drivers.set_value((1, 3), Data::Int(17));
+    drivers.set_value((1, 4), Data::Empty);
+    let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
+    assert!(preview.can_import(), "{}", preview.summary());
+    assert_eq!(preview.kilpailijat.len(), 2);
+    assert_eq!(preview.kilpailijat[0].tiedot.numero, 1);
+    assert_eq!(preview.kilpailijat[0].tiedot.emit, 0);
+    assert!(preview.kilpailijat[0].tiedot.lahtoaika.is_empty());
+    assert!(preview.summary().contains("Emit-numero on virheellinen"));
+    assert!(preview.summary().contains("Lähtöaika on puutteellinen"));
+    assert_eq!(
+        preview
+            .to_project("Vajaa ilmoittautuminen")
+            .unwrap()
+            .kilpailijat
+            .len(),
+        2
+    );
+}
