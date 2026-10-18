@@ -175,7 +175,7 @@ fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
                     driver.class_code.clone(),
                     driver.driver.clone(),
                     driver.navigator.clone(),
-                    driver.emit_card.clone(),
+                    if driver.emit_card == "0" { "—".into() } else { driver.emit_card.clone() },
                     field(&driver.header_fields, 9),
                     start(driver),
                     state,
@@ -207,7 +207,7 @@ fn classes(archive: &Archive, view: &mut ViewData) {
                 vec![
                     class.code.clone(),
                     class.name.clone(),
-                    class.route.clone(),
+                    if class.route == "0" { "— (puuttuu)".into() } else { class.route.clone() },
                     field(&class.fields, 3),
                     field(&class.fields, 4).replace('.', ":"),
                     field(&class.fields, 5),
