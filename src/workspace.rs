@@ -401,6 +401,34 @@ impl Workspace {
         })
     }
 
+    /// Tallentaa arvonnan luokkavalinnat yhdessä; muiden tietojen arvot säilyvät.
+    pub fn set_draw_classes(&mut self, codes: &[String]) -> Result<(), CoreError> {
+        self.update(|project| {
+            let mut selected = std::collections::HashSet::new();
+            for code in codes {
+                let code = code.trim();
+                if !project
+                    .luokat
+                    .iter()
+                    .any(|class| class.tunnus.trim() == code)
+                {
+                    return Err(invalid(format!(
+                        "Luokkaa {code:?} ei löydy lähtöarvonnan valinnoista"
+                    )));
+                }
+                if !selected.insert(code) {
+                    return Err(invalid(format!(
+                        "Luokka {code} on valittu useammin kuin kerran"
+                    )));
+                }
+            }
+            for class in &mut project.luokat {
+                class.osallistuu_lahtoarvontaan = selected.contains(class.tunnus.trim());
+            }
+            Ok(())
+        })
+    }
+
     pub fn apply_start_draw(&mut self, draw: &crate::starts::StartDraw) -> Result<(), CoreError> {
         self.update(|project| draw.apply(project))
     }

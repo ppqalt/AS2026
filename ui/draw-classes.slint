@@ -1,0 +1,78 @@
+import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note } from "components.slint";
+import { DrawClassOption } from "types.slint";
+
+export component DrawClassDialog inherits Rectangle {
+    in property <[DrawClassOption]> classes;
+    in property <string> summary;
+    callback toggle(int, bool);
+    callback select-all(bool);
+    callback close(bool);
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { cancel.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Tab {
+                if save.has-focus && !event.modifiers.shift { all.focus(); return accept; }
+                if all.has-focus && event.modifiers.shift { save.focus(); return accept; }
+            }
+            reject
+        }
+        Rectangle {
+            width: min(560px, root.width - 24px);
+            height: min(580px, root.height - 24px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: Theme.surface;
+            border-color: Theme.line;
+            border-width: 1px;
+            border-radius: Theme.radius;
+            VerticalLayout {
+                padding: Theme.space-5;
+                spacing: Theme.space-3;
+                Heading { text: "Lähtöarvonnan luokat"; }
+                Note { text: "Valitse arvontaan osallistuvat luokat. Jo luetut kortit ja tallennetut tulokset ohitetaan. Valinta ei muuta lähtöaikoja."; }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    all := Button { text: "Valitse kaikki"; clicked => { root.select-all(true); } }
+                    Button { text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width;
+                    VerticalLayout {
+                        spacing: Theme.space-1;
+                        for entry[i] in root.classes: Rectangle {
+                            height: 44px;
+                            vertical-stretch: 0;
+                            background: Theme.surface;
+                            HorizontalLayout {
+                                padding-left: Theme.space-2;
+                                padding-right: Theme.space-2;
+                                CheckBox {
+                                    text: entry.label;
+                                    checked: entry.selected;
+                                    toggled => { root.toggle(i, self.checked); }
+                                }
+                            }
+                        }
+                    }
+                }
+                Note { text: root.summary; }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    Rectangle { horizontal-stretch: 1; }
+                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    save := Button { text: "Tallenna valinnat"; primary: true; clicked => { root.close(true); } }
+                }
+            }
+        }
+    }
+}

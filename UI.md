@@ -37,6 +37,7 @@ Vanhoja AS2015A-kilpailuja käsitellään lähdeaineistona. Niiden tarkastelu ei
 | Seitsemän näkymän asettelu ja käyttäjätekstit | `ui/app.slint`. |
 | Slintin ja Rustin välillä kulkevat esitystyypit | `ui/types.slint`. |
 | Valitun kilpailijan ajat, tila, syy ja pisteyhteenveto | `ui/results.slint`; tiedot tulevat `src/gui/tables.rs`-sovittimesta. |
+| Arvontaan osallistuvien luokkien valintaruudut | `ui/draw-classes.slint`; vahvistus tallentaa luokkavalinnat yhteisen `Workspace`-polun kautta. |
 | Rustin ja Slintin välinen tiedonsiirto sekä käyttöliittymän tapahtumat | `src/gui/mod.rs`. |
 | Sovellusasetukset ja päivitysten GUI-taustatyö | `src/gui/desktop.rs`. |
 | Pysyvät kilpailukansiot ja viimeksi avattu kilpailu | `src/preferences.rs`. |
@@ -65,6 +66,8 @@ Uuden lomakekentän lisääminen etenee näin:
 3. Jäsennä ja tarkista arvo Rustissa samalla muokkauspolulla kuin muu kilpailutieto.
 4. Tallenna muutos `ProjectStore::update`-rajapinnan kautta. Päivitä listat ja tulokset onnistuneesta yhteisestä mallista.
 5. Tarkista myös virheellinen syöte ja tallennusvirhe, jos lisäys muuttaa tallennuskäyttäytymistä.
+
+Tulokset-sivun yhteenvedolla ja kilpailijaeditorilla on yksi yhteinen pystysuuntainen vieritys. `Editor.fit-content` sovittaa taustan kaikkien kenttien todelliseen korkeuteen; älä palauta kenttämäärään perustuvaa korkeusarviota tai sisäkkäistä vieritystä tähän paneeliin. Muut editorit säilyttävät oman vierityksensä.
 
 Kenttien välillä liikutaan Tabilla ja arvot voi hyväksyä Enterillä. Säilytä näkyvä näppäimistökohdistus ja kenttien tunnistettavat nimet, kun muutat komponentteja. Pitkien nimien ja polkujen sekä pienen ikkunan pitää säilyä käytettävinä.
 
@@ -125,6 +128,8 @@ cargo run --features gui --bin as2026-gui -- --demo --smoke-test --capture-dir /
 ```
 
 Kuvakaappausajoon yhdistetty koe lähettää myös näppäintapahtumat käynnissä olevalle ikkunalle: Ctrl+N avaa uuden kilpailun ikkunan, teksti menee nimi- ja polkukenttiin, Tab siirtää kentästä toiseen ja Esc sulkee ikkunan. Tämä ajo tallentaa lisäksi kuvat uuden kilpailun ikkunasta ja Tietoja-ikkunasta. Tietoja-ikkunan alkuperäinen AboutSlint-komponentti säilytetään Slintin Royalty-free-lisenssin mainintavaatimuksen vuoksi.
+
+Koe sisältää myös yhtenäisen kilpailun elinkaaren: uusi kilpailu, RATA/KILP-tuonti, arvonnan luokkavalinnat ja esikatselu, korttiluvut, käsikellot, viisi pisteosaa, hyväksyminen, uusintaluku, lähtöluettelo sekä HTML-, CSV- ja XLSX-tulokset. Lopuksi kilpailu avataan uudelleen ja tallennus tarkistetaan. Kuvakaappausajo näyttää myös kokonaan alas vieritetyn kilpailijaeditorin sekä luokkavalinnat; valintaruudun näppäimistökäyttö tarkistetaan Tabilla ja välilyönnillä.
 
 Koe ei avaa fyysistä lukijaa. Fyysistä Emit-testiä ei tässä GUI-vaiheessa toistettu. Aiempi CLI-laitetesti ei yksin todista GUI:n fyysistä lukijatyönkulkua.
 
