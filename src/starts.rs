@@ -239,13 +239,21 @@ pub fn start_list_csv(project: &Project) -> Result<String, CoreError> {
     let mut csv = "\"Lähtöaika\";\"Nro\";\"Luokka\";\"Kuljettaja\";\"Kartanlukija\";\"Auto\";\"Emit\";\"Tila\"\r\n".to_owned();
     for driver in sorted_drivers(project)? {
         let cells = [
-            if driver.lahtoaika.is_empty() { String::new() } else { clock_text(parse_clock(&driver.lahtoaika)?) },
+            if driver.lahtoaika.is_empty() {
+                String::new()
+            } else {
+                clock_text(parse_clock(&driver.lahtoaika)?)
+            },
             driver.numero.to_string(),
             driver.luokka.clone(),
             driver.kuljettaja.clone(),
             driver.kartanlukija.clone(),
             driver.auto.clone(),
-            if driver.emit == 0 { String::new() } else { driver.emit.to_string() },
+            if driver.emit == 0 {
+                String::new()
+            } else {
+                driver.emit.to_string()
+            },
             driver
                 .tila
                 .as_ref()
