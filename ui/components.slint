@@ -40,7 +40,6 @@ export component AccentButton inherits Rectangle {
             font-weight: 600;
             horizontal-alignment: center;
             vertical-alignment: center;
-            overflow: elide;
         }
     }
     touch := TouchArea {
@@ -89,7 +88,6 @@ export component NavItem inherits Rectangle {
         font-size: 13px;
         font-weight: root.active ? 600 : 400;
         vertical-alignment: center;
-        overflow: elide;
     }
     touch := TouchArea { clicked => { root.chosen(); } }
     focus := FocusScope {
@@ -153,7 +151,7 @@ export component FormField inherits VerticalLayout {
             hour-input := LineEdit {
                 min-width: 40px; horizontal-stretch: 1;
                 text: root.hours; placeholder-text: "hh";
-                enabled: root.writable; accessible-label: "Tavoiteaika, tunnit";
+                enabled: root.writable; accessible-label: root.label + ", tunnit";
                 edited => { root.duration-edited(); }
                 accepted => { root.duration-accepted(); }
                 changed has-focus => { if !self.has-focus { root.duration-accepted(); } }
@@ -162,7 +160,7 @@ export component FormField inherits VerticalLayout {
             minute-input := LineEdit {
                 min-width: 40px; horizontal-stretch: 1;
                 text: root.minutes; placeholder-text: "mm";
-                enabled: root.writable; accessible-label: "Tavoiteaika, minuutit";
+                enabled: root.writable; accessible-label: root.label + ", minuutit";
                 edited => { root.duration-edited(); }
                 accepted => { root.duration-accepted(); }
                 changed has-focus => { if !self.has-focus { root.duration-accepted(); } }
@@ -171,7 +169,7 @@ export component FormField inherits VerticalLayout {
             second-input := LineEdit {
                 min-width: 40px; horizontal-stretch: 1;
                 text: root.seconds; placeholder-text: "ss";
-                enabled: root.writable; accessible-label: "Tavoiteaika, sekunnit";
+                enabled: root.writable; accessible-label: root.label + ", sekunnit";
                 edited => { root.duration-edited(); }
                 accepted => { root.duration-accepted(); }
                 changed has-focus => { if !self.has-focus { root.duration-accepted(); } }
@@ -256,7 +254,7 @@ export component DataTable inherits Rectangle {
                         text: title; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
                         font-size: 11px; font-weight: 700; color: Theme.muted;
-                        vertical-alignment: center; overflow: elide;
+                        vertical-alignment: center;
                     }
                 }
             }
@@ -281,7 +279,7 @@ export component DataTable inherits Rectangle {
                                 min-width: 0px; preferred-width: 0px;
                                 color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
                                 font-weight: i == 0 ? 600 : 400;
-                                font-size: 13px; vertical-alignment: center; overflow: elide;
+                                font-size: 13px; vertical-alignment: center;
                             }
                         }
                         Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
@@ -343,7 +341,7 @@ component EditorFields inherits VerticalLayout {
         field-commit(key, value) => { root.field-commit(key, value) }
         field-draft(key, value) => { root.field-draft(key, value); }
     }
-    if root.grouped: Button { text: root.details-open ? "Piilota seurat ja lisenssit" : "Seurat ja lisenssit…"; enabled: !root.blocked; clicked => { root.details-open = !root.details-open; } }
+    if root.grouped: Button { text: root.details-open ? "Piilota seurat ja lisenssit" : "Seurat ja lisenssit"; enabled: !root.blocked; clicked => { root.details-open = !root.details-open; } }
     if root.grouped && root.details-open: VerticalLayout {
         spacing: Theme.space-3;
         for field in [root.fields[15], root.fields[16], root.fields[11], root.fields[12]]: EditorEntry {
@@ -431,8 +429,9 @@ export component Editor inherits Rectangle {
             }
         }
         if root.new-record: HorizontalLayout {
-            Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.cancel(); } }
-            AccentButton { height: Theme.control-height; text: "Lisää"; enabled: root.writable; clicked => { root.add(); } }
+            spacing: Theme.space-2;
+            Rectangle { horizontal-stretch: 1; }
+            Button { height: Theme.control-height; text: "Tyhjennä luonnos"; clicked => { root.cancel(); } }
         }
         if root.blocked && !root.new-record: Button { height: Theme.control-height;
             text: "Palauta tallennetut tiedot";

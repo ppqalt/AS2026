@@ -144,7 +144,7 @@ pub(super) fn bind(
                 return;
             }
             state.borrow_mut().update_bundle = None;
-            app.set_update_status("Tarkistetaan päivityksiä…".into());
+            app.set_update_status("Tarkistetaan päivityksiä".into());
             if let Err(error) = begin_task(&state, &app, &timer, &reader_timer, || {
                 UpdateEvent::Checked(updates::check())
             }) {
@@ -176,7 +176,7 @@ pub(super) fn bind(
             let Some(update) = state.borrow().update.clone() else {
                 return;
             };
-            app.set_update_status(format!("Ladataan versiota {}…", update.version).into());
+            app.set_update_status(format!("Ladataan versiota {}", update.version).into());
             if let Err(error) = begin_task(&state, &app, &timer, &reader_timer, move || {
                 UpdateEvent::Downloaded(updates::download(&update))
             }) {

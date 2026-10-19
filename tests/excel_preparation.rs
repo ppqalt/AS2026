@@ -125,6 +125,37 @@ fn missing_legacy_start_hour_does_not_break_other_results_or_become_midnight() {
 }
 
 #[test]
+fn route_choice_can_be_deferred_including_an_initial_exact_match() {
+    let (tracks, drivers) = sheets();
+    let mut preview = excel_import::preview_sheets(&tracks, &drivers).unwrap();
+    preview.set_class_route("C", "-").unwrap();
+    assert!(preview.can_confirm_import());
+    let project = preview.to_project("Radat myöhemmin").unwrap();
+    assert_eq!(
+        project
+            .luokat
+            .iter()
+            .find(|class| class.tunnus == "C")
+            .unwrap()
+            .rata,
+        0
+    );
+    assert_eq!(project.kilpailijat.len(), 2);
+    preview.set_class_route("C", "B").unwrap();
+    assert_eq!(
+        preview
+            .to_project("Valittu rata")
+            .unwrap()
+            .luokat
+            .iter()
+            .find(|class| class.tunnus == "C")
+            .unwrap()
+            .rata,
+        2
+    );
+}
+
+#[test]
 #[ignore = "Vain paikallinen käyttäjän Excel; henkilötietoja ei kopioida testiaineistoon"]
 fn local_preparation_workbook_retains_all_named_rows_without_guessing_routes() {
     let path = std::env::var_os("AS2026_EXCEL_VALMISTELU").expect("Anna paikallisen Excelin polku");
@@ -148,8 +179,17 @@ fn local_preparation_workbook_retains_all_named_rows_without_guessing_routes() {
             .all(|d| d.tiedot.start_clock().unwrap().is_none())
     );
     assert!(preview.huomautukset.is_empty());
-    assert!(!preview.can_confirm_import());
+    assert!(preview.can_confirm_import());
     assert!(!preview.unresolved_classes().is_empty());
+    let project = preview.to_project("Tuonnin valmistelukoe").unwrap();
+    assert_eq!(project.kilpailijat.len(), 70);
+    assert!(project.luokat.iter().any(|class| class.rata == 0));
+    assert_eq!(
+        Project::from_toml(&project.to_toml().unwrap()).unwrap(),
+        project
+    );
+    let archive = application::calculated_project(&project).unwrap();
+    application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag).unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), before);
     println!(
         "Paikallinen Excel: 70 kilpailijaparia, 3 rataa, 89 asemaa; 43 Emit-numeroa ja 70 lähtöaikaa täydennettävä. Ratavalintoja ei arvattu, alkuperäinen säilyi tavulleen."

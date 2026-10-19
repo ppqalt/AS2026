@@ -50,21 +50,23 @@ impl ImportPreview {
             .collect()
     }
     pub fn route_for_class(&self, code: &str) -> Option<&str> {
-        self.luokkien_radat
-            .get(code)
-            .map(String::as_str)
-            .or_else(|| {
-                self.radat
-                    .iter()
-                    .find(|r| r.luokka == code)
-                    .map(|r| r.luokka.as_str())
-            })
+        if let Some(route) = self.luokkien_radat.get(code) {
+            return (!route.is_empty()).then_some(route.as_str());
+        }
+        self.radat
+            .iter()
+            .find(|r| r.luokka == code)
+            .map(|r| r.luokka.as_str())
     }
     pub fn set_class_route(&mut self, code: &str, route: &str) -> Result<(), CoreError> {
         if !self.kilpailijat.iter().any(|d| d.tiedot.luokka == code)
             && !self.radat.iter().any(|r| r.luokka == code)
         {
             return Err(invalid("Luokkaa ei löydy tuontiaineistosta"));
+        }
+        if route == "-" {
+            self.luokkien_radat.insert(code.into(), String::new());
+            return Ok(());
         }
         if !self.radat.iter().any(|r| r.luokka == route) {
             return Err(invalid("Valitse tuotava rata"));
@@ -92,7 +94,7 @@ impl ImportPreview {
         preview
     }
     pub fn can_confirm_import(&self) -> bool {
-        self.can_import() && (self.radat.is_empty() || self.unresolved_classes().is_empty())
+        self.can_import()
     }
     pub fn issue_details(&self) -> String {
         let mut groups: BTreeMap<(bool, String), Vec<&str>> = BTreeMap::new();
@@ -152,12 +154,7 @@ impl ImportPreview {
         let unresolved = self.unresolved_classes();
         if !unresolved.is_empty() {
             text.push_str(&format!(
-                "\n{} {}.",
-                if self.radat.is_empty() {
-                    "Rata täydennettävä luokille:"
-                } else {
-                    "Valitse rata luokille:"
-                },
+                "\nRata täydennettävä luokille: {}.",
                 unresolved.join(", ")
             ));
         }

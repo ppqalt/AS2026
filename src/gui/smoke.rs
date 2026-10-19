@@ -42,6 +42,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
             ws.project().ok_or("Muokattava esimerkki puuttuu")?.clone(),
         )
     };
+    automatic_preparation(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
     {
@@ -543,7 +544,10 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         &draft_preview,
         Some(draft_directory.clone()),
     )?;
-    assert!(!app.get_confirm_acceptable());
+    assert!(
+        app.get_confirm_acceptable(),
+        "Ratavalinnat voi täydentää tuonnin jälkeen"
+    );
     assert_eq!(app.get_import_rows().row_count(), 2);
     app.invoke_import_class_route("SM-A".into(), "C".into());
     assert!(app.get_confirm_acceptable());
@@ -578,7 +582,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     assert!(interrupted.project().leimaluvut.is_empty());
     drop(interrupted);
     app.invoke_reload();
-    assert_eq!(app.get_result_overview().total.as_str(), "—");
+    assert_eq!(app.get_result_overview().total.as_str(), "-");
     println!(
         "GUI-valmistelukoe hyväksytty: ratavalinta → tuonti ilman Emitiä ja lähtöä → perusteltu KESK → uudelleenavaus ilman aikoja tai pisteitä."
     );
@@ -616,6 +620,187 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn automatic_preparation(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = original_path
+        .parent()
+        .unwrap()
+        .join("automaattinen-valmistelu");
+    let mut project = original.clone();
+    project.kilpailijat.clear();
+    project.leimaluvut.clear();
+    let mut second = project.radat[0].clone();
+    second.numero = 2;
+    second.nimi = "Toinen rata".into();
+    let original_stations = second.asemat.len();
+    project.radat.push(second);
+    let workspace = Workspace::create_imported(&directory, project)?;
+    let path = workspace.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(5);
+    app.invoke_select_row(1);
+    app.invoke_add_station();
+    app.invoke_field_draft(1, "Luonnoksen asema".into());
+    app.invoke_navigate(4);
+    assert_eq!(
+        app.get_page(),
+        4,
+        "Vajavainen uusi asema ei estä sivun vaihtamista"
+    );
+    assert!(!app.get_status_error());
+    app.invoke_navigate(5);
+    assert!(app.get_new_record());
+    assert_eq!(app.get_selected_key(), 1, "Luonnos palaa oikealle radalle");
+    assert_eq!(
+        app.get_fields()
+            .iter()
+            .find(|field| field.key == 1)
+            .unwrap()
+            .value
+            .as_str(),
+        "Luonnoksen asema"
+    );
+    app.invoke_select_detail(1);
+    assert!(!app.get_new_record());
+    assert_eq!(
+        app.get_fields()
+            .iter()
+            .find(|field| field.key == 1)
+            .unwrap()
+            .value
+            .as_str(),
+        original.radat[0].asemat[1].nimi,
+        "Uuden aseman luonnos ei saa peittää olemassa olevan aseman nimeä"
+    );
+    app.invoke_navigate(4);
+    app.invoke_navigate(5);
+    assert!(
+        app.get_new_record(),
+        "Keskeneräinen asema säilyy luonnoksena"
+    );
+    assert!(app.invoke_field_commit(2, "77".into()));
+    assert!(
+        !app.get_new_record(),
+        "Valmis asema tallentuu ilman Lisää-painiketta"
+    );
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(saved.project().radat[0].asemat.len(), original_stations);
+    assert_eq!(saved.project().radat[1].asemat.len(), original_stations + 1);
+    assert_eq!(
+        saved.project().radat[1]
+            .asemat
+            .iter()
+            .filter(|s| s.emit_koodi == 77)
+            .count(),
+        1
+    );
+    assert!(app.invoke_field_commit(1, "Tallennettu asema".into()));
+    app.invoke_reload();
+    assert_eq!(
+        ProjectStore::open(&path)?.project().radat[1]
+            .asemat
+            .iter()
+            .filter(|s| s.emit_koodi == 77)
+            .count(),
+        1,
+        "Uudelleenavaus ei monista asemaa"
+    );
+    app.invoke_navigate(4);
+    app.invoke_select_row(0);
+    assert!(
+        app.get_fields()
+            .iter()
+            .find(|field| field.key == 4)
+            .unwrap()
+            .duration
+    );
+    assert!(app.invoke_field_commit(4, "15:23:17".into()));
+    assert_eq!(
+        ProjectStore::open(&path)?.project().luokat[0].lahtoaika,
+        "15:23:17"
+    );
+    assert!(!app.invoke_field_commit(4, "24:00:00".into()));
+    assert_eq!(
+        ProjectStore::open(&path)?.project().luokat[0].lahtoaika,
+        "15:23:17"
+    );
+    assert!(app.invoke_field_commit(4, "15:23:17".into()));
+    app.invoke_navigate(1);
+    app.invoke_add_record();
+    assert!(app.invoke_field_commit(1, "Automaattikuljettaja".into()));
+    assert!(!app.get_new_record());
+    assert_eq!(ProjectStore::open(&path)?.project().kilpailijat.len(), 1);
+    // Pelkkä GUI-tila: koetta varten ei avata sarjaporttia tai käynnistetä lukijaa.
+    app.set_reader_running(true);
+    app.invoke_configure_draw_classes();
+    assert!(app.get_draw_classes_open());
+    app.invoke_draw_classes_close(false);
+    app.invoke_draw_starts();
+    assert!(
+        app.get_confirm_open(),
+        "Lähtöarvontaa voi valmistella lukijan ollessa käynnissä"
+    );
+    assert!(app.get_reader_running());
+    app.invoke_confirm_action(false);
+    app.set_reader_running(false);
+    let excel =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/excel-import/synteettinen.xlsx");
+    let mut preview = as2026::excel_import::read(&excel)?;
+    preview.kilpailijat[0].tiedot.luokka = "SM-A".into();
+    let imported_directory = directory.join("rata-taydennetaan");
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &preview,
+        Some(imported_directory.clone()),
+    )?;
+    assert!(
+        app.get_confirm_acceptable(),
+        "Tuonti onnistuu ilman ratavalintoja"
+    );
+    assert_eq!(app.get_import_routes().row_data(0).unwrap().as_str(), "-");
+    app.invoke_confirm_action(true);
+    app.invoke_navigate(4);
+    let imported = ProjectStore::open(&imported_directory.join(native::FILE_NAME))?;
+    let index = imported
+        .project()
+        .luokat
+        .iter()
+        .position(|class| class.tunnus == "SM-A")
+        .unwrap();
+    assert_eq!(imported.project().luokat[index].rata, 0);
+    app.invoke_select_row(index as i32);
+    assert_eq!(
+        app.get_fields()
+            .iter()
+            .find(|field| field.key == 2)
+            .unwrap()
+            .options
+            .row_data(0)
+            .unwrap()
+            .as_str(),
+        "-"
+    );
+    assert!(app.invoke_field_commit(2, "1".into()));
+    assert_eq!(
+        ProjectStore::open(&imported_directory.join(native::FILE_NAME))?
+            .project()
+            .luokat[index]
+            .rata,
+        1
+    );
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!(
+        "GUI-automaattitallennus hyväksytty: asemaluonnoksen palautuminen oikealle radalle, automaattinen lisäys, kellokentän rajat, kilpailijan lisäys, arvonta aktiivisessa lukutilassa sekä tuonti ja ratavalinnan täydentäminen."
+    );
+    Ok(())
 }
 
 fn synthetic_frame(card: u32, punches: &[(u8, u16)]) -> emit::EmitFrame {

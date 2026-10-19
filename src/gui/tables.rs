@@ -30,6 +30,13 @@ fn row(index: usize, cells: Vec<String>) -> TableRow {
         cells: ModelRc::from(Rc::new(VecModel::from(
             cells
                 .into_iter()
+                .map(|cell| {
+                    if cell.trim().is_empty() {
+                        "-".to_owned()
+                    } else {
+                        cell
+                    }
+                })
                 .map(SharedString::from)
                 .collect::<Vec<_>>(),
         ))),
@@ -53,7 +60,7 @@ fn start(driver: &Competitor) -> String {
     });
     match components {
         [Some(hour), Some(minute), Some(second)] => format!("{hour:02}:{minute:02}:{second:02}"),
-        _ => "—".into(),
+        _ => "-".into(),
     }
 }
 
@@ -151,11 +158,11 @@ fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
             let state = match ws.project() {
                 Some(project) => {
                     let card = driver.emit_card.parse::<u32>().ok();
-                    let read = if card.is_none() && start(driver) == "—" {
+                    let read = if card.is_none() && start(driver) == "-" {
                         "Täydennä Emit ja lähtö"
                     } else if card.is_none() {
                         "Täydennä Emit"
-                    } else if start(driver) == "—" {
+                    } else if start(driver) == "-" {
                         "Täydennä lähtö"
                     } else if card.is_some_and(|card| project.active_readout(card).is_some()) {
                         "Luettu"
@@ -182,7 +189,7 @@ fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
                     driver.driver.clone(),
                     driver.navigator.clone(),
                     if driver.emit_card == "0" {
-                        "—".into()
+                        "-".into()
                     } else {
                         driver.emit_card.clone()
                     },
@@ -218,7 +225,7 @@ fn classes(archive: &Archive, view: &mut ViewData) {
                     class.code.clone(),
                     class.name.clone(),
                     if class.route == "0" {
-                        "— (puuttuu)".into()
+                        "-".into()
                     } else {
                         class.route.clone()
                     },
@@ -346,7 +353,7 @@ fn result_row(
                     Status::Classified | Status::Interrupted
                 )
             {
-                "—".into()
+                "-".into()
             } else if !archive.has_approved_result(driver.number) {
                 format!("{} p (esikatselu)", driver.total_penalties)
             } else {
@@ -387,7 +394,7 @@ fn results(
                 let position = if entry.status == Status::Classified {
                     entry.primary_position.to_string()
                 } else {
-                    "—".into()
+                    "-".into()
                 };
                 view.rows
                     .push(result_row(ws, archive, index, driver, position));
@@ -399,16 +406,13 @@ fn results(
             && let Some(driver) = archive.competitors.get(index)
         {
             view.rows
-                .push(result_row(ws, archive, index, driver, "—".into()));
+                .push(result_row(ws, archive, index, driver, "-".into()));
         }
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));
     if !ranking.omitted_source_indices.is_empty() {
         notes.push("Keskeneräiset ja tuntemattomat tarkastustilat näkyvät luettelon lopussa ilman sijoitusta.".into());
     }
-    notes.push(
-        "Tasapisteissä jaettu sija säilyy; rivien esitysjärjestys ei ratkaise tasapisteitä.".into(),
-    );
 
     let Some(driver) = usize::try_from(selected_key)
         .ok()
@@ -440,17 +444,17 @@ fn results(
         // Korttiluvusta laskettuja aikapisteitä ei näytetä ilman laskentatulosta,
         // mutta kilpailijalle käsin tallennetut lisävirheet ovat silti tiedossa.
         if interrupted || (!calculated && matches!(index, 19 | 20)) {
-            return "—".into();
+            return "-".into();
         }
         driver
             .header_fields
             .get(index)
             .and_then(|field| field.trim().parse::<i64>().ok())
-            .map_or_else(|| "—".into(), |value| format!("{value} p").into())
+            .map_or_else(|| "-".into(), |value| format!("{value} p").into())
     };
     let clock = |offset: usize| -> SharedString {
         if !calculated || interruption_confirmed {
-            return "—".into();
+            return "-".into();
         }
         let fields = (0..3)
             .map(|i| {
@@ -464,20 +468,20 @@ fn results(
             [Some(h), Some(m), Some(s)] if *m < 60 && *s < 60 => {
                 format!("{h:02}:{m:02}:{s:02}").into()
             }
-            _ => "—".into(),
+            _ => "-".into(),
         }
     };
     let quantity = |index: usize| -> SharedString {
         // Lisävirheiden lukumäärät ovat tallennettuja tietoja, eivät
         // korttiluvusta keksittyjä pisteitä. KESK ei kuitenkaan näytä niitä.
         if interrupted {
-            return "—".into();
+            return "-".into();
         }
         driver
             .header_fields
             .get(index)
             .and_then(|value| value.trim().parse::<u32>().ok())
-            .map_or_else(|| "—".into(), |value| value.to_string().into())
+            .map_or_else(|| "-".into(), |value| value.to_string().into())
     };
     let read_state = if interrupted {
         if interruption_confirmed {
@@ -592,7 +596,7 @@ fn results(
                 format!("{} p (esikatselu)", driver.total_penalties).into()
             }
         } else {
-            "—".into()
+            "-".into()
         },
     };
     view.detail_title = format!(
@@ -642,14 +646,14 @@ fn results(
                         "{} / {}",
                         station.expected_code,
                         if station.received_code == 0 {
-                            "—".into()
+                            "-".into()
                         } else {
                             station.received_code.to_string()
                         }
                     ),
                     station.target_seconds.to_string(),
                     if pending {
-                        "—".into()
+                        "-".into()
                     } else {
                         format!(
                             "{:02}:{:02}:{:02}",
@@ -657,18 +661,18 @@ fn results(
                         )
                     },
                     if pending {
-                        "—".into()
+                        "-".into()
                     } else {
                         station.actual_seconds.to_string()
                     },
                     if pending {
-                        "—".into()
+                        "-".into()
                     } else {
                         station.signed_time_penalty.to_string()
                     },
                     station.other_penalty.to_string(),
                     if pending {
-                        "—".into()
+                        "-".into()
                     } else {
                         station.total_penalty.to_string()
                     },
@@ -811,7 +815,7 @@ fn history(
                     group
                         .content
                         .as_ref()
-                        .map_or_else(|| "—".into(), |p| p.len().to_string()),
+                        .map_or_else(|| "-".into(), |p| p.len().to_string()),
                     (group.latest - group.first + 1).to_string(),
                     if active.get(&read.emit) == Some(&group.latest) {
                         "Aktiivinen"
@@ -976,7 +980,7 @@ mod tests {
         assert_eq!(results.rows.len(), 2);
         assert_eq!(results.rows[0].key, 0);
         assert_eq!(results.rows[1].key, 1);
-        assert_eq!(text(&results.rows[1], 6), "—");
+        assert_eq!(text(&results.rows[1], 6), "-");
         assert!(!results.detail_rows.is_empty());
         assert!(!results.notes.contains("AS2015A"));
         assert_eq!(results.result_overview.finish, "12:10:00");
@@ -998,10 +1002,10 @@ mod tests {
         assert!(initial.result_overview.identity.contains("Nro 7"));
         let empty = data(&fixture.workspace, 3, 1, "").unwrap();
         assert!(empty.result_overview.identity.contains("Ei leimoja"));
-        assert_eq!(empty.result_overview.total.to_string(), "—");
-        assert_eq!(empty.result_overview.elapsed.to_string(), "—");
-        assert_eq!(empty.result_overview.finish.to_string(), "—");
-        assert_eq!(empty.result_overview.time_points.to_string(), "—");
+        assert_eq!(empty.result_overview.total.to_string(), "-");
+        assert_eq!(empty.result_overview.elapsed.to_string(), "-");
+        assert_eq!(empty.result_overview.finish.to_string(), "-");
+        assert_eq!(empty.result_overview.time_points.to_string(), "-");
         // Ensimmäisen kilpailijan puuttuva käsimaali ei kuulu lukemattoman
         // toisen kilpailijan huomautukseksi.
         assert!(!empty.result_overview.issue.contains("Syötä käsikellot"));
@@ -1034,8 +1038,8 @@ mod tests {
         assert_eq!(summary.other_points, "75 p");
         assert_eq!(summary.status, "Hylätty");
         assert_eq!(summary.reason, "Väärä kalusto");
-        assert_eq!(summary.total, "—");
-        assert_eq!(summary.finish, "—");
+        assert_eq!(summary.total, "-");
+        assert_eq!(summary.finish, "-");
         assert_eq!(summary.start, "12:00:00");
     }
 
@@ -1043,9 +1047,9 @@ mod tests {
     fn pending_manual_clock_is_blank_but_entered_midnight_is_visible() {
         let mut fixture = Fixture::new(|_| {});
         let view = data(&fixture.workspace, 3, 0, "").unwrap();
-        assert_eq!(view.result_overview.total, "—");
-        assert_eq!(view.result_overview.finish, "—");
-        assert_eq!(text(view.detail_rows.last().unwrap(), 4), "—");
+        assert_eq!(view.result_overview.total, "-");
+        assert_eq!(view.result_overview.finish, "-");
+        assert_eq!(text(view.detail_rows.last().unwrap(), 4), "-");
         assert_eq!(
             text(view.detail_rows.last().unwrap(), 9),
             "Käsikello puuttuu"
@@ -1066,7 +1070,7 @@ mod tests {
             .unwrap();
         let entered = data(&fixture.workspace, 3, 0, "").unwrap();
         assert_eq!(text(entered.detail_rows.last().unwrap(), 4), "00:00:00");
-        assert_eq!(entered.result_overview.total, "—");
+        assert_eq!(entered.result_overview.total, "-");
     }
 
     #[test]
@@ -1077,15 +1081,15 @@ mod tests {
                 Some(as2026::native::ManualStatus::new("KESK", "Moottorivika").unwrap());
         });
         let pending = data(&fixture.workspace, 3, 0, "").unwrap();
-        assert_eq!(text(&pending.rows[0], 0), "—");
+        assert_eq!(text(&pending.rows[0], 0), "-");
         assert_eq!(text(&pending.rows[0], 5), "Keskeytys vahvistamatta");
         assert_eq!(
             pending.result_overview.read_state,
             "Keskeytys odottaa vahvistusta"
         );
         assert_eq!(pending.result_overview.reason, "Moottorivika");
-        assert_eq!(pending.result_overview.total, "—");
-        assert_eq!(pending.result_overview.finish, "—");
+        assert_eq!(pending.result_overview.total, "-");
+        assert_eq!(pending.result_overview.finish, "-");
         assert!(!pending.result_overview.issue.contains("kortti"));
 
         fixture
@@ -1093,15 +1097,15 @@ mod tests {
             .confirm_interruption(7, "Moottorivika")
             .unwrap();
         let confirmed = data(&fixture.workspace, 3, 0, "").unwrap();
-        assert_eq!(text(&confirmed.rows[0], 0), "—");
+        assert_eq!(text(&confirmed.rows[0], 0), "-");
         assert_eq!(text(&confirmed.rows[0], 5), "Keskeyttänyt");
         assert_eq!(
             confirmed.result_overview.read_state,
             "Keskeytys vahvistettu"
         );
         assert_eq!(confirmed.result_overview.reason, "Moottorivika");
-        assert_eq!(confirmed.result_overview.finish, "—");
-        assert_eq!(confirmed.result_overview.total, "—");
+        assert_eq!(confirmed.result_overview.finish, "-");
+        assert_eq!(confirmed.result_overview.total, "-");
         assert!(confirmed.result_overview.issue.is_empty());
     }
 

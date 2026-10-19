@@ -9,7 +9,7 @@ component ResultPoint inherits HorizontalLayout {
     height: 22px;
     vertical-stretch: 0;
     spacing: Theme.space-2;
-    Text { text: root.label; color: Theme.muted; font-size: 12px; horizontal-stretch: 1; overflow: elide; }
+    Text { text: root.label; color: Theme.muted; font-size: 12px; horizontal-stretch: 1; }
     Text { text: root.points; color: Theme.ink; font-size: 12px; }
 }
 
@@ -33,7 +33,6 @@ export component ResultSummary inherits Rectangle {
         Text {
             text: root.data.selected ? root.data.identity : "Kilpailijan tulos";
             font-size: 16px; font-weight: 700; color: Theme.ink;
-            overflow: elide;
         }
         Note { text: root.data.selected ? root.data.details : "Valitse kilpailija tulosluettelosta."; }
         if root.data.selected: VerticalLayout {
@@ -78,11 +77,11 @@ export component ResultSummary inherits Rectangle {
                 Text { text: root.data.total; color: Theme.accent-text; font-size: 18px; font-weight: 700; }
             }
             if root.editable: Button {
-                height: Theme.control-height; text: "Muokkaa kilpailijaa…";
+                height: Theme.control-height; text: "Muokkaa kilpailijaa";
                 clicked => { root.edit-competitor(); }
             }
             if root.editable: AccentButton {
-                text: root.interrupted ? "Vahvista keskeytys…" : "Hyväksy tulos";
+                text: root.interrupted ? "Vahvista keskeytys" : "Hyväksy tulos";
                 enabled: root.approvable;
                 clicked => { root.approve(); }
             }

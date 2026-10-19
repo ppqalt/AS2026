@@ -56,6 +56,14 @@ struct PendingResult {
     notice: String,
 }
 
+#[derive(Clone)]
+struct FormDraft {
+    selection: Selection,
+    values: BTreeMap<i32, String>,
+    selected: i32,
+    detail: i32,
+}
+
 #[derive(Default)]
 struct State {
     pending: Option<PendingAction>,
@@ -71,6 +79,7 @@ struct State {
     detail: i32,
     selection: Selection,
     draft: BTreeMap<i32, String>,
+    form_drafts: BTreeMap<(PathBuf, i32), FormDraft>,
     invalid_field: bool,
     invalid_fields: BTreeSet<i32>,
     edit_draft: BTreeMap<i32, String>,
@@ -129,6 +138,31 @@ fn can_leave(state: &mut State, app: &AppWindow) -> bool {
             return false;
         }
     }
+    if is_new(&state.selection) {
+        match save_new_if_ready(state, app) {
+            Ok(true) => return true,
+            Ok(false) => {
+                if !state.draft.is_empty()
+                    && let Some(key) = draft_key(state)
+                {
+                    state.form_drafts.insert(
+                        key,
+                        FormDraft {
+                            selection: state.selection.clone(),
+                            values: state.draft.clone(),
+                            selected: state.selected,
+                            detail: state.detail,
+                        },
+                    );
+                }
+                return true;
+            }
+            Err(error) => {
+                status(app, error.to_string(), true);
+                return false;
+            }
+        }
+    }
     if !is_new(&state.selection) {
         let pending = state.edit_draft.clone();
         for (key, value) in pending {
@@ -137,10 +171,10 @@ fn can_leave(state: &mut State, app: &AppWindow) -> bool {
             }
         }
     }
-    if state.invalid_field || is_new(&state.selection) {
+    if state.invalid_field {
         status(
             app,
-            "Hyväksy tai peruuta keskeneräinen muutos. Virheellisen kentän voi korjata tai palauttaa tallennetut tiedot.",
+            "Korjaa merkitty kenttä tai palauta sen tallennettu arvo.",
             true,
         );
         return false;
@@ -151,15 +185,51 @@ fn can_switch(state: &mut State, app: &AppWindow) -> bool {
     if !can_leave(state, app) {
         return false;
     }
-    if state.worker.is_some() || !state.unsaved.is_empty() {
+    if state.worker.is_some()
+        && let Err(error) = stop_reader(state, app)
+    {
+        status(app, error.to_string(), true);
+        return false;
+    }
+    if !state.unsaved.is_empty() {
         status(
             app,
-            "Pysäytä lukija ja tallenna odottavat lukemat ennen kilpailun vaihtamista.",
+            "Tallenna odottavat korttiluvut ennen kilpailun vaihtamista.",
             true,
         );
         return false;
     }
     true
+}
+
+fn draft_key(state: &State) -> Option<(PathBuf, i32)> {
+    state
+        .workspace
+        .as_ref()
+        .map(|ws| (ws.path().to_owned(), state.page))
+}
+
+fn save_new_if_ready(state: &mut State, app: &AppWindow) -> GuiResult<bool> {
+    let Some(project) = state.workspace.as_ref().and_then(Workspace::project) else {
+        return Ok(false);
+    };
+    if !forms::ready_to_add(project, &state.selection, &state.draft) {
+        return Ok(false);
+    }
+    let selection = state.selection.clone();
+    let draft = state.draft.clone();
+    let added = forms::add(current_workspace(state)?, &selection, &draft)?;
+    state.selection = added;
+    state.draft.clear();
+    if let Some(key) = draft_key(state) {
+        state.form_drafts.remove(&key);
+    }
+    state.invalid_field = false;
+    sync_selected_key(state);
+    update_tables(state, app)?;
+    update_form(state, app);
+    status(app, "Tiedot tallennettu automaattisesti.", false);
+    Ok(true)
 }
 
 fn current_workspace(state: &mut State) -> GuiResult<&mut Workspace> {
@@ -278,18 +348,37 @@ fn update_form(state: &State, app: &AppWindow) {
         if matches!(state.selection, Selection::ResultStation { .. }) {
             "Kellokorjaus säilyttää pisteet. Tutki laskee tallennetuista kelloista. Tarkista palauttaa kortinlukutuloksen."
         } else if new {
-            "Täytä tiedot ja valitse Lisää. Kilpailu tallentuu automaattisesti."
+            "Luonnos tallentuu automaattisesti, kun pakolliset tiedot on täytetty."
         } else {
             "Automaattinen tallennus"
         }
         .into(),
     );
-    let fields = state
+    let mut fields = state
         .workspace
         .as_ref()
         .and_then(Workspace::project)
         .map_or_else(Vec::new, |p| forms::fields(p, &state.selection));
+    for field in &mut fields {
+        if let Some(value) = state.draft.get(&field.key) {
+            field.value = value.as_str().into();
+            field.choice = field
+                .values
+                .iter()
+                .position(|item| item.as_str() == value)
+                .map_or(-1, |index| index as i32);
+            if field.duration {
+                let parts = value.split(':').collect::<Vec<_>>();
+                if let [h, m, s] = parts.as_slice() {
+                    field.hours = (*h).into();
+                    field.minutes = (*m).into();
+                    field.seconds = (*s).into();
+                }
+            }
+        }
+    }
     app.set_fields(model(fields));
+    update_station_rules(state, app);
     // Route details are independent of station selection, so the panel
     // remains visible at a stable position whenever a route is selected.
     let selected_route = state
@@ -314,6 +403,9 @@ fn update_form(state: &State, app: &AppWindow) {
 }
 
 fn choose_row(state: &mut State, key: i32) -> GuiResult<()> {
+    // Keskeneräinen uusi tietue on sivun luonnosvälimuistissa. Sen arvot
+    // eivät saa ilmestyä seuraavaksi valitun olemassa olevan rivin kenttiin.
+    state.draft.clear();
     state.selected = key;
     state.detail = -1;
     state.selection = Selection::None;
@@ -355,6 +447,15 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
         if let Some(key) = first {
             choose_row(state, key)?;
         }
+    }
+    if let Some(draft) = draft_key(state)
+        .and_then(|key| state.form_drafts.get(&key))
+        .cloned()
+    {
+        state.selection = draft.selection;
+        state.draft = draft.values;
+        state.selected = draft.selected;
+        state.detail = draft.detail;
     }
     update_tables(state, app)?;
     update_form(state, app);
@@ -453,7 +554,7 @@ fn add_record(state: &mut State, app: &AppWindow, station: bool) -> GuiResult<()
     update_form(state, app);
     status(
         app,
-        "Uusi tietue on luonnos. Täytä tiedot ja valitse Lisää tai Peruuta.",
+        "Luonnos avattu. Tiedot tallentuvat automaattisesti.",
         false,
     );
     Ok(())
@@ -509,7 +610,13 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
         if key == 0 {
             update_station_rules(state, app);
         }
-        return true;
+        return match save_new_if_ready(state, app) {
+            Ok(_) => true,
+            Err(error) => {
+                status(app, error.to_string(), true);
+                false
+            }
+        };
     }
     let selection = state.selection.clone();
     let result =
@@ -815,6 +922,10 @@ fn stop_reader(state: &mut State, app: &AppWindow) -> GuiResult<()> {
 }
 
 fn poll_reader(state: &mut State, app: &AppWindow, timer: &Timer) {
+    if state.worker.is_none() && state.receiver.is_none() {
+        timer.stop();
+        return;
+    }
     let events: Vec<_> = state
         .receiver
         .as_ref()
@@ -895,6 +1006,7 @@ fn offer_excel_import(
         app.set_import_only_tracks(false);
         app.set_import_tab(0);
         app.set_import_details_open(false);
+        app.set_import_mapping_open(false);
         app.set_import_error("".into());
         app.set_import_location_open(false);
         app.set_import_root(app.get_default_root());
@@ -909,10 +1021,13 @@ fn offer_excel_import(
                 .collect(),
         ));
         app.set_import_routes(model(
-            preview
-                .radat
-                .iter()
-                .map(|r| SharedString::from(r.luokka.as_str()))
+            std::iter::once(SharedString::from("-"))
+                .chain(
+                    preview
+                        .radat
+                        .iter()
+                        .map(|r| SharedString::from(r.luokka.as_str())),
+                )
                 .collect(),
         ));
         app.set_import_route_choices(model(
@@ -926,7 +1041,7 @@ fn offer_excel_import(
                     preview
                         .route_for_class(&code)
                         .and_then(|route| preview.radat.iter().position(|r| r.luokka == route))
-                        .map_or(-1, |index| index as i32)
+                        .map_or(0, |index| index as i32 + 1)
                 })
                 .collect(),
         ));
@@ -944,10 +1059,10 @@ fn offer_excel_import(
                         d.tiedot
                             .emit_number()
                             .map(|n| n.to_string())
-                            .unwrap_or_else(|| "Puuttuu".into())
+                            .unwrap_or_else(|| "-".into())
                             .into(),
                         if d.tiedot.lahtoaika.is_empty() {
-                            "Puuttuu".into()
+                            "-".into()
                         } else {
                             d.tiedot.lahtoaika.clone().into()
                         },
@@ -1125,6 +1240,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if !can_leave(s, &a) {
             return Ok(());
         }
+        s.draft.clear();
         if s.page == 3 && current_workspace(s)?.is_editable() {
             let number = selected_number(s)?;
             let archive = current_workspace(s)?.results()?;
@@ -1183,6 +1299,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if s.detail >= 0 && target >= 0 && (target as usize) < track.asemat.len() {
             let from = s.detail as usize;
             current_workspace(s)?.move_station(track_number, from, target as usize)?;
+            s.draft.clear();
             s.detail = target;
             s.selection = Selection::Station {
                 track: track_number,
@@ -1237,9 +1354,15 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_add_commit, |s, a| {
+        if !is_new(&s.selection) {
+            return Ok(());
+        }
         let selection = s.selection.clone();
         let draft = s.draft.clone();
         let added = forms::add(current_workspace(s)?, &selection, &draft)?;
+        if let Some(key) = draft_key(s) {
+            s.form_drafts.remove(&key);
+        }
         s.selection = added;
         s.draft.clear();
         s.invalid_field = false;
@@ -1250,6 +1373,9 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         follow_pending_result(s, &a)
     });
     action!(on_cancel_edit, |s, a| {
+        if let Some(key) = draft_key(s) {
+            s.form_drafts.remove(&key);
+        }
         s.invalid_field = false;
         s.invalid_fields.clear();
         s.invalid_route_fields.clear();
@@ -1338,7 +1464,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_import_excel, |s, a| {
-        if !can_switch(s, &a) {
+        if !can_leave(s, &a) {
             return Ok(());
         }
         if let Some(path) = rfd::FileDialog::new()
@@ -1354,6 +1480,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     action!(on_import_class_route, |s, a, code, route| {
         if let Some(PendingAction::Import { preview, .. }) = s.pending.as_mut() {
             preview.set_class_route(&code, &route)?;
+            if let Some(index) = a.get_import_classes().iter().position(|item| item == code)
+                && let Some(choice) = a.get_import_routes().iter().position(|item| item == route)
+            {
+                a.get_import_route_choices()
+                    .set_row_data(index, choice as i32);
+            }
             a.set_confirm_text(preview.summary().into());
             a.set_confirm_acceptable(preview.can_confirm_import() || a.get_import_only_tracks());
         }
@@ -1404,7 +1536,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_configure_draw_classes, |s, a| {
-        if !can_switch(s, &a) {
+        if !can_leave(s, &a) {
             return Ok(());
         }
         let project = current_workspace(s)?
@@ -1778,7 +1910,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     s.worker = Some(worker);
                     s.receiver = Some(receiver);
                     app.set_reader_running(true);
-                    app.set_reader_status("Etsitään ja avataan lukijaa…".into());
+                    app.set_reader_status("Etsitään ja avataan lukijaa".into());
                     let tick_state = state.clone();
                     let tick_weak = app.as_weak();
                     let tick_timer = Rc::downgrade(&timer);
@@ -1879,7 +2011,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 49 } else { 24 } {
+        if current >= if keyboard_test { 56 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -1949,6 +2081,21 @@ fn capture_views(
                     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
                         .join("fixtures/excel-import/synteettinen.xlsx");
                     let mut preview = as2026::excel_import::read(&source).unwrap();
+                    let samples = preview.kilpailijat.clone();
+                    let codes = [
+                        "B", "C", "NAC-K", "NAC-U", "SM-A", "SM-A+N-KC",
+                        "SM-A+NAC-K", "SM-M", "SM-M+NAC-K",
+                    ];
+                    preview.kilpailijat = (0..70)
+                        .map(|index| {
+                            let mut driver = samples[index % samples.len()].clone();
+                            driver.tiedot.numero = index as u32 + 1;
+                            driver.tiedot.luokka = codes[index % codes.len()].into();
+                            driver.tiedot.kuljettaja = format!("Mallikuljettaja {}", index + 1);
+                            driver.tiedot.kartanlukija = format!("Mallikartanlukija {}", index + 1);
+                            driver
+                        })
+                        .collect();
                     for driver in &mut preview.kilpailijat {
                         driver.tiedot.emit = 0;
                         driver.tiedot.lahtoaika.clear();
@@ -1960,6 +2107,7 @@ fn capture_views(
                 40 => save_view(&app, &directory.join("13-excel-kilpailijat.png")).unwrap(),
                 41 => {
                     app.set_import_tab(1);
+                    app.set_import_mapping_open(true);
                 }
                 42 => save_view(&app, &directory.join("14-excel-radat.png")).unwrap(),
                 43 => {
@@ -1973,6 +2121,53 @@ fn capture_views(
                     assert!(!app.get_status_error());
                     println!("GUI-lisätoimintojen koe hyväksytty: valikko avautuu ja Päivitä tiedot toimii Enterillä.");
                 }
+                47 => {
+                    let path = demo_path().unwrap();
+                    ProjectStore::open(&path).unwrap().update(|project| {
+                        project.kilpailijat.clear();
+                        project.leimaluvut.clear();
+                        Ok(())
+                    }).unwrap();
+                    open_workspace(&mut state.borrow_mut(), &app, &path, true).unwrap();
+                    app.invoke_navigate(3);
+                    assert_eq!(app.get_rows().row_count(), 0);
+                    assert!(
+                        app.get_calculation_notes().is_empty(),
+                        "Tyhjä kilpailu ei tarvitse huomautuspainiketta"
+                    );
+                }
+                48 => save_view(&app, &directory.join("16-tulokset-tyhja.png")).unwrap(),
+                49 => {
+                    app.invoke_navigate(5);
+                    app.invoke_select_row(0);
+                    app.invoke_add_station();
+                    app.invoke_field_draft(1, "Uuden aseman luonnos".into());
+                    update_form(&state.borrow(), &app);
+                }
+                50 => {
+                    let scale = app.window().scale_factor();
+                    let size = app.window().size();
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                        position: slint::LogicalPosition::new(size.width as f32 / scale - 40., 180.),
+                        delta_x: 0.,
+                        delta_y: -3000.,
+                    });
+                    save_view(&app, &directory.join("17-asemaluonnos.png")).unwrap();
+                }
+                51 => {
+                    app.invoke_navigate(4);
+                    app.invoke_navigate(5);
+                    assert!(app.invoke_field_commit(2, "99".into()));
+                    assert!(!app.get_new_record());
+                }
+                52 => save_view(&app, &directory.join("18-asema-tallennettu.png")).unwrap(),
+                53 => {
+                    app.invoke_navigate(4);
+                    app.invoke_select_row(0);
+                    assert!(app.invoke_field_commit(4, "15:25:30".into()));
+                    app.invoke_reload();
+                }
+                54 => save_view(&app, &directory.join("19-luokan-kellokentta.png")).unwrap(),
                 _ => {}
             }
             *phase.borrow_mut() += 1;
@@ -2005,6 +2200,9 @@ fn capture_views(
                     &app,
                     "✓ Emit 123456 luettu · #7 Esimerkkikuljettaja".into(),
                 );
+            }
+            if keyboard_test && current == 9 {
+                app.set_notes_open(true);
             }
         } else if current < 24 && current % 3 == 1 {
             if current == 10 || current == 16 {

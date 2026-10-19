@@ -90,7 +90,7 @@ fn incomplete_competitors_are_retained_and_unknown_classes_require_explicit_mapp
     let mut preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert_eq!(preview.kilpailijat.len(), 2);
     assert!(preview.can_import());
-    assert!(!preview.can_confirm_import());
+    assert!(preview.can_confirm_import());
     assert_eq!(preview.unresolved_classes(), ["Tuntematon"]);
     assert_eq!(
         preview
@@ -122,7 +122,7 @@ fn unknown_station_does_not_create_an_incomplete_or_guessed_route() {
     track.set_value((4, 1), Data::String("Tuntematon piste".into()));
     let preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import());
-    assert!(!preview.can_confirm_import());
+    assert!(preview.can_confirm_import());
     assert_eq!(preview.radat.len(), 1);
     assert_eq!(preview.radat[0].luokka, "B");
     assert_eq!(preview.kilpailijat.len(), 2);
@@ -320,7 +320,7 @@ fn sm_and_combined_routes_are_selected_explicitly_without_guessing() {
     drivers.set_value((2, 1), Data::String("SM-M+NAC-K".into()));
     let mut preview = excel_import::preview_sheets(&track, &drivers).unwrap();
     assert!(preview.can_import());
-    assert!(!preview.can_confirm_import());
+    assert!(preview.can_confirm_import());
     let draft = preview.to_project("Ilman arvausta").unwrap();
     assert!(
         draft

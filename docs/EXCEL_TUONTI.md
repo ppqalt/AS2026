@@ -12,9 +12,11 @@ Prototyypin `calamine 0.31.0` kaatui aidon mallipohjan vanhaan kaavatunnisteesee
 
 ## Tulkinta
 
-Yleiskatsauksen **Tuo kilpailu Excelistä…** toimii myös kilpailun ollessa avoinna.
-Valitse tiedosto, tarkista kilpailija- ja asemataulukot, valitse puuttuvat
-luokkien radat ja anna kilpailulle nimi. **Tallennuspaikka…** näyttää sijainnin
+Yleiskatsauksen **Tuo kilpailu Excelistä** toimii myös kilpailun ollessa avoinna.
+Valitse tiedosto, tarkista kilpailija- ja asemataulukot ja anna kilpailulle nimi.
+**Luokkien ratavalinnat** avaa vapaaehtoiset ratavalinnat; ne voi täydentää myös
+tuonnin jälkeen Luokat-sivulla. Viiva tarkoittaa valitsematonta rataa, jota ei
+arvata luokan puolesta. **Tallennuspaikka** näyttää sijainnin
 ja sallii sen vaihtamisen. Vahvistus luo aina uuden kilpailun omaan vapaaseen
 alikansioonsa; saman nimistä kilpailua ei korvata. Peruutus ei kirjoita kilpailua.
 Tallennusvirhe säilyttää esikatselun ja ratavalinnat korjaamista varten.
@@ -26,7 +28,7 @@ eikä puuttuva lähtö tarkoita keskiyötä. Usealla kilpailijalla saa olla näm
 tiedot tyhjinä. Laskenta ja tavallisen tuloksen hyväksyntä edellyttävät kelvollisia
 ajanottotietoja. Lähtöluetteloon puuttuvat ajat jätetään tyhjiksi.
 
-- RATA: luokkaryhmä alkaa A-, F-, K-, P-sarakkeista viiden sarakkeen välein. Ryhmän ensimmäinen solu on `Luokka`, toinen luokan tunnus. Rivillä 3 ovat `EMIT no`, `Asemanimi`, `Ihanneaika`/`Ihannea`, `kdi` ja `Jakso`. Täsmälleen samanniminen kilpailijaluokka käyttää ryhmän rataa; muiden luokkien rata valitaan esikatselussa. MALLIRATA ei ole luokkaryhmä. Nimetön ryhmä ohitetaan vain, jos sen kaikki tietosolut ovat tyhjiä.
+- RATA: luokkaryhmä alkaa A-, F-, K-, P-sarakkeista viiden sarakkeen välein. Ryhmän ensimmäinen solu on `Luokka`, toinen luokan tunnus. Rivillä 3 ovat `EMIT no`, `Asemanimi`, `Ihanneaika`/`Ihannea`, `kdi` ja `Jakso`. Täsmälleen samanniminen kilpailijaluokka käyttää ryhmän rataa; muiden luokkien rata valitaan esikatselussa tai myöhemmin Luokat-sivulla. Myös oletetun ratavalinnan voi poistaa valitsemalla viivan. MALLIRATA ei ole luokkaryhmä. Nimetön ryhmä ohitetaan vain, jos sen kaikki tietosolut ovat tyhjiä.
 - Asematyyppi tunnistetaan vain tunnetuista tunnuksista/nimistä: L/Lähtö, M/Maali, ULA, JAT, AT, RT. Tuntematonta asemaa sisältävää rataa ei tuoda osittaisena.
 - Tavallinen numeerinen ihanneaika säilyttää vanhan `Min.sek`-merkityksen: `7.28` on 7 min 28 s ja `13` on 13 min. Tekstinä hyväksytään myös `7,28`, `07:28` ja `hh:mm:ss`. Nimenomaisesti kellonajaksi/kestoksi muotoiltu Excel-solu tulkitaan vuorokauden osana. Yli kaksi sekuntinumeroa tai sekuntiosan arvo yli 59 hylätään.
 - KDI säilyy sääntönä 0–7 ja Jakso kokonaisina minuutteina. Emit-numero 0 säilyy myös käsin kellotettavilla AT/JAT-asemilla.
@@ -49,7 +51,7 @@ Muita välilehtiä ei tulkita eikä niiden sisältöä siirretä kilpailuun. VBA
 `tests/excel_import.rs` lukee molemmat synteettiset tiedostomuodot ja tarkistaa molemmat välilehdet, seuratiedot, manuaaliset asemat, KDI:n/jaksot, ajan tulkinnan, tunnistekonfliktit, vialliset rivit ja lähdetiedoston muuttumattomuuden. Testit eivät edellytä Exceliä tai Pythonia.
 
 `tests/excel_preparation.rs` tarkistaa valmistelurivien palautumisen, tyhjän
-ratapohjan, ristiriitaiset kellot ja sen, etteivät puuttuvat lähtötiedot kaada
+ratapohjan, ratavalinnan lykkäämisen ja poistamisen, ristiriitaiset kellot sekä sen, etteivät puuttuvat lähtötiedot kaada
 tuloslistaa tai muodosta hyväksyttyjä tuloksia. GUI:n `--smoke-test --capture-dir`
 käy synteettisen kilpailun läpi tuonnista lähtöarvontaan, leimoihin, käsikelloihin,
 pistekorjauksiin, hyväksymiseen, vientiin ja uudelleenavaukseen. Lisäksi se

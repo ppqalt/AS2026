@@ -22,7 +22,7 @@ Vasemman reunan navigaatio pysyy näkyvissä. Työalue käyttää tavallisia lue
 | Radat ja asemat | Ratojen ja niiden asemien lisäys ja muokkaus. |
 | Asetukset | Kilpailujen tallennuspaikka, ohjelmapäivitykset ja avoimen kilpailun perustiedot. |
 
-Olemassa olevien tietojen kelvolliset muutokset tallentuvat Enterillä tai poistuttaessa kentästä. Uusi tietue täytetään luonnoksena ja lisätään vasta ehjänä. Luonnoksen syötekentät ovat käyttöliittymän väliaikaista tilaa; ne eivät ole toinen itsenäinen kilpailutietokanta. Virheellinen syöte pitää voida korjata menettämättä viimeksi oikein tallennettua kilpailua. Tallennusvirhettä ei saa esittää onnistuneena tallennuksena.
+Olemassa olevien tietojen kelvolliset muutokset tallentuvat Enterillä tai poistuttaessa kentästä. Uusi tietue tallentuu automaattisesti, kun sen pakolliset tiedot ovat valmiit ja kelvolliset. Erillistä Lisää-vahvistusta ei tarvita. Keskeneräinen uusi luonnos säilyy sivulta poistuttaessa saman istunnon ajan, kilpailu- ja sivukohtaisesti. Asemaluonnos palautuu alkuperäiselle radalleen. Tyhjennä luonnos hylkää sen; ohjelman sulkeminen ei tallenna keskeneräistä luonnosta tiedostoon. Virheellinen syöte pitää voida korjata menettämättä viimeksi oikein tallennettua kilpailua. Tallennusvirhettä ei saa esittää onnistuneena tallennuksena.
 
 Luokan ja radan viittaukset, aseman tyyppi ja laskentasääntö valitaan nimetyistä vaihtoehdoista. ULA-pyöristykset näkyvät vain ULA-asemalle. Uusi väliasema sijoitetaan ennen radan viimeistä maalia; järjestystä voi muuttaa nuolipainikkeilla. Sisäisten tunnusten vapaa kirjoittaminen ei ole näiden valintojen ensisijainen käyttötapa. Kentän muokkaaminen muodostaa ensin luonnoksen; jokaisesta näppäinpainalluksesta ei kirjoiteta kilpailutiedostoa uudelleen.
 
@@ -71,11 +71,15 @@ Tulokset-sivun yhteenvedolla ja kilpailijaeditorilla on yksi yhteinen pystysuunt
 
 Kenttien välillä liikutaan Tabilla ja arvot voi hyväksyä Enterillä. Säilytä näkyvä näppäimistökohdistus ja kenttien tunnistettavat nimet, kun muutat komponentteja. Pitkien nimien ja polkujen sekä pienen ikkunan pitää säilyä käytettävinä.
 
+Painikkeilla on nimet ilman kolmea pistettä. Toiminnot avaa sivun lisätoiminnot. Puuttuva taulukko- tai tulosarvo esitetään merkillä `-`; todelliset nollat ja tarpeelliset virheselitteet säilyvät. Luokan lähtöaika ja aseman tavoiteaika käyttävät yhteistä tuntien, minuuttien ja sekuntien kenttää. Kellonajan tuntiraja tarkistetaan erikseen; tavoitekesto voi ylittää vuorokauden. Vierityspalkille varataan oma tila sisällön vieressä yhteisessä ScrollView-komponentissa.
+
 ## Emit-luku ja ajantasainen kilpailu
 
 Sarjaportin odotus tapahtuu taustalla. Ikkunan tapahtumakiertoa ei saa pysäyttää laitteen odottamiseen. Fyysisen lukutapahtuman, kortin varsinaisten leimausten ja kilpailijalle lasketun tuloksen ero säilyy samana kuin komentorivillä.
 
 Kilpailun vaihtaminen ei saa siirtää vanhan kilpailun lukutapahtumaa uuden kilpailun tiedostoon. Muokkaus, lukuhistorian tallennus ja tulosten uudelleenlaskenta käyttävät samaa ajantasaista kilpailua. Pelkkä muutoksen esittäminen Slintin listamallissa ei ole tallennus.
+
+Käynnissä oleva lukija ei harmaannuta Excel-esikatselua tai lähtöarvonnan toimintoja. Kilpailua vaihdettaessa lukija pysäytetään hallitusti ja jonossa olevat lukutapahtumat käsitellään nykyiseen kilpailuun. Tallentamattomat lukemat estävät vaihtamisen, kunnes tallennus onnistuu. Arvonnan yhteinen kilpailutietojen tarkistus säilyy käytössä.
 
 Onnistunut tallennettu kortinluku näkyy pienenä kolmen sekunnin kuittauksena lukuhistorian otsikkorivillä. Peräkkäiset saman kortin samat varsinaiset leimat esitetään yhdellä rivillä; Lukuja-sarake kertoo lukukertojen määrän ja yksityiskohdat näyttävät ryhmän viimeisimmän lukeman. Eri kortit, muuttuneet leimat ja virheelliset lukemat näkyvät erillisinä. Ryhmittely koskee vain esitystä: kaikki alkuperäiset lukemat säilyvät kilpailutiedostossa.
 
@@ -84,6 +88,8 @@ Tunnetun Emit-kortin onnistunut tallennus avaa Tulokset ja valitsee kilpailijan.
 ## Tuloksen täydentäminen
 
 Valitun kilpailijan yhteenveto pysyy Tulokset-näkymän oikeassa paneelissa. Siinä näkyvät lähtö, käytetty aika, maali, tila ja syy sekä kaikki viisi pisteosaa. Puuttuvista ja ylimääräisistä RT-asemista näytetään sekä kappalemäärä että pisteet. Muokkaa kilpailijaa avaa saman nykyisen lomakkeen tähän paneeliin; lisävirheitä ja tilaa varten ei tarvitse vaihtaa näkymää.
+
+Ilman valittua kilpailijaa tuloslista täyttää työalueen. Huomautukset avautuvat listan yläpuolella omassa vieritettävässä paneelissaan. Pelkkä tasapisteiden yleinen selite ei muodosta huomautusta tyhjään kilpailuun.
 
 Asemarivin valitseminen avaa sen kellon ja pisteiden korjauksen. Emit-numeron 0 asemien käsikellot täydennetään muodossa `hh:mm:ss`. Puuttuva aika tai keskeneräinen tulos näytetään viivalla, eikä sen tilalle esitetä laskennallista nollatulosta. Kellojen syöttö ei hävitä alkuperäisiä leimoja. Tutki käyttää tallennettuja asemarivejä ja käsikelloja, kun taas Tarkista muodostaa asemat alkuperäisestä korttiluvusta ja pyytää tarvittaessa vahvistuksen käsikorjausten korvaamiseen.
 

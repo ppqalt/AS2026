@@ -111,15 +111,13 @@ fn classes(project: &Project) -> Vec<(String, String)> {
 }
 
 fn tracks(project: &Project) -> Vec<(String, String)> {
-    project
-        .radat
-        .iter()
-        .map(|track| {
+    std::iter::once(("-".to_owned(), "0".to_owned()))
+        .chain(project.radat.iter().map(|track| {
             (
                 format!("{} — {}", track.numero, track.nimi),
                 track.numero.to_string(),
             )
-        })
+        }))
         .collect()
 }
 
@@ -179,12 +177,7 @@ fn class_fields(project: &Project, class: &ClassEdit) -> Vec<EditorField> {
             &class.first_number,
             "Luokan numeroinnin aloitus",
         ),
-        text(
-            4,
-            "Luokan lähtöaika",
-            &class.start_time,
-            "Kellonaika muodossa 15:00:00",
-        ),
+        clock_field(4, "Luokan lähtöaika (h : min : s)", &class.start_time),
         text(
             5,
             "Lähtöväli (min)",
@@ -293,11 +286,15 @@ fn parse_target_duration(raw: &str) -> Result<String, CoreError> {
 
 fn station_target_field(seconds: &str) -> EditorField {
     let formatted = format_target_duration(seconds);
+    clock_field(3, "Tavoiteaika (h : min : s)", &formatted)
+}
+
+fn clock_field(key: i32, label: &str, formatted: &str) -> EditorField {
     let parts = formatted.split(':').collect::<Vec<_>>();
     let mut field = text(
-        3,
-        "Tavoiteaika (h : min : s)",
-        &formatted,
+        key,
+        label,
+        formatted,
         "Tunnit, minuutit ja sekunnit erikseen",
     );
     field.duration = true;
@@ -307,6 +304,31 @@ fn station_target_field(seconds: &str) -> EditorField {
         field.seconds = parts[2].into();
     }
     field
+}
+
+pub fn ready_to_add(
+    project: &Project,
+    selection: &Selection,
+    draft: &BTreeMap<i32, String>,
+) -> bool {
+    let defaults = fields(project, selection);
+    let required: &[i32] = match selection {
+        Selection::NewStation { .. } => &[0, 1, 2, 3],
+        Selection::NewDriver => &[0, 1, 3],
+        Selection::NewClass => &[0, 1, 2, 3, 4, 5, 6],
+        Selection::NewTrack => &[0, 1],
+        _ => return false,
+    };
+    required.iter().all(|key| {
+        draft
+            .get(key)
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| {
+                defaults
+                    .iter()
+                    .any(|field| field.key == *key && !field.value.trim().is_empty())
+            })
+    })
 }
 
 fn station_fields(station: &StationEdit) -> Vec<EditorField> {
@@ -330,7 +352,7 @@ fn station_fields(station: &StationEdit) -> Vec<EditorField> {
             2,
             "Emit-koodi",
             &station.code,
-            "Lähtö- ja maaliasemalla voidaan käyttää nollaa",
+            "Emit-koodi tai 0 käsin kellotettavalle asemalle",
         ),
         station_target_field(&station.target_seconds),
         station_rule_field(&station.kind, &station.rule),

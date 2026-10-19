@@ -26,6 +26,10 @@ teemakansiota ei tarvita käyttäjän koneella.
   täyttöjä tai reunojen liukuvärejä.
 - Vierityspalkin nuolten piilotus käyttää välitöntä `visible`-tilaa.
   Käytöstä poistetun valikkorivin teksti saa peittävän vaimennetun värin.
+- ScrollView varaa vierityspalkeille oman 14 pikselin kaistan. Kentät eivät
+  jää palkkien alle; `always-off` vapauttaa kyseisen kaistan sisällölle.
+  Varattu tila ei riipu palkin hetkellisestä näkyvyydestä, jotta sisällön
+  koko ja vieritystarve eivät muodosta asettelun takaisinkytkentää.
 - Nuolikuvakkeiden läpikuultavat maskit on muutettu peittäviksi;
   lopullinen kuvakeväri tulee yhteisestä paletista.
 - LineEditin sisäinen `interface`/`uses`-syntaksi on korvattu samoja
