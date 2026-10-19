@@ -1,0 +1,76 @@
+import { Button, CheckBox, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { DrawClassOption, BcStationOption } from "types.slint";
+
+export component BeginnersCupDialog inherits Rectangle {
+    in-out property <string> name;
+    in-out property <string> code;
+    in property <[string]> routes;
+    in-out property <int> route;
+    in property <[BcStationOption]> stations;
+    in property <[DrawClassOption]> participants;
+    in property <string> error;
+    callback route-selected(int);
+    callback station-toggled(int, bool);
+    callback participant-toggled(int, bool);
+    callback close(bool);
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { name-input.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Tab {
+                if save.has-focus && !event.modifiers.shift { name-input.focus(); return accept; }
+                if name-input.has-focus && event.modifiers.shift { save.focus(); return accept; }
+            }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width;
+            available-height: root.height;
+            preferred-dialog-height: 760px;
+            VerticalLayout {
+                padding: Theme.dialog-padding;
+                spacing: Theme.space-3;
+                Heading { text: "NAC Beginners Cup"; }
+                ScrollView {
+                    vertical-stretch: 1;
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width;
+                    VerticalLayout {
+                        spacing: Theme.space-3;
+                        Note { text: "Luokan nimi"; }
+                        name-input := LineEdit { text <=> root.name; }
+                        Note { text: "Luokan tunnus"; }
+                        LineEdit { text <=> root.code; }
+                        Note { text: "NAC-lähderata"; }
+                        ComboBox { model: root.routes; current-index <=> root.route; selected => { root.route-selected(self.current-index); } }
+                        Note { text: "Valitse BC-tulokseen kuuluvat asemat. Pois jätettyjen asemien leimat eivät tuota BC:ssä virhepisteitä. Lähtö ja maali säilyvät mukana."; }
+                        for station[i] in root.stations: CheckBox {
+                            text: station.label;
+                            checked: station.selected;
+                            enabled: !station.fixed;
+                            toggled => { root.station-toggled(i, self.checked); }
+                        }
+                        Heading { text: "BC-osallistujat"; }
+                        Note { text: "Valitse kilpailijat, joille lasketaan sekä NAC- että BC-tulos. Emit-kortti ja lähtöaika ovat yhteiset. Virhepisteet ja hyväksynnät ovat erillisiä. Osallistujavalinnan poistaminen säilyttää aiemmin tallennetut BC-tiedot."; }
+                        for participant[i] in root.participants: CheckBox {
+                            text: participant.label;
+                            checked: participant.selected;
+                            toggled => { root.participant-toggled(i, self.checked); }
+                        }
+                        if root.error != "": Note { text: root.error; color: Theme.danger; }
+                    }
+                }
+                DialogActions {
+                    Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    save := AccentButton { text: "Tallenna BC"; clicked => { root.close(true); } }
+                }
+            }
+        }
+    }
+}

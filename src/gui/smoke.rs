@@ -43,6 +43,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         )
     };
     combined_classes(app, state, &path, &original)?;
+    beginners_cup(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
@@ -669,6 +670,92 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn beginners_cup(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = original_path.parent().unwrap().join("beginners-cup");
+    let ws = Workspace::create_imported(&directory, original.clone())?;
+    let path = ws.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(4);
+    app.invoke_configure_bc();
+    assert!(app.get_bc_open());
+    app.invoke_bc_station_toggled(1, false);
+    app.invoke_bc_participant_toggled(0, true);
+    app.invoke_bc_close(true);
+    assert!(!app.get_bc_open(), "{}", app.get_bc_error());
+    assert!(app.get_bc_configured());
+    let stored = ProjectStore::open(&path)?;
+    assert_eq!(
+        stored
+            .project()
+            .beginners_cup
+            .as_ref()
+            .unwrap()
+            .mukana_asemat,
+        [1, 3, 4]
+    );
+    assert_eq!(stored.project().kilpailijat, original.kilpailijat);
+    assert_eq!(stored.project().leimaluvut, original.leimaluvut);
+    app.invoke_navigate(3);
+    app.invoke_result_scope(true);
+    assert!(app.get_bc_results());
+    app.invoke_edit_result_competitor();
+    assert!(
+        app.get_fields()
+            .iter()
+            .all(|f| matches!(f.key, 8 | 9 | 10 | 13 | 14))
+    );
+    assert!(app.invoke_field_commit(10, "77".into()));
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(
+        saved.project().bc_osallistujat[0]
+            .lisavirheet
+            .muut_virhepisteet,
+        77
+    );
+    assert_eq!(
+        saved.project().kilpailijat[0].lisavirheet,
+        original.kilpailijat[0].lisavirheet
+    );
+    let archive = state.borrow().workspace.as_ref().unwrap().results()?;
+    let finish = archive.competitors[0]
+        .results
+        .iter()
+        .position(|r| r.station_type == "M")
+        .unwrap();
+    app.invoke_select_detail(finish as i32);
+    assert!(app.invoke_field_commit(100, "12:11:00".into()));
+    app.invoke_examine_results();
+    assert!(app.get_result_approvable(), "{}", app.get_status_text());
+    app.invoke_approve_results();
+    let saved = ProjectStore::open(&path)?;
+    assert!(
+        saved.project().bc_osallistujat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .hyvaksytty
+    );
+    assert_eq!(
+        saved.project().kilpailijat[0].tallennettu_tulos,
+        original.kilpailijat[0].tallennettu_tulos
+    );
+    app.invoke_result_scope(false);
+    assert!(!app.get_bc_results());
+    assert_eq!(selected_number(&state.borrow())?, 7);
+    assert_eq!(
+        ProjectStore::open(&path)?.project().leimaluvut,
+        original.leimaluvut
+    );
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!("GUI-BC-koe: asemat, osallistuja, erilliset virheet, käsimaali ja hyväksyntä.");
+    Ok(())
 }
 
 fn combined_classes(

@@ -39,7 +39,7 @@ pub struct Project {
     pub yhdistetyt_luokat: Vec<CombinedClass>,
     /// Rinnakkainen BC-tulos samoista kilpailijoista ja alkuperäisistä lukemista.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub beginners_cup: Option<crate::beginners::BeginnersCup>,
+    pub beginners_cup: Option<Box<crate::beginners::BeginnersCup>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bc_osallistujat: Vec<crate::beginners::Entry>,
     #[serde(default)]

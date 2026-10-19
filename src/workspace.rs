@@ -196,7 +196,7 @@ impl Workspace {
                     });
                 }
             }
-            project.beginners_cup = Some(config);
+            project.beginners_cup = Some(Box::new(config));
             Ok(())
         })
     }

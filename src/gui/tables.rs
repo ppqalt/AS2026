@@ -319,20 +319,19 @@ fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
 }
 
 fn result_row(
-    ws: &Workspace,
+    project: Option<&as2026::native::Project>,
     archive: &Archive,
     index: usize,
     driver: &Competitor,
     position: String,
 ) -> TableRow {
-    let native = ws.project().and_then(|project| {
+    let native = project.and_then(|project| {
         project
             .kilpailijat
             .iter()
             .find(|d| d.numero == driver.number)
     });
-    let pending = ws
-        .project()
+    let pending = project
         .and_then(|project| {
             project
                 .kilpailijat
@@ -393,6 +392,7 @@ fn results(
     view: &mut ViewData,
     notes: &mut Vec<String>,
 ) -> Result<(), CoreError> {
+    let result_project = ws.result_project()?;
     view.headers = headers(&[
         "Sija",
         "Nro",
@@ -419,8 +419,13 @@ fn results(
                 } else {
                     "-".into()
                 };
-                view.rows
-                    .push(result_row(ws, archive, index, driver, position));
+                view.rows.push(result_row(
+                    result_project.as_ref(),
+                    archive,
+                    index,
+                    driver,
+                    position,
+                ));
             }
         }
     }
@@ -428,8 +433,13 @@ fn results(
         if let Some(index) = source_index.checked_sub(1)
             && let Some(driver) = archive.competitors.get(index)
         {
-            view.rows
-                .push(result_row(ws, archive, index, driver, "-".into()));
+            view.rows.push(result_row(
+                result_project.as_ref(),
+                archive,
+                index,
+                driver,
+                "-".into(),
+            ));
         }
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));
@@ -443,7 +453,7 @@ fn results(
     else {
         return Ok(());
     };
-    let native = ws.project().and_then(|project| {
+    let native = result_project.as_ref().and_then(|project| {
         project
             .kilpailijat
             .iter()
@@ -513,7 +523,7 @@ fn results(
             "Keskeytys odottaa vahvistusta".to_owned()
         }
     } else {
-        ws.project().map_or_else(
+        result_project.as_ref().map_or_else(
             || "AS2015A-aineisto · vain katselu".to_string(),
             |project| {
                 if driver

@@ -81,6 +81,19 @@ pub fn validate(project: &Project) -> Result<(), CoreError> {
     if config.lahdeasemat.len() < 2 || positions.len() < 2 {
         return Err(invalid("BC-radalla pitää olla lähtö ja maali"));
     }
+    if config
+        .lahdeasemat
+        .first()
+        .is_none_or(|s| s.tyyppi.trim() != "L")
+        || config
+            .lahdeasemat
+            .last()
+            .is_none_or(|s| s.tyyppi.trim() != "M")
+    {
+        return Err(invalid(
+            "BC:n lähderadan pitää alkaa lähdöstä ja päättyä maaliin",
+        ));
+    }
     for (index, station) in config.lahdeasemat.iter().enumerate() {
         let kind = StationKind::from_legacy(&station.tyyppi)?;
         if matches!(kind, StationKind::Start | StationKind::Finish)
@@ -102,6 +115,15 @@ pub fn validate(project: &Project) -> Result<(), CoreError> {
         entry.lisavirheet.validate()?;
         if let Some(status) = &entry.tila {
             status.validate()?;
+        }
+        if entry.keskeytys_vahvistettu
+            && !entry.tila.as_ref().is_some_and(|s| {
+                s.tunnus == "KESK" && crate::native::validate_interruption_reason(&s.syy).is_ok()
+            })
+        {
+            return Err(invalid(
+                "BC:n vahvistettu keskeytys edellyttää KESK-tilaa ja syytä",
+            ));
         }
     }
     // Tarkista myös johdetun radan aritmetiikka ennen tallentamista.
@@ -188,6 +210,27 @@ fn filtered_readout(
         interior,
         crate::terminal::parse_clock(&driver.lahtoaika)?,
     )?;
+    for row in &rows {
+        if row.kind == MatchKind::Missing
+            && let Some(missing) = &row.station
+        {
+            let same_code = route
+                .iter()
+                .filter(|s| s.expected_code != 0 && s.expected_code == missing.expected_code)
+                .collect::<Vec<_>>();
+            if same_code
+                .iter()
+                .any(|s| config.mukana_asemat.contains(&s.sequence))
+                && same_code
+                    .iter()
+                    .any(|s| !config.mukana_asemat.contains(&s.sequence))
+            {
+                return Err(invalid(
+                    "Toistuvan Emit-koodin BC-kohdistus on epäselvä puuttuvan leiman vuoksi. Tarkista alkuperäinen korttiluku",
+                ));
+            }
+        }
+    }
     let mut omitted = BTreeSet::new();
     let mut needed = BTreeSet::new();
     let mut punch = 0_usize;
@@ -262,11 +305,11 @@ pub fn projection(project: &Project) -> Result<Project, CoreError> {
     view.leimaluvut.clear();
     for driver in &view.kilpailijat {
         // Vain aktiivinen lukema tarvitaan projektioon. Alkuperäinen historia säilyy projektissa.
-        if let Some(read) = project.active_readout(driver.emit) {
-            if driver.start_clock()?.is_some() {
-                view.leimaluvut
-                    .push(filtered_readout(project, config, driver.numero, read)?);
-            }
+        if let Some(read) = project.active_readout(driver.emit)
+            && driver.start_clock()?.is_some()
+        {
+            view.leimaluvut
+                .push(filtered_readout(project, config, driver.numero, read)?);
         }
     }
     view.radat

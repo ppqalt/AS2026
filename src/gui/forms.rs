@@ -18,6 +18,7 @@ pub enum Selection {
     #[default]
     None,
     Driver(u32),
+    ResultDriver(u32),
     Class(String),
     Track(u32),
     Station {
@@ -391,6 +392,8 @@ fn station_fields(station: &StationEdit) -> Vec<EditorField> {
 
 pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
     match selection {
+        Selection::ResultDriver(number) => fields(project, &Selection::Driver(*number))
+            .into_iter().filter(|field| matches!(field.key, 8 | 9 | 10 | 13 | 14)).collect(),
         Selection::Driver(number) => project
             .kilpailijat
             .iter()
@@ -445,6 +448,13 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     text(15, "Kuljettajan seura", &driver.kuljettajan_seura, "Kuljettajan seuratieto"),
                     text(16, "Kartanlukijan seura", &driver.kartanlukijan_seura, "Kartanlukijan seuratieto"),
                 ]);
+                if let Some(config) = &project.beginners_cup
+                    && as2026::beginners::eligible(project, *number, config.lahderata) {
+                    fields.push(choice(17, "Osallistuu Beginners Cupiin",
+                        if project.bc_osallistujat.iter().any(|e| e.numero == *number && e.osallistuu) { "1" } else { "0" },
+                        "BC käyttää samaa Emit-korttia ja omia virhepisteitään",
+                        named(&[("Ei", "0"), ("Kyllä", "1")])));
+                }
                 fields
             })
             .unwrap_or_default(),
@@ -736,7 +746,36 @@ pub fn apply_field(
     let stored = stored_duration(selection, key, value)?;
     let value = stored.as_str();
     match selection {
+        Selection::ResultDriver(number) => {
+            let field = match key {
+                8 => DriverField::MissingRtCount,
+                9 => DriverField::ExtraRtCount,
+                10 => DriverField::OtherPenalties,
+                13 => DriverField::Status,
+                14 => DriverField::StatusReason,
+                _ => return Err(invalid()),
+            };
+            ws.edit_result_driver(*number, field, value)?;
+            Ok(selection.clone())
+        }
         Selection::Driver(number) => {
+            if key == 17 {
+                let project = ws.project().ok_or_else(invalid)?;
+                let config = project.beginners_cup.clone().ok_or_else(invalid)?;
+                let mut selected = project
+                    .bc_osallistujat
+                    .iter()
+                    .filter(|e| e.osallistuu && e.numero != *number)
+                    .map(|e| e.numero)
+                    .collect::<Vec<_>>();
+                match value {
+                    "1" => selected.push(*number),
+                    "0" => {}
+                    _ => return Err(invalid()),
+                }
+                ws.save_beginners_cup(*config, &selected)?;
+                return Ok(selection.clone());
+            }
             let field = match key {
                 0 => DriverField::Number,
                 1 => DriverField::Driver,
