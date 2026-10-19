@@ -40,10 +40,15 @@ ei riitä tilaa. Pääalueen rinnakkaisleveys on vähintään 540 px ja tietopan
 368–420 px. Päätaulukot saavat vähintään 180 px korkeutta. Alle 440 px korkeassa
 työalueessa käytetään yhtä pääsisältöä kerrallaan. Tulosten kahta taulukkoa
 ja Emit-historian leimaustietoja ei puristeta pieniksi alataulukoiksi.
-Yleiskatsauksen ja asetusten lukuleveys rajataan 1120 pikseliin. Betan tarkemmat
+Yleiskatsaus käyttää sivun leveyden. Asetusten lukuleveys rajataan 1120 pikseliin. Betan tarkemmat
 sivukohtaiset ratkaisut: `KAYTTOLIITTYMA_BETA.md`.
 
 Muutos tarkistetaan koko kilpailun synteettisellä GUI-kokeella, näppäimistöllä,
 vierityksellä ja ikkunoiden koon vaihtamisella myös 150 %:n skaalauksella.
 Kenttävirheen, tallennusvirheen ja keskeneräisen luonnoksen toiminta erotetaan
 toisistaan. Windows-käännös ei yksin todista Windowsin fyysistä käyttökoetta.
+
+Lähtöarvonta sijoitetaan toimintorivin oikeaan reunaan; luokkavalinnan
+rataskuvake on välittömästi arvontapainikkeen vieressä. Muokattavat kellot
+ja kestot käyttävät yhteistä h : min : s -kenttää. Mallin kokonaisminuutteihin
+perustuvissa kestoissa sekuntien on oltava 00. Pistekertoimet säilyvät numeroina.

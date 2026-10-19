@@ -48,7 +48,7 @@ fn strings(values: impl IntoIterator<Item = String>) -> ModelRc<SharedString> {
 }
 
 fn text(key: i32, label: &str, value: impl ToString, hint: &str) -> EditorField {
-    EditorField {
+    let mut field = EditorField {
         key,
         label: label.into(),
         value: value.to_string().into(),
@@ -61,7 +61,34 @@ fn text(key: i32, label: &str, value: impl ToString, hint: &str) -> EditorField 
         hours: "".into(),
         minutes: "".into(),
         seconds: "".into(),
+    };
+    let unit = match label {
+        "Lähtöväli (min)"
+        | "Myöhästymisraja (min)"
+        | "Jakson pituus (min)"
+        | "Jakson raja (min)" => 60,
+        "Emit-korjaus (s)" | "Vapaa-aika (s)" => 1,
+        _ => return field,
+    };
+    field.duration = true;
+    field.label = format!(
+        "{} (h : min : s)",
+        label.rsplit_once(" (").map_or(label, |(name, _)| name)
+    )
+    .into();
+    if let Ok(value) = field.value.parse::<i64>() {
+        let total = value.saturating_mul(unit);
+        let magnitude = total.unsigned_abs();
+        field.hours = format!(
+            "{}{:02}",
+            if total < 0 { "-" } else { "" },
+            magnitude / 3600
+        )
+        .into();
+        field.minutes = format!("{:02}", magnitude % 3600 / 60).into();
+        field.seconds = format!("{:02}", magnitude % 60).into();
     }
+    field
 }
 
 fn choice(
@@ -147,12 +174,7 @@ fn driver_fields(project: &Project, driver: &DriverEdit) -> Vec<EditorField> {
             "Kortin numero kohdistaa lukemat kilpailijaan",
         ),
         text(5, "Auto", &driver.car, "Auton tiedot, valinnainen"),
-        text(
-            6,
-            "Lähtöaika",
-            &driver.start_time,
-            "Kellonaika muodossa 15:00:00",
-        ),
+        clock_field(6, "Lähtöaika (h : min : s)", &driver.start_time),
         text(
             7,
             "Emit-korjaus (s)",
@@ -243,7 +265,7 @@ pub fn station_rule_field(kind: &str, rule: &str) -> EditorField {
     )
 }
 
-// Only the station target uses HH:MM:SS in the form; the native model stores seconds.
+// Aseman tavoite näytetään kestona; alkuperäinen malli tallentaa sekunnit.
 // Target durations are allowed to exceed 24 hours.
 fn format_target_duration(raw: &str) -> String {
     match raw.parse::<i64>() {
@@ -654,7 +676,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     let pending = project.kilpailijat.iter().find(|d| d.numero == *number)
                         .and_then(|d| d.tallennettu_tulos.as_ref()).is_none_or(|r| r.pending_manual_clocks().contains(row));
                     let value = if pending { String::new() } else { format!("{:02}:{:02}:{:02}", station.clock[0], station.clock[1], station.clock[2]) };
-                    fields.push(text(100, "Käsikello", value, "Anna hh:mm:ss. Myös 00:00:00 on kelvollinen syötetty kello. Tutki laskee pisteet."));
+                    fields.push(clock_field(100, "Käsikello (h : min : s)", &value));
                 }
                 fields.extend([
                 text(101, "Aikavirhe (p)", station.signed_time_penalty, "Ennakko positiivisena, myöhä negatiivisena; summaan tulee itseisarvo"),
@@ -677,12 +699,42 @@ fn identifier(value: &str) -> Result<u32, CoreError> {
         .map_err(|_| CoreError::InvalidInput("Anna kelvollinen positiivinen numero".into()))
 }
 
+// Säilytä mallin alkuperäiset sekunti- ja kokonaisminuuttiyksiköt.
+fn stored_duration(selection: &Selection, key: i32, value: &str) -> Result<String, CoreError> {
+    let unit = match (selection, key) {
+        (Selection::Driver(_) | Selection::NewDriver, 7) => 1,
+        (Selection::Class(_) | Selection::NewClass, 5 | 6) => 60,
+        (Selection::Station { .. } | Selection::NewStation { .. }, 5) => 60,
+        (Selection::Settings, 10) => 1,
+        (Selection::Settings, 16) => 60,
+        _ => return Ok(value.into()),
+    };
+    if !value.contains(':') {
+        return Ok(value.into());
+    }
+    if value == "::" {
+        return Ok(String::new());
+    }
+    let negative = value.starts_with('-');
+    let seconds: i64 = parse_target_duration(value.trim_start_matches('-'))?
+        .parse()
+        .map_err(|_| invalid())?;
+    if seconds % unit != 0 {
+        return Err(CoreError::InvalidInput(
+            "Anna kokonaiset minuutit; sekuntien on oltava 00".into(),
+        ));
+    }
+    Ok(((if negative { -seconds } else { seconds }) / unit).to_string())
+}
+
 pub fn apply_field(
     ws: &mut Workspace,
     selection: &Selection,
     key: i32,
     value: &str,
 ) -> Result<Selection, CoreError> {
+    let stored = stored_duration(selection, key, value)?;
+    let value = stored.as_str();
     match selection {
         Selection::Driver(number) => {
             let field = match key {
@@ -818,6 +870,9 @@ pub fn add(
         .map(|field| (field.key, field.value.to_string()))
         .collect();
     row.extend(values.iter().map(|(key, value)| (*key, value.clone())));
+    for (key, value) in &mut row {
+        *value = stored_duration(selection, *key, value)?;
+    }
     let value = |key| row.get(&key).cloned().unwrap_or_default();
     match selection {
         Selection::NewDriver => {
@@ -880,7 +935,28 @@ pub fn add(
 
 #[cfg(test)]
 mod target_duration_tests {
-    use super::{format_target_duration, parse_target_duration};
+    use super::{Selection, format_target_duration, parse_target_duration, stored_duration, text};
+
+    #[test]
+    fn duration_controls_preserve_units_sign_and_optional_values() {
+        assert_eq!(
+            stored_duration(&Selection::NewClass, 5, "01:02:00").unwrap(),
+            "62"
+        );
+        assert!(stored_duration(&Selection::NewClass, 5, "00:01:01").is_err());
+        assert_eq!(
+            stored_duration(&Selection::Driver(7), 7, "-00:00:12").unwrap(),
+            "-12"
+        );
+        assert_eq!(stored_duration(&Selection::Settings, 10, "::").unwrap(), "");
+        assert_eq!(
+            stored_duration(&Selection::Settings, 10, "00:00:00").unwrap(),
+            "0"
+        );
+        let field = text(7, "Emit-korjaus (s)", "-12", "");
+        assert_eq!(field.hours.as_str(), "-00");
+        assert_eq!(field.seconds.as_str(), "12");
+    }
 
     #[test]
     fn targets_display_as_hms() {

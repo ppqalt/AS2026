@@ -144,6 +144,7 @@ export component FormField inherits VerticalLayout {
     init => { root.invalid = root.error != ""; }
     changed error => { root.invalid = root.error != ""; }
     function duration-value() -> string {
+        if hour-input.text == "" && minute-input.text == "" && second-input.text == "" { return ""; }
         return hour-input.text + ":" + minute-input.text + ":" + second-input.text;
     }
     function duration-edited() {

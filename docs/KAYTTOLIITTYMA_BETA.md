@@ -41,7 +41,7 @@ ovat rinnakkain. Leimaustaulukolle varataan tavallista lomakepaneelia enemmän
 leveyttä. Kapeassa tilassa kumpikin saa koko työalueen. Kokeet eivät käynnistä
 fyysistä lukijaa.
 
-**Yleiskatsaus ja Asetukset:** tietojen lukuleveys on rajattu 1120 pikseliin.
+**Yleiskatsaus:** kortit käyttävät sivun leveyden. **Asetukset:** tietojen lukuleveys on rajattu 1120 pikseliin.
 Työvaiheiden painikkeet jakautuvat kapeassa ikkunassa kahdelle riville.
 Asetusten tallennuspaikka siirtyy kapeassa ikkunassa lomakkeen alle; koko sisältö
 vierii yhdessä. Sivupalkin navigaatio käyttää vapaan korkeuden ilman toista

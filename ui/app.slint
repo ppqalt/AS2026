@@ -353,7 +353,7 @@ export component AppWindow inherits Window {
                     vertical-stretch: 1;
                     overview-content := VerticalLayout {
                     x: 0px; y: 0px;
-                    width: min(Theme.settings-max-width, overview-scroll.visible-width); height: self.min-height;
+                    width: overview-scroll.visible-width; height: self.min-height;
                     spacing: Theme.space-4;
                     if root.opened: HorizontalLayout {
                         Button { text: "Tuo kilpailu Excelistä"; clicked => { root.import-excel(); } }
@@ -501,10 +501,13 @@ export component AppWindow inherits Window {
                     if root.page == 1 || root.page == 4: HorizontalLayout {
                         spacing: Theme.space-2;
                         Button { text: "Tuo Excel"; enabled: true; clicked => { root.import-excel(); } }
-                        Button { text: "Arvonnan luokat"; enabled: root.editable; clicked => { root.configure-draw-classes(); } }
-                        Button { text: "Arvo lähtöajat"; enabled: root.editable; clicked => { root.draw-starts(); } }
                         Button { text: "Lähtöluettelo"; enabled: root.editable; clicked => { root.export-starts(); } }
                         Rectangle { horizontal-stretch: 1; }
+                        HorizontalLayout {
+                            spacing: Theme.space-1;
+                            Button { text: "⚙"; min-width: Theme.control-height; max-width: Theme.control-height; accessible-label: "Lähtöarvonnan luokat"; enabled: root.editable; clicked => { root.configure-draw-classes(); } }
+                            AccentButton { text: "Arvo lähtöajat"; enabled: root.editable; clicked => { root.draw-starts(); } }
+                        }
                     }
                     if root.page == 3: HorizontalLayout {
                         alignment: start; vertical-stretch: 0;
