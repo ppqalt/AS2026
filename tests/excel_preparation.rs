@@ -195,3 +195,24 @@ fn local_preparation_workbook_retains_all_named_rows_without_guessing_routes() {
         "Paikallinen Excel: 70 kilpailijaparia, 3 rataa, 89 asemaa; 43 Emit-numeroa ja 70 lähtöaikaa täydennettävä. Ratavalintoja ei arvattu, alkuperäinen säilyi tavulleen."
     );
 }
+
+#[test]
+fn drivers_only_import_excludes_routes_and_ignores_only_route_errors() {
+    let (mut tracks, mut drivers) = sheets();
+    tracks.set_value((0, 6), Data::String("C".into()));
+    let preview = excel_import::preview_sheets(&tracks, &drivers).unwrap();
+    assert!(!preview.can_import());
+    let selected = preview.drivers_only();
+    let project = selected.to_project("Vain kilpailijat").unwrap();
+    assert_eq!(project.kilpailijat.len(), 2);
+    assert!(project.radat.is_empty());
+    assert!(project.luokat.iter().all(|class| class.rata == 0));
+    assert_eq!(
+        Project::from_toml(&project.to_toml().unwrap()).unwrap(),
+        project
+    );
+    assert!(!preview.radat.is_empty(), "Esikatselun lähde säilyy");
+    drivers.set_value((2, 0), drivers.get_value((1, 0)).unwrap().clone());
+    let preview = excel_import::preview_sheets(&tracks, &drivers).unwrap();
+    assert!(preview.drivers_only().to_project("Virhe").is_err());
+}

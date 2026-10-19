@@ -1088,7 +1088,10 @@ fn offer_excel_import(
     directory: Option<PathBuf>,
 ) -> GuiResult<()> {
     let summary = preview.summary();
-    if !preview.has_importable_tracks() && !preview.can_import() {
+    if !preview.has_importable_tracks()
+        && !preview.can_import()
+        && !preview.drivers_only().can_import()
+    {
         confirmation(
             state,
             app,
@@ -1107,7 +1110,7 @@ fn offer_excel_import(
             .unwrap_or("Tuotu kilpailu");
         app.set_import_name(name.into());
         app.set_import_details(preview.issue_details().into());
-        app.set_import_only_tracks(false);
+        app.set_import_mode(0);
         app.set_import_tab(0);
         app.set_import_details_open(false);
         app.set_import_mapping_open(false);
@@ -1600,26 +1603,22 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     .set_row_data(index, choice as i32);
             }
             a.set_confirm_text(preview.summary().into());
-            a.set_confirm_acceptable(preview.can_confirm_import() || a.get_import_only_tracks());
+            a.set_confirm_acceptable(
+                preview
+                    .import_selection(a.get_import_mode())
+                    .can_confirm_import(),
+            );
         }
         Ok(())
     });
-    action!(on_import_tracks_only, |s, a, only| {
-        a.set_import_only_tracks(only);
+    action!(on_import_selection, |s, a, mode| {
+        a.set_import_mode(mode);
+        a.set_import_tab(if mode == 1 { 1 } else { 0 });
         if let Some(PendingAction::Import { preview, .. }) = s.pending.as_ref() {
-            a.set_confirm_acceptable(if only {
-                preview.has_importable_tracks()
-            } else {
-                preview.can_confirm_import()
-            });
-            a.set_confirm_text(
-                if only {
-                    preview.tracks_only().summary()
-                } else {
-                    preview.summary()
-                }
-                .into(),
-            );
+            let selected = preview.import_selection(mode);
+            a.set_confirm_acceptable(selected.can_confirm_import());
+            a.set_confirm_text(selected.summary().into());
+            a.set_import_details(selected.issue_details().into());
         }
         Ok(())
     });
@@ -1791,9 +1790,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             if !can_switch(s, &a) {
                 return Ok(());
             }
-            if a.get_import_only_tracks() {
-                *preview = preview.tracks_only();
-            }
+            *preview = preview.import_selection(a.get_import_mode());
             let project = preview.to_project(&a.get_import_name())?;
             let imported = if let Some(directory) = directory {
                 Workspace::create_imported(&directory, project)?

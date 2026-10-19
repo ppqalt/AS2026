@@ -93,6 +93,22 @@ impl ImportPreview {
             .retain(|issue| !issue.sijainti.starts_with("KILP"));
         preview
     }
+    pub fn drivers_only(&self) -> Self {
+        let mut preview = self.clone();
+        preview.radat.clear();
+        preview.luokkien_radat.clear();
+        preview
+            .huomautukset
+            .retain(|issue| !issue.sijainti.starts_with("RATA"));
+        preview
+    }
+    pub fn import_selection(&self, mode: i32) -> Self {
+        match mode {
+            1 => self.tracks_only(),
+            2 => self.drivers_only(),
+            _ => self.clone(),
+        }
+    }
     pub fn can_confirm_import(&self) -> bool {
         self.can_import()
     }

@@ -125,7 +125,7 @@ export component AppWindow inherits Window {
     callback browse-import-root();
     in-out property <bool> import-details-open;
     in-out property <bool> import-mapping-open;
-    in-out property <bool> import-only-tracks;
+    in-out property <int> import-mode;
     in-out property <int> import-tab;
     in-out property <[string]> import-classes;
     in-out property <[string]> import-routes;
@@ -133,7 +133,7 @@ export component AppWindow inherits Window {
     in-out property <[TableRow]> import-rows;
     in-out property <[TableRow]> import-station-rows;
     callback import-class-route(string, string);
-    callback import-tracks-only(bool);
+    callback import-selection(int);
     private property <bool> path-open;
     in-out property <bool> status-details-open;
     callback show-export-menu();
@@ -1040,7 +1040,7 @@ export component AppWindow inherits Window {
                             x: 0px; y: 0px; width: import-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
                             Note { text: root.confirm-text; }
-                            Note { text: "Radat voi valita myös tuonnin jälkeen Luokat-sivulla."; }
+                            if root.import-mode != 1: Note { text: "Radat voi valita myös tuonnin jälkeen Luokat-sivulla."; }
                             Text { text: "Kilpailun nimi"; color: Theme.ink; }
                             LineEdit { text <=> root.import-name; placeholder-text: "Kilpailun nimi"; }
                             if root.import-error != "": Text { text: root.import-error; color: Theme.danger; wrap: word-wrap; }
@@ -1050,9 +1050,14 @@ export component AppWindow inherits Window {
                                 Note { text: root.import-root; horizontal-stretch: 1; }
                                 Button { text: "Vaihda sijaintia"; clicked => { root.browse-import-root(); } }
                             }
-                            if root.import-routes.length > 1: CheckBox { text: "Tuo vain radat"; checked <=> root.import-only-tracks; toggled => { root.import-tracks-only(self.checked); } }
-                            if !root.import-only-tracks && root.import-routes.length > 1: Button { text: root.import-mapping-open ? "Piilota ratavalinnat" : "Luokkien ratavalinnat"; clicked => { root.import-mapping-open = !root.import-mapping-open; } }
-                            if root.import-mapping-open && !root.import-only-tracks && root.import-routes.length > 1: VerticalLayout {
+                            HorizontalLayout {
+                                spacing: Theme.space-2;
+                                Text { text: "Tuotavat tiedot"; color: Theme.ink; vertical-alignment: center; }
+                                ComboBox { model: ["Koko kilpailu", "Tuo vain radat", "Tuo vain kilpailijat"]; current-index: root.import-mode; selected(value) => { root.import-selection(self.current-index); } }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            if root.import-mode == 0 && root.import-routes.length > 1: Button { text: root.import-mapping-open ? "Piilota ratavalinnat" : "Luokkien ratavalinnat"; clicked => { root.import-mapping-open = !root.import-mapping-open; } }
+                            if root.import-mapping-open && root.import-mode == 0 && root.import-routes.length > 1: VerticalLayout {
                                 spacing: Theme.space-2;
                                 Text { text: "Luokkien radat"; color: Theme.ink; font-weight: 600; }
                                 for code[index] in root.import-classes: HorizontalLayout {
@@ -1061,7 +1066,7 @@ export component AppWindow inherits Window {
                                     ComboBox { model: root.import-routes; current-index: root.import-route-choices[index]; selected(value) => { root.import-class-route(code, value); } }
                                 }
                             }
-                            HorizontalLayout {
+                            if root.import-mode == 0: HorizontalLayout {
                                 spacing: Theme.space-2;
                                 Button { text: "Kilpailijat"; checkable: true; checked: root.import-tab == 0; clicked => { root.import-tab = 0; } }
                                 Button { text: "Radat ja asemat"; checkable: true; checked: root.import-tab == 1; clicked => { root.import-tab = 1; } }
@@ -1073,7 +1078,7 @@ export component AppWindow inherits Window {
                     }
                     DialogActions {
                         confirm-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.confirm-action(false); } }
-                        confirm-accept := AccentButton { height: Theme.control-height; text: root.import-open ? "Tuo kilpailu" : root.confirm-action-label; enabled: root.confirm-acceptable; clicked => { root.confirm-action(true); } }
+                        confirm-accept := AccentButton { height: Theme.control-height; text: root.import-open ? (root.import-mode == 1 ? "Tuo radat" : root.import-mode == 2 ? "Tuo kilpailijat" : "Tuo kilpailu") : root.confirm-action-label; enabled: root.confirm-acceptable; clicked => { root.confirm-action(true); } }
                     }
                 }
             }

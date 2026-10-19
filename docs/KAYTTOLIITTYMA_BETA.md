@@ -59,3 +59,10 @@ ei pelkästään pyydettyä ikkunakokoa. Koe kattaa kaikki seitsemän pääsivua
 tietopaneelit sekä uudet tietueet ja huomautusikkunan useassa koossa ja
 100 %:n / 150 %:n skaalauksilla. Lisäksi koe siirtää oikean sovellusikkunan
 koko näytölle ja varmistaa sen tilan sekä näyttöä vastaavat pikselimitat.
+
+Excel-tuonnin **Tuotavat tiedot** -valinta rajaa uuden kilpailun sisällön:
+Koko kilpailu, Tuo vain radat tai Tuo vain kilpailijat. Pelkkien kilpailijoiden
+mukana muodostetaan heidän luokkansa ilman ratoja. Ratavalinnat täydennetään
+myöhemmin Luokat-sivulla. Rajauksen ulkopuolisen välilehden virheet eivät estä
+tuontia, mutta tuotavien tietojen tarkistukset säilyvät. Lähde ja avoinna oleva
+kilpailu säilyvät ennallaan; tuonti tallennetaan uutena kilpailuna.

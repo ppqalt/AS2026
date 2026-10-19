@@ -557,13 +557,33 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         &draft_preview,
         Some(tracks_directory.clone()),
     )?;
-    app.invoke_import_tracks_only(true);
+    app.invoke_import_selection(1);
     assert!(app.get_confirm_acceptable());
     app.invoke_confirm_action(true);
     let tracks = ProjectStore::open(&tracks_directory.join(native::FILE_NAME))?;
     assert!(tracks.project().kilpailijat.is_empty());
     assert_eq!(tracks.project().radat.len(), 2);
     drop(tracks);
+    let drivers_directory = path.parent().unwrap().join("pelkat-kilpailijat");
+    offer_excel_import(
+        &mut state.borrow_mut(),
+        app,
+        &excel,
+        &draft_preview,
+        Some(drivers_directory.clone()),
+    )?;
+    app.invoke_import_selection(2);
+    assert!(app.get_confirm_acceptable());
+    assert_eq!(app.get_import_tab(), 0);
+    app.invoke_import_selection(0);
+    assert!(app.get_confirm_text().contains("2 rataa"));
+    app.invoke_import_selection(2);
+    app.invoke_confirm_action(true);
+    let drivers = ProjectStore::open(&drivers_directory.join(native::FILE_NAME))?;
+    assert_eq!(drivers.project().kilpailijat.len(), 2);
+    assert!(drivers.project().radat.is_empty());
+    assert!(drivers.project().luokat.iter().all(|class| class.rata == 0));
+    drop(drivers);
     let draft_directory = path.parent().unwrap().join("valmistelukoe");
     offer_excel_import(
         &mut state.borrow_mut(),
