@@ -679,14 +679,23 @@ fn beginners_cup(
     original: &Project,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let directory = original_path.parent().unwrap().join("beginners-cup");
-    let ws = Workspace::create_imported(&directory, original.clone())?;
+    let mut fixture = original.clone();
+    let mut second = fixture.kilpailijat[0].clone();
+    second.numero = 9;
+    second.emit = 654321;
+    second.kuljettaja = "BC-koekilpailija".into();
+    fixture.kilpailijat.push(second);
+    let mut read = fixture.leimaluvut[0].clone();
+    read.emit = 654321;
+    fixture.leimaluvut.push(read);
+    let ws = Workspace::create_imported(&directory, fixture.clone())?;
     let path = ws.path().to_owned();
     open_workspace(&mut state.borrow_mut(), app, &path, true)?;
     app.invoke_navigate(4);
     app.invoke_configure_bc();
     assert!(app.get_bc_open());
     app.invoke_bc_station_toggled(1, false);
-    app.invoke_bc_participant_toggled(0, true);
+    app.invoke_bc_participant_toggled(1, true);
     app.invoke_bc_close(true);
     assert!(!app.get_bc_open(), "{}", app.get_bc_error());
     assert!(app.get_bc_configured());
@@ -700,11 +709,12 @@ fn beginners_cup(
             .mukana_asemat,
         [1, 3, 4]
     );
-    assert_eq!(stored.project().kilpailijat, original.kilpailijat);
-    assert_eq!(stored.project().leimaluvut, original.leimaluvut);
+    assert_eq!(stored.project().kilpailijat, fixture.kilpailijat);
+    assert_eq!(stored.project().leimaluvut, fixture.leimaluvut);
     app.invoke_navigate(3);
     app.invoke_result_scope(true);
     assert!(app.get_bc_results());
+    assert_eq!(selected_number(&state.borrow())?, 9);
     app.invoke_edit_result_competitor();
     assert!(
         app.get_fields()
@@ -722,6 +732,10 @@ fn beginners_cup(
     assert_eq!(
         saved.project().kilpailijat[0].lisavirheet,
         original.kilpailijat[0].lisavirheet
+    );
+    assert_eq!(
+        saved.project().kilpailijat[1].lisavirheet,
+        fixture.kilpailijat[1].lisavirheet
     );
     let archive = state.borrow().workspace.as_ref().unwrap().results()?;
     let finish = archive.competitors[0]
@@ -748,10 +762,10 @@ fn beginners_cup(
     );
     app.invoke_result_scope(false);
     assert!(!app.get_bc_results());
-    assert_eq!(selected_number(&state.borrow())?, 7);
+    assert_eq!(selected_number(&state.borrow())?, 9);
     assert_eq!(
         ProjectStore::open(&path)?.project().leimaluvut,
-        original.leimaluvut
+        fixture.leimaluvut
     );
     open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
     println!("GUI-BC-koe: asemat, osallistuja, erilliset virheet, käsimaali ja hyväksyntä.");

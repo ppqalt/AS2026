@@ -311,11 +311,13 @@ pub fn projection(project: &Project) -> Result<Project, CoreError> {
                 .push(filtered_readout(config, &route, start, read)?);
         }
     }
-    view.radat
+    let track = view
+        .radat
         .iter_mut()
         .find(|r| r.numero == config.lahderata)
-        .unwrap()
-        .asemat = derived_stations(config)?;
+        .unwrap();
+    track.asemat = derived_stations(config)?;
+    track.nimi = format!("{} · {}", config.nimi, source.nimi);
     // Lähdeluokat säilyttävät omat myöhästymisrajansa laskennassa.
     view.validate()?;
     Ok(view)

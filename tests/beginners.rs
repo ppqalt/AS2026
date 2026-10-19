@@ -366,6 +366,52 @@ fn bc_station_penalties_and_manual_status_are_independent() {
 }
 
 #[test]
+fn bc_interruption_can_be_confirmed_without_a_card_independently() {
+    let mut p = project();
+    p.kilpailijat[0].emit = 0;
+    p.leimaluvut.clear();
+    let mut f = Fixture::new(p);
+    f.workspace.set_bc_view(true).unwrap();
+    f.workspace
+        .edit_result_driver(7, DriverField::Status, "KESK")
+        .unwrap();
+    f.workspace
+        .edit_result_driver(7, DriverField::StatusReason, "BC-osuus keskeytyi")
+        .unwrap();
+    assert!(f.workspace.can_confirm_interruption(7));
+    f.workspace.approve_result(7).unwrap();
+    assert!(f.workspace.results().unwrap().has_confirmed_interruption(7));
+    f.workspace.set_bc_view(false).unwrap();
+    assert!(!f.workspace.results().unwrap().has_confirmed_interruption(7));
+    assert!(f.workspace.project().unwrap().kilpailijat[0].tila.is_none());
+    assert!(
+        f.workspace.project().unwrap().bc_osallistujat[0]
+            .tallennettu_tulos
+            .is_none()
+    );
+}
+
+#[test]
+fn changing_competitor_number_preserves_its_bc_membership_and_points() {
+    let mut f = Fixture::new(project());
+    f.workspace.set_bc_view(true).unwrap();
+    f.workspace
+        .edit_result_driver(7, DriverField::OtherPenalties, "42")
+        .unwrap();
+    f.workspace.set_bc_view(false).unwrap();
+    f.workspace
+        .edit_driver(7, DriverField::Number, "27")
+        .unwrap();
+    f.workspace.set_bc_view(true).unwrap();
+    assert_eq!(f.workspace.project().unwrap().bc_osallistujat[0].numero, 27);
+    assert_eq!(f.workspace.results().unwrap().competitors[0].number, 27);
+    assert_eq!(
+        f.workspace.results().unwrap().competitors[0].header_fields[25],
+        "42"
+    );
+}
+
+#[test]
 fn skipped_jat_extends_the_next_section_without_changing_finish() {
     let mut p = project();
     p.radat[0].asemat[1].tyyppi = "JAT".into();

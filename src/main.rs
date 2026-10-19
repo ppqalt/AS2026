@@ -589,10 +589,10 @@ fn rank_csv(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<St
     };
     let ranked = application::rank_stored(&archive, policy)?;
     if native_path.is_file() {
-        return Ok(report::competition_ranking_csv(
+        return report::competition_ranking_csv(
             storage::ProjectStore::open(&native_path)?.project(),
             policy,
-        )?);
+        );
     }
     Ok(report::ranking_csv(&archive, &ranked))
 }
