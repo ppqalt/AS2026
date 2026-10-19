@@ -35,6 +35,14 @@ ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytim
    lisätoiminnot omissa nimetyissä valikoissaan. Navigaatio pysyy näkyvissä ja
    vierii lyhyessä ikkunassa. Tuettu vähimmäiskoko on 900 × 600 loogista pikseliä.
 
+Beta-haaran tarkennus: `Workspace` erottaa luettelon ja tiedot, kun molemmille
+ei riitä tilaa. Pääalueen rinnakkaisleveys on vähintään 540 px ja tietopaneeli
+368–420 px. Päätaulukot saavat vähintään 180 px korkeutta. Alle 440 px korkeassa
+työalueessa käytetään yhtä pääsisältöä kerrallaan. Tulosten kahta taulukkoa
+ja Emit-historian leimaustietoja ei puristeta pieniksi alataulukoiksi.
+Yleiskatsauksen ja asetusten lukuleveys rajataan 1120 pikseliin. Betan tarkemmat
+sivukohtaiset ratkaisut: `KAYTTOLIITTYMA_BETA.md`.
+
 Muutos tarkistetaan koko kilpailun synteettisellä GUI-kokeella, näppäimistöllä,
 vierityksellä ja ikkunoiden koon vaihtamisella myös 150 %:n skaalauksella.
 Kenttävirheen, tallennusvirheen ja keskeneräisen luonnoksen toiminta erotetaan

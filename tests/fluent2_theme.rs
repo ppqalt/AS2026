@@ -116,7 +116,7 @@ fn ordinary_text_and_primary_action_have_readable_contrast() {
 fn route_details_and_table_mouse_selection_remain_distinct() {
     let app = include_str!("../ui/app.slint");
     let components = include_str!("../ui/components.slint");
-    assert!(app.contains("if root.route-editor-visible: Editor"));
+    assert!(app.contains("fields: root.route-fields;"));
     assert!(app.contains("root.route-field-commit(key, value)"));
     assert!(components.contains("touch := TouchArea { clicked => { root.selected(row.key); } }"));
     // Scope the check to the actual table rather than other accessible controls.
@@ -134,8 +134,7 @@ fn editor_widths_do_not_depend_on_window_width() {
     let app = include_str!("../ui/app.slint");
     // Referencing root.width from a child inside the root's layout creates a
     // layoutinfo-h <-> width feedback loop in Slint 1.16.
-    assert!(app.contains("preferred-width: Theme.editor-width;"));
-    assert!(app.contains("min-width: Theme.editor-min-width;"));
+    // Beta: Workspace owns panel geometry behind explicit minimum constraints.
     for line in app.lines() {
         let declaration = line.trim_start();
         assert!(

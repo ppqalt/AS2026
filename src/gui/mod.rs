@@ -2112,6 +2112,9 @@ fn capture_views(
     let tick_timer = Rc::downgrade(&timer);
     // Leaked owner is unnecessary: callback keeps the timer alive until the last snapshot.
     let owner = Rc::new(RefCell::new(Some(timer.clone())));
+    let matrix = std::env::var_os("AS2026_UI_LAYOUT_MATRIX").is_some();
+    let small_matrix = std::env::var_os("AS2026_UI_SMALL_MATRIX").is_some();
+    let resize_attempts = Rc::new(RefCell::new(0usize));
     let phase = Rc::new(RefCell::new(0usize));
     let export_selected = Rc::new(RefCell::new(false));
     timer.start(TimerMode::Repeated, Duration::from_millis(900), move || {
@@ -2119,6 +2122,75 @@ fn capture_views(
             return;
         };
         let current = *phase.borrow();
+        if matrix {
+            if current >= if small_matrix { 44 } else { 176 } {
+                println!("GUI-matriisi hyväksytty: {}", if small_matrix { "pieni ikkuna, kaikki sivut ja tiedot" } else { "kaikki sivut, tiedot ja valintaikkunat kolmessa koossa ja koko näytöllä" });
+                tick_timer.upgrade().unwrap().stop();
+                owner.borrow_mut().take();
+                slint::quit_event_loop().unwrap();
+                return;
+            }
+            let scale = app.window().scale_factor();
+            let sizes = if scale > 1.25 { [(900, 600), (1280, 860), (1600, 900)] } else { [(900, 600), (1480, 960), (2400, 1320)] };
+            let fullscreen = current / 44 == 3;
+            let (width, height) = sizes[(current / 44).min(2)];
+            let step = current % 44;
+            let folder = directory.join(if fullscreen { "koko-naytto".to_owned() } else { format!("{width}x{height}") });
+            std::fs::create_dir_all(&folder).unwrap();
+            if step == 0 {
+                if current == 0 && let Some(path) = &lifecycle_path { open_workspace(&mut state.borrow_mut(), &app, path, true).unwrap(); }
+                app.set_notes_open(false);
+                app.set_details_open(false);
+                status(&app, "Beta · erillinen esimerkkikilpailu", false);
+                if fullscreen { app.window().set_fullscreen(true); println!("GUI-matriisi: koko-naytto"); } else { println!("GUI-matriisi: {width}x{height}"); }
+                *resize_attempts.borrow_mut() = 0;
+            } else if step == 1 {
+                let size = app.window().size();
+                let dimensions_match = if fullscreen {
+                    app.window().is_fullscreen() && std::env::var("AS2026_UI_TEST_SCREEN").ok().and_then(|value| value.split_once('x').map(|(w, h)| (w.parse::<u32>().unwrap(), h.parse::<u32>().unwrap()))).is_none_or(|(w,h)| size.width == w && size.height == h)
+                } else { (size.width as f32 / scale - width as f32).abs() <= 2. && (size.height as f32 / scale - height as f32).abs() <= 2. };
+                if !dimensions_match {
+                    *resize_attempts.borrow_mut() += 1;
+                    assert!(*resize_attempts.borrow() < 30, "Ikkunan todellinen koko ei vastaa matriisia: {size:?}");
+                    return;
+                }
+            } else {
+                let page = (step - 2) / 6;
+                let action = (step - 2) % 6;
+                match action {
+                    0 => {
+                        app.set_notes_open(false);
+                        app.set_details_open(false);
+                        app.set_filter("".into());
+                        app.invoke_navigate(page as i32);
+                        app.invoke_filter_changed("".into());
+                        if let Some(row) = app.get_rows().row_data(0) { app.invoke_select_row(row.key); }
+                        if page == 5 && let Some(row) = app.get_detail_rows().row_data(1) { app.invoke_select_detail(row.key); }
+                    }
+                    1 => save_view(&app, &folder.join(format!("{page}-luettelo.png"))).unwrap(),
+                    2 => app.set_details_open(true),
+                    3 => save_view(&app, &folder.join(format!("{page}-tiedot.png"))).unwrap(),
+                    4 => match page {
+                        0 => { app.set_dialog_open(true); }
+                        1 | 4 => { app.invoke_add_record(); app.set_details_open(true); }
+                        3 => { app.set_notes_open(true); }
+                        5 => { app.invoke_add_station(); app.set_details_open(true); }
+                        6 => { app.window().dispatch_event(slint::platform::WindowEvent::PointerScrolled { position: slint::LogicalPosition::new(250., 400.), delta_x: 0., delta_y: -10000. }); }
+                        _ => {}
+                    },
+                    5 => {
+                        save_view(&app, &folder.join(format!("{page}-lisatoiminto.png"))).unwrap();
+                        if page == 0 || page == 3 { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_dialog_open() && !app.get_notes_open(), "Esc sulkee matriisin valintaikkunan"); }
+                        app.set_dialog_open(false);
+                        app.set_notes_open(false);
+                        if app.get_new_record() { app.invoke_cancel_edit(); }
+                    }
+                    _ => unreachable!()
+                }
+            }
+            *phase.borrow_mut() += 1;
+            return;
+        }
         if current == 6
             && !keyboard_test
             && let Err(error) = save_view(&app, &directory.join("1b-kilpailijat-vieritetty.png"))

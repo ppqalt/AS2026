@@ -1,5 +1,10 @@
 # AS2026
 
+**Käyttöliittymän kokeiluhaara:** `beta/kayttoliittyma`. Käynnistä erillinen
+esimerkkikilpailu komennolla `./scripts/kokeile-beta.sh`.
+[Betan tilanjako ja kokeiluohje](docs/KAYTTOLIITTYMA_BETA.md).
+Tämä haara ei ole uusi vakaa julkaisu.
+
 Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 
 - Kilpailijat, luokat, radat ja asemat samassa sovelluksessa.

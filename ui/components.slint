@@ -19,6 +19,39 @@ export component AccentButton inherits Button {
     primary: true;
 }
 
+// Sama tilanjako luetteloille ja muokkaimille. Kapeassa tai lyhyessä ikkunassa
+// kumpikin saa koko työalueen; paneeleja ei puristeta rinnakkain.
+export component Workspace inherits Rectangle {
+    min-width: 0px;
+    min-height: 0px;
+    preferred-width: 0px;
+    preferred-height: 0px;
+    in property <bool> has-details;
+    in property <string> list-label: "Luettelo";
+    in property <string> details-label: "Tiedot";
+    in property <length> preferred-details-width: Theme.editor-width;
+    in property <length> maximum-details-width: Theme.editor-max-width;
+    in-out property <bool> show-details;
+    out property <bool> compact: root.width < Theme.workspace-min-main-width + root.preferred-details-width + Theme.space-4 || root.height < Theme.workspace-min-split-height;
+    property <length> tabs-height: root.compact && root.has-details ? Theme.control-height + Theme.space-3 : 0px;
+    out property <length> content-y: root.tabs-height;
+    out property <length> content-height: max(0px, root.height - root.tabs-height);
+    out property <length> details-width: root.compact ? root.width : min(root.maximum-details-width, max(root.preferred-details-width, root.width * 0.28));
+    out property <length> list-width: !root.has-details || root.compact ? root.width : root.width - root.details-width - Theme.space-4;
+    out property <length> details-x: root.compact ? 0px : root.list-width + Theme.space-4;
+    out property <bool> list-visible: !root.compact || !root.has-details || !root.show-details;
+    out property <bool> details-visible: root.has-details && (!root.compact || root.show-details);
+    if root.compact && root.has-details: HorizontalLayout {
+        x: 0px; y: 0px; width: root.width;
+        height: Theme.control-height;
+        spacing: Theme.space-2;
+        alignment: start;
+        Button { text: root.list-label; checkable: true; checked: !root.show-details; clicked => { root.show-details = false; } }
+        Button { text: root.details-label; checkable: true; checked: root.show-details; clicked => { root.show-details = true; } }
+    }
+    @children
+}
+
 // Sisällöstä erillinen pinta: kutsuja järjestää vieritettävän sisällön ja alatunnisteen.
 export component DialogSurface inherits Rectangle {
     in property <length> preferred-dialog-width: Theme.dialog-width;
@@ -89,7 +122,7 @@ export component NavItem inherits Rectangle {
 
 // Vain luonnos elää tässä komponentissa; hyväksytty arvo tulee kilpailumallista.
 export component FormField inherits VerticalLayout {
-    min-height: Theme.field-height + (root.invalid ? field-error.preferred-height + Theme.space-1 : 0px);
+    min-height: max(Theme.field-height, field-label.preferred-height + Theme.control-height + 2 * Theme.space-1) + (root.invalid ? field-error.preferred-height + Theme.space-1 : 0px);
     max-height: self.min-height;
     vertical-stretch: 0;
     in property <string> label;
@@ -126,7 +159,7 @@ export component FormField inherits VerticalLayout {
     }
     spacing: Theme.space-1;
     padding-bottom: Theme.space-1;
-    Text { height: 16px; text: root.label; color: Theme.muted; font-size: Theme.label-font-size; font-weight: 600; }
+    field-label := Text { height: self.preferred-height; vertical-stretch: 0; text: root.label; color: Theme.muted; font-size: Theme.label-font-size; font-weight: 600; wrap: word-wrap; }
     Rectangle {
         height: Theme.control-height;
         duration-input := HorizontalLayout {
