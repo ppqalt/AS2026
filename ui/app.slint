@@ -1166,6 +1166,7 @@ export component AppWindow inherits Window {
         close(accepted) => { root.draw-classes-close(accepted); }
     }
     if root.combined-open: CombinedClassDialog {
+        width: root.width; height: root.height;
         creating: root.combined-creating;
         name <=> root.combined-name;
         classes: root.combined-classes;
@@ -1176,6 +1177,7 @@ export component AppWindow inherits Window {
         close(accepted) => { root.combined-close(accepted); }
     }
     if root.bc-open: BeginnersCupDialog {
+        width: root.width; height: root.height;
         name <=> root.bc-name; code <=> root.bc-code;
         routes: root.bc-routes; route <=> root.bc-route;
         stations: root.bc-stations; participants: root.bc-participants;

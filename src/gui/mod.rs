@@ -2676,7 +2676,8 @@ fn capture_views(
                 56 => save_view(&app, &directory.join("20-kenttavirhe.png")).unwrap(),
                 57 => {
                     assert!(app.invoke_field_commit(4, "15:25:30".into()));
-                    app.window().set_size(slint::LogicalSize::new(900., 640.));
+                    let scale = app.window().scale_factor();
+                    app.window().set_size(slint::PhysicalSize::new((900. * scale).round() as u32, (640. * scale).round() as u32));
                     println!("GUI-koe: pieni ikkuna 900x640");
                 }
                 58 => {
@@ -2741,7 +2742,8 @@ fn capture_views(
                 78 => { app.invoke_filter_changed("Ei vastaavaa rataa".into()); }
                 79 => save_view(&app, &directory.join("29-radan-haku-tyhja.png")).unwrap(),
                 80 => {
-                    app.window().set_size(slint::LogicalSize::new(900., 600.));
+                    let scale = app.window().scale_factor();
+                    app.window().set_size(slint::PhysicalSize::new((900. * scale).round() as u32, (600. * scale).round() as u32));
                     app.invoke_navigate(4);
                     app.invoke_add_combined_class();
                     assert!(app.get_combined_open());

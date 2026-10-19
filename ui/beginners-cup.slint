@@ -31,54 +31,57 @@ export component BeginnersCupDialog inherits Rectangle {
             }
             reject
         }
-        DialogSurface {
+        surface := DialogSurface {
             available-width: root.width;
             available-height: root.height;
             preferred-dialog-height: 760px;
-            VerticalLayout {
-                padding: Theme.dialog-padding;
-                spacing: Theme.space-3;
-                Heading { text: "NAC Beginners Cup"; vertical-stretch: 0; }
-                body := ScrollView {
-                    min-height: 0px;
-                    vertical-stretch: 1;
-                    horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: body-content.min-height;
-                    scrolled => { keys.focus(); }
-                    body-content := VerticalLayout {
-                        x: 0px; y: 0px;
-                        width: body.visible-width;
-                        height: self.min-height;
-                        alignment: start;
-                        spacing: Theme.space-3;
-                        Note { text: "Luokan nimi"; }
-                        name-input := LineEdit { text <=> root.name; }
-                        Note { text: "Luokan tunnus"; }
-                        LineEdit { text <=> root.code; }
-                        Note { text: "NAC-lähderata"; }
-                        ComboBox { model: root.routes; current-index <=> root.route; selected => { root.route-selected(self.current-index); } }
-                        Note { text: "Valitse BC-tulokseen kuuluvat asemat. Pois jätettyjen asemien leimat eivät tuota BC:ssä virhepisteitä. Lähtö, ULA-aikaviitteet ja maali säilyvät mukana."; }
-                        for station[i] in root.stations: CheckBox {
-                            text: station.label;
-                            checked: station.selected;
-                            enabled: !station.fixed;
-                            toggled => { root.station-toggled(i, self.checked); }
-                        }
-                        Heading { text: "BC-osallistujat"; }
-                        Note { text: "Valitse kilpailijat, joille lasketaan sekä NAC- että BC-tulos. Emit-kortti ja lähtöaika ovat yhteiset. Virhepisteet ja hyväksynnät ovat erillisiä. Osallistujavalinnan poistaminen säilyttää aiemmin tallennetut BC-tiedot."; }
-                        for participant[i] in root.participants: CheckBox {
-                            text: participant.label;
-                            checked: participant.selected;
-                            toggled => { root.participant-toggled(i, self.checked); }
-                        }
-                        if root.error != "": Note { text: root.error; color: Theme.danger; }
+            title := Heading {
+                x: Theme.dialog-padding; y: Theme.dialog-padding;
+                width: parent.width - 2 * Theme.dialog-padding; height: 28px;
+                text: "NAC Beginners Cup";
+            }
+            body := ScrollView {
+                x: Theme.dialog-padding; y: Theme.dialog-padding + title.height + Theme.space-3;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: max(0px, parent.height - 2 * Theme.dialog-padding - title.height - Theme.control-height - 2 * Theme.space-3);
+                horizontal-scrollbar-policy: always-off;
+                viewport-width: self.visible-width;
+                viewport-height: body-content.min-height;
+                scrolled => { keys.focus(); }
+                body-content := VerticalLayout {
+                    x: 0px; y: 0px;
+                    width: body.visible-width;
+                    height: self.min-height;
+                    alignment: start;
+                    spacing: Theme.space-3;
+                    Note { text: "Luokan nimi"; }
+                    name-input := LineEdit { text <=> root.name; }
+                    Note { text: "Luokan tunnus"; }
+                    LineEdit { text <=> root.code; }
+                    Note { text: "NAC-lähderata"; }
+                    ComboBox { model: root.routes; current-index <=> root.route; selected => { root.route-selected(self.current-index); } }
+                    Note { text: "Valitse BC-tulokseen kuuluvat asemat. Pois jätettyjen asemien leimat eivät tuota BC:ssä virhepisteitä. Lähtö, ULA-aikaviitteet ja maali säilyvät mukana."; }
+                    for station[i] in root.stations: CheckBox {
+                        text: station.label;
+                        checked: station.selected;
+                        enabled: !station.fixed;
+                        toggled => { root.station-toggled(i, self.checked); }
                     }
+                    Heading { text: "BC-osallistujat"; }
+                    Note { text: "Valitse kilpailijat, joille lasketaan sekä NAC- että BC-tulos. Emit-kortti ja lähtöaika ovat yhteiset. Virhepisteet ja hyväksynnät ovat erillisiä. Osallistujavalinnan poistaminen säilyttää aiemmin tallennetut BC-tiedot."; }
+                    for participant[i] in root.participants: CheckBox {
+                        text: participant.label;
+                        checked: participant.selected;
+                        toggled => { root.participant-toggled(i, self.checked); }
+                    }
+                    if root.error != "": Note { text: root.error; color: Theme.danger; }
                 }
-                DialogActions {
-                    Button { text: "Peruuta"; clicked => { root.close(false); } }
-                    save := AccentButton { text: "Tallenna BC"; clicked => { root.close(true); } }
-                }
+            }
+            actions := DialogActions {
+                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
+                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
+                Button { text: "Peruuta"; clicked => { root.close(false); } }
+                save := AccentButton { text: "Tallenna BC"; clicked => { root.close(true); } }
             }
         }
     }
