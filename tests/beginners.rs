@@ -206,8 +206,19 @@ fn ambiguous_missing_repeated_code_is_not_silently_discarded() {
     p.radat[0].asemat[2].emit_koodi = 31;
     p.leimaluvut[0].leimat[3].koodi = 31;
     p.leimaluvut[0].leimat.remove(1);
-    let f = Fixture::new(p);
+    let mut f = Fixture::new(p);
     assert!(beginners::projection(f.workspace.project().unwrap()).is_err());
+    assert!(f.workspace.ensure_readout_result(7).is_err());
+    assert!(
+        f.workspace.project().unwrap().kilpailijat[0]
+            .tallennettu_tulos
+            .is_some()
+    );
+    assert!(
+        f.workspace.project().unwrap().bc_osallistujat[0]
+            .tallennettu_tulos
+            .is_none()
+    );
     assert!(application::calculated_project(f.workspace.project().unwrap()).is_ok());
 }
 

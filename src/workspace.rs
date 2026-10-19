@@ -409,6 +409,10 @@ impl Workspace {
                     .unwrap()
                     .tallennettu_tulos = Some(result);
             }
+            Ok(())
+        })?;
+        // BC:n epäselvä kohdistus ei saa perua onnistunutta NAC-tarkastusta.
+        self.update(|project| {
             if project
                 .bc_osallistujat
                 .iter()
