@@ -18,6 +18,7 @@ export component BeginnersCupDialog inherits Rectangle {
     background: Theme.modal-backdrop;
     TouchArea { }
     keys := FocusScope {
+        x: 0px; y: 0px;
         width: root.width;
         height: root.height;
         focus-on-click: false;
@@ -32,6 +33,7 @@ export component BeginnersCupDialog inherits Rectangle {
             reject
         }
         surface := DialogSurface {
+            clip: true;
             available-width: root.width;
             available-height: root.height;
             preferred-dialog-height: 760px;
@@ -40,41 +42,46 @@ export component BeginnersCupDialog inherits Rectangle {
                 width: parent.width - 2 * Theme.dialog-padding; height: 28px;
                 text: "NAC Beginners Cup";
             }
-            body := ScrollView {
+            body-clip := Rectangle {
+                clip: true;
                 x: Theme.dialog-padding; y: Theme.dialog-padding + title.height + Theme.space-3;
                 width: parent.width - 2 * Theme.dialog-padding;
                 height: max(0px, parent.height - 2 * Theme.dialog-padding - title.height - Theme.control-height - 2 * Theme.space-3);
-                horizontal-scrollbar-policy: always-off;
-                viewport-width: self.visible-width;
-                viewport-height: body-content.min-height;
-                scrolled => { keys.focus(); }
-                body-content := VerticalLayout {
+                body := ScrollView {
                     x: 0px; y: 0px;
-                    width: body.visible-width;
-                    height: self.min-height;
-                    alignment: start;
-                    spacing: Theme.space-3;
-                    Note { text: "Luokan nimi"; }
-                    name-input := LineEdit { text <=> root.name; }
-                    Note { text: "Luokan tunnus"; }
-                    LineEdit { text <=> root.code; }
-                    Note { text: "NAC-lähderata"; }
-                    ComboBox { model: root.routes; current-index <=> root.route; selected => { root.route-selected(self.current-index); } }
-                    Note { text: "Valitse BC-tulokseen kuuluvat asemat. Pois jätettyjen asemien leimat eivät tuota BC:ssä virhepisteitä. Lähtö, ULA-aikaviitteet ja maali säilyvät mukana."; }
-                    for station[i] in root.stations: CheckBox {
-                        text: station.label;
-                        checked: station.selected;
-                        enabled: !station.fixed;
-                        toggled => { root.station-toggled(i, self.checked); }
+                    width: parent.width; height: parent.height;
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width;
+                    viewport-height: body-content.min-height;
+                    scrolled => { keys.focus(); }
+                    body-content := VerticalLayout {
+                        x: 0px; y: 0px;
+                        width: body.visible-width;
+                        height: self.min-height;
+                        alignment: start;
+                        spacing: Theme.space-3;
+                        Note { text: "Luokan nimi"; }
+                        name-input := LineEdit { text <=> root.name; }
+                        Note { text: "Luokan tunnus"; }
+                        LineEdit { text <=> root.code; }
+                        Note { text: "NAC-lähderata"; }
+                        ComboBox { model: root.routes; current-index <=> root.route; selected => { root.route-selected(self.current-index); } }
+                        Note { text: "Valitse BC-tulokseen kuuluvat asemat. Pois jätettyjen asemien leimat eivät tuota BC:ssä virhepisteitä. Lähtö, ULA-aikaviitteet ja maali säilyvät mukana."; }
+                        for station[i] in root.stations: CheckBox {
+                            text: station.label;
+                            checked: station.selected;
+                            enabled: !station.fixed;
+                            toggled => { root.station-toggled(i, self.checked); }
+                        }
+                        Heading { text: "BC-osallistujat"; }
+                        Note { text: "Valitse kilpailijat, joille lasketaan sekä NAC- että BC-tulos. Emit-kortti ja lähtöaika ovat yhteiset. Virhepisteet ja hyväksynnät ovat erillisiä. Osallistujavalinnan poistaminen säilyttää aiemmin tallennetut BC-tiedot."; }
+                        for participant[i] in root.participants: CheckBox {
+                            text: participant.label;
+                            checked: participant.selected;
+                            toggled => { root.participant-toggled(i, self.checked); }
+                        }
+                        if root.error != "": Note { text: root.error; color: Theme.danger; }
                     }
-                    Heading { text: "BC-osallistujat"; }
-                    Note { text: "Valitse kilpailijat, joille lasketaan sekä NAC- että BC-tulos. Emit-kortti ja lähtöaika ovat yhteiset. Virhepisteet ja hyväksynnät ovat erillisiä. Osallistujavalinnan poistaminen säilyttää aiemmin tallennetut BC-tiedot."; }
-                    for participant[i] in root.participants: CheckBox {
-                        text: participant.label;
-                        checked: participant.selected;
-                        toggled => { root.participant-toggled(i, self.checked); }
-                    }
-                    if root.error != "": Note { text: root.error; color: Theme.danger; }
                 }
             }
             actions := DialogActions {
