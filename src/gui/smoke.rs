@@ -42,6 +42,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
             ws.project().ok_or("Muokattava esimerkki puuttuu")?.clone(),
         )
     };
+    combined_classes(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
@@ -668,6 +669,72 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn combined_classes(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = original_path.parent().unwrap().join("yhdistetty-luokka");
+    let mut project = original.clone();
+    let mut second = project.luokat[0].clone();
+    second.tunnus = "B".into();
+    second.nimi = "Toinen luokka".into();
+    project.luokat.push(second);
+    let ws = Workspace::create_imported(&directory, project)?;
+    let path = ws.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(4);
+    app.invoke_add_combined_class();
+    assert!(app.get_combined_open());
+    app.invoke_combined_class_toggled(0, true);
+    app.invoke_combined_close(true);
+    assert!(
+        app.get_combined_open(),
+        "Puuttuva nimi jättää lomakkeen auki"
+    );
+    assert!(!app.get_combined_error().is_empty());
+    assert!(
+        ProjectStore::open(&path)?
+            .project()
+            .yhdistetyt_luokat
+            .is_empty()
+    );
+    app.set_combined_name("Yhteistulos".into());
+    app.invoke_combined_class_toggled(1, true);
+    app.invoke_combined_close(true);
+    assert!(!app.get_combined_open(), "{}", app.get_combined_error());
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(saved.project().yhdistetyt_luokat[0].luokat, ["A", "B"]);
+    assert_eq!(saved.project().kilpailijat, original.kilpailijat);
+    assert_eq!(saved.project().leimaluvut, original.leimaluvut);
+    app.invoke_filter_changed("Yhteistulos".into());
+    assert_eq!(app.get_rows().row_count(), 1);
+    let key = app.get_rows().row_data(0).unwrap().key;
+    app.invoke_select_row(key);
+    assert!(app.get_combined_open());
+    assert!(!app.get_combined_creating());
+    app.set_combined_name("Peruttu nimi".into());
+    app.invoke_combined_class_toggled(0, false);
+    app.invoke_combined_close(false);
+    assert_eq!(ProjectStore::open(&path)?.project(), saved.project());
+    app.invoke_select_row(key);
+    assert_eq!(app.get_combined_name(), "Yhteistulos");
+    assert!(app.get_combined_classes().row_data(0).unwrap().selected);
+    app.set_combined_name("Uusi yhteistulos".into());
+    app.invoke_combined_class_toggled(0, false);
+    app.invoke_combined_close(true);
+    let changed = ProjectStore::open(&path)?;
+    assert_eq!(
+        changed.project().yhdistetyt_luokat[0].nimi,
+        "Uusi yhteistulos"
+    );
+    assert_eq!(changed.project().yhdistetyt_luokat[0].luokat, ["B"]);
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!("GUI-yhdistetyn luokan koe: luonti, validointi, haku, peruutus ja muokkaus.");
+    Ok(())
 }
 
 fn automatic_preparation(

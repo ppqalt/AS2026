@@ -142,6 +142,11 @@ fn field_feedback(app: &AppWindow, route: bool, key: i32, value: &str, error: &s
 fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
     if let Err(error) = operation() {
         let message = error.to_string();
+        if app.get_combined_open() {
+            app.set_combined_error(error_text(&error).into());
+            status(app, "Yhdistettyä luokkaa ei tallennettu.", false);
+            return;
+        }
         if app.get_import_open() {
             app.set_import_error(
                 message
@@ -284,6 +289,37 @@ fn current_workspace(state: &mut State) -> GuiResult<&mut Workspace> {
         .workspace
         .as_mut()
         .ok_or_else(|| invalid("Avaa ensin kilpailu"))
+}
+
+fn open_combined_class(state: &State, app: &AppWindow, index: usize) -> GuiResult<()> {
+    let project = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Avaa muokattava AS2026-kilpailu"))?;
+    if index > project.yhdistetyt_luokat.len() || index >= 4 {
+        return Err(invalid("Yhdistettyjä luokkia saa olla enintään neljä"));
+    }
+    let group = project.yhdistetyt_luokat.get(index);
+    app.set_combined_index(index as i32);
+    app.set_combined_creating(group.is_none());
+    app.set_combined_name(group.map_or("", |g| g.nimi.as_str()).into());
+    app.set_combined_np(group.map_or(0, |g| i32::from(g.nousupisteet)));
+    app.set_combined_sp(group.map_or(0, |g| i32::from(g.sarjapistetapa)));
+    app.set_combined_error("".into());
+    app.set_combined_classes(model(
+        project
+            .luokat
+            .iter()
+            .map(|class| DrawClassOption {
+                code: class.tunnus.as_str().into(),
+                label: format!("{} — {}", class.tunnus, class.nimi).into(),
+                selected: group.is_some_and(|g| g.luokat.contains(&class.tunnus)),
+            })
+            .collect(),
+    ));
+    app.set_combined_open(true);
+    Ok(())
 }
 
 fn update_header(state: &State, app: &AppWindow) -> GuiResult<()> {
@@ -826,6 +862,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_about_open()
         && !app.get_confirm_open()
         && !app.get_draw_classes_open()
+        && !app.get_combined_open()
         && !app.get_setup_open()
         && !app.get_status_details_open()
         && !app.get_install_busy()
@@ -1345,6 +1382,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     });
     action!(on_select_row, |s, a, key| {
         if can_leave(s, &a) {
+            if s.page == 4
+                && let Some(project) = s.workspace.as_ref().and_then(Workspace::project)
+                && key >= project.luokat.len() as i32
+            {
+                return open_combined_class(s, &a, key as usize - project.luokat.len());
+            }
             choose_row(s, key)?;
             update_tables(s, &a)?;
             update_form(s, &a);
@@ -1646,6 +1689,53 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             false,
         );
         Ok(())
+    });
+    action!(on_add_combined_class, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let count = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Avaa muokattava AS2026-kilpailu"))?
+            .yhdistetyt_luokat
+            .len();
+        open_combined_class(s, &a, count)
+    });
+    action!(on_combined_class_toggled, |_s, a, index, selected| {
+        let classes = a.get_combined_classes();
+        if let Ok(index) = usize::try_from(index)
+            && let Some(mut class) = classes.row_data(index)
+        {
+            class.selected = selected;
+            classes.set_row_data(index, class);
+        }
+        Ok(())
+    });
+    action!(on_combined_close, |s, a, accepted| {
+        if !accepted {
+            a.set_combined_open(false);
+            return follow_pending_result(s, &a);
+        }
+        let index = usize::try_from(a.get_combined_index())
+            .map_err(|_| invalid("Yhdistetyn luokan järjestysnumero ei kelpaa"))?;
+        let group = native::CombinedClass {
+            nimi: a.get_combined_name().to_string(),
+            luokat: a
+                .get_combined_classes()
+                .iter()
+                .filter(|class| class.selected)
+                .map(|class| class.code.to_string())
+                .collect(),
+            nousupisteet: u8::try_from(a.get_combined_np())
+                .map_err(|_| invalid("Nousupistevalinta ei kelpaa"))?,
+            sarjapistetapa: u8::try_from(a.get_combined_sp())
+                .map_err(|_| invalid("Sarjapistetapa ei kelpaa"))?,
+        };
+        current_workspace(s)?.save_combined_class(index, group)?;
+        a.set_combined_open(false);
+        update_tables(s, &a)?;
+        status(&a, "Yhdistetty luokka tallennettu.", false);
+        follow_pending_result(s, &a)
     });
     action!(on_configure_draw_classes, |s, a| {
         if !can_leave(s, &a) {

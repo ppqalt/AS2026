@@ -237,6 +237,29 @@ fn classes(archive: &Archive, view: &mut ViewData) {
             )
         })
         .collect();
+    for (index, group) in archive.basic.combined_classes.iter().enumerate() {
+        let members = archive
+            .basic
+            .classes
+            .iter()
+            .enumerate()
+            .filter(|(member, _)| field(group, member + 4) == "1")
+            .map(|(_, class)| class.code.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        view.rows.push(row(
+            archive.basic.classes.len() + index,
+            vec![
+                format!("Y{}", index + 1),
+                format!("{} · yhdistetty: {members}", field(group, 1)),
+                "-".into(),
+                "-".into(),
+                "-".into(),
+                "-".into(),
+                "-".into(),
+            ],
+        ));
+    }
 }
 
 fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
@@ -943,6 +966,24 @@ mod tests {
 
     fn text(row: &TableRow, column: usize) -> String {
         row.cells.row_data(column).unwrap().to_string()
+    }
+
+    #[test]
+    fn combined_class_rows_keep_their_keys_when_filtered() {
+        let fixture = Fixture::new(|project| {
+            project
+                .yhdistetyt_luokat
+                .push(as2026::native::CombinedClass {
+                    nimi: "Yhteistulos".into(),
+                    luokat: vec!["A".into()],
+                    nousupisteet: 0,
+                    sarjapistetapa: 0,
+                });
+        });
+        let view = data(&fixture.workspace, 4, -1, "Yhteistulos").unwrap();
+        assert_eq!(view.rows.len(), 1);
+        assert_eq!(view.rows[0].key, 1);
+        assert!(text(&view.rows[0], 1).contains("yhdistetty: A"));
     }
 
     #[test]
