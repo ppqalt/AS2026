@@ -370,7 +370,7 @@ component EditorFields inherits VerticalLayout {
     spacing: Theme.space-3;
     padding-right: Theme.space-2;
     in-out property <bool> details-open: false;
-    property <bool> grouped: root.driver-layout && root.fields.length == 17;
+    property <bool> grouped: root.driver-layout && (root.fields.length == 17 || root.fields.length == 18);
     // Pääikkunan vähimmäiskoko jättää asemalomakkeelle kaksi palstaa.
     // Sisällön leveys ei saa määrittää saman asettelun vähimmäisleveyttä.
     property <bool> station-grid: root.station-layout && root.fields.length == 6;
@@ -416,6 +416,11 @@ component EditorFields inherits VerticalLayout {
             field-commit(key, value) => { root.field-commit(key, value) }
             field-draft(key, value) => { root.field-draft(key, value); }
         }
+    }
+    if root.grouped && root.fields.length == 18: EditorEntry {
+        data: root.fields[17]; writable: root.writable;
+        field-commit(key, value) => { root.field-commit(key, value) }
+        field-draft(key, value) => { root.field-draft(key, value); }
     }
     if root.grouped: Button { text: root.details-open ? "Piilota seurat ja lisenssit" : "Seurat ja lisenssit"; enabled: !root.blocked; clicked => { root.details-open = !root.details-open; } }
     if root.grouped && root.details-open: VerticalLayout {

@@ -711,6 +711,13 @@ fn beginners_cup(
     );
     assert_eq!(stored.project().kilpailijat, fixture.kilpailijat);
     assert_eq!(stored.project().leimaluvut, fixture.leimaluvut);
+    app.invoke_navigate(1);
+    app.invoke_select_row(1);
+    assert!(app.get_fields().iter().any(|field| field.key == 17));
+    assert!(app.invoke_field_commit(17, "0".into()));
+    assert!(!ProjectStore::open(&path)?.project().bc_osallistujat[0].osallistuu);
+    assert!(app.invoke_field_commit(17, "1".into()));
+    assert!(ProjectStore::open(&path)?.project().bc_osallistujat[0].osallistuu);
     app.invoke_navigate(3);
     app.invoke_result_scope(true);
     assert!(app.get_bc_results());
