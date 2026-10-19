@@ -2125,7 +2125,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 72 } else { 24 } {
+        if current >= if keyboard_test { 80 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -2341,6 +2341,18 @@ fn capture_views(
                     assert!(!app.get_setup_open(), "Myöhemmin toimii näppäimistöllä asentamatta mitään");
                     println!("GUI-asennusikkunan näppäimistökoe hyväksytty.");
                 }
+                72 => {
+                    app.invoke_navigate(5);
+                    app.invoke_select_row(0);
+                    app.invoke_select_detail(0);
+                }
+                73 => save_view(&app, &directory.join("26-pieni-rataikkuna.png")).unwrap(),
+                74 => println!("GUI-koe: rataikkuna 1480x960"),
+                75 => save_view(&app, &directory.join("27-rata-ja-asemat.png")).unwrap(),
+                76 => { app.invoke_select_detail(1); }
+                77 => save_view(&app, &directory.join("28-aseman-muokkaus.png")).unwrap(),
+                78 => { app.invoke_filter_changed("Ei vastaavaa rataa".into()); }
+                79 => save_view(&app, &directory.join("29-radan-haku-tyhja.png")).unwrap(),
                 _ => {}
             }
             *phase.borrow_mut() += 1;

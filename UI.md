@@ -75,6 +75,13 @@ Uuden lomakekentän lisääminen etenee näin:
 
 Tulokset-sivun yhteenvedolla ja kilpailijaeditorilla on yksi yhteinen pystysuuntainen vieritys. `Editor.fit-content` sovittaa taustan kaikkien kenttien todelliseen korkeuteen; älä palauta kenttämäärään perustuvaa korkeusarviota tai sisäkkäistä vieritystä tähän paneeliin. Muut editorit säilyttävät oman vierityksensä.
 
+Radat ja asemat käyttää samaa luettelo vasemmalla / tiedot oikealla -rakennetta
+kuin Kilpailijat ja Luokat. Vasemmalla on tiivis ratavalinta ja loppukorkeuden
+käyttävä asemaluettelo. Oikealla radan tiedot pysyvät sisällön korkuisina ja
+asemalomake vierii omassa paneelissaan. Koko sivua ei tarvitse vierittää
+asemaa muokatessa. Yhteinen `Editor` kiinnittää otsikon ja kentät alkuun;
+`record-key` palauttaa vierityksen alkuun valitun aseman vaihtuessa.
+
 Kenttien välillä liikutaan Tabilla ja arvot voi hyväksyä Enterillä. Säilytä näkyvä näppäimistökohdistus ja kenttien tunnistettavat nimet, kun muutat komponentteja. Pitkien nimien ja polkujen sekä pienen ikkunan pitää säilyä käytettävinä.
 
 Painikkeilla on nimet ilman kolmea pistettä. Toiminnot avaa sivun lisätoiminnot. Puuttuva taulukko- tai tulosarvo esitetään merkillä `-`; todelliset nollat ja tarpeelliset virheselitteet säilyvät. Luokan lähtöaika ja aseman tavoiteaika käyttävät yhteistä tuntien, minuuttien ja sekuntien kenttää. Kellonajan tuntiraja tarkistetaan erikseen; tavoitekesto voi ylittää vuorokauden. Vierityspalkille varataan oma tila sisällön vieressä yhteisessä ScrollView-komponentissa.

@@ -577,112 +577,125 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
-                // Radat ja asemat: route details remain in place when a
-                // station is selected. Only the station editor changes.
-                if root.opened && root.page == 5: ScrollView {
+                // Sama luettelo vasemmalla / tiedot oikealla -rakenne kuin muilla sivuilla.
+                if root.opened && root.page == 5: VerticalLayout {
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
-                    VerticalLayout {
-                        horizontal-stretch: 1;
+                    spacing: Theme.space-3;
+                    HorizontalLayout {
                         vertical-stretch: 0;
-                        spacing: Theme.space-2;
-                        HorizontalLayout {
-                            vertical-stretch: 0;
+                        height: Theme.control-height;
+                        spacing: Theme.space-3;
+                        LineEdit {
+                            horizontal-stretch: 1;
+                            text <=> root.filter;
+                            placeholder-text: "Hae radoista";
+                            edited => { root.filter-changed(self.text); }
+                        }
+                        AccentButton {
                             height: Theme.control-height;
-                            spacing: Theme.space-3;
-                            LineEdit {
-                                horizontal-stretch: 1;
-                                text <=> root.filter;
-                                placeholder-text: "Hae radoista";
-                                edited => { root.filter-changed(self.text); }
-                            }
-                            AccentButton {
-                                height: Theme.control-height;
-                                text: "+ Lisää rata";
-                                enabled: root.editable && !root.new-record;
-                                clicked => { root.add-record(); }
-                            }
-                            Button { text: "Tuo Excel"; enabled: true; clicked => { root.import-excel(); } }
+                            text: "+ Lisää rata";
+                            enabled: root.editable && !root.new-record;
+                            clicked => { root.add-record(); }
                         }
-                        Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
-                        DataTable {
+                        Button { text: "Tuo Excel"; enabled: true; clicked => { root.import-excel(); } }
+                    }
+                    HorizontalLayout {
+                        spacing: Theme.space-4;
+                        VerticalLayout {
                             horizontal-stretch: 1;
-                            vertical-stretch: 0;
-                            table-min-height: 84px;
-                            height: min(194px, max(84px, 36px + root.rows.length * Theme.row-height));
-                            rows: root.rows; headers: root.headers; weights: root.weights;
-                            selected-key: root.selected-key;
-                            empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
-                            selected(key) => { root.select-row(key); }
-                        }
-                        if root.route-editor-visible: Editor {
-                            horizontal-stretch: 1;
-                            vertical-stretch: 0;
-                            fit-content: true;
-                            heading: "Radan tiedot";
-                            description: "";
-                            fields: root.route-fields; writable: root.editable;
-                            field-commit(key, value) => { root.route-field-commit(key, value) }
-                            field-draft(key, value) => { root.route-field-draft(key, value); }
-                        }
-                        if root.editor-visible && root.editor-title == "Uusi rata": Editor {
-                            horizontal-stretch: 1;
-                            vertical-stretch: 0;
-                            fit-content: true;
-                            heading: root.editor-title; description: root.editor-description;
-                            fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                            add => { root.add-commit(); } cancel => { root.cancel-edit(); }
-                        }
-                        HorizontalLayout {
-                            vertical-stretch: 0;
-                            height: Theme.control-height;
                             spacing: Theme.space-2;
-                            Text {
-                                text: root.detail-title != "" ? root.detail-title : "Asemat";
-                                color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700;
-                                vertical-alignment: center;
+                            Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                            DataTable {
                                 horizontal-stretch: 1;
+                                vertical-stretch: 0;
+                                table-min-height: 84px;
+                                height: min(194px, max(84px, 36px + root.rows.length * Theme.row-height));
+                                rows: root.rows; headers: root.headers; weights: root.weights;
+                                selected-key: root.selected-key;
+                                empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
+                                selected(key) => { root.select-row(key); }
                             }
-                            Button {
-                                height: Theme.control-height; text: "+ Asema";
-                                enabled: root.editable && root.selected-key >= 0 && !root.new-record;
-                                clicked => { root.add-station(); }
+                            HorizontalLayout {
+                                vertical-stretch: 0;
+                                height: Theme.control-height;
+                                spacing: Theme.space-2;
+                                Text {
+                                    text: "Asemat";
+                                    accessible-label: root.detail-title;
+                                    min-width: 0px;
+                                    color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                Button {
+                                    height: Theme.control-height; text: "+ Asema";
+                                    enabled: root.editable && root.selected-key >= 0 && !root.new-record;
+                                    clicked => { root.add-station(); }
+                                }
+                                Button {
+                                    height: Theme.control-height; min-width: Theme.control-height; max-width: Theme.control-height; text: "↑";
+                                    accessible-label: "Siirrä asemaa ylöspäin";
+                                    enabled: root.editable && root.detail-key > 0 && !root.new-record;
+                                    clicked => { root.move-station(-1); }
+                                }
+                                Button {
+                                    height: Theme.control-height; min-width: Theme.control-height; max-width: Theme.control-height; text: "↓";
+                                    accessible-label: "Siirrä asemaa alaspäin";
+                                    enabled: root.editable && root.detail-key >= 0 && !root.new-record;
+                                    clicked => { root.move-station(1); }
+                                }
                             }
-                            Button {
-                                height: Theme.control-height; min-width: Theme.control-height; max-width: Theme.control-height; text: "↑";
-                                accessible-label: "Siirrä asemaa ylöspäin";
-                                enabled: root.editable && root.detail-key > 0 && !root.new-record;
-                                clicked => { root.move-station(-1); }
-                            }
-                            Button {
-                                height: Theme.control-height; min-width: Theme.control-height; max-width: Theme.control-height; text: "↓";
-                                accessible-label: "Siirrä asemaa alaspäin";
-                                enabled: root.editable && root.detail-key >= 0 && !root.new-record;
-                                clicked => { root.move-station(1); }
+                            DataTable {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 1;
+                                table-min-height: 120px;
+                                rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
+                                selected-key: root.detail-key;
+                                empty-text: "Valitse rata yllä olevasta luettelosta.";
+                                selected(key) => { root.select-detail(key); }
                             }
                         }
-                        DataTable {
-                            horizontal-stretch: 1;
-                            vertical-stretch: 0;
-                            table-min-height: 184px;
-                            height: min(340px, max(184px, 36px + root.detail-rows.length * Theme.row-height));
-                            rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
-                            selected-key: root.detail-key;
-                            empty-text: "Valitse rata yllä olevasta luettelosta.";
-                            selected(key) => { root.select-detail(key); }
-                        }
-                        if root.editor-visible && (root.editor-title == "Aseman tiedot" || root.editor-title == "Uusi asema"): Editor {
-                            horizontal-stretch: 1;
-                            vertical-stretch: 0;
-                            fit-content: true;
-                            station-layout: true;
-                            heading: root.editor-title; description: root.editor-description;
-                            fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                            add => { root.add-commit(); } cancel => { root.cancel-edit(); }
+                        VerticalLayout {
+                            min-width: Theme.editor-min-width;
+                            preferred-width: Theme.editor-width;
+                            max-width: Theme.editor-max-width;
+                            horizontal-stretch: 0;
+                            spacing: Theme.space-3;
+                            if root.route-editor-visible: Editor {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 0;
+                                fit-content: true;
+                                heading: "Radan tiedot";
+                                description: "";
+                                fields: root.route-fields; writable: root.editable;
+                                field-commit(key, value) => { root.route-field-commit(key, value) }
+                                field-draft(key, value) => { root.route-field-draft(key, value); }
+                            }
+                            if root.editor-visible && root.editor-title == "Uusi rata": Editor {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 0;
+                                fit-content: true;
+                                heading: root.editor-title; description: root.editor-description;
+                                fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                                field-commit(key, value) => { root.field-commit(key, value) }
+                                field-draft(key, value) => { root.field-draft(key, value); }
+                                add => { root.add-commit(); } cancel => { root.cancel-edit(); }
+                            }
+                            if root.editor-visible && (root.editor-title == "Aseman tiedot" || root.editor-title == "Uusi asema"): Editor {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 1;
+                                record-key: root.selected-key + "/" + root.detail-key;
+                                heading: root.editor-title; description: root.editor-description;
+                                fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                                field-commit(key, value) => { root.field-commit(key, value) }
+                                field-draft(key, value) => { root.field-draft(key, value); }
+                                add => { root.add-commit(); } cancel => { root.cancel-edit(); }
+                            }
+                            if !root.editor-visible || (root.editor-title != "Aseman tiedot" && root.editor-title != "Uusi asema"): Rectangle {
+                                vertical-stretch: 1;
+                                background: transparent;
+                            }
                         }
                     }
                 }

@@ -323,6 +323,7 @@ component EditorEntry inherits FormField {
 // Tulospaneelissa ulompi vieritys omistaa koko lomakkeen korkeuden.
 component EditorFields inherits VerticalLayout {
     min-width: 0px;
+    alignment: start;
     in property <[EditorField]> fields;
     in property <bool> writable;
     in property <bool> blocked;
@@ -395,6 +396,9 @@ component EditorFields inherits VerticalLayout {
 
 export component Editor inherits Rectangle {
     min-width: 0px;
+    in property <string> record-key;
+    property <length> scroll-offset: 0px;
+    changed record-key => { root.scroll-offset = 0px; }
     in property <string> heading;
     in property <string> description;
     in property <string> error;
@@ -408,14 +412,16 @@ export component Editor inherits Rectangle {
     // Ulompi ScrollView vastaa koko paneelista: tämän editorin kenttiä ei rajata.
     in property <bool> fit-content: false;
     min-height: root.fit-content ? editor-content.min-height : 0px;
+    preferred-height: root.fit-content ? editor-content.min-height : 300px;
     callback field-commit(int, string) -> bool;
     callback field-draft(int, string);
     callback add();
     callback cancel();
     background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
     editor-content := VerticalLayout {
+        height: root.fit-content ? self.min-height : parent.height;
         padding: Theme.panel-padding; spacing: Theme.space-3;
-        Text { text: root.heading; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; wrap: word-wrap; }
+        Text { text: root.heading; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; wrap: word-wrap; }
         if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; }
         if root.description != "": Note { text: root.description; }
         if root.fit-content: EditorFields {
@@ -426,9 +432,13 @@ export component Editor inherits Rectangle {
             field-commit(key, value) => { root.field-commit(key, value) }
             field-draft(key, value) => { root.field-draft(key, value); }
         }
-        if !root.fit-content: ScrollView {
+        if !root.fit-content: fields-scroll := ScrollView {
             horizontal-scrollbar-policy: always-off;
-            EditorFields {
+            viewport-y <=> root.scroll-offset;
+            viewport-height: scroll-fields.min-height;
+            scroll-fields := EditorFields {
+                x: 0px; y: 0px;
+                width: fields-scroll.visible-width;
                 fields: root.fields; writable: root.writable; blocked: root.blocked;
                 driver-layout: root.driver-layout;
                 station-layout: root.station-layout;
