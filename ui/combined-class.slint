@@ -14,7 +14,9 @@ export component CombinedClassDialog inherits Rectangle {
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
-    FocusScope {
+    keys := FocusScope {
+        width: root.width;
+        height: root.height;
         focus-on-click: false;
         focus-on-tab-navigation: false;
         init => { name-input.focus(); }
@@ -33,12 +35,19 @@ export component CombinedClassDialog inherits Rectangle {
             VerticalLayout {
                 padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
-                Heading { text: root.creating ? "Lisää yhdistetty luokka" : "Yhdistetyn luokan tiedot"; }
-                ScrollView {
+                Heading { text: root.creating ? "Lisää yhdistetty luokka" : "Yhdistetyn luokan tiedot"; vertical-stretch: 0; }
+                body := ScrollView {
+                    min-height: 0px;
                     vertical-stretch: 1;
                     horizontal-scrollbar-policy: always-off;
                     viewport-width: self.visible-width;
-                    VerticalLayout {
+                    viewport-height: body-content.min-height;
+                    scrolled => { keys.focus(); }
+                    body-content := VerticalLayout {
+                        x: 0px; y: 0px;
+                        width: body.visible-width;
+                        height: self.min-height;
+                        alignment: start;
                         spacing: Theme.space-3;
                         Note { text: "Luokan nimi"; }
                         name-input := LineEdit { text <=> root.name; placeholder-text: "Esimerkiksi A + B"; }
