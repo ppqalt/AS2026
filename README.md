@@ -1,9 +1,8 @@
 # AS2026
 
-**Käyttöliittymän kokeiluhaara:** `beta/kayttoliittyma`. Käynnistä erillinen
-esimerkkikilpailu komennolla `./scripts/kokeile-beta.sh`.
-[Betan tilanjako ja kokeiluohje](docs/KAYTTOLIITTYMA_BETA.md).
-Tämä haara ei ole uusi vakaa julkaisu.
+Version 0.6.4 mukana ovat myös käyttöliittymäbetassa kehitetyt mukautuvat näkymät.
+Esimerkkikilpailun voi avata komennolla `cargo run --features gui --bin as2026-gui -- --demo`.
+
 
 Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 

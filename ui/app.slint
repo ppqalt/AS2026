@@ -8,7 +8,7 @@ export { TableRow, EditorField, ResultOverview, DrawClassOption }
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
-    title: "AS2026 Beta — käyttöliittymäkokeilu";
+    title: "AS2026";
     preferred-width: 1480px; preferred-height: 960px;
     min-width: 900px; min-height: 600px;
     background: Theme.canvas;
@@ -252,7 +252,7 @@ export component AppWindow inherits Window {
                     height: 60px;
                     VerticalLayout {
                         padding-left: Theme.space-3; padding-top: Theme.space-2; spacing: Theme.space-1;
-                        Text { text: "AS2026 Beta"; color: Theme.ink; font-size: 22px; font-weight: 700; letter-spacing: 0.4px; }
+                        Text { text: "AS2026"; color: Theme.ink; font-size: 22px; font-weight: 700; letter-spacing: 0.4px; }
                     }
                 }
                 nav-scroll := ScrollView {
