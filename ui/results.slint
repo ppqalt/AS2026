@@ -6,11 +6,11 @@ import { ResultOverview } from "types.slint";
 component ResultPoint inherits HorizontalLayout {
     in property <string> label;
     in property <string> points;
-    height: 22px;
+    height: max(22px, point-label.preferred-height);
     vertical-stretch: 0;
     spacing: Theme.space-2;
-    Text { text: root.label; color: Theme.muted; font-size: 12px; horizontal-stretch: 1; }
-    Text { text: root.points; color: Theme.ink; font-size: 12px; }
+    point-label := Text { text: root.label; color: Theme.muted; font-size: Theme.label-font-size; horizontal-stretch: 1; min-width: 0px; wrap: word-wrap; }
+    Text { text: root.points; color: Theme.ink; font-size: Theme.label-font-size; }
 }
 
 // Tämä paneeli esittää samat tiedot kuin tulosluettelo; se ei laske pisteitä.
@@ -28,44 +28,44 @@ export component ResultSummary inherits Rectangle {
     border-radius: Theme.radius;
     background: Theme.surface;
     content := VerticalLayout {
-        padding: Theme.space-3;
+        padding: Theme.panel-padding;
         spacing: Theme.space-2;
         Text {
             text: root.data.selected ? root.data.identity : "Kilpailijan tulos";
-            font-size: 16px; font-weight: 700; color: Theme.ink;
+            font-size: Theme.section-font-size; font-weight: 700; color: Theme.ink; wrap: word-wrap;
         }
         Note { text: root.data.selected ? root.data.details : "Valitse kilpailija tulosluettelosta."; }
         if root.data.selected: VerticalLayout {
             spacing: Theme.space-2;
             ResultPoint { label: "Tila"; points: root.data.status; }
             if root.data.reason != "": Note { text: "Syy: " + root.data.reason; }
-            Note { text: root.data.read-state; }
+            if root.data.read-state != "": Note { text: root.data.read-state; }
             if root.data.issue != "": Text {
                 text: root.data.issue; color: Theme.warning;
-                font-size: 12px; wrap: word-wrap;
+                font-size: Theme.label-font-size; wrap: word-wrap;
             }
             Rectangle { height: 1px; background: Theme.line; }
-            Text { text: "Ajat"; color: Theme.ink; font-size: 13px; font-weight: 600; }
+            Text { text: "Ajat"; color: Theme.ink; font-size: Theme.body-font-size; font-weight: 600; }
             HorizontalLayout {
                 spacing: Theme.space-2;
                 VerticalLayout {
                     horizontal-stretch: 1; spacing: Theme.space-1;
-                    Text { text: "Lähtö"; color: Theme.muted; font-size: 11px; }
-                    Text { text: root.data.start; color: Theme.ink; font-size: 14px; }
+                    Text { text: "Lähtö"; color: Theme.muted; font-size: Theme.caption-font-size; }
+                    Text { text: root.data.start; color: Theme.ink; font-size: Theme.body-font-size; }
                 }
                 VerticalLayout {
                     horizontal-stretch: 1; spacing: Theme.space-1;
-                    Text { text: "Käytetty aika"; color: Theme.muted; font-size: 11px; }
-                    Text { text: root.data.elapsed; color: Theme.ink; font-size: 14px; }
+                    Text { text: "Käytetty aika"; color: Theme.muted; font-size: Theme.caption-font-size; }
+                    Text { text: root.data.elapsed; color: Theme.ink; font-size: Theme.body-font-size; }
                 }
                 VerticalLayout {
                     horizontal-stretch: 1; spacing: Theme.space-1;
-                    Text { text: "Maali"; color: Theme.muted; font-size: 11px; }
-                    Text { text: root.data.finish; color: Theme.ink; font-size: 14px; }
+                    Text { text: "Maali"; color: Theme.muted; font-size: Theme.caption-font-size; }
+                    Text { text: root.data.finish; color: Theme.ink; font-size: Theme.body-font-size; }
                 }
             }
             Rectangle { height: 1px; background: Theme.line; }
-            Text { text: "Virhepisteet"; color: Theme.ink; font-size: 13px; font-weight: 600; }
+            Text { text: "Virhepisteet"; color: Theme.ink; font-size: Theme.body-font-size; font-weight: 600; }
             ResultPoint { label: "Aikavirhepisteet"; points: root.data.time-points; }
             ResultPoint { label: "Asemien muut virheet"; points: root.data.station-points; }
             ResultPoint { label: "Puuttuvat RT-asemat (" + root.data.missing-rt-count + " kpl)"; points: root.data.missing-rt; }
@@ -73,17 +73,17 @@ export component ResultSummary inherits Rectangle {
             ResultPoint { label: "Muut virhepisteet"; points: root.data.other-points; }
             Rectangle { height: 1px; background: Theme.line; }
             HorizontalLayout {
-                Text { text: "Yhteensä"; color: Theme.ink; font-size: 14px; font-weight: 600; horizontal-stretch: 1; }
-                Text { text: root.data.total; color: Theme.accent-text; font-size: 18px; font-weight: 700; }
-            }
-            if root.editable: Button {
-                height: Theme.control-height; text: "Muokkaa kilpailijaa";
-                clicked => { root.edit-competitor(); }
+                Text { text: "Yhteensä"; color: Theme.ink; font-size: Theme.body-font-size; font-weight: 600; horizontal-stretch: 1; }
+                Text { text: root.data.total; color: Theme.accent-text; font-size: Theme.section-font-size; font-weight: 700; }
             }
             if root.editable: AccentButton {
                 text: root.interrupted ? "Vahvista keskeytys" : "Hyväksy tulos";
                 enabled: root.approvable;
                 clicked => { root.approve(); }
+            }
+            if root.editable: Button {
+                text: "Muokkaa kilpailijaa";
+                clicked => { root.edit-competitor(); }
             }
         }
     }

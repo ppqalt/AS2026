@@ -6,6 +6,7 @@ import { FluentFontSettings, FluentPalette, Icons, FluentSizeSettings } from "st
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 import { ScrollView } from "./scrollview.slint";
+import { Theme } from "../../theme.slint";
 
 export component ComboBox {
     in property <[string]> model <=> base.model;
@@ -21,7 +22,8 @@ export component ComboBox {
     property <int> visible-items: min(6, model.length);
 
     min-width: max(160px, layout.min-height);
-    min-height: max(32px, layout.min-height);
+    min-height: max(Theme.control-height, layout.min-height);
+    preferred-height: Theme.control-height;
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: base;
@@ -64,15 +66,15 @@ export component ComboBox {
     }
 
     background := Rectangle {
-        border-radius: 3px;
+        border-radius: Theme.radius;
         background: FluentPalette.control-background;
         border-width: 1px;
         border-color: FluentPalette.control-border;
 
         layout := HorizontalLayout {
-            padding-left: 11px;
-            padding-right: 11px;
-            spacing: 8px;
+            padding-left: Theme.space-3;
+            padding-right: Theme.space-3;
+            spacing: Theme.space-2;
 
             text := Text {
                 horizontal-alignment: left;

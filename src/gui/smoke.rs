@@ -97,6 +97,23 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     app.invoke_select_row(0);
     assert!(!app.invoke_field_commit(4, "virheellinen".into()));
     assert!(app.get_form_blocked());
+    let invalid_card = app
+        .get_fields()
+        .iter()
+        .find(|field| field.key == 4)
+        .unwrap();
+    assert!(
+        !invalid_card.error.is_empty(),
+        "Tarkka virhe näkyy kentän yhteydessä"
+    );
+    assert_eq!(
+        invalid_card.value, "virheellinen",
+        "Virheellinen syöte säilyy korjattavana"
+    );
+    assert_eq!(
+        ProjectStore::open(&path)?.project().kilpailijat[0].emit,
+        original.kilpailijat[0].emit
+    );
     assert!(app.invoke_field_commit(5, "Testiauto".into()));
     assert!(
         app.get_form_blocked(),
@@ -105,6 +122,14 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     app.invoke_navigate(3);
     assert_eq!(app.get_page(), 1);
     assert!(app.invoke_field_commit(4, "123456".into()));
+    assert!(
+        app.get_fields()
+            .iter()
+            .find(|field| field.key == 4)
+            .unwrap()
+            .error
+            .is_empty()
+    );
     assert!(!app.get_form_blocked());
     app.invoke_add_record();
     app.invoke_field_draft(0, "8".into());
@@ -504,7 +529,10 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         Some(import_directory.clone()),
     )?;
     app.invoke_confirm_action(true);
-    assert!(app.get_status_error());
+    assert!(
+        !app.get_import_error().is_empty(),
+        "Tuontivirhe näkyy tuonti-ikkunassa"
+    );
     assert!(
         app.get_confirm_open() && app.get_import_open(),
         "Tallennusvirhe säilyttää esikatselun"

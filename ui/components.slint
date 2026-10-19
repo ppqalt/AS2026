@@ -10,55 +10,35 @@ export component Heading inherits Text {
 
 export component Note inherits Text {
     color: Theme.muted;
-    font-size: 13px;
+    font-size: Theme.body-font-size;
     wrap: word-wrap;
 }
 
-// Compact Fluent 2 accent action. Built-in neutral Fluent controls remain
-// untouched; this single accent variant avoids platform-blue primary buttons.
-// Immediate states only: no animation, opacity, shadow, acrylic or gradient.
-export component AccentButton inherits Rectangle {
-    in property <string> text;
-    in property <bool> enabled: true;
-    callback clicked();
-    height: Theme.control-height;
-    min-width: 76px;
-    border-radius: Theme.radius;
+// Sama Fluent-painike, kohdistus ja esteettömyys kaikille toiminnoille.
+export component AccentButton inherits Button {
+    primary: true;
+}
+
+// Sisällöstä erillinen pinta: kutsuja järjestää vieritettävän sisällön ja alatunnisteen.
+export component DialogSurface inherits Rectangle {
+    in property <length> preferred-dialog-width: Theme.dialog-width;
+    in property <length> preferred-dialog-height: 520px;
+    in property <length> available-width;
+    in property <length> available-height;
+    width: min(root.preferred-dialog-width, max(0px, root.available-width - 2 * Theme.dialog-margin));
+    height: min(root.preferred-dialog-height, max(0px, root.available-height - 2 * Theme.dialog-margin));
+    x: (root.available-width - self.width) / 2;
+    y: (root.available-height - self.height) / 2;
+    border-radius: Theme.radius-large;
+    background: Theme.surface;
+    border-color: Theme.line;
     border-width: 1px;
-    border-color: root.enabled ? Theme.accent-fill : Theme.line;
-    background: root.enabled
-        ? (touch.has-hover ? Theme.accent-hover : Theme.accent-fill)
-        : Theme.surface-raised;
-    forward-focus: key-focus;
-    HorizontalLayout {
-        padding-left: Theme.space-3;
-        padding-right: Theme.space-3;
-        Text {
-            text: root.text;
-            color: root.enabled ? Theme.ink : Theme.subtle-text;
-            font-size: 13px;
-            font-weight: 600;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-    }
-    touch := TouchArea {
-        clicked => { if root.enabled { root.clicked(); } }
-    }
-    key-focus := FocusScope {
-        width: 0px;
-        focus-on-tab-navigation: root.enabled;
-        key-pressed(event) => {
-            if root.enabled && (event.text == Key.Return || event.text == Key.Space) {
-                root.clicked();
-                return accept;
-            }
-            reject
-        }
-    }
-    accessible-role: button;
-    accessible-label: root.text;
-    accessible-action-default => { if root.enabled { root.clicked(); } }
+}
+
+export component DialogActions inherits HorizontalLayout {
+    spacing: Theme.space-2;
+    alignment: end;
+    vertical-stretch: 0;
 }
 
 export component NavItem inherits Rectangle {
@@ -69,6 +49,8 @@ export component NavItem inherits Rectangle {
     vertical-stretch: 0;
     border-radius: Theme.radius;
     background: root.active ? Theme.accent-soft : touch.has-hover ? Theme.sidebar-hover : transparent;
+    border-width: focus.has-focus ? 2px : 0px;
+    border-color: Theme.accent;
     forward-focus: focus;
     // Keskitys sidotaan rivin todelliseen korkeuteen, myös skaalattaessa.
     selection-rail := Rectangle {
@@ -85,7 +67,7 @@ export component NavItem inherits Rectangle {
         height: root.height;
         text: root.label;
         color: root.active ? Theme.accent-text : Theme.muted;
-        font-size: 13px;
+        font-size: Theme.body-font-size;
         font-weight: root.active ? 600 : 400;
         vertical-alignment: center;
     }
@@ -107,10 +89,13 @@ export component NavItem inherits Rectangle {
 
 // Vain luonnos elää tässä komponentissa; hyväksytty arvo tulee kilpailumallista.
 export component FormField inherits VerticalLayout {
-    height: root.invalid ? 84px : 64px; vertical-stretch: 0;
+    min-height: Theme.field-height + (root.invalid ? field-error.preferred-height + Theme.space-1 : 0px);
+    max-height: self.min-height;
+    vertical-stretch: 0;
     in property <string> label;
     in property <string> value;
     in property <string> hint;
+    in property <string> error;
     in property <bool> writable: true;
     in property <[string]> options;
     in property <[string]> values;
@@ -123,6 +108,8 @@ export component FormField inherits VerticalLayout {
     callback draft(string);
     property <bool> dirty: false;
     out property <bool> invalid: false;
+    init => { root.invalid = root.error != ""; }
+    changed error => { root.invalid = root.error != ""; }
     function duration-value() -> string {
         return hour-input.text + ":" + minute-input.text + ":" + second-input.text;
     }
@@ -137,17 +124,15 @@ export component FormField inherits VerticalLayout {
             root.dirty = root.invalid;
         }
     }
-    spacing: 5px;
-    Text { height: 16px; text: root.label; color: Theme.muted; font-size: 12px; font-weight: 600; }
+    spacing: Theme.space-1;
+    padding-bottom: Theme.space-1;
+    Text { height: 16px; text: root.label; color: Theme.muted; font-size: Theme.label-font-size; font-weight: 600; }
     Rectangle {
-        height: 40px;
-        border-width: root.invalid ? 1px : 0px;
-        border-color: Theme.danger;
-        border-radius: Theme.radius;
+        height: Theme.control-height;
         duration-input := HorizontalLayout {
             visible: root.duration;
-            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
-            spacing: 4px;
+            width: parent.width; height: parent.height;
+            spacing: Theme.space-1;
             hour-input := LineEdit {
                 min-width: 40px; horizontal-stretch: 1;
                 text: root.hours; placeholder-text: "hh";
@@ -156,7 +141,7 @@ export component FormField inherits VerticalLayout {
                 accepted => { root.duration-accepted(); }
                 changed has-focus => { if !self.has-focus { root.duration-accepted(); } }
             }
-            Text { text: ":"; color: Theme.muted; font-size: 17px; vertical-alignment: center; }
+            Text { text: ":"; color: Theme.muted; font-size: Theme.body-font-size; vertical-alignment: center; }
             minute-input := LineEdit {
                 min-width: 40px; horizontal-stretch: 1;
                 text: root.minutes; placeholder-text: "mm";
@@ -165,7 +150,7 @@ export component FormField inherits VerticalLayout {
                 accepted => { root.duration-accepted(); }
                 changed has-focus => { if !self.has-focus { root.duration-accepted(); } }
             }
-            Text { text: ":"; color: Theme.muted; font-size: 17px; vertical-alignment: center; }
+            Text { text: ":"; color: Theme.muted; font-size: Theme.body-font-size; vertical-alignment: center; }
             second-input := LineEdit {
                 min-width: 40px; horizontal-stretch: 1;
                 text: root.seconds; placeholder-text: "ss";
@@ -176,7 +161,7 @@ export component FormField inherits VerticalLayout {
             }
         }
         choice := ComboBox {
-            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+            width: parent.width; height: parent.height;
             visible: !root.duration && root.options.length > 0;
             model: root.options; current-index: root.choice;
             enabled: root.writable && !root.duration && root.options.length > 0;
@@ -188,7 +173,7 @@ export component FormField inherits VerticalLayout {
             }
         }
         input := LineEdit {
-            x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+            width: parent.width; height: parent.height;
             visible: !root.duration && root.options.length == 0;
             text: root.value;
             placeholder-text: root.hint;
@@ -211,8 +196,23 @@ export component FormField inherits VerticalLayout {
                 }
             }
         }
+        Rectangle {
+            width: parent.width; height: parent.height;
+            border-width: root.invalid ? 1px : 0px;
+            border-color: Theme.danger;
+            border-radius: Theme.radius;
+            background: transparent;
+        }
     }
-    if root.invalid: Text { text: "Tarkista kentän arvo."; color: Theme.danger; font-size: 12px; }
+    field-error := Text {
+        visible: root.invalid;
+        height: root.invalid ? self.preferred-height : 0px;
+        vertical-stretch: 0;
+        text: root.error != "" ? root.error : "Tarkista kentän arvo.";
+        color: Theme.danger;
+        font-size: Theme.label-font-size;
+        wrap: word-wrap;
+    }
 }
 
 export component DataTable inherits Rectangle {
@@ -244,16 +244,16 @@ export component DataTable inherits Rectangle {
         VerticalLayout {
             x: 0px; y: 0px;
             width: horizontal.viewport-width;
-            height: max(0px, horizontal.visible-height - (horizontal.viewport-width > horizontal.visible-width ? 14px : 0px));
+            height: horizontal.visible-height;
             spacing: 0px;
             Rectangle {
-                height: 36px; background: Theme.table-header;
+                height: Theme.control-height; background: Theme.table-header;
                 HorizontalLayout {
-                    padding-left: 14px; padding-right: 14px; spacing: 10px;
+                    padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2;
                     for title[i] in root.headers: Text {
                         text: title; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
-                        font-size: 11px; font-weight: 700; color: Theme.muted;
+                        font-size: Theme.caption-font-size; font-weight: 700; color: Theme.muted;
                         vertical-alignment: center;
                     }
                 }
@@ -273,13 +273,13 @@ export component DataTable inherits Rectangle {
                         height: Theme.row-height;
                         background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
                         HorizontalLayout {
-                            padding-left: 14px; padding-right: 14px; spacing: 10px;
+                            padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2;
                             for value[i] in row.cells: Text {
                                 text: value; horizontal-stretch: root.weights[i];
                                 min-width: 0px; preferred-width: 0px;
                                 color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
                                 font-weight: i == 0 ? 600 : 400;
-                                font-size: 13px; vertical-alignment: center;
+                                font-size: Theme.body-font-size; vertical-alignment: center;
                             }
                         }
                         Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
@@ -290,7 +290,7 @@ export component DataTable inherits Rectangle {
                     }
                 }
                 if root.rows.length == 0: Text {
-                    text: root.empty-text; color: Theme.muted; font-size: 14px;
+                    text: root.empty-text; color: Theme.muted; font-size: Theme.body-font-size;
                     x: 20px - horizontal.viewport-x; y: 0px;
                     width: horizontal.visible-width - 40px; height: parent.height;
                     horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
@@ -308,6 +308,7 @@ component EditorEntry inherits FormField {
     label: root.data.label;
     value: root.data.value;
     hint: root.data.hint;
+    error: root.data.error;
     options: root.data.options;
     values: root.data.values;
     choice: root.data.choice;
@@ -321,10 +322,12 @@ component EditorEntry inherits FormField {
 
 // Tulospaneelissa ulompi vieritys omistaa koko lomakkeen korkeuden.
 component EditorFields inherits VerticalLayout {
+    min-width: 0px;
     in property <[EditorField]> fields;
     in property <bool> writable;
     in property <bool> blocked;
     in property <bool> driver-layout;
+    in property <bool> station-layout;
     callback field-commit(int, string) -> bool;
     callback field-draft(int, string);
     height: self.min-height;
@@ -333,13 +336,51 @@ component EditorFields inherits VerticalLayout {
     padding-right: Theme.space-2;
     in-out property <bool> details-open: false;
     property <bool> grouped: root.driver-layout && root.fields.length == 17;
+    // Pääikkunan vähimmäiskoko jättää asemalomakkeelle kaksi palstaa.
+    // Sisällön leveys ei saa määrittää saman asettelun vähimmäisleveyttä.
+    property <bool> station-grid: root.station-layout && root.fields.length == 6;
     property <[EditorField]> basic-fields: root.grouped ? [root.fields[0], root.fields[1], root.fields[2], root.fields[3], root.fields[4], root.fields[5], root.fields[6], root.fields[7], root.fields[8], root.fields[9], root.fields[10], root.fields[13], root.fields[14]] : root.fields;
-    for field in root.basic-fields: EditorEntry {
-        min-height: self.invalid ? 84px : 64px;
-        max-height: self.invalid ? 84px : 64px;
-        data: field; writable: root.writable;
-        field-commit(key, value) => { root.field-commit(key, value) }
-        field-draft(key, value) => { root.field-draft(key, value); }
+    if root.station-grid: GridLayout {
+        spacing: Theme.space-3;
+        vertical-stretch: 0;
+        Row {
+            EditorEntry { data: root.fields[0]; writable: root.writable;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
+            }
+            EditorEntry { data: root.fields[1]; writable: root.writable;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
+            }
+        }
+        Row {
+            EditorEntry { data: root.fields[2]; writable: root.writable;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
+            }
+            EditorEntry { data: root.fields[3]; writable: root.writable;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
+            }
+        }
+        Row {
+            EditorEntry { data: root.fields[4]; writable: root.writable;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
+            }
+            EditorEntry { data: root.fields[5]; writable: root.writable;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
+            }
+        }
+    }
+    if !root.station-grid: VerticalLayout {
+        spacing: Theme.space-3;
+        for field in root.basic-fields: EditorEntry {
+            data: field; writable: root.writable;
+            field-commit(key, value) => { root.field-commit(key, value) }
+            field-draft(key, value) => { root.field-draft(key, value); }
+        }
     }
     if root.grouped: Button { text: root.details-open ? "Piilota seurat ja lisenssit" : "Seurat ja lisenssit"; enabled: !root.blocked; clicked => { root.details-open = !root.details-open; } }
     if root.grouped && root.details-open: VerticalLayout {
@@ -353,8 +394,10 @@ component EditorFields inherits VerticalLayout {
 }
 
 export component Editor inherits Rectangle {
+    min-width: 0px;
     in property <string> heading;
     in property <string> description;
+    in property <string> error;
     in property <[EditorField]> fields;
     in property <bool> writable;
     in property <bool> new-record;
@@ -371,61 +414,27 @@ export component Editor inherits Rectangle {
     callback cancel();
     background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
     editor-content := VerticalLayout {
-        padding: Theme.space-4; spacing: Theme.space-3;
-        Text { text: root.heading; color: Theme.ink; font-size: 17px; font-weight: 700; wrap: word-wrap; }
-        Note { text: root.description; }
+        padding: Theme.panel-padding; spacing: Theme.space-3;
+        Text { text: root.heading; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; wrap: word-wrap; }
+        if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; }
+        if root.description != "": Note { text: root.description; }
         if root.fit-content: EditorFields {
             fields: root.fields; writable: root.writable; blocked: root.blocked;
             driver-layout: root.driver-layout;
+            station-layout: root.station-layout;
             details-open <=> root.details-open;
             field-commit(key, value) => { root.field-commit(key, value) }
             field-draft(key, value) => { root.field-draft(key, value); }
         }
         if !root.fit-content: ScrollView {
-            VerticalLayout {
-                spacing: 12px; padding-right: 8px;
-                if root.station-layout && root.fields.length == 6 && root.width >= 540px: GridLayout {
-                    spacing: 12px;
-                    vertical-stretch: 0;
-                    Row {
-                        EditorEntry { data: root.fields[0]; writable: root.writable;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                        }
-                        EditorEntry { data: root.fields[1]; writable: root.writable;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                        }
-                    }
-                    Row {
-                        EditorEntry { data: root.fields[2]; writable: root.writable;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                        }
-                        EditorEntry { data: root.fields[3]; writable: root.writable;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                        }
-                    }
-                    Row {
-                        EditorEntry { data: root.fields[4]; writable: root.writable;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                        }
-                        EditorEntry { data: root.fields[5]; writable: root.writable;
-                            field-commit(key, value) => { root.field-commit(key, value) }
-                            field-draft(key, value) => { root.field-draft(key, value); }
-                        }
-                    }
-                }
-                if !root.station-layout || root.fields.length != 6 || root.width < 540px: EditorFields {
-                    fields: root.fields; writable: root.writable; blocked: root.blocked;
-                    driver-layout: root.driver-layout;
-                    details-open <=> root.details-open;
-                    field-commit(key, value) => { root.field-commit(key, value) }
-                    field-draft(key, value) => { root.field-draft(key, value); }
-                }
-                Rectangle { vertical-stretch: 1; }
+            horizontal-scrollbar-policy: always-off;
+            EditorFields {
+                fields: root.fields; writable: root.writable; blocked: root.blocked;
+                driver-layout: root.driver-layout;
+                station-layout: root.station-layout;
+                details-open <=> root.details-open;
+                field-commit(key, value) => { root.field-commit(key, value) }
+                field-draft(key, value) => { root.field-draft(key, value); }
             }
         }
         if root.new-record: HorizontalLayout {

@@ -3,6 +3,7 @@
 // AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
 
 import { FluentPalette, Icons } from "styling.slint";
+import { Theme } from "../../theme.slint";
 
 component ScrollViewButton inherits TouchArea {
     in property <image> icon;
@@ -172,15 +173,15 @@ export component ScrollView {
         interactive: false;
         viewport-y <=> vertical-bar.value;
         viewport-x <=> horizontal-bar.value;
-        width: max(0px, parent.width - (root.vertical-scrollbar-policy == ScrollBarPolicy.always-off ? 0px : 14px));
-        height: max(0px, parent.height - (root.horizontal-scrollbar-policy == ScrollBarPolicy.always-off ? 0px : 14px));
+        width: max(0px, parent.width - (root.vertical-scrollbar-policy == ScrollBarPolicy.always-off ? 0px : Theme.scrollbar-width));
+        height: max(0px, parent.height - (root.horizontal-scrollbar-policy == ScrollBarPolicy.always-off ? 0px : Theme.scrollbar-width));
 
         @children
     }
 
     vertical-bar := ScrollBar {
         enabled: root.enabled;
-        width: 14px;
+        width: Theme.scrollbar-width;
         x: parent.width - self.width;
         y: flickable.y;
         height: flickable.height;
@@ -194,7 +195,7 @@ export component ScrollView {
     horizontal-bar := ScrollBar {
         enabled: root.enabled;
         width: flickable.width;
-        height: 14px;
+        height: Theme.scrollbar-width;
         y: parent.height - self.height;
         x: flickable.x;
         horizontal: true;

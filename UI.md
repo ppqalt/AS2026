@@ -1,5 +1,11 @@
 # AS2026:n käyttöliittymän muokkaaminen
 
+Koko sovelluksen sitova yhteinen linja on [UI_PERIAATTEET.md](docs/UI_PERIAATTEET.md).
+Mitat ja värit tulevat Themestä, ensisijainen painike perii saman Fluent-painikkeen
+kuin toissijainen ja valintaikkunat käyttävät DialogSurface- ja DialogActions-komponentteja.
+Syötevirheen tarkka syy kulkee EditorField.error-kentässä samalle lomakekentälle;
+pitkät toiminnon virhetiedot avataan tilarivin Lisätiedot-painikkeesta.
+
 GUI on Slintillä toteutettu Rust-ohjelma Linuxille ja Windowsille. Se käynnistetään erillisenä `as2026-gui`-ohjelmana. Nykyinen `as2026`-komentoriviohjelma säilyy käytettävissä ilman GUI-riippuvuuksia.
 
 ```sh

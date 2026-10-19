@@ -134,8 +134,8 @@ fn editor_widths_do_not_depend_on_window_width() {
     let app = include_str!("../ui/app.slint");
     // Referencing root.width from a child inside the root's layout creates a
     // layoutinfo-h <-> width feedback loop in Slint 1.16.
-    assert!(app.contains("preferred-width: 344px;"));
-    assert!(app.contains("preferred-width: 400px;"));
+    assert!(app.contains("preferred-width: Theme.editor-width;"));
+    assert!(app.contains("min-width: Theme.editor-min-width;"));
     for line in app.lines() {
         let declaration = line.trim_start();
         assert!(

@@ -1,5 +1,5 @@
 export struct TableRow { key: int, cells: [string] }
-export struct EditorField { key: int, label: string, value: string, hint: string, options: [string], values: [string], choice: int, duration: bool, hours: string, minutes: string, seconds: string }
+export struct EditorField { key: int, label: string, value: string, hint: string, error: string, options: [string], values: [string], choice: int, duration: bool, hours: string, minutes: string, seconds: string }
 
 // Tulosten toimitsijanäkymä käyttää samoja tallennettuja laskentatietoja
 // kuin taulukko. Tyhjä arvo on aina "-", ei keksitty nollatulos.

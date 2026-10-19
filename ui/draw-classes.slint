@@ -1,6 +1,6 @@
 import { Button, CheckBox, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { DrawClassOption } from "types.slint";
 
 export component DrawClassDialog inherits Rectangle {
@@ -23,34 +23,29 @@ export component DrawClassDialog inherits Rectangle {
             }
             reject
         }
-        Rectangle {
-            width: min(560px, root.width - 24px);
-            height: min(580px, root.height - 24px);
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: Theme.surface;
-            border-color: Theme.line;
-            border-width: 1px;
-            border-radius: Theme.radius;
+        DialogSurface {
+            available-width: root.width;
+            available-height: root.height;
+            preferred-dialog-height: 580px;
             VerticalLayout {
-                padding: Theme.space-5;
+                padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
                 Heading { text: "Lähtöarvonnan luokat"; }
-                Note { text: "Valitse arvontaan osallistuvat luokat. Jo luetut kortit ja tallennetut tulokset ohitetaan. Valinta ei muuta lähtöaikoja."; }
-                HorizontalLayout {
-                    spacing: Theme.space-2;
-                    all := Button { text: "Valitse kaikki"; clicked => { root.select-all(true); } }
-                    Button { text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }
-                    Rectangle { horizontal-stretch: 1; }
-                }
                 ScrollView {
                     vertical-stretch: 1;
                     horizontal-scrollbar-policy: always-off;
                     viewport-width: self.visible-width;
                     VerticalLayout {
-                        spacing: Theme.space-1;
+                        spacing: Theme.space-3;
+                        Note { text: "Valitse arvontaan osallistuvat luokat."; }
+                        HorizontalLayout {
+                            spacing: Theme.space-2;
+                            all := Button { text: "Valitse kaikki"; clicked => { root.select-all(true); } }
+                            Button { text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
                         for entry[i] in root.classes: Rectangle {
-                            height: 44px;
+                            height: Theme.row-height;
                             vertical-stretch: 0;
                             background: Theme.surface;
                             HorizontalLayout {
@@ -63,14 +58,12 @@ export component DrawClassDialog inherits Rectangle {
                                 }
                             }
                         }
+                        if root.summary != "": Note { text: root.summary; }
                     }
                 }
-                Note { text: root.summary; }
-                HorizontalLayout {
-                    spacing: Theme.space-2;
-                    Rectangle { horizontal-stretch: 1; }
+                DialogActions {
                     cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
-                    save := Button { text: "Tallenna valinnat"; primary: true; clicked => { root.close(true); } }
+                    save := AccentButton { text: "Tallenna valinnat"; clicked => { root.close(true); } }
                 }
             }
         }

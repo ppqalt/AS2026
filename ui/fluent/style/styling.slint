@@ -11,15 +11,15 @@ export struct TextStyle {
 
 export global FluentFontSettings {
     out property <TextStyle> body: {
-        font-size: 14px,
+        font-size: Theme.body-font-size,
         font-weight: FontWeight.normal
     };
     out property <TextStyle> body-strong: {
-        font-size: 14px,
+        font-size: Theme.body-font-size,
         font-weight: FontWeight.semi-bold
     };
     out property <TextStyle> title: {
-        font-size: 28px,
+        font-size: Theme.heading-font-size,
         font-weight: FontWeight.semi-bold
     };
 }

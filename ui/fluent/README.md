@@ -24,9 +24,14 @@ teemakansiota ei tarvita käyttäjän koneella.
 - FluentPalette käyttää pelkästään `ui/theme.slint`-tiedoston peittäviä
   Dark Spruce -värejä. Ei järjestelmän sinistä korostusta, läpikuultavia
   täyttöjä tai reunojen liukuvärejä.
+- Button, LineEdit ja ComboBox käyttävät yhteistä 36 pikselin säätimen
+  korkeutta, tekstikokoa, kulmasädettä ja sisennyksiä. Korostettu toiminto
+  on saman Fluent-painikkeen `primary`-tila: myös sen näppäimistökohdistus,
+  käytöstä poistaminen ja esteettömyystiedot säilyvät samoina.
 - Vierityspalkin nuolten piilotus käyttää välitöntä `visible`-tilaa.
   Käytöstä poistetun valikkorivin teksti saa peittävän vaimennetun värin.
-- ScrollView varaa vierityspalkeille oman 14 pikselin kaistan. Kentät eivät
+- ScrollView varaa vierityspalkeille oman `Theme.scrollbar-width`-kaistan
+  (14 pikseliä). Pystykaista on oikealla ja vaakakaista alhaalla. Kentät eivät
   jää palkkien alle; `always-off` vapauttaa kyseisen kaistan sisällölle.
   Varattu tila ei riipu palkin hetkellisestä näkyvyydestä, jotta sisällön
   koko ja vieritystarve eivät muodosta asettelun takaisinkytkentää.

@@ -81,10 +81,11 @@ struct State {
     draft: BTreeMap<i32, String>,
     form_drafts: BTreeMap<(PathBuf, i32), FormDraft>,
     invalid_field: bool,
-    invalid_fields: BTreeSet<i32>,
+    invalid_fields: BTreeMap<i32, String>,
+    new_error: String,
     edit_draft: BTreeMap<i32, String>,
     route_draft: BTreeMap<i32, String>,
-    invalid_route_fields: BTreeSet<i32>,
+    invalid_route_fields: BTreeMap<i32, String>,
     filter: String,
     worker: Option<ReaderWorker>,
     receiver: Option<Receiver<ReaderEvent>>,
@@ -99,8 +100,44 @@ fn model<T: Clone + 'static>(values: Vec<T>) -> ModelRc<T> {
     Rc::new(VecModel::from(values)).into()
 }
 fn status(app: &AppWindow, text: impl Into<SharedString>, error: bool) {
-    app.set_status_text(text.into());
+    let text = text.into();
+    app.set_status_summary(text.lines().next().unwrap_or("").into());
+    app.set_status_text(text);
     app.set_status_error(error);
+}
+
+fn error_text(error: &CoreError) -> String {
+    match error {
+        CoreError::InvalidInput(message) => message.clone(),
+        _ => error.to_string(),
+    }
+}
+
+fn field_feedback(app: &AppWindow, route: bool, key: i32, value: &str, error: &str) {
+    let fields = if route {
+        app.get_route_fields()
+    } else {
+        app.get_fields()
+    };
+    if let Some(index) = fields.iter().position(|field| field.key == key) {
+        let mut field = fields.row_data(index).unwrap();
+        field.value = value.into();
+        field.error = error.into();
+        field.choice = field
+            .values
+            .iter()
+            .position(|item| item.as_str() == value)
+            .map_or(-1, |index| index as i32);
+        if field.duration {
+            let parts = value.split(':').collect::<Vec<_>>();
+            if let [h, m, s] = parts.as_slice() {
+                field.hours = (*h).into();
+                field.minutes = (*m).into();
+                field.seconds = (*s).into();
+            }
+        }
+        fields.set_row_data(index, field);
+    }
 }
 fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
     if let Err(error) = operation() {
@@ -112,6 +149,13 @@ fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
                     .unwrap_or(&message)
                     .into(),
             );
+            status(app, "Tuontia ei tallennettu.", false);
+            return;
+        }
+        if app.get_dialog_open() {
+            app.set_new_error(error_text(&error).into());
+            status(app, "Kilpailua ei luotu.", false);
+            return;
         }
         status(
             app,
@@ -158,7 +202,9 @@ fn can_leave(state: &mut State, app: &AppWindow) -> bool {
                 return true;
             }
             Err(error) => {
-                status(app, error.to_string(), true);
+                state.new_error = error_text(&error);
+                app.set_editor_error(state.new_error.as_str().into());
+                status(app, "Tietoja ei tallennettu. Tarkista lomake.", false);
                 return false;
             }
         }
@@ -225,6 +271,7 @@ fn save_new_if_ready(state: &mut State, app: &AppWindow) -> GuiResult<bool> {
         state.form_drafts.remove(&key);
     }
     state.invalid_field = false;
+    state.new_error.clear();
     sync_selected_key(state);
     update_tables(state, app)?;
     update_form(state, app);
@@ -346,21 +393,27 @@ fn update_form(state: &State, app: &AppWindow) {
     app.set_editor_title(title.into());
     app.set_editor_description(
         if matches!(state.selection, Selection::ResultStation { .. }) {
-            "Kellokorjaus säilyttää pisteet. Tutki laskee tallennetuista kelloista. Tarkista palauttaa kortinlukutuloksen."
+            "Tutki laskee pisteet tallennetuista kelloista."
         } else if new {
-            "Luonnos tallentuu automaattisesti, kun pakolliset tiedot on täytetty."
+            "Tallentuu, kun pakolliset tiedot ovat valmiit."
         } else {
-            "Automaattinen tallennus"
+            ""
         }
         .into(),
     );
+    app.set_editor_error(if new { state.new_error.as_str() } else { "" }.into());
     let mut fields = state
         .workspace
         .as_ref()
         .and_then(Workspace::project)
         .map_or_else(Vec::new, |p| forms::fields(p, &state.selection));
     for field in &mut fields {
-        if let Some(value) = state.draft.get(&field.key) {
+        field.error = state
+            .invalid_fields
+            .get(&field.key)
+            .map_or("", String::as_str)
+            .into();
+        if let Some(value) = if new { &state.draft } else { &state.edit_draft }.get(&field.key) {
             field.value = value.as_str().into();
             field.choice = field
                 .values
@@ -395,11 +448,23 @@ fn update_form(state: &State, app: &AppWindow) {
         && !matches!(state.selection, Selection::NewTrack)
         && selected_route.is_some();
     app.set_route_editor_visible(route_visible);
-    app.set_route_fields(model(
-        selected_route.map_or_else(Vec::new, |(project, number)| {
-            forms::fields(project, &Selection::Track(number))
-        }),
-    ));
+    app.set_route_fields(model(selected_route.map_or_else(
+        Vec::new,
+        |(project, number)| {
+            let mut fields = forms::fields(project, &Selection::Track(number));
+            for field in &mut fields {
+                field.error = state
+                    .invalid_route_fields
+                    .get(&field.key)
+                    .map_or("", String::as_str)
+                    .into();
+                if let Some(value) = state.route_draft.get(&field.key) {
+                    field.value = value.as_str().into();
+                }
+            }
+            fields
+        },
+    )));
 }
 
 fn choose_row(state: &mut State, key: i32) -> GuiResult<()> {
@@ -459,6 +524,7 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
     }
     update_tables(state, app)?;
     update_form(state, app);
+    app.invoke_focus_page();
     app.window().request_redraw();
     Ok(())
 }
@@ -478,6 +544,7 @@ fn open_workspace(state: &mut State, app: &AppWindow, path: &Path, demo: bool) -
     state.draft.clear();
     state.invalid_field = false;
     state.invalid_fields.clear();
+    state.new_error.clear();
     state.edit_draft.clear();
     state.route_draft.clear();
     state.invalid_route_fields.clear();
@@ -551,6 +618,7 @@ fn add_record(state: &mut State, app: &AppWindow, station: bool) -> GuiResult<()
         .map(|f| (f.key, f.value.to_string()))
         .collect();
     state.selection = selection;
+    state.new_error.clear();
     update_form(state, app);
     status(
         app,
@@ -600,20 +668,30 @@ fn update_station_rules(state: &State, app: &AppWindow) {
     };
     let model = app.get_fields();
     if let Some(index) = model.iter().position(|field| field.key == 4) {
-        model.set_row_data(index, forms::station_rule_field(&value(0), &value(4)));
+        let mut field = forms::station_rule_field(&value(0), &value(4));
+        field.error = state
+            .invalid_fields
+            .get(&4)
+            .map_or("", String::as_str)
+            .into();
+        model.set_row_data(index, field);
     }
 }
 
 fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bool {
     if is_new(&state.selection) {
         state.draft.insert(key, value.into());
+        state.new_error.clear();
+        app.set_editor_error("".into());
         if key == 0 {
             update_station_rules(state, app);
         }
         return match save_new_if_ready(state, app) {
             Ok(_) => true,
             Err(error) => {
-                status(app, error.to_string(), true);
+                state.new_error = error_text(&error);
+                app.set_editor_error(state.new_error.as_str().into());
+                status(app, "Tietoja ei tallennettu. Tarkista lomake.", false);
                 false
             }
         };
@@ -625,6 +703,7 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
         Ok(selection) => {
             state.selection = selection;
             state.invalid_fields.remove(&key);
+            field_feedback(app, false, key, value, "");
             state.edit_draft.remove(&key);
             state.invalid_field =
                 !state.invalid_fields.is_empty() || !state.invalid_route_fields.is_empty();
@@ -642,11 +721,11 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
                 status(
                     app,
                     if state.invalid_field {
-                        "Kenttä tallennettu. Korjaa myös aiempi virheellinen kenttä."
+                        "Korjaa merkitty kenttä."
                     } else {
                         "Muutos tallennettu."
                     },
-                    state.invalid_field,
+                    false,
                 );
             }
             // Lomaketta ei rakenneta uudelleen joka kentällä: kohdistus ja luonnokset säilyvät.
@@ -654,9 +733,16 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
         }
         Err(error) => {
             state.invalid_field = true;
-            state.invalid_fields.insert(key);
+            let message = error_text(&error);
+            state.invalid_fields.insert(key, message.clone());
+            state.edit_draft.insert(key, value.into());
+            field_feedback(app, false, key, value, &message);
             app.set_form_blocked(true);
-            status(app, format!("Muutosta ei tallennettu: {error}"), true);
+            status(
+                app,
+                "Muutosta ei tallennettu. Tarkista merkitty kenttä.",
+                false,
+            );
             false
         }
     }
@@ -686,6 +772,7 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
         Ok(Selection::Track(updated_number)) => {
             state.route_draft.remove(&key);
             state.invalid_route_fields.remove(&key);
+            field_feedback(app, true, key, value, "");
             state.invalid_field =
                 !state.invalid_fields.is_empty() || !state.invalid_route_fields.is_empty();
             app.set_form_blocked(state.invalid_field);
@@ -715,10 +802,16 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
         }
         Err(error) => {
             state.route_draft.insert(key, value.into());
-            state.invalid_route_fields.insert(key);
+            let message = error_text(&error);
+            state.invalid_route_fields.insert(key, message.clone());
+            field_feedback(app, true, key, value, &message);
             state.invalid_field = true;
             app.set_form_blocked(true);
-            status(app, format!("Radan tietoja ei tallennettu: {error}"), true);
+            status(
+                app,
+                "Radan tietoja ei tallennettu. Tarkista merkitty kenttä.",
+                false,
+            );
             false
         }
     }
@@ -734,6 +827,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_confirm_open()
         && !app.get_draw_classes_open()
         && !app.get_setup_open()
+        && !app.get_status_details_open()
         && !app.get_install_busy()
 }
 
@@ -969,6 +1063,16 @@ fn confirmation(
     title: &str,
     text: String,
 ) {
+    app.set_confirm_action_label(
+        match &action {
+            PendingAction::Review(_) => "Tarkista leimaukset",
+            PendingAction::ConfirmInterruption { .. } => "Vahvista keskeytys",
+            PendingAction::Draw(_) => "Arvo lähtöajat",
+            PendingAction::Import { .. } => "Tuo kilpailu",
+            PendingAction::Notice => "Sulje",
+        }
+        .into(),
+    );
     state.pending = Some(action);
     app.set_confirm_acceptable(true);
     app.set_confirm_title(title.into());
@@ -1109,6 +1213,14 @@ fn offer_excel_import(
 }
 
 fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
+    {
+        let state = state.clone();
+        let weak = app.as_weak();
+        app.on_prepare_new(move || {
+            weak.upgrade()
+                .is_some_and(|app| can_leave(&mut state.borrow_mut(), &app))
+        });
+    }
     macro_rules! action {
         ($method:ident, |$s:ident, $a:ident $(, $arg:ident)*| $body:expr) => {{
             let state = state.clone(); let weak = app.as_weak();
@@ -1378,6 +1490,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         s.invalid_field = false;
         s.invalid_fields.clear();
+        s.new_error.clear();
         s.invalid_route_fields.clear();
         s.edit_draft.clear();
         s.route_draft.clear();
@@ -2000,6 +2113,7 @@ fn capture_views(
     // Leaked owner is unnecessary: callback keeps the timer alive until the last snapshot.
     let owner = Rc::new(RefCell::new(Some(timer.clone())));
     let phase = Rc::new(RefCell::new(0usize));
+    let export_selected = Rc::new(RefCell::new(false));
     timer.start(TimerMode::Repeated, Duration::from_millis(900), move || {
         let Some(app) = weak.upgrade() else {
             return;
@@ -2011,7 +2125,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 56 } else { 24 } {
+        if current >= if keyboard_test { 72 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -2168,6 +2282,65 @@ fn capture_views(
                     app.invoke_reload();
                 }
                 54 => save_view(&app, &directory.join("19-luokan-kellokentta.png")).unwrap(),
+                55 => {
+                    assert!(!app.invoke_field_commit(4, "25:00:00".into()));
+                    assert!(!app.get_fields().iter().find(|field| field.key == 4).unwrap().error.is_empty());
+                }
+                56 => save_view(&app, &directory.join("20-kenttavirhe.png")).unwrap(),
+                57 => {
+                    assert!(app.invoke_field_commit(4, "15:25:30".into()));
+                    app.window().set_size(slint::LogicalSize::new(900., 640.));
+                    println!("GUI-koe: pieni ikkuna 900x640");
+                }
+                58 => {
+                    if let Some(path) = &lifecycle_path {
+                        open_workspace(&mut state.borrow_mut(), &app, path, true).unwrap();
+                    }
+                    app.invoke_navigate(3);
+                    app.invoke_select_row(0);
+                }
+                59 => save_view(&app, &directory.join("21-pieni-tulosikkuna.png")).unwrap(),
+                60 => {
+                    let logical_width = app.window().size().width as f32 / app.window().scale_factor();
+                    assert!((logical_width - 900.).abs() <= 2., "Ikkuna pieneni oikeasti: {logical_width}");
+                    assert!(!state.borrow().invalid_field, "Koonvaihdon jälkeen ei ole keskeneräistä virhettä");
+                    assert!(!app.get_confirm_open() && !app.get_draw_classes_open() && !app.get_about_open());
+                    smoke::open_dialog(&app);
+                }
+                61 => save_view(&app, &directory.join("22-pieni-valintaikkuna.png")).unwrap(),
+                62 => {
+                    smoke::key(&app, slint::platform::Key::Escape);
+                    assert!(!app.get_dialog_open());
+                    status(&app, "Kokeen virhe: tiedostoa ei voitu tallentaa.\nTarkka syy näkyy tarvittaessa tässä ikkunassa.\nKilpailun tallennetut tiedot säilyvät.", true);
+                    app.set_status_details_open(true);
+                }
+                63 => save_view(&app, &directory.join("23-virheen-lisatiedot.png")).unwrap(),
+                64 => {
+                    smoke::key(&app, slint::platform::Key::Escape);
+                    assert!(!app.get_status_details_open());
+                    let selected = export_selected.clone();
+                    app.on_export_csv(move || { *selected.borrow_mut() = true; });
+                    app.invoke_show_export_menu();
+                }
+                65 => save_view(&app, &directory.join("24-tulosviennin-valikko.png")).unwrap(),
+                66 => {
+                    smoke::key(&app, slint::platform::Key::Tab);
+                    smoke::key(&app, slint::platform::Key::Return);
+                    assert!(*export_selected.borrow(), "CSV-vienti valitaan valikosta näppäimistöllä");
+                    println!("GUI-yhtenäisyyskoe hyväksytty: kenttävirhe ja korjaus, koon vaihto 900 × 640, valintaikkuna, virheen lisätiedot ja vientivalikon näppäimistökäyttö.");
+                }
+                67 => app.set_setup_open(true),
+                68 => save_view(&app, &directory.join("25-asennusikkuna.png")).unwrap(),
+                69 => {
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
+                    smoke::key(&app, "n");
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
+                    assert!(!app.get_dialog_open(), "Uusi kilpailu ei avaudu asennusikkunan taakse");
+                    smoke::key(&app, slint::platform::Key::Tab);
+                    smoke::key(&app, slint::platform::Key::Return);
+                    assert!(!app.get_setup_open(), "Myöhemmin toimii näppäimistöllä asentamatta mitään");
+                    println!("GUI-asennusikkunan näppäimistökoe hyväksytty.");
+                }
                 _ => {}
             }
             *phase.borrow_mut() += 1;
