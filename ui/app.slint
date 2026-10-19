@@ -610,7 +610,8 @@ export component AppWindow inherits Window {
                                 horizontal-stretch: 1;
                                 vertical-stretch: 0;
                                 table-min-height: 84px;
-                                height: min(194px, max(84px, 36px + root.rows.length * Theme.row-height));
+                                // Taulukko varaa myös vaakavierityspalkin kaistan ja reunukset.
+                                height: min(194px, max(84px, Theme.control-height + root.rows.length * Theme.row-height)) + Theme.scrollbar-width + 2px;
                                 rows: root.rows; headers: root.headers; weights: root.weights;
                                 selected-key: root.selected-key;
                                 empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
