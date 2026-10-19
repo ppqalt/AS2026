@@ -1,84 +1,92 @@
 # Yhdistetyt luokat ja NAC Beginners Cup
 
-Tutkittu 19.10.2026, lähtökohtana `main`-haaran commit `82f3ff3` (0.6.4).
-
 ## Yhdistetyn luokan luonti
 
 Luokat-sivun **Lisää yhdistetty luokka** avaa valintaikkunan, jossa annetaan
-nimi ja valitaan olemassa olevat jäsenluokat valintaruuduilla. Nousupisteet ja
-sarjapistemenetelmä voidaan valita samassa ikkunassa. **Lisää luokka** tallentaa
-koko määritelmän kerralla; **Peruuta** tai Esc sulkee tallentamatta. Virheellinen
-syöte tai tallennusvirhe jättää syötteen korjattavaksi ikkunaan.
+nimi ja valitaan jäsenluokat valintaruuduilla. Nousupisteet ja sarjapistemenetelmä
+voidaan valita samassa ikkunassa. **Lisää luokka** tallentaa määritelmän kerralla;
+**Peruuta** tai Esc sulkee tallentamatta. Virheellinen syöte tai tallennusvirhe
+jättää syötteen korjattavaksi ikkunaan.
 
-Yhdistetyt luokat näkyvät Luokat-taulukossa Y1–Y4-riveinä, joiden nimessä näkyvät
-myös jäsenluokat. Rivin valitseminen avaa saman valintaikkunan muokkaamista
-varten. Tunnukset Y1–Y4 ovat taulukon merkintöjä, eivät uusia kilpailijaluokkia.
-Alkuperäiset luokat, radat, kilpailijat ja lähtöarvonta säilyvät.
+Yhdistetyt luokat näkyvät Luokat-taulukossa Y1–Y4-riveinä. Rivin valitseminen
+avaa muokkausikkunan. Y1–Y4 ovat taulukon merkintöjä, eivät uusia kilpailijaluokkia.
+Enintään neljän yhdistetyn luokan raja säilyy. Kilpailijat, radat, lähtöarvonta
+ja alkuperäiset luokat säilyvät. Yhdistetty tulos käyttää alkuperäisten luokkien
+valmiita tuloksia ja sijoituslaskentaa, eikä laske virhepisteitä toisella radalla.
 
-Tallennus käyttää nykyistä `yhdistetyt_luokat`-mallia sekä yhteistä validoitua
-tallennusta. Nykyinen enintään neljän yhdistetyn luokan raja säilyy.
-Yhdistetty tulos käyttää alkuperäisten luokkien valmiita tuloksia ja nykyistä
-`ranking`-laskentaa ja tulosvientiä. Rataa tai virhepisteitä ei lasketa uudelleen
-yhdistetyn luokan perusteella.
+## Beginners Cupin määrittäminen
 
-## Beginners Cupin vahvistettu tarve
+1. Lisää kilpailijat kerran heidän NAC-luokkiinsa ja määritä NAC-rata normaalisti.
+2. Avaa **Luokat → Beginners Cup**. Anna BC:n nimi ja erillinen tunnus,
+   oletuksena `BC`, ja valitse NAC-lähderata.
+3. Valitse BC-tulokseen kuuluvat asemat. Pois valitut asemat jätetään BC:ssä
+   huomioimatta. Lähtö, maali ja ULA-aikaviitteet säilyvät mukana yhteisten aikojen
+   tulkitsemiseksi. Pois jätetyn JAT:n tavoite- ja jaksoajat siirtyvät seuraavaan
+   osuuteen; mukana oleva ULA aloittaa uuden aikaviitteen.
+4. Valitse BC-osallistujat saman lähderadan kilpailijoista ja valitse
+   **Tallenna BC**. Myös kilpailijan tiedoissa on BC-osallistujavalinta.
 
-BC-osallistujalle tarvitaan sekä NAC- että BC-tulos samasta Emit-lukemasta.
-BC-tuloksessa osa NAC-radan asemista jätetään huomioimatta. Käsin syötettävien
-virhepisteiden pitää olla erillisiä, sillä BC:hen kuuluvat vain sen omalla
-osuudella tulleet virheet. NAC:n virhepisteitä ei voi sellaisenaan kopioida BC:hen.
+Eri NAC-luokat voivat käyttää samaa lähderataa. Niiden kilpailijat saavat
+yhteisen BC-tuloksen; jokaisen laskennassa säilyy oman NAC-luokan myöhästymisraja.
+BC on tässä toteutuksessa yhden NAC-lähderadan osajoukko. Omia tavoiteaikoja,
+nousupisteitä ja sarjapisteitä ei määritetä tällä toiminnolla.
 
-## Nykyisen toteutuksen rajoitukset
+Osallistujavalinnan poistaminen säilyttää aiemmat BC:n virhepisteet, käsikellot
+ja asematuloksen. Ne palautuvat käyttöön, kun kilpailija valitaan uudelleen.
+Kilpailija lasketaan ilmoittautuneiden määrään ja lähtöarvontaan kerran.
 
-- `native::Project::record_readout` estää kortinluvun, jos sama Emit-numero on
-  usealla kilpailijalla. Toisen kilpailijatietueen lisääminen ei toimi ratkaisuna.
-- `matching::match_route` muodostaa radasta puuttuvista korttileimoista
-  ylimääräisiä rivejä. `timing` pisteyttää ylimääräiset leimat. BC-radan
-  lyhentäminen ilman rajausmääritystä voisi siis lisätä virhepisteitä.
-- `Driver::lisavirheet` ja `Driver::tallennettu_tulos` ovat kilpailijakohtaisia.
-  Niissä ei nykyisin ole erillistä paikkaa rinnakkaiselle BC-tulokselle.
-- Yhdistetty luokka kokoaa tulokset, mutta ei muuta niiden laskentarataa.
+## Tulosten käsittely
 
-## Suositeltu seuraava toteutus
+Tulokset-sivulla vaihdetaan **NAC / perusluokat**- ja **Beginners Cup** -näkymien
+välillä. Kortti luetaan kerran, ja ensimmäinen lukema voi muodostaa molemmat
+asematulokset. Alkuperäinen Emit-historia säilyy muuttamattomana.
 
-Kilpailija ilmoitetaan kerran NAC-luokkaan. Kilpailijalle valitaan lisäksi
-**Osallistuu Beginners Cupiin**. BC määritellään erilliseksi laskentaluokaksi,
-jolla on oma rata ja osallistujavalinta. Pelkkä yhdistetty luokka ei riitä.
+BC-näkymän kilpailijapaneelista avataan **BC:n virhepisteet ja tila**. Puuttuvat
+ja ylimääräiset RT:t, muut virhepisteet, tila ja tilan syy tallennetaan vain
+BC-tulokseen. Myös asemakorjaukset, käsikellot, **Tutki**, **Tarkista** ja
+**Hyväksy tulos** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.
+BC-pisteiden muutos ei muuta NAC-tulosta tai sen hyväksyntää ja päinvastoin.
+Perusteltu keskeytys voidaan vahvistaa kummallekin erikseen.
 
-Yksi alkuperäinen Emit-lukema säilytetään muuttamattomana historiassa.
-Samasta lukemasta muodostetaan kaksi tulosta, jotka tunnistetaan kilpailijan
-ja laskentaluokan perusteella. Kummallakin tuloksella on omat asemarivit,
-käsikellot, käsin syötettävät lisävirheet, korjaukset ja hyväksyntä.
-BC-virheiden muutos ei muuta NAC-tulosta eikä sen hyväksyntää.
+Lähtöaika, Emit-kortin numero ja Emit-korjaus ovat yhteisiä kilpailijatietoja.
+Niiden sekä yhteisten ajanottoasetusten muutos edellyttää molempien tulosten
+tarkistamista. BC:n asemavalinnan muutos mitätöi vain BC-hyväksynnän.
+NAC-radan asemien muuttuminen estää BC-laskennan, kunnes asemavalinnat on
+tarkistettu ja tallennettu uudelleen. Asemien järjestys ei voi vaihtua
+hiljaisesti vanhojen BC-valintojen alla.
 
-BC-radan asemat yhdistetään NAC-radan asemakohtiin ja vain erikseen
-poissuljetuiksi määritetyt leimat jätetään BC-laskennassa huomiotta.
-Pelkkä Emit-koodien suodatus ei riitä, koska sama aseman koodi voi esiintyä
-radalla useasti. Muita ylimääräisiä leimoja ei saa sivuuttaa automaattisesti.
-Alkuperäiset leimausajat ja ajanlaskennan ankkurit säilytetään.
+Kortin uusintaluku noudattaa sovelluksen aiempaa toimintaa: tallennetut
+tarkastukset ja käsikorjaukset säilyvät. **Tarkista** muodostaa valitun laskennan
+asemat uudesta lukemasta vahvistuksen jälkeen. Kortinluku siirtyy perusluokan
+tulokseen, josta BC-näkymään voi vaihtaa.
 
-Tulokset-sivulla valitaan NAC- tai BC-laskenta. Tulosvienti ja live-tulokset
-sisältävät molemmat luokat, mutta ilmoittautuneiden määrä, Emit-kortin omistus
-ja lähtöarvonta käsittelevät kilpailijan kerran. Uusi korttisisältö tai
-BC-ratamuutos päivittää ja mitätöi hyväksynnän vain niiltä osin kuin tuloksen
-laskentaperuste muuttuu.
+HTML-, CSV- ja XLSX-tulosviennit sekä paikallinen live-HTML sisältävät molemmat
+laskennat. Hyväksynnät tarkistetaan erikseen, vaikka kilpailijanumero on sama.
+Hyväksymätön BC-esikatselu ei saa NAC:n hyväksyntää eikä päinvastoin.
 
-Toteutukseen tarvitaan regressiokokeet ainakin ohitettavasta asemasta,
-toistuvasta Emit-koodista, todellisesta ylimääräisestä leimasta, erillisistä
-NAC/BC-virhepisteistä ja hyväksynnöistä sekä uusintaluvusta ja viennin
-uudelleenavauksesta. BC-laskentaa ei ole toteutettu tässä muutoksessa.
+## Leimojen kohdistus ja tiedostot
 
-## Varmennus tässä työtilassa
+BC-ohitukset perustuvat NAC-radan asemakohtiin, eivät pelkkään Emit-koodiin.
+Saman koodin muu esiintymä ja oikeasti ylimääräiset leimat säilyvät laskennassa.
+Saman leiman käyttävä ULA säilyttää tarvitsemansa aikaviitteen.
+Jos sama koodi kuuluu sekä mukana olevaan että ohitettavaan asemakohtaan ja
+lähderadan leima puuttuu, kohdistus voi olla epäselvä. BC-laskenta ilmoittaa
+virheen eikä poista leimaa arvaamalla. NAC-aineisto säilyy.
 
-Koko `ui/app.slint` kääntyy Slint 1.16.0:n Node-sidonnalla ja projektin omalla
-Fluent-tyylillä. Ikkuna ja valintaikkunan ominaisuudet alustuvat kokoluokissa
-900 × 600 ja 1440 × 900 ilman näkyvän ikkunan avaamista. Tämä ei ole visuaalinen
-tai näppäimistöllä tehty käytettävyyskoe eikä Rust-sovittimen käännöskoe.
+`beginners_cup` sisältää määrityksen ja tarkistetun lähderadan. `bc_osallistujat`
+sisältää kilpailijanumeroon viittaavat BC-tiedot. Kilpailijaa tai raakaleimoja
+ei tallenneta toista kertaa. Puuttuvat lisäkentät tarkoittavat vanhaa kilpailua
+ilman BC:tä, joten aiemmat tiedostot avautuvat edelleen.
 
-Rustfmt-muotoilutarkistus ja `git diff --check` onnistuvat. Lisätyt Rust-testit
-tarkistavat jäsenvalintojen atomisen tallentamisen, virheellisten jäsenten
-hylkäämisen ja yhdistetyn luokan rivitunnisteen säilymisen haussa. GUI:n
-elinkaarikokeeseen on lisätty luonti-, validointi-, peruutus- ja muokkausvaiheet.
-Täyttä Rust-työkaluketjua ei ole asennettu tähän työtilaan, joten testejä ei ole
-ajettu. Ennen yhdistämistä tarvitaan normaalit Rust/GUI-testit ja Clippy sekä
-Windowsin näkyvän ikkunan, vierityksen, näppäimistön ja 150 % skaalauksen koe.
+## Varmennus
+
+`tests/beginners.rs` kattaa osajoukon laskennan, toistuvat koodit, epäselvän
+puuttuvan leiman, aidot ylimääräiset leimat, omat virhepisteet ja hyväksynnät,
+ratamuutokset, osallistujavalinnan säilyttämisen, tallennuksen, lähtöarvonnan ja
+molempien tulosten viennin. GUI:n työnkulkukokeet käsittelevät uudet valintaikkunat,
+BC:n käsimaalin, pisteet ja hyväksynnän sekä näppäimistön ja vierityksen.
+
+CI tarkistaa Rust-testit, Clippyn ja GUI-käännöksen Linuxissa ja Windowsissa.
+Linuxissa GUI-työnkulkukoe suoritetaan myös 100 ja 150 prosentin skaalauksella
+ja tarkistuskuvat tallennetaan Actions-artifactiksi. Synteettinen koe ei korvaa
+fyysisen Emit-lukijan koetta tai oikeaan kilpailuaineistoon vertaamista.

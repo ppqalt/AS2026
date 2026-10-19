@@ -96,10 +96,14 @@ pub fn validate(project: &Project) -> Result<(), CoreError> {
     }
     for (index, station) in config.lahdeasemat.iter().enumerate() {
         let kind = StationKind::from_legacy(&station.tyyppi)?;
-        if matches!(kind, StationKind::Start | StationKind::Finish)
-            && !positions.contains(&((index + 1) as u32))
+        if matches!(
+            kind,
+            StationKind::Start | StationKind::Ula | StationKind::Finish
+        ) && !positions.contains(&((index + 1) as u32))
         {
-            return Err(invalid("BC-radan lähtöä ja maalia ei voi jättää pois"));
+            return Err(invalid(
+                "BC-radan lähtöä, ULA-aikaviitteitä ja maalia ei voi jättää pois",
+            ));
         }
     }
     let mut numbers = BTreeSet::new();
@@ -162,6 +166,10 @@ pub fn derived_stations(config: &BeginnersCup) -> Result<Vec<Station>, CoreError
             continue;
         }
         let mut station = station.clone();
+        if kind == StationKind::Ula {
+            omitted_target = 0;
+            omitted_minutes = 0;
+        }
         station.tavoiteaika_sekuntia = station
             .tavoiteaika_sekuntia
             .checked_add(omitted_target)
@@ -185,31 +193,14 @@ pub fn derived_stations(config: &BeginnersCup) -> Result<Vec<Station>, CoreError
 /// Poistaa vain pois valittuun lähdeasemakohtaan kohdistetun leiman.
 /// Oikeasti ylimääräiset leimat ja toistuvan koodin muut esiintymät säilyvät.
 fn filtered_readout(
-    project: &Project,
     config: &BeginnersCup,
-    number: u32,
+    route: &[crate::RouteStation],
+    start: crate::ClockTime,
     read: &Readout,
 ) -> Result<Readout, CoreError> {
-    let driver = project
-        .kilpailijat
-        .iter()
-        .find(|d| d.numero == number)
-        .ok_or_else(|| invalid("BC-kilpailijaa ei löydy"))?;
-    let archive = project.to_archive()?;
-    let route = archive
-        .routes
-        .iter()
-        .find(|r| r.index == config.lahderata)
-        .ok_or_else(|| invalid("BC:n lähderataa ei löydy"))?
-        .to_core()
-        .map_err(|e| CoreError::InvalidInput(e.to_string()))?;
     let content = read.content()?;
     let interior = &content[1..];
-    let rows = crate::matching::match_route(
-        &route,
-        interior,
-        crate::terminal::parse_clock(&driver.lahtoaika)?,
-    )?;
+    let rows = crate::matching::match_route(route, interior, start)?;
     for row in &rows {
         if row.kind == MatchKind::Missing
             && let Some(missing) = &row.station
@@ -281,6 +272,14 @@ pub fn projection(project: &Project) -> Result<Project, CoreError> {
             "NAC-rata on muuttunut. Tarkista ja tallenna BC:n asemavalinnat uudelleen",
         ));
     }
+    let source_archive = project.to_archive()?;
+    let route = source_archive
+        .routes
+        .iter()
+        .find(|r| r.index == config.lahderata)
+        .ok_or_else(|| invalid("BC:n lähderataa ei löydy"))?
+        .to_core()
+        .map_err(|e| CoreError::InvalidInput(e.to_string()))?;
     let mut view = project.clone();
     view.beginners_cup = None;
     view.bc_osallistujat.clear();
@@ -306,10 +305,10 @@ pub fn projection(project: &Project) -> Result<Project, CoreError> {
     for driver in &view.kilpailijat {
         // Vain aktiivinen lukema tarvitaan projektioon. Alkuperäinen historia säilyy projektissa.
         if let Some(read) = project.active_readout(driver.emit)
-            && driver.start_clock()?.is_some()
+            && let Some(start) = driver.start_clock()?
         {
             view.leimaluvut
-                .push(filtered_readout(project, config, driver.numero, read)?);
+                .push(filtered_readout(config, &route, start, read)?);
         }
     }
     view.radat

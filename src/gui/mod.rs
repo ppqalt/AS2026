@@ -358,7 +358,7 @@ fn populate_bc_route(state: &State, app: &AppWindow, index: i32) -> GuiResult<()
                 )
                 .into(),
                 selected: config.is_none_or(|c| c.mukana_asemat.contains(&((i + 1) as u32))),
-                fixed: matches!(station.tyyppi.trim(), "L" | "M"),
+                fixed: matches!(station.tyyppi.trim(), "L" | "ULA" | "M"),
             })
             .collect(),
     ));

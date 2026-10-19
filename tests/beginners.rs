@@ -44,7 +44,9 @@ fn config(p: &Project) -> BeginnersCup {
         tunnus: "BC".into(),
         lahderata: 1,
         lahdeasemat: p.radat[0].asemat.clone(),
-        mukana_asemat: vec![1, 3, 4],
+        mukana_asemat: (1..=p.radat[0].asemat.len() as u32)
+            .filter(|&position| position != 2)
+            .collect(),
     }
 }
 
@@ -136,13 +138,10 @@ fn one_competitor_and_readout_produce_two_independent_results() {
     );
     let reopened = Workspace::open(&f.directory).unwrap();
     assert_eq!(reopened.project(), f.workspace.project());
-    assert_eq!(
-        starts::draw(f.workspace.project().unwrap(), 1)
-            .unwrap()
-            .assignments
-            .len(),
-        1
-    );
+    let mut preparation = f.workspace.project().unwrap().clone();
+    preparation.leimaluvut.clear();
+    preparation.kilpailijat[0].tallennettu_tulos = None;
+    assert_eq!(starts::draw(&preparation, 1).unwrap().assignments.len(), 1);
 }
 
 #[test]
@@ -171,6 +170,34 @@ fn repeated_codes_are_filtered_by_occurrence_and_real_extras_remain() {
             .iter()
             .any(|r| r.received_code == 90 && r.other_penalty > 0)
     );
+}
+
+#[test]
+fn retained_shared_ula_keeps_its_punch_when_previous_at_is_omitted() {
+    let mut p = project();
+    let mut ula = p.radat[0].asemat[1].clone();
+    ula.tyyppi = "ULA".into();
+    ula.nimi = "Yhteinen ULA".into();
+    ula.tavoiteaika_sekuntia = 0;
+    p.radat[0].asemat.insert(2, ula);
+    p.radat[0].asemat[3].tavoiteaika_sekuntia = 300;
+    p.radat[0].asemat[4].tavoiteaika_sekuntia = 600;
+    let mut f = Fixture::new(p);
+    let mut c = config(f.workspace.project().unwrap());
+    c.mukana_asemat = vec![1, 3, 4, 5];
+    f.workspace.save_beginners_cup(c, &[7]).unwrap();
+    let view = beginners::projection(f.workspace.project().unwrap()).unwrap();
+    assert!(view.leimaluvut[0].leimat.iter().any(|p| p.koodi == 31));
+    let result = application::capture_project_result(&view, 7).unwrap();
+    assert!(
+        result
+            .rivit
+            .iter()
+            .any(|r| r.station_type == "ULA" && r.received_code == 31)
+    );
+    let mut c = config(f.workspace.project().unwrap());
+    c.mukana_asemat = vec![1, 4, 5];
+    assert!(f.workspace.save_beginners_cup(c, &[7]).is_err());
 }
 
 #[test]
@@ -245,6 +272,7 @@ fn publication_keeps_nac_and_bc_approvals_separate() {
     let html = report::competition_ranking_html(p, TiePolicy::KeepSharedAndFlag).unwrap();
     assert!(html.contains("BC"));
     assert_eq!(html.matches("<!doctype html>").count(), 1);
+    assert_eq!(html.matches("</main>").count(), 1);
     assert!(report::xlsx_from_csv(&csv).unwrap().starts_with(b"PK"));
     let nac = application::calculated_project(p).unwrap();
     let bc = beginners::results(p).unwrap();

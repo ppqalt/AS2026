@@ -16,6 +16,7 @@ Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 - RATA- ja KILP-Excel-tuonti (.xls/.xlsx) esikatselulla ja vahvistuksella.
 - Tulosluettelot, asemakohtainen tarkastelu ja HTML-, CSV- sekä XLSX-viennit.
 - Paikallinen live-HTML-tulosnäkymä ja yhdistettyjen luokkien hallinta.
+- NAC Beginners Cup samasta Emit-lukemasta: oma asemavalinta, virhepisteet ja tuloksen hyväksyntä.
 - Vanhojen AS2015A-kilpailutiedostojen luku.
 - Suomenkielinen, tumma käyttöliittymä ja päivitykset sovelluksen asetuksista.
 
@@ -40,6 +41,8 @@ cargo test --manifest-path tools/release/Cargo.toml
 Rust 1.89 tai uudempi. Komentoriviohjelman voi kääntää ilman GUI-riippuvuuksia: `cargo build --release`.
 
 [Kilpailun tarkastus, Excel-tuonti ja lähtöjärjestelyt](KILPAILUTOIMINNOT.md) · [Kääntäminen](BUILDING.md) · [Komentorivi ja tiedostot](CLI.md) · [Käyttöliittymän muokkaaminen](UI.md) · [Julkaisujen tekeminen](RELEASES.md)
+
+[Yhdistettyjen luokkien ja Beginners Cupin käyttö](docs/LUOKAT_JA_BEGINNERS_CUP.md).
 
 Puuttuva käsikello estää tuloksen hyväksymisen. Käsimaalia ei päätellä viimeisestä leimasta, ja uusintaluku säilyttää aiemmat tallennetut korjaukset. Tarkemmat työnkulut ja rajat ovat kilpailutoimintojen ohjeessa.
 
