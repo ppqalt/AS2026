@@ -279,20 +279,54 @@ pub fn competitor(
         "Myöhä",
     ]
     .map(String::from);
-    let mut reference = source.lahtoaika.clone();
     let mut rows = Vec::new();
     if let Some(result) = result {
         for r in &result.rivit {
             let clock = format!("{:02}:{:02}:{:02}", r.clock[0], r.clock[1], r.clock[2]);
+            let extra = r.sequence == 0;
+            let known = !extra
+                && (r.station_type == "L"
+                    || if r.expected_code == 0 {
+                        result.kasin_annetut_kellot.contains(&r.output_index)
+                    } else {
+                        r.received_code == r.expected_code
+                    });
             if r.station_type != "ULA" {
                 rows.push(vec![
-                    r.sequence.to_string(),
-                    r.name.clone(),
-                    r.expected_code.to_string(),
-                    reference.clone(),
-                    duration(r.target_seconds),
-                    duration(r.actual_seconds),
-                    clock.clone(),
+                    if extra {
+                        "-".into()
+                    } else {
+                        r.sequence.to_string()
+                    },
+                    if extra {
+                        "AT liikaa".into()
+                    } else {
+                        r.name.clone()
+                    },
+                    if extra {
+                        r.received_code.to_string()
+                    } else {
+                        r.expected_code.to_string()
+                    },
+                    if known {
+                        duration(
+                            (r.clock[0] * 3600 + r.clock[1] * 60 + r.clock[2] - r.actual_seconds)
+                                .rem_euclid(86400),
+                        )
+                    } else {
+                        String::new()
+                    },
+                    if extra {
+                        String::new()
+                    } else {
+                        duration(r.target_seconds)
+                    },
+                    if known {
+                        duration(r.actual_seconds)
+                    } else {
+                        String::new()
+                    },
+                    if known { clock.clone() } else { String::new() },
                     format!("{:+}", r.signed_time_penalty),
                     format!("{:+}", r.other_penalty),
                     if matches!(r.station_type.as_str(), "JAT" | "M") {
@@ -306,9 +340,6 @@ pub fn competitor(
                     },
                 ]);
             }
-            if matches!(r.station_type.as_str(), "JAT" | "ULA") {
-                reference = clock;
-            }
         }
     }
     table(
@@ -321,6 +352,15 @@ pub fn competitor(
         &rows,
         true,
     );
+    let reason = source
+        .tila
+        .as_ref()
+        .map(|s| s.syy.as_str())
+        .or_else(|| result.map(|r| r.syy.as_str()))
+        .unwrap_or("");
+    if !reason.is_empty() {
+        page.text(10., 282., 190., 5., 8., false, format!("Syy: {reason}"));
+    }
     Ok(Document {
         title: format!("AS2026 kilpailija {number}"),
         landscape: false,
@@ -378,7 +418,8 @@ pub fn classes(
             for (_, d) in &drivers {
                 for r in &d.results {
                     let key = (r.sequence, r.station_type.clone(), r.name.clone());
-                    if !matches!(r.station_type.as_str(), "L" | "ULA" | "RT")
+                    if r.sequence != 0
+                        && matches!(r.station_type.as_str(), "AT" | "JAT" | "M")
                         && !stations.contains(&key)
                     {
                         stations.push(key);
@@ -484,7 +525,7 @@ pub fn classes(
                 row
             })
             .collect::<Vec<_>>();
-        let bottom = if landscape { 200. } else { 287. };
+        let bottom = if landscape { 194. } else { 281. };
         let width = if landscape { 277. } else { 190. };
         let per_page = if fit {
             rows.len().max(1)
@@ -515,6 +556,24 @@ pub fn classes(
             );
             table(
                 &mut page, 38., width, bottom, &headers, &weights, chunk, fit,
+            );
+            let stats = &group.statistics;
+            page.text(
+                10.,
+                bottom + 1.,
+                width,
+                5.,
+                8.,
+                false,
+                format!(
+                    "Kpl {} | tulos {} | hylätty {} | kesk/suljettu {} | perunut {} | avoin {}",
+                    stats.all_entries,
+                    stats.classified,
+                    stats.disqualified,
+                    stats.interrupted_or_excluded,
+                    stats.cancelled,
+                    stats.unresolved
+                ),
             );
             document.pages.push(page);
         }

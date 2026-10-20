@@ -187,10 +187,13 @@ fn finish_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     }
     Ok(())
 }
-fn sources(ws: &Workspace) -> GuiResult<Vec<(&'static str, as2026::legacy::Archive)>> {
+fn sources(
+    ws: &Workspace,
+    include_bc: bool,
+) -> GuiResult<Vec<(&'static str, as2026::legacy::Archive)>> {
     if let Some(project) = ws.project() {
         let mut result = vec![("N", application::calculated_project(project)?)];
-        if project.beginners_cup.is_some() {
+        if include_bc && project.beginners_cup.is_some() {
             result.push(("B", as2026::beginners::results(project)?));
         }
         Ok(result)
@@ -208,7 +211,7 @@ fn open_classes(state: &mut State, app: &AppWindow, stations: bool) -> GuiResult
         .find(|d| Some(d.number) == number)
         .map(|d| d.class_code.clone());
     let mut choices = Vec::new();
-    for (scope, archive) in sources(ws)? {
+    for (scope, archive) in sources(ws, false)? {
         for code in printing::class_choices(&archive)? {
             choices.push(DrawClassOption {
                 code: format!("{scope}:{code}").into(),
@@ -216,6 +219,13 @@ fn open_classes(state: &mut State, app: &AppWindow, stations: bool) -> GuiResult
                 selected: selected.as_ref() == Some(&code),
             });
         }
+    }
+    if let Some(config) = ws.project().and_then(|p| p.beginners_cup.as_ref()) {
+        choices.push(DrawClassOption {
+            code: format!("B:{}", config.tunnus).into(),
+            label: format!("{} · {}", config.tunnus, config.nimi).into(),
+            selected: ws.bc_view(),
+        });
     }
     app.set_print_classes(model(choices));
     app.set_print_stations(stations);
@@ -240,7 +250,8 @@ fn print_classes(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         landscape: app.get_print_landscape(),
         pages: Vec::new(),
     };
-    for (scope, archive) in sources(current_workspace(state)?)? {
+    let include_bc = selections.iter().any(|s| s.starts_with("B:"));
+    for (scope, archive) in sources(current_workspace(state)?, include_bc)? {
         let codes = selections
             .iter()
             .filter_map(|s| s.strip_prefix(&format!("{scope}:")))

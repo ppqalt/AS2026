@@ -122,6 +122,50 @@ fn incomplete_or_invalid_entry_preserves_the_previous_file() {
     assert!(f.ws.complete_result_entry(7, &f.clocks(), 0, -1).is_err());
 }
 #[test]
+fn unfinished_results_are_not_printed_as_classified_and_extras_are_not_route_columns() {
+    let mut f = Fixture::new();
+    assert!(printing::competitor(f.ws.project().unwrap(), 7, None).is_err());
+    let doc = printing::classes(
+        &f.ws.results().unwrap(),
+        &["A".into()],
+        Kind::Classes,
+        false,
+        true,
+    )
+    .unwrap();
+    assert!(
+        !doc.pages[0]
+            .texts
+            .iter()
+            .any(|t| t.value == "Esimerkkikuljettaja")
+    );
+    assert!(
+        doc.pages[0]
+            .texts
+            .iter()
+            .any(|t| t.value.contains("avoin 1"))
+    );
+    let clocks = f.clocks();
+    f.ws.complete_result_entry(7, &clocks, 0, 0).unwrap();
+    let doc = printing::classes(
+        &f.ws.results().unwrap(),
+        &["A".into()],
+        Kind::Stations,
+        true,
+        true,
+    )
+    .unwrap();
+    assert!(
+        !doc.pages[0]
+            .texts
+            .iter()
+            .any(|t| t.value == "Ylimääräinen asema")
+    );
+    let doc = printing::competitor(f.ws.project().unwrap(), 7, None).unwrap();
+    assert!(doc.pages[0].texts.iter().any(|t| t.value == "90"));
+}
+
+#[test]
 fn class_selection_orientation_and_dense_page_fitting() {
     let mut f = Fixture::new();
     f.ws.complete_result_entry(7, &f.clocks(), 1, 12).unwrap();
