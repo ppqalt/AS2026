@@ -44,7 +44,7 @@ asematulokset. Alkuperäinen Emit-historia säilyy muuttamattomana.
 BC-näkymän kilpailijapaneelista avataan **BC:n virhepisteet ja tila**. Puuttuvat
 ja ylimääräiset RT:t, muut virhepisteet, tila ja tilan syy tallennetaan vain
 BC-tulokseen. Myös asemakorjaukset, käsikellot, **Tutki**, **Tarkista** ja
-**Hyväksy tulos** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.
+**Tulosta tulos** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.
 BC-pisteiden muutos ei muuta NAC-tulosta tai sen hyväksyntää ja päinvastoin.
 Perusteltu keskeytys voidaan vahvistaa kummallekin erikseen.
 

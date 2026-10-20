@@ -1,6 +1,27 @@
 //! Oikean GUI-sovittimen laitteeton työnkulkukoe erillisessä esimerkkikopiossa.
 use super::*;
 
+// Aiemmat työnkulkukokeet jatkavat asemakorjausten testaamista sulkemalla
+// automaattisen syöttöikkunan. Uusi tulostuskoe käyttää oikeaa tapahtumaa.
+fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool {
+    app.set_result_entry_open(false);
+    state.entry_number = None;
+    let result = super::handle_event(state, app, event);
+    app.set_result_entry_open(false);
+    state.entry_number = None;
+    result
+}
+fn print_current(app: &AppWindow) {
+    app.invoke_approve_results();
+    assert!(app.get_result_entry_open(), "{}", app.get_status_text());
+    app.invoke_result_entry_close(true);
+    assert!(
+        !app.get_result_entry_open(),
+        "{}",
+        app.get_result_entry_error()
+    );
+}
+
 pub fn key(app: &AppWindow, text: impl Into<SharedString>) {
     let text = text.into();
     app.window()
@@ -45,6 +66,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     combined_classes(app, state, &path, &original)?;
     beginners_cup(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
+    result_entry_and_printing(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
     {
@@ -347,7 +369,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     );
     app.invoke_select_detail(1);
     assert!(app.invoke_field_commit(101, "-75".into()));
-    app.invoke_approve_results();
+    print_current(app);
     assert!(
         ProjectStore::open(&path)?.project().kilpailijat[0]
             .tallennettu_tulos
@@ -387,6 +409,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     assert!(state.borrow().pending_result.is_some());
     assert!(app.invoke_field_commit(1, "Keskeneräinen nimi".into()));
     follow_pending_result(&mut state.borrow_mut(), app)?;
+    app.invoke_result_entry_close(false);
     assert_eq!(app.get_page(), 3);
     assert_eq!(selected_number(&state.borrow())?, 7);
     assert!(
@@ -619,9 +642,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     app.invoke_navigate(3);
     app.invoke_select_row(0);
     assert!(app.get_result_approvable());
-    app.invoke_approve_results();
-    assert!(app.get_confirm_open());
-    app.invoke_confirm_action(true);
+    print_current(app);
     let interrupted = ProjectStore::open(&draft_directory.join(native::FILE_NAME))?;
     assert!(interrupted.project().kilpailijat[0].has_confirmed_interruption());
     assert!(
@@ -754,7 +775,7 @@ fn beginners_cup(
     assert!(app.invoke_field_commit(100, "12:11:00".into()));
     app.invoke_examine_results();
     assert!(app.get_result_approvable(), "{}", app.get_status_text());
-    app.invoke_approve_results();
+    print_current(app);
     let saved = ProjectStore::open(&path)?;
     assert!(
         saved.project().bc_osallistujat[0]
@@ -1132,7 +1153,7 @@ fn finish_imported_race(
     )?;
     assert!(!report::ranking_html(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
     assert!(!report::ranking_csv(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
-    app.invoke_approve_results();
+    print_current(app);
     let approved = ProjectStore::open(&path)?.project().kilpailijat[0].clone();
     assert!(approved.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
     assert_eq!(approved.lisavirheet.puuttuvat_rt_pisteet, 1800);
@@ -1154,6 +1175,7 @@ fn finish_imported_race(
     assert!(state.borrow().pending_result.is_some());
     assert!(app.invoke_route_field_commit(1, "Elinkaarikokeen rata".into()));
     follow_pending_result(&mut state.borrow_mut(), app)?;
+    app.invoke_result_entry_close(false);
     assert_eq!(app.get_page(), 3);
     assert_eq!(
         ProjectStore::open(&path)?.project().kilpailijat[0].tallennettu_tulos,
@@ -1171,7 +1193,7 @@ fn finish_imported_race(
     );
     assert_eq!(selected_number(&state.borrow())?, 2);
     complete_manual_station(app, state, 2, "18:35:05")?;
-    app.invoke_approve_results();
+    print_current(app);
     let store = ProjectStore::open(&path)?;
     assert!(
         store.project().kilpailijat.iter().all(|d| d
@@ -1257,5 +1279,125 @@ fn complete_manual_station(
     assert!(app.invoke_field_commit(100, clock.into()));
     app.invoke_examine_results();
     assert!(app.get_result_approvable(), "{}", app.get_status_text());
+    Ok(())
+}
+
+pub fn prepare_print_entry(
+    app: &AppWindow,
+    state: &SharedState,
+    parent: &Path,
+    original: &Project,
+    suffix: &str,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut p = original.clone();
+    p.leimaluvut.clear();
+    p.beginners_cup = None;
+    p.bc_osallistujat.clear();
+    p.yhdistetyt_luokat.clear();
+    p.kilpailijat.truncate(1);
+    let driver = &mut p.kilpailijat[0];
+    driver.numero = 7;
+    driver.emit = 123456;
+    driver.lahtoaika = "12:00:00".into();
+    driver.emit_korjaus_sekuntia = 0;
+    driver.tallennettu_tulos = None;
+    driver.lisavirheet = Default::default();
+    driver.tila = None;
+    let route = p
+        .luokat
+        .iter()
+        .find(|c| c.tunnus == driver.luokka)
+        .unwrap()
+        .rata;
+    let stations = &mut p
+        .radat
+        .iter_mut()
+        .find(|r| r.numero == route)
+        .unwrap()
+        .asemat;
+    let mut at = stations[0].clone();
+    at.tyyppi = "AT".into();
+    at.nimi = "AT käsikello".into();
+    at.emit_koodi = 0;
+    at.tavoiteaika_sekuntia = 300;
+    let mut jat = at.clone();
+    jat.tyyppi = "JAT".into();
+    jat.nimi = "JAT käsikello".into();
+    jat.tavoiteaika_sekuntia = 480;
+    jat.jakso_minuutteina = Some(8);
+    let mut finish = at.clone();
+    finish.tyyppi = "M".into();
+    finish.nimi = "Maali".into();
+    finish.emit_koodi = 100;
+    finish.tavoiteaika_sekuntia = 180;
+    finish.jakso_minuutteina = Some(3);
+    *stations = vec![stations[0].clone(), at, jat, finish];
+    let directory = parent.join(suffix);
+    let workspace = Workspace::create_imported(&directory, p)?;
+    let path = workspace.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    super::handle_event(
+        &mut state.borrow_mut(),
+        app,
+        ReaderEvent::Frame {
+            frame: Box::new(synthetic_frame(123456, &[(0, 120), (100, 780), (250, 840)])),
+            read_clock: ClockTime::new(12, 12, 0)?,
+        },
+    );
+    assert!(app.get_result_entry_open(), "{}", app.get_status_text());
+    assert_eq!(app.get_result_entry_fields().row_count(), 4);
+    Ok(path)
+}
+fn result_entry_and_printing(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = prepare_print_entry(
+        app,
+        state,
+        original_path.parent().unwrap(),
+        original,
+        "tulostuksen-syotto",
+    )?;
+    let fields = app.get_result_entry_fields();
+    let first = fields.row_data(0).unwrap().key;
+    app.invoke_result_entry_edited(first, "24:00:00".into());
+    app.invoke_result_entry_close(true);
+    assert!(app.get_result_entry_open());
+    assert!(!app.get_result_entry_error().is_empty());
+    for (i, value) in ["12:05:00", "12:08:00", "3", "25"].iter().enumerate() {
+        app.invoke_result_entry_edited(fields.row_data(i).unwrap().key, (*value).into());
+    }
+    app.invoke_result_entry_close(true);
+    assert!(
+        !app.get_result_entry_open(),
+        "{}",
+        app.get_result_entry_error()
+    );
+    let stored = ProjectStore::open(&path)?;
+    let driver = &stored.project().kilpailijat[0];
+    assert!(driver.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
+    assert_eq!(driver.lisavirheet.puuttuvat_rt_pisteet, 1800);
+    assert_eq!(driver.lisavirheet.muut_virhepisteet, 25);
+    assert_eq!(state.borrow().last_print.as_ref().unwrap().pages.len(), 1);
+    app.invoke_open_print_classes(true);
+    assert!(app.get_print_classes_open());
+    assert!(app.get_print_landscape());
+    assert!(app.get_print_fit());
+    for i in 0..app.get_print_classes().row_count() {
+        app.invoke_print_class_toggled(i as i32, false);
+    }
+    app.invoke_print_classes_close(true);
+    assert!(!app.get_print_error().is_empty());
+    app.invoke_print_class_toggled(0, true);
+    app.invoke_print_classes_close(true);
+    assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
+    assert!(state.borrow().last_print.as_ref().unwrap().landscape);
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!(
+        "GUI-tulostuskoe: kortinluvun syöttöikkuna, aikavalidointi, automaattilaskenta, RT/muut pisteet, luokkavalinta ja asematuloste ilman fyysistä tulostusta."
+    );
     Ok(())
 }

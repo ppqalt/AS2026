@@ -2,6 +2,7 @@
 slint::include_modules!();
 mod desktop;
 mod forms;
+mod printing;
 mod smoke;
 mod tables;
 
@@ -38,10 +39,6 @@ enum UpdateEvent {
 
 enum PendingAction {
     Review(u32),
-    ConfirmInterruption {
-        number: u32,
-        reason: String,
-    },
     Draw(Box<as2026::starts::StartDraw>),
     Import {
         preview: Box<as2026::excel_import::ImportPreview>,
@@ -91,6 +88,9 @@ struct State {
     receiver: Option<Receiver<ReaderEvent>>,
     unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
     read_notice_timer: Timer,
+    entry_number: Option<u32>,
+    print_test: bool,
+    last_print: Option<as2026::printing::Document>,
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -358,7 +358,7 @@ fn populate_bc_route(state: &State, app: &AppWindow, index: i32) -> GuiResult<()
                 )
                 .into(),
                 selected: config.is_none_or(|c| c.mukana_asemat.contains(&((i + 1) as u32))),
-                fixed: matches!(station.tyyppi.trim(), "L" | "ULA" | "M"),
+                fixed: matches!(station.tyyppi.trim(), "L" | "ULA"),
             })
             .collect(),
     ));
@@ -940,6 +940,8 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_draw_classes_open()
         && !app.get_combined_open()
         && !app.get_bc_open()
+        && !app.get_result_entry_open()
+        && !app.get_print_classes_open()
         && !app.get_setup_open()
         && !app.get_status_details_open()
         && !app.get_install_busy()
@@ -972,6 +974,7 @@ fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     update_tables(state, app)?;
     update_form(state, app);
     status(app, pending.notice, false);
+    printing::open_entry(state, app)?;
     Ok(())
 }
 
@@ -1189,7 +1192,6 @@ fn confirmation(
     app.set_confirm_action_label(
         match &action {
             PendingAction::Review(_) => "Tarkista leimaukset",
-            PendingAction::ConfirmInterruption { .. } => "Vahvista keskeytys",
             PendingAction::Draw(_) => "Arvo lähtöajat",
             PendingAction::Import { .. } => "Tuo kilpailu",
             PendingAction::Notice => "Sulje",
@@ -1670,48 +1672,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if !can_leave(s, &a) {
             return Ok(());
         }
-        let number = selected_number(s)?;
-        let interrupted = current_workspace(s)?
-            .result_project()?
-            .as_ref()
-            .and_then(|project| {
-                project
-                    .kilpailijat
-                    .iter()
-                    .find(|driver| driver.numero == number)
-            })
-            .and_then(|driver| driver.tila.as_ref())
-            .filter(|status| status.tunnus == "KESK")
-            .map(|status| status.syy.clone());
-        if let Some(reason) = interrupted {
-            if !current_workspace(s)?.can_confirm_interruption(number) {
-                return Err(invalid(
-                    "Tarkista keskeytyksen syy kilpailijan tiedoista. Jo vahvistettua keskeytystä ei tarvitse vahvistaa uudelleen.",
-                ));
-            }
-            confirmation(
-                s,
-                &a,
-                PendingAction::ConfirmInterruption {
-                    number,
-                    reason: reason.clone(),
-                },
-                "Vahvista keskeytys",
-                format!(
-                    "Kilpailija {number} merkitään vahvistetusti keskeyttäneeksi.\n\nSyy: {reason}\n\nPäätös ei edellytä korttilukua tai maaliaikaa eikä muodosta kilpailijalle sijoitusta."
-                ),
-            );
-            return Ok(());
-        }
-        current_workspace(s)?.approve_result(number)?;
-        update_tables(s, &a)?;
-        update_form(s, &a);
-        status(
-            &a,
-            "Tulos hyväksytty ja tallennettu. Asemien pistekorjaukset säilytettiin.",
-            false,
-        );
-        Ok(())
+        printing::open_entry(s, &a)
     });
     action!(on_import_excel, |s, a| {
         if !can_leave(s, &a) {
@@ -1868,6 +1829,19 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         {
             station.selected = selected;
             stations.set_row_data(index, station);
+            if !selected && index + 1 == stations.row_count() {
+                let ws = current_workspace(_s)?;
+                if let Some(route) = ws
+                    .project()
+                    .and_then(|p| p.radat.get(a.get_bc_route() as usize))
+                    && let Some(last_jat) =
+                        route.asemat.iter().rposition(|s| s.tyyppi.trim() == "JAT")
+                    && let Some(mut option) = stations.row_data(last_jat)
+                {
+                    option.selected = true;
+                    stations.set_row_data(last_jat, option);
+                }
+            }
         }
         Ok(())
     });
@@ -2130,10 +2104,6 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 PendingAction::Review(number) => {
                     current_workspace(s)?.review_results(number)?;
                     "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
-                }
-                PendingAction::ConfirmInterruption { number, reason } => {
-                    current_workspace(s)?.confirm_interruption(number, &reason)?;
-                    "Keskeytys ja sen syy vahvistettu ja tallennettu."
                 }
                 PendingAction::Import { .. } => {
                     return Err(invalid("Avaa Excel-tuonnin esikatselu uudelleen"));
@@ -2512,7 +2482,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 88 } else { 24 } {
+        if current >= if keyboard_test { 103 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -2772,6 +2742,32 @@ fn capture_views(
                     assert!(!app.get_bc_open());
                     println!("GUI-luokkakoe: 900 × 600, yhdistetyn luokan Tab/Space/Esc sekä BC:n vieritys ja Esc.");
                 }
+                88 => {
+                    let (parent, original) = {
+                        let s = state.borrow(); let ws = s.workspace.as_ref().unwrap();
+                        (ws.path().parent().unwrap().to_owned(), ws.project().unwrap().clone())
+                    };
+                    smoke::prepare_print_entry(&app, &state, &parent, &original, "nappaimisto-tulostus").unwrap();
+                }
+                89 => save_view(&app, &directory.join("33-aikojen-taydennys.png")).unwrap(),
+                90 => smoke::key(&app, "12:05:00"),
+                91 | 93 | 95 | 97 => smoke::key(&app, slint::platform::Key::Tab),
+                92 => smoke::key(&app, "12:08:00"),
+                94 => smoke::key(&app, "3"),
+                96 => smoke::key(&app, "25"),
+                98 => smoke::key(&app, slint::platform::Key::Return),
+                99 => {
+                    assert!(!app.get_result_entry_open(), "{}", app.get_result_entry_error());
+                    let s = state.borrow(); let d = &s.workspace.as_ref().unwrap().project().unwrap().kilpailijat[0];
+                    assert!(d.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
+                    assert_eq!(d.lisavirheet.puuttuvat_rt_kpl, 3);
+                    assert_eq!(d.lisavirheet.muut_virhepisteet, 25);
+                    assert!(s.last_print.is_some());
+                    println!("GUI-tulostuksen näppäimistökoe: AT → JAT → RT → muut → Tulosta, ilman erillistä hyväksymistä tai fyysistä tulostusta.");
+                }
+                100 => app.invoke_open_print_classes(true),
+                101 => save_view(&app, &directory.join("34-asematulosten-luokkavalinta.png")).unwrap(),
+                102 => { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_print_classes_open()); }
                 _ => {}
             }
             *phase.borrow_mut() += 1;
@@ -2945,10 +2941,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         detail: -1,
         preferences,
         install_bundle: package,
+        print_test: smoke_test,
         ..Default::default()
     }));
     let reader_timer = Rc::new(Timer::default());
     bind(&app, &state, &reader_timer);
+    printing::bind(&state, &app);
+    printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
     let path = if demo {

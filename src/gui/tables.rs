@@ -363,7 +363,7 @@ fn result_row(
                 && matches!(driver.status.as_str(), "TRK" | "KESK")
                 && !archive.has_confirmed_interruption(driver.number)
             {
-                "Hyväksymätön esikatselu".into()
+                "Täydennettävä tulos".into()
             } else {
                 status(&driver.status)
             },
@@ -533,9 +533,9 @@ fn results(
                     .is_some_and(|card| project.active_readout(card).is_some())
                 {
                     if calculated && snapshot.as_ref().is_some_and(|result| result.hyvaksytty) {
-                        "Tulos hyväksytty".to_owned()
+                        "Tulos valmis".to_owned()
                     } else if calculated {
-                        "Emit-kortti luettu · tulos odottaa hyväksymistä".to_owned()
+                        "Emit-kortti luettu · täydennä ajat ja tulosta tulos".to_owned()
                     } else {
                         "Emit-kortti luettu · tulos vaatii tarkastuksen (katso huomautukset)"
                             .to_owned()
@@ -562,13 +562,13 @@ fn results(
     };
     if interrupted && !interruption_confirmed {
         issues.push(
-            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Vahvista keskeytys.".into(),
+            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Tulosta tulos.".into(),
         );
     }
     if !interrupted && let Some(result) = &snapshot {
         if !pending_clocks.is_empty() {
             issues.push(format!(
-                "Syötä käsikellot asemille {} ja valitse Tutki.",
+                "Täydennä käsikellot asemille {} Tulosta tulos -ikkunassa.",
                 pending_clocks
                     .iter()
                     .map(ToString::to_string)
@@ -598,7 +598,7 @@ fn results(
             && !archive.has_approved_result(driver.number)
             && matches!(driver.status.as_str(), "TRK" | "KESK")
         {
-            "Hyväksymätön esikatselu".into()
+            "Täydennettävä tulos".into()
         } else {
             status(&driver.status).into()
         },

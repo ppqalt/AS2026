@@ -66,7 +66,7 @@ export component BeginnersCupDialog inherits Rectangle {
                         LineEdit { text <=> root.code; }
                         Note { text: "NAC-lähderata"; }
                         ComboBox { model: root.routes; current-index <=> root.route; selected => { root.route-selected(self.current-index); } }
-                        Note { text: "Valitse BC-tulokseen kuuluvat asemat. Pois jätettyjen asemien leimat eivät tuota BC:ssä virhepisteitä. Lähtö, ULA-aikaviitteet ja maali säilyvät mukana."; }
+                        Note { text: "Valitse BC:n asemat. Pois jätetyt leimat eivät tuota virhepisteitä. Jos poistat maalin, viimeinen JAT toimii BC:n maalina ja sen jälkeinen siirtymä jää laskennan ulkopuolelle."; }
                         for station[i] in root.stations: CheckBox {
                             text: station.label;
                             checked: station.selected;
