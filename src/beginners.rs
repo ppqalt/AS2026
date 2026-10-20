@@ -16,7 +16,7 @@ pub struct BeginnersCup {
     pub lahderata: u32,
     /// Tarkastettu lähderata: indeksit eivät saa siirtyä hiljaisesti ratamuutoksessa.
     pub lahdeasemat: Vec<Station>,
-    /// Lähderadan yhden perusteiset asemakohdat, myös lähtö ja maali.
+    /// Lähderadan yhden perusteiset asemakohdat. Ilman maalia viimeinen JAT päättää BC:n.
     pub mukana_asemat: Vec<u32>,
 }
 
@@ -94,15 +94,14 @@ pub fn validate(project: &Project) -> Result<(), CoreError> {
             "BC:n lähderadan pitää alkaa lähdöstä ja päättyä maaliin",
         ));
     }
-    for (index, station) in config.lahdeasemat.iter().enumerate() {
+    let finish = finish_index(config)?;
+    for (index, station) in config.lahdeasemat.iter().enumerate().take(finish + 1) {
         let kind = StationKind::from_legacy(&station.tyyppi)?;
-        if matches!(
-            kind,
-            StationKind::Start | StationKind::Ula | StationKind::Finish
-        ) && !positions.contains(&((index + 1) as u32))
+        if matches!(kind, StationKind::Start | StationKind::Ula)
+            && !positions.contains(&((index + 1) as u32))
         {
             return Err(invalid(
-                "BC-radan lähtöä, ULA-aikaviitteitä ja maalia ei voi jättää pois",
+                "BC-radan lähtöä ja ULA-aikaviitteitä ei voi jättää pois",
             ));
         }
     }
@@ -148,11 +147,32 @@ pub fn eligible(project: &Project, number: u32, route: u32) -> bool {
         })
 }
 
+fn finish_index(config: &BeginnersCup) -> Result<usize, CoreError> {
+    let last = config
+        .lahdeasemat
+        .len()
+        .checked_sub(1)
+        .ok_or_else(|| invalid("BC:n lähderata puuttuu"))?;
+    if config.mukana_asemat.contains(&((last + 1) as u32)) {
+        return Ok(last);
+    }
+    let finish = config
+        .lahdeasemat
+        .iter()
+        .rposition(|s| s.tyyppi.trim() == "JAT")
+        .ok_or_else(|| invalid("Ilman maalileimausta BC tarvitsee viimeisen JAT-aseman"))?;
+    if !config.mukana_asemat.contains(&((finish + 1) as u32)) {
+        return Err(invalid("Valitse viimeinen JAT BC:n maaliksi"));
+    }
+    Ok(finish)
+}
+
 pub fn derived_stations(config: &BeginnersCup) -> Result<Vec<Station>, CoreError> {
     let mut stations = Vec::new();
     let mut omitted_target = 0_i64;
     let mut omitted_minutes = 0_u32;
-    for (index, station) in config.lahdeasemat.iter().enumerate() {
+    let finish = finish_index(config)?;
+    for (index, station) in config.lahdeasemat.iter().enumerate().take(finish + 1) {
         let kind = StationKind::from_legacy(&station.tyyppi)?;
         if !config.mukana_asemat.contains(&((index + 1) as u32)) {
             if kind == StationKind::Jat {
@@ -185,6 +205,9 @@ pub fn derived_stations(config: &BeginnersCup) -> Result<Vec<Station>, CoreError
             omitted_target = 0;
             omitted_minutes = 0;
         }
+        if index == finish {
+            station.tyyppi = "M".into();
+        }
         stations.push(station);
     }
     Ok(stations)
@@ -201,6 +224,10 @@ fn filtered_readout(
     let content = read.content()?;
     let interior = &content[1..];
     let rows = crate::matching::match_route(route, interior, start)?;
+    let finish = finish_index(config)?;
+    let shortened = finish + 1 < config.lahdeasemat.len();
+    let included =
+        |sequence: u32| sequence as usize <= finish + 1 && config.mukana_asemat.contains(&sequence);
     for row in &rows {
         if row.kind == MatchKind::Missing
             && let Some(missing) = &row.station
@@ -209,12 +236,8 @@ fn filtered_readout(
                 .iter()
                 .filter(|s| s.expected_code != 0 && s.expected_code == missing.expected_code)
                 .collect::<Vec<_>>();
-            if same_code
-                .iter()
-                .any(|s| config.mukana_asemat.contains(&s.sequence))
-                && same_code
-                    .iter()
-                    .any(|s| !config.mukana_asemat.contains(&s.sequence))
+            if same_code.iter().any(|s| included(s.sequence))
+                && same_code.iter().any(|s| !included(s.sequence))
             {
                 return Err(invalid(
                     "Toistuvan Emit-koodin BC-kohdistus on epäselvä puuttuvan leiman vuoksi. Tarkista alkuperäinen korttiluku",
@@ -225,22 +248,30 @@ fn filtered_readout(
     let mut omitted = BTreeSet::new();
     let mut needed = BTreeSet::new();
     let mut punch = 0_usize;
+    let mut finish_punch = None;
     for row in rows {
-        let included = row
+        let at_finish = row
             .station
             .as_ref()
-            .is_none_or(|s| config.mukana_asemat.contains(&s.sequence));
+            .is_some_and(|s| s.sequence as usize == finish + 1);
+        let included = row.station.as_ref().is_none_or(|s| included(s.sequence));
         match row.kind {
             MatchKind::Matched | MatchKind::Extra => {
                 if !included {
                     omitted.insert(punch + 1);
                 }
                 punch += 1;
+                if at_finish {
+                    finish_punch = Some(punch);
+                }
             }
             MatchKind::SharedUla if included && punch > 0 => {
                 needed.insert(punch);
             }
             _ => {}
+        }
+        if at_finish {
+            finish_punch = Some(punch);
         }
     }
     let mut filtered = read.clone();
@@ -248,7 +279,14 @@ fn filtered_readout(
         .leimat
         .iter()
         .enumerate()
-        .filter(|(index, _)| !omitted.contains(index) || needed.contains(index))
+        .filter(|(index, value)| {
+            // Myös siirtymän ylimääräiset leimat rajataan BC:n ulkopuolelle.
+            let before_finish = !shortened
+                || *index == 0
+                || value.koodi == 250
+                || finish_punch.is_some_and(|end| *index <= end);
+            before_finish && (!omitted.contains(index) || needed.contains(index))
+        })
         .map(|(_, value)| value.clone())
         .collect();
     filtered.validate()?;

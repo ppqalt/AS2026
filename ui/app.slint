@@ -82,6 +82,7 @@ export component AppWindow inherits Window {
     in-out property <int> result-entry-focus;
     callback result-entry-edited(int, string);
     callback result-entry-close(bool);
+    callback result-entry-save();
     in-out property <bool> print-classes-open;
     in-out property <bool> print-stations;
     in-out property <[DrawClassOption]> print-classes;
@@ -1230,6 +1231,7 @@ export component AppWindow inherits Window {
         error: root.result-entry-error; focus-index <=> root.result-entry-focus;
         edited(key, value) => { root.result-entry-edited(key, value); }
         close(accepted) => { root.result-entry-close(accepted); }
+        save => { root.result-entry-save(); }
     }
     if root.print-classes-open: PrintClassesDialog {
         width: root.width; height: root.height;

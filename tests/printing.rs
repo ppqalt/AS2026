@@ -9,6 +9,93 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+#[test]
+fn pair_layout_and_raw_time_differences() {
+    let mut f = Fixture::new();
+    let mut clocks = f.clocks();
+    clocks[0].1 = [12, 5, 7];
+    f.ws.complete_result_entry(7, &clocks, 1, 25).unwrap();
+    let doc = printing::competitor(f.ws.project().unwrap(), 7, None).unwrap();
+    let texts = &doc.pages[0].texts;
+    assert!(
+        !texts
+            .iter()
+            .any(|t| matches!(t.value.as_str(), "Kilpailijaparin tulos" | "Asema" | "Klo"))
+    );
+    assert!(
+        texts
+            .iter()
+            .any(|t| t.size == 33. && t.x >= 145. && t.y < 20.)
+    );
+    for label in ["AT", "ATp/ATy", "RT", "Muut"] {
+        assert!(texts.iter().any(|t| t.value == label && t.size == 18.));
+    }
+    assert!(texts.iter().any(|t| t.value == "-00:07"));
+    assert!(
+        texts
+            .iter()
+            .filter(|t| t.value == "Nimi")
+            .all(|t| t.y == 80.)
+    );
+}
+
+#[test]
+fn terminal_statuses_print_without_emit_and_class_rows_have_sporting_order() {
+    let mut f = Fixture::new();
+    f.ws.complete_result_entry(7, &f.clocks(), 0, 0).unwrap();
+    let mut p = f.ws.project().unwrap().clone();
+    p.yhdistetyt_luokat.push(as2026::native::CombinedClass {
+        nimi: "Yhteistulos".into(),
+        luokat: vec!["A".into()],
+        nousupisteet: 0,
+        sarjapistetapa: 0,
+    });
+    for (number, status) in [(8, "PER"), (9, "HYL"), (10, "KESK"), (11, "ILM")] {
+        let mut d = p.kilpailijat[0].clone();
+        d.numero = number;
+        d.emit = 0;
+        d.tallennettu_tulos = None;
+        d.kuljettaja = format!("Kuljettaja{number}");
+        d.tila = Some(as2026::native::ManualStatus::new(status, "Tekninen vika").unwrap());
+        d.keskeytys_vahvistettu = false;
+        p.kilpailijat.push(d);
+    }
+    let folder = f.directory.join("tilat");
+    let mut ws = Workspace::create_imported(&folder, p).unwrap();
+    for number in [8, 9, 10] {
+        ws.complete_result_entry(number, &[], 0, 0).unwrap();
+        assert!(printing::competitor(ws.project().unwrap(), number, None).is_ok());
+    }
+    let archive = ws.results().unwrap();
+    let combined = printing::class_choices(&archive)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.starts_with('Y'))
+        .unwrap();
+    for kind in [Kind::Classes, Kind::Stations] {
+        let doc = printing::classes(&archive, &[combined.clone()], kind, false, true).unwrap();
+        let texts = &doc.pages[0].texts;
+        assert!(
+            texts
+                .iter()
+                .any(|t| t.value.ends_with("luokka Yhteistulos"))
+        );
+        assert!(!texts.iter().any(|t| t.value.contains("(alustava)")
+            || t.value.contains("Y0:")
+            || t.value.contains("Y1:")));
+        let names = texts
+            .iter()
+            .filter(|t| t.value.starts_with("Kuljettaja") && t.value != "Kuljettaja")
+            .map(|t| t.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            ["Kuljettaja11", "Kuljettaja10", "Kuljettaja9", "Kuljettaja8"]
+        );
+        assert!(texts.iter().any(|t| t.value == "AJAA"));
+    }
+}
 struct Fixture {
     directory: PathBuf,
     ws: Workspace,
@@ -134,11 +221,12 @@ fn unfinished_results_are_not_printed_as_classified_and_extras_are_not_route_col
     )
     .unwrap();
     assert!(
-        !doc.pages[0]
+        doc.pages[0]
             .texts
             .iter()
             .any(|t| t.value == "Esimerkkikuljettaja")
     );
+    assert!(doc.pages[0].texts.iter().any(|t| t.value == "AJAA"));
     assert!(
         doc.pages[0]
             .texts

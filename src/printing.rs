@@ -53,11 +53,23 @@ fn duration(seconds: i64) -> String {
     )
 }
 fn signed(seconds: i64) -> String {
+    let n = seconds.unsigned_abs();
     format!(
-        "{}{duration}",
-        if seconds >= 0 { "+" } else { "" },
-        duration = duration(seconds)
+        "{}{:02}:{:02}",
+        if seconds >= 0 { "+" } else { "-" },
+        n / 60,
+        n % 60
     )
+}
+
+pub fn class_label(code: &str) -> &str {
+    code.split_once(": ")
+        .filter(|(prefix, _)| {
+            prefix
+                .strip_prefix('Y')
+                .is_some_and(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
+        })
+        .map_or(code, |(_, name)| name)
 }
 impl Page {
     #[allow(clippy::too_many_arguments)]
@@ -175,12 +187,7 @@ pub fn competitor(
         .unwrap();
     let result = source.tallennettu_tulos.as_ref();
     let mut page = Page::default();
-    heading(
-        &mut page,
-        &project.kilpailu.nimi,
-        "Kilpailijaparin tulos",
-        false,
-    );
+    page.text(10., 8., 130., 7., 13., true, &project.kilpailu.nimi);
     let info = [
         ("Kilpailunumero", number.to_string()),
         (
@@ -198,24 +205,25 @@ pub fn competitor(
         ),
         ("Auto", source.auto.clone()),
         ("Emit", driver.emit_card.clone()),
-        (
-            "Tulos / tila",
-            format!(
-                "{} / {}",
-                if archive.has_approved_result(number) {
-                    driver.total_penalties.to_string()
-                } else {
-                    "-".into()
-                },
-                driver.status
-            ),
-        ),
     ];
+    page.text(
+        150.,
+        8.,
+        50.,
+        15.,
+        33.,
+        true,
+        if archive.has_approved_result(number) && driver.status == "TRK" {
+            driver.total_penalties.to_string()
+        } else {
+            driver.status.clone()
+        },
+    );
     for (i, (label, value)) in info.iter().enumerate() {
-        let x = 10. + (i % 2) as f64 * 95.;
-        let y = 36. + (i / 2) as f64 * 12.;
-        page.text(x, y, 93., 4., 8., false, *label);
-        page.text(x, y + 4., 93., 7., 11., true, value);
+        let x = 10. + (i % 2) as f64 * 67.;
+        let y = 18. + (i / 2) as f64 * 9.;
+        page.text(x, y, 65., 3., 8., false, *label);
+        page.text(x, y + 3., 65., 6., 11., true, value);
     }
     let summary = [
         ("Lähtöaika", source.lahtoaika.clone()),
@@ -261,19 +269,30 @@ pub fn competitor(
         ("Muut", source.lisavirheet.muut_virhepisteet.to_string()),
     ];
     for (i, (label, value)) in summary.iter().enumerate() {
-        let x = if i < 4 { 10. } else { 105. };
-        let y = 87. + (i % 4) as f64 * 6.;
-        page.text(x, y, 43., 6., 9., false, *label);
-        page.text(x + 44., y, 48., 6., 9., true, value);
+        let x = if i < 4 { 10. } else { 145. };
+        let y = if i < 4 {
+            56. + i as f64 * 5.
+        } else {
+            25. + (i - 4) as f64 * 9.
+        };
+        let size = if i < 4 { 9. } else { 18. };
+        page.text(x, y, 30., 8., size, false, *label);
+        page.text(
+            x + 31.,
+            y,
+            if i < 4 { 70. } else { 24. },
+            8.,
+            size,
+            true,
+            value,
+        );
     }
     let headers = [
-        "Asema",
         "Nimi",
         "Emit",
         "L-aika",
         "Ihanne",
         "Käytetty",
-        "Klo",
         "AT",
         "ATp/ATy",
         "Myöhä",
@@ -282,7 +301,6 @@ pub fn competitor(
     let mut rows = Vec::new();
     if let Some(result) = result {
         for r in &result.rivit {
-            let clock = format!("{:02}:{:02}:{:02}", r.clock[0], r.clock[1], r.clock[2]);
             let extra = r.sequence == 0;
             let known = !extra
                 && (r.station_type == "L"
@@ -293,11 +311,6 @@ pub fn competitor(
                     });
             if r.station_type != "ULA" {
                 rows.push(vec![
-                    if extra {
-                        "-".into()
-                    } else {
-                        r.sequence.to_string()
-                    },
                     if extra {
                         "AT liikaa".into()
                     } else {
@@ -326,10 +339,13 @@ pub fn competitor(
                     } else {
                         String::new()
                     },
-                    if known { clock.clone() } else { String::new() },
-                    format!("{:+}", r.signed_time_penalty),
+                    if known {
+                        signed(r.target_seconds - r.actual_seconds)
+                    } else {
+                        String::new()
+                    },
                     format!("{:+}", r.other_penalty),
-                    if matches!(r.station_type.as_str(), "JAT" | "M") {
+                    if known && matches!(r.station_type.as_str(), "JAT" | "M") {
                         r.section_text
                             .trim()
                             .parse::<i64>()
@@ -344,11 +360,11 @@ pub fn competitor(
     }
     table(
         &mut page,
-        116.,
+        80.,
         190.,
         280.,
         &headers,
-        &[0.7, 1.4, 0.7, 1.2, 1.1, 1.1, 1.2, 0.8, 0.9, 1.2],
+        &[1.4, 0.7, 1.2, 1.1, 1.1, 1.0, 0.9, 1.2],
         &rows,
         true,
     );
@@ -402,7 +418,7 @@ pub fn classes(
         pages: Vec::new(),
     };
     for group in ranked.groups.iter().filter(|g| selected.contains(&g.code)) {
-        let drivers = group
+        let mut drivers = group
             .entries
             .iter()
             .filter_map(|entry| {
@@ -410,9 +426,61 @@ pub fn classes(
                     .competitors
                     .iter()
                     .find(|d| i64::from(d.number) == entry.number)
-                    .map(|d| (entry, d))
+                    .map(|d| (Some(entry), d))
             })
             .collect::<Vec<_>>();
+        let member_codes = if group.kind == ranking::GroupKind::Combined {
+            archive
+                .basic
+                .combined_classes
+                .iter()
+                .find(|g| {
+                    g.first()
+                        .zip(g.get(1))
+                        .is_some_and(|(i, name)| format!("Y{i}: {}", name.trim()) == group.code)
+                })
+                .map(|g| {
+                    archive
+                        .basic
+                        .classes
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| g.get(4 + i).is_some_and(|v| v.trim() == "1"))
+                        .map(|(_, c)| c.code.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        } else {
+            vec![group.code.as_str()]
+        };
+        for driver in &publication.competitors {
+            if member_codes.contains(&driver.class_code.as_str())
+                && !drivers.iter().any(|(_, d)| d.number == driver.number)
+            {
+                drivers.push((None, driver));
+            }
+        }
+        drivers.sort_by_key(|(entry, d)| {
+            let classified = entry.is_some_and(|e| e.status == ranking::Status::Classified);
+            let category = if classified {
+                0
+            } else {
+                match d.status.as_str() {
+                    "KESK" => 2,
+                    "HYL" | "SULJ" => 3,
+                    "PER" | "EILÄ" => 4,
+                    _ => 1,
+                }
+            };
+            (
+                category,
+                if classified {
+                    entry.unwrap().primary_position
+                } else {
+                    d.number
+                },
+            )
+        });
         let mut stations = Vec::new();
         if kind == Kind::Stations {
             for (_, d) in &drivers {
@@ -444,10 +512,12 @@ pub fn classes(
         let rows = drivers
             .iter()
             .map(|(entry, d)| {
-                let classified = entry.status == ranking::Status::Classified;
+                let classified = entry.is_some_and(|e| e.status == ranking::Status::Classified);
+                let driving = !classified
+                    && !matches!(d.status.as_str(), "KESK" | "HYL" | "SULJ" | "PER" | "EILÄ");
                 let mut row = vec![
                     if classified {
-                        entry.primary_position.to_string()
+                        entry.unwrap().primary_position.to_string()
                     } else {
                         String::new()
                     },
@@ -458,24 +528,28 @@ pub fn classes(
                 let total = if classified {
                     d.total_penalties.to_string()
                 } else {
-                    entry.status.as_legacy().to_owned()
+                    if driving {
+                        String::new()
+                    } else {
+                        d.status.clone()
+                    }
                 };
                 if kind == Kind::Classes {
                     row.extend([
                         format!("{}/{}", field(d, 7), field(d, 8)),
                         field(d, 9),
                         total,
-                        if group.np_enabled {
-                            entry.table_points.to_string()
+                        if group.np_enabled && classified {
+                            entry.unwrap().table_points.to_string()
                         } else {
                             String::new()
                         },
-                        if group.series_method != 0 {
-                            entry.series_points.to_string()
+                        if group.series_method != 0 && classified {
+                            entry.unwrap().series_points.to_string()
                         } else {
                             String::new()
                         },
-                        field(d, 29),
+                        if driving { "AJAA".into() } else { field(d, 29) },
                     ]);
                 } else {
                     row.extend(stations.iter().map(|key| {
@@ -519,7 +593,7 @@ pub fn classes(
                             String::new()
                         },
                         total,
-                        field(d, 29),
+                        if driving { "AJAA".into() } else { field(d, 29) },
                     ]);
                 }
                 row
@@ -543,14 +617,13 @@ pub fn classes(
                 &mut page,
                 &name,
                 &format!(
-                    "{} - luokka {}{}",
+                    "{} - luokka {}",
                     if kind == Kind::Stations {
                         "Asemakohtaiset tulokset"
                     } else {
                         "Tulokset"
                     },
-                    group.code,
-                    if group.provisional { " (alustava)" } else { "" }
+                    class_label(&group.code),
                 ),
                 landscape,
             );

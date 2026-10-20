@@ -13,6 +13,45 @@ use std::{
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
+#[test]
+fn last_jat_can_finish_bc_and_transfer_punches_do_not_affect_it() {
+    let mut p = project();
+    p.radat[0].asemat[2].tyyppi = "JAT".into();
+    p.radat[0].asemat[2].jakso_minuutteina = Some(10);
+    // Sama koodi JAT:lla ja NAC-maalissa: kohdistetaan esiintymän mukaan.
+    p.radat[0].asemat[3].emit_koodi = 32;
+    p.leimaluvut[0].leimat[4].koodi = 32;
+    let mut f = Fixture::new(p);
+    let mut c = config(f.workspace.project().unwrap());
+    c.mukana_asemat = vec![1, 3];
+    f.workspace.save_beginners_cup(c, &[7]).unwrap();
+    f.workspace.set_bc_view(true).unwrap();
+    let bc = f.workspace.result_snapshot(7).unwrap().unwrap();
+    assert_eq!(bc.maalikello_sekuntia, 12 * 3600 + 600);
+    let finish = bc.rivit.iter().find(|r| r.station_type == "M").unwrap();
+    assert_eq!(finish.name, "AT32");
+    assert_eq!(bc.rivit.iter().filter(|r| r.station_type == "M").count(), 1);
+    let original = f.workspace.project().unwrap();
+    let mut long_transfer = original.clone();
+    long_transfer.leimaluvut[0].leimat[4].aika_sekuntia = 4500;
+    long_transfer.leimaluvut[0].leimat[5].aika_sekuntia = 4600;
+    long_transfer.leimaluvut[0].lukukello = "13:16:40".into();
+    long_transfer.leimaluvut[0].leimat.insert(
+        4,
+        ReadPunch {
+            koodi: 91,
+            aika_sekuntia: 1200,
+        },
+    );
+    let projected = beginners::projection(&long_transfer).unwrap();
+    let after = application::capture_project_result(&projected, 7).unwrap();
+    assert_eq!(after.maalikello_sekuntia, bc.maalikello_sekuntia);
+    assert_eq!(after.aikavirheet, bc.aikavirheet);
+    assert_eq!(after.asemien_muut_virheet, bc.asemien_muut_virheet);
+    assert_eq!(original.leimaluvut[0].leimat.len(), 6);
+    assert!(projected.leimaluvut[0].leimat.iter().all(|s| s.koodi != 91));
+}
+
 fn project() -> Project {
     let mut p = Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
     p.kilpailu.ajanottotapa = 0;

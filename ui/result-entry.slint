@@ -44,14 +44,25 @@ export component ResultEntryDialog inherits Rectangle {
     in-out property <int> focus-index: 0;
     callback edited(int, string);
     callback close(bool);
+    callback save();
     background: Theme.modal-backdrop;
     TouchArea { }
     FocusScope {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Return && !save.has-focus && !cancel.has-focus { root.close(true); return accept; }
             if event.text == Key.Tab && print.has-focus {
-                root.focus-index = event.modifiers.shift ? root.fields.length - 1 : 0;
+                if event.modifiers.shift { root.focus-index = root.fields.length - 1; }
+                else { save.focus(); }
+                return accept;
+            }
+            if event.text == Key.Tab && save.has-focus {
+                if event.modifiers.shift { print.focus(); } else { cancel.focus(); }
+                return accept;
+            }
+            if event.text == Key.Tab && cancel.has-focus {
+                if event.modifiers.shift { save.focus(); } else { root.focus-index = 0; }
                 return accept;
             }
             reject
@@ -90,8 +101,9 @@ export component ResultEntryDialog inherits Rectangle {
             DialogActions {
                 x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
                 width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
-                Button { text: "Peruuta"; clicked => { root.close(false); } }
-                print := AccentButton { text: "Tulosta"; clicked => { root.close(true); } }
+                cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                save := Button { text: "Tallenna"; clicked => { root.save(); } }
+                print := AccentButton { text: "Tallenna ja tulosta"; clicked => { root.close(true); } }
             }
         }
     }

@@ -589,16 +589,23 @@ impl Workspace {
         if other < 0 {
             return Err(invalid("Muut virhepisteet eivät saa olla negatiivisia"));
         }
-        let manual_interruption = self
+        let terminal_status = self
             .result_project()?
             .as_ref()
             .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
             .and_then(|d| d.tila.as_ref())
-            .is_some_and(|s| s.tunnus == "KESK");
-        if manual_interruption {
+            .map(|s| s.tunnus.clone());
+        if terminal_status
+            .as_deref()
+            .is_some_and(|s| matches!(s, "KESK" | "PER" | "HYL" | "SULJ" | "EILÄ"))
+        {
             self.edit_result_driver(number, DriverField::MissingRtCount, &missing_rt.to_string())?;
             self.edit_result_driver(number, DriverField::OtherPenalties, &other.to_string())?;
-            return self.approve_result(number);
+            return if terminal_status.as_deref() == Some("KESK") {
+                self.approve_result(number)
+            } else {
+                Ok(())
+            };
         }
         self.update_result(|project| {
             let driver = project

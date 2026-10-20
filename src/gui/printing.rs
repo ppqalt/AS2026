@@ -15,7 +15,11 @@ pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .find(|d| d.numero == number)
         .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
     let result = ws.result_snapshot(number)?;
-    if result.is_none() && !driver.tila.as_ref().is_some_and(|s| s.tunnus == "KESK") {
+    let terminal = driver
+        .tila
+        .as_ref()
+        .is_some_and(|s| matches!(s.tunnus.as_str(), "KESK" | "PER" | "HYL" | "SULJ" | "EILÄ"));
+    if result.is_none() && !terminal {
         return Err(invalid("Lue ensin kilpailijan Emit-kortti"));
     }
     let pending = result
@@ -25,7 +29,7 @@ pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .as_ref()
         .into_iter()
         .flat_map(|r| r.rivit.iter())
-        .filter(|r| r.expected_code == 0 && r.station_type != "L")
+        .filter(|r| !terminal && r.expected_code == 0 && r.station_type != "L")
         .map(|r| ResultEntryInput {
             key: r.output_index as i32,
             label: format!("{} · {} · kellonaika", r.sequence, r.name).into(),
@@ -126,7 +130,7 @@ fn queue(state: &mut State, app: &AppWindow, document: Document) -> GuiResult<()
     }
     Ok(())
 }
-fn finish_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
+fn finish_entry(state: &mut State, app: &AppWindow, print: bool) -> GuiResult<()> {
     let number = state
         .entry_number
         .ok_or_else(|| invalid("Valitse kilpailija uudelleen"))?;
@@ -172,13 +176,17 @@ fn finish_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     } else {
         None
     };
-    let document = printing::competitor(&project, number, label)?;
-    queue(state, app, document)?;
+    if print {
+        let document = printing::competitor(&project, number, label)?;
+        queue(state, app, document)?;
+    } else {
+        status(app, "Tulos tallennettu.", false);
+    }
     app.set_result_entry_open(false);
     state.entry_number = None;
     update_tables(state, app)?;
     update_form(state, app);
-    if state.print_test {
+    if state.print_test && print {
         status(
             app,
             "Tulostuskoe: tulos tallennettu ja tuloste muodostettu.",
@@ -215,7 +223,7 @@ fn open_classes(state: &mut State, app: &AppWindow, stations: bool) -> GuiResult
         for code in printing::class_choices(&archive)? {
             choices.push(DrawClassOption {
                 code: format!("{scope}:{code}").into(),
-                label: code.clone().into(),
+                label: printing::class_label(&code).into(),
                 selected: selected.as_ref() == Some(&code),
             });
         }
@@ -315,7 +323,20 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow) {
                 state.entry_number = None;
                 drop(state);
                 defer_pending_result(&state2, &app);
-            } else if let Err(error) = finish_entry(&mut state, &app) {
+            } else if let Err(error) = finish_entry(&mut state, &app, true) {
+                app.set_result_entry_error(error_text(&error).into());
+            } else {
+                drop(state);
+                defer_pending_result(&state2, &app);
+            }
+        }
+    });
+    let state2 = state.clone();
+    let weak = app.as_weak();
+    app.on_result_entry_save(move || {
+        if let Some(app) = weak.upgrade() {
+            let mut state = state2.borrow_mut();
+            if let Err(error) = finish_entry(&mut state, &app, false) {
                 app.set_result_entry_error(error_text(&error).into());
             } else {
                 drop(state);

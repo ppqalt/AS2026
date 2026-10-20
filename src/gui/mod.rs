@@ -358,7 +358,7 @@ fn populate_bc_route(state: &State, app: &AppWindow, index: i32) -> GuiResult<()
                 )
                 .into(),
                 selected: config.is_none_or(|c| c.mukana_asemat.contains(&((i + 1) as u32))),
-                fixed: matches!(station.tyyppi.trim(), "L" | "ULA" | "M"),
+                fixed: matches!(station.tyyppi.trim(), "L" | "ULA"),
             })
             .collect(),
     ));
@@ -1829,6 +1829,19 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         {
             station.selected = selected;
             stations.set_row_data(index, station);
+            if !selected && index + 1 == stations.row_count() {
+                let ws = current_workspace(_s)?;
+                if let Some(route) = ws
+                    .project()
+                    .and_then(|p| p.radat.get(a.get_bc_route() as usize))
+                    && let Some(last_jat) =
+                        route.asemat.iter().rposition(|s| s.tyyppi.trim() == "JAT")
+                    && let Some(mut option) = stations.row_data(last_jat)
+                {
+                    option.selected = true;
+                    stations.set_row_data(last_jat, option);
+                }
+            }
         }
         Ok(())
     });
