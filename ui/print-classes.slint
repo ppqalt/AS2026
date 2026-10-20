@@ -18,20 +18,25 @@ export component PrintClassesDialog inherits Rectangle {
         triggered => { self.running = false; cancel.focus(); }
     }
     FocusScope {
+        x: 0px; y: 0px;
         width: root.width; height: root.height;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
             reject
         }
         DialogSurface {
+            clip: true;
             available-width: root.width; available-height: root.height;
             preferred-dialog-height: 600px;
-            VerticalLayout {
-                padding: Theme.dialog-padding; spacing: Theme.space-3;
-                Heading { text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; vertical-stretch: 0; }
-                Note { text: "Valitse yksi tai useampi luokka. Jokainen luokka aloittaa oman sivun."; vertical-stretch: 0; }
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; }
+            Note { x: Theme.dialog-padding; y: 64px; width: parent.width - 2 * Theme.dialog-padding; height: 40px; text: "Valitse yksi tai useampi luokka. Jokainen luokka aloittaa oman sivun."; }
+            Rectangle {
+                x: Theme.dialog-padding; y: 112px; width: parent.width - 2 * Theme.dialog-padding;
+                height: max(0px, direction.y - self.y - Theme.space-3 - (root.error == "" ? 0px : 48px));
+                clip: true;
                 body := ScrollView {
-                    min-height: 0px; horizontal-scrollbar-policy: always-off; viewport-width: self.visible-width;
+                    width: parent.width; height: parent.height;
+                    horizontal-scrollbar-policy: always-off; viewport-width: self.visible-width;
                     viewport-height: entries.min-height;
                     entries := VerticalLayout {
                         x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
@@ -42,14 +47,16 @@ export component PrintClassesDialog inherits Rectangle {
                         }
                     }
                 }
-                CheckBox { text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
-                CheckBox { text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
-                Note { text: "Tulostin: " + root.printer; vertical-stretch: 0; }
-                if root.error != "": Note { text: root.error; color: Theme.danger; vertical-stretch: 0; }
-                DialogActions {
-                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
-                    AccentButton { text: "Tulosta"; clicked => { root.close(true); } }
-                }
+            }
+            direction := CheckBox { x: Theme.dialog-padding; y: fit-choice.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
+            fit-choice := CheckBox { x: Theme.dialog-padding; y: printer-note.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
+            printer-note := Note { x: Theme.dialog-padding; y: actions.y - Theme.space-3 - 20px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: "Tulostin: " + root.printer; }
+            if root.error != "": Note { x: Theme.dialog-padding; y: direction.y - 48px; width: parent.width - 2 * Theme.dialog-padding; height: 44px; text: root.error; color: Theme.danger; }
+            actions := DialogActions {
+                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
+                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
+                cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                AccentButton { text: "Tulosta"; clicked => { root.close(true); } }
             }
         }
     }
