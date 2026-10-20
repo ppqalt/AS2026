@@ -1,0 +1,50 @@
+import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { DrawClassOption } from "types.slint";
+export component PrintClassesDialog inherits Rectangle {
+    in property <bool> stations;
+    in property <[DrawClassOption]> classes;
+    in property <string> printer;
+    in property <string> error;
+    in-out property <bool> landscape;
+    in-out property <bool> fit;
+    callback toggle(int, bool);
+    callback close(bool);
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-height: 600px;
+            VerticalLayout {
+                padding: Theme.dialog-padding; spacing: Theme.space-3;
+                Heading { text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; vertical-stretch: 0; }
+                Note { text: "Valitse yksi tai useampi luokka. Jokainen luokka aloittaa oman sivun."; vertical-stretch: 0; }
+                ScrollView {
+                    min-height: 0px; horizontal-scrollbar-policy: always-off; viewport-width: self.visible-width;
+                    VerticalLayout {
+                        alignment: start; spacing: Theme.space-2;
+                        for item[i] in root.classes: CheckBox {
+                            text: item.label; checked: item.selected;
+                            toggled => { root.toggle(i, self.checked); }
+                        }
+                    }
+                }
+                CheckBox { text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
+                CheckBox { text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
+                Note { text: "Tulostin: " + root.printer; vertical-stretch: 0; }
+                if root.error != "": Note { text: root.error; color: Theme.danger; vertical-stretch: 0; }
+                DialogActions {
+                    Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    AccentButton { text: "Tulosta"; clicked => { root.close(true); } }
+                }
+            }
+        }
+    }
+}

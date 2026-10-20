@@ -6,6 +6,10 @@ import { ResultSummary } from "results.slint";
 import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
 import { BeginnersCupDialog } from "beginners-cup.slint";
+import { ResultEntryDialog } from "result-entry.slint";
+import { PrintClassesDialog } from "print-classes.slint";
+import { ResultEntryInput } from "types.slint";
+export { ResultEntryInput }
 export { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption }
 
 export component AppWindow inherits Window {
@@ -65,6 +69,28 @@ export component AppWindow inherits Window {
     in-out property <ResultOverview> result-overview;
     in-out property <string> app-version;
     in-out property <string> default-root;
+    in-out property <[string]> printers;
+    in-out property <int> printer-index;
+    in-out property <string> printer-name: "Käyttöjärjestelmän oletus";
+    callback refresh-printers();
+    callback select-printer(int);
+    in-out property <bool> print-busy;
+    in-out property <bool> result-entry-open;
+    in-out property <string> result-entry-identity;
+    in-out property <[ResultEntryInput]> result-entry-fields;
+    in-out property <string> result-entry-error;
+    in-out property <int> result-entry-focus;
+    callback result-entry-edited(int, string);
+    callback result-entry-close(bool);
+    in-out property <bool> print-classes-open;
+    in-out property <bool> print-stations;
+    in-out property <[DrawClassOption]> print-classes;
+    in-out property <bool> print-landscape;
+    in-out property <bool> print-fit: true;
+    in-out property <string> print-error;
+    callback open-print-classes(bool);
+    callback print-class-toggled(int, bool);
+    callback print-classes-close(bool);
     in-out property <string> update-status: "Päivityksiä ei ole tarkistettu.";
     in-out property <string> available-version;
     in-out property <bool> update-busy;
@@ -267,7 +293,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -557,10 +583,11 @@ export component AppWindow inherits Window {
                     if root.page == 3: HorizontalLayout {
                         alignment: start; vertical-stretch: 0;
                         spacing: Theme.space-2;
+                        Button { text: "Tulosta luokkatulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(false); } }
+                        Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); } }
                         AccentButton { text: "Tarkista"; enabled: root.editable && root.selected-key >= 0; clicked => { root.review-results(); } }
                         Button { text: "Tutki"; enabled: root.editable && root.result-stored && root.examine-supported; clicked => { root.examine-results(); } }
                         if root.calculation-notes != "": Button { text: "Huomautukset (" + root.calculation-note-count + ")"; clicked => { root.notes-open = true; } }
-                        if root.clock-pending: Note { horizontal-stretch: 1; text: root.clock-pending ? "Täydennä käsikellot. Tutki laskee pisteet uudelleen." : "Valitse asemarivi muokataksesi kelloa ja pisteitä."; }
                     }
                     data-workspace := Workspace {
                         horizontal-stretch: 1; vertical-stretch: 1;
@@ -852,6 +879,10 @@ export component AppWindow inherits Window {
                                         Rectangle { horizontal-stretch: 1; }
                                     }
                                     Note { text: "Sijainnin vaihtaminen koskee uusia kilpailuja. Aiemmat kilpailut säilyvät paikoillaan."; }
+                                    Text { text: "Tulostin"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                    ComboBox { model: root.printers; current-index <=> root.printer-index; selected => { root.select-printer(self.current-index); } }
+                                    Button { text: "Päivitä tulostinluettelo"; clicked => { root.refresh-printers(); } }
+                                    Note { text: "Valinta koskee kilpailijaparin tulosta sekä luokka- ja asematuloksia. Tyhjä oletus käyttää käyttöjärjestelmän oletustulostinta."; }
                                 }
                             }
                     }
@@ -1186,5 +1217,20 @@ export component AppWindow inherits Window {
         station-toggled(index, selected) => { root.bc-station-toggled(index, selected); }
         participant-toggled(index, selected) => { root.bc-participant-toggled(index, selected); }
         close(accepted) => { root.bc-close(accepted); }
+    }
+    if root.result-entry-open: ResultEntryDialog {
+        width: root.width; height: root.height;
+        identity: root.result-entry-identity; fields: root.result-entry-fields;
+        error: root.result-entry-error; focus-index <=> root.result-entry-focus;
+        edited(key, value) => { root.result-entry-edited(key, value); }
+        close(accepted) => { root.result-entry-close(accepted); }
+    }
+    if root.print-classes-open: PrintClassesDialog {
+        width: root.width; height: root.height;
+        stations: root.print-stations; classes: root.print-classes;
+        landscape <=> root.print-landscape; fit <=> root.print-fit;
+        printer: root.printer-name; error: root.print-error;
+        toggle(index, selected) => { root.print-class-toggled(index, selected); }
+        close(accepted) => { root.print-classes-close(accepted); }
     }
 }

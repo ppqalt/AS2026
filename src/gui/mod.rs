@@ -2,6 +2,7 @@
 slint::include_modules!();
 mod desktop;
 mod forms;
+mod printing;
 mod smoke;
 mod tables;
 
@@ -38,10 +39,6 @@ enum UpdateEvent {
 
 enum PendingAction {
     Review(u32),
-    ConfirmInterruption {
-        number: u32,
-        reason: String,
-    },
     Draw(Box<as2026::starts::StartDraw>),
     Import {
         preview: Box<as2026::excel_import::ImportPreview>,
@@ -91,6 +88,9 @@ struct State {
     receiver: Option<Receiver<ReaderEvent>>,
     unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
     read_notice_timer: Timer,
+    entry_number: Option<u32>,
+    print_test: bool,
+    last_print: Option<as2026::printing::Document>,
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -940,6 +940,8 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_draw_classes_open()
         && !app.get_combined_open()
         && !app.get_bc_open()
+        && !app.get_result_entry_open()
+        && !app.get_print_classes_open()
         && !app.get_setup_open()
         && !app.get_status_details_open()
         && !app.get_install_busy()
@@ -972,6 +974,7 @@ fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     update_tables(state, app)?;
     update_form(state, app);
     status(app, pending.notice, false);
+    printing::open_entry(state, app)?;
     Ok(())
 }
 
@@ -1189,7 +1192,6 @@ fn confirmation(
     app.set_confirm_action_label(
         match &action {
             PendingAction::Review(_) => "Tarkista leimaukset",
-            PendingAction::ConfirmInterruption { .. } => "Vahvista keskeytys",
             PendingAction::Draw(_) => "Arvo lähtöajat",
             PendingAction::Import { .. } => "Tuo kilpailu",
             PendingAction::Notice => "Sulje",
@@ -1670,48 +1672,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if !can_leave(s, &a) {
             return Ok(());
         }
-        let number = selected_number(s)?;
-        let interrupted = current_workspace(s)?
-            .result_project()?
-            .as_ref()
-            .and_then(|project| {
-                project
-                    .kilpailijat
-                    .iter()
-                    .find(|driver| driver.numero == number)
-            })
-            .and_then(|driver| driver.tila.as_ref())
-            .filter(|status| status.tunnus == "KESK")
-            .map(|status| status.syy.clone());
-        if let Some(reason) = interrupted {
-            if !current_workspace(s)?.can_confirm_interruption(number) {
-                return Err(invalid(
-                    "Tarkista keskeytyksen syy kilpailijan tiedoista. Jo vahvistettua keskeytystä ei tarvitse vahvistaa uudelleen.",
-                ));
-            }
-            confirmation(
-                s,
-                &a,
-                PendingAction::ConfirmInterruption {
-                    number,
-                    reason: reason.clone(),
-                },
-                "Vahvista keskeytys",
-                format!(
-                    "Kilpailija {number} merkitään vahvistetusti keskeyttäneeksi.\n\nSyy: {reason}\n\nPäätös ei edellytä korttilukua tai maaliaikaa eikä muodosta kilpailijalle sijoitusta."
-                ),
-            );
-            return Ok(());
-        }
-        current_workspace(s)?.approve_result(number)?;
-        update_tables(s, &a)?;
-        update_form(s, &a);
-        status(
-            &a,
-            "Tulos hyväksytty ja tallennettu. Asemien pistekorjaukset säilytettiin.",
-            false,
-        );
-        Ok(())
+        printing::open_entry(s, &a)
     });
     action!(on_import_excel, |s, a| {
         if !can_leave(s, &a) {
@@ -2130,10 +2091,6 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 PendingAction::Review(number) => {
                     current_workspace(s)?.review_results(number)?;
                     "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
-                }
-                PendingAction::ConfirmInterruption { number, reason } => {
-                    current_workspace(s)?.confirm_interruption(number, &reason)?;
-                    "Keskeytys ja sen syy vahvistettu ja tallennettu."
                 }
                 PendingAction::Import { .. } => {
                     return Err(invalid("Avaa Excel-tuonnin esikatselu uudelleen"));
@@ -2945,10 +2902,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         detail: -1,
         preferences,
         install_bundle: package,
+        print_test: smoke_test,
         ..Default::default()
     }));
     let reader_timer = Rc::new(Timer::default());
     bind(&app, &state, &reader_timer);
+    printing::bind(&state, &app);
+    printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
     let path = if demo {

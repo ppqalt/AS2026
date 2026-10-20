@@ -230,6 +230,7 @@ pub struct MatchedRow {
 }
 
 pub mod native;
+pub mod printing;
 pub mod storage;
 
 pub mod terminal;

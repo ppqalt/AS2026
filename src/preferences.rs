@@ -30,6 +30,8 @@ pub struct Preferences {
         skip_serializing_if = "Option::is_none"
     )]
     pub last_competition: Option<PathBuf>,
+    /// Tyhjä arvo käyttää käyttöjärjestelmän oletustulostinta.
+    pub tulostin: String,
 }
 
 pub struct PreferencesStore {
@@ -96,6 +98,15 @@ impl PreferencesStore {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    pub fn save_printer(&mut self, printer: &str) -> Result<(), String> {
+        if printer.contains(['\r', '\n', '\0']) {
+            return Err("Tulostimen nimi on virheellinen".into());
+        }
+        let mut candidate = self.preferences.clone();
+        candidate.tulostin = printer.to_owned();
+        self.save(candidate)
     }
 
     /// Palauttaa sijainnin luomatta kilpailua tai siirtämättä vanhoja tietoja.

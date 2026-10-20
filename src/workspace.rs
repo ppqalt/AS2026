@@ -577,6 +577,86 @@ impl Workspace {
     }
 
     /// Tutki käyttää tallennettuja asemarivejä ja mahdollisia käsikelloja.
+    /// Kortinluvun jälkeinen syöttö: käsikellot ja lisävirheet yhtenä muutoksena,
+    /// laskenta automaattisesti. Tulostaminen ei tarvitse erillistä hyväksymistä.
+    pub fn complete_result_entry(
+        &mut self,
+        number: u32,
+        clocks: &[(u32, [i64; 3])],
+        missing_rt: u32,
+        other: i64,
+    ) -> Result<(), CoreError> {
+        if other < 0 {
+            return Err(invalid("Muut virhepisteet eivät saa olla negatiivisia"));
+        }
+        let manual_interruption = self
+            .result_project()?
+            .as_ref()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .and_then(|d| d.tila.as_ref())
+            .is_some_and(|s| s.tunnus == "KESK");
+        if manual_interruption {
+            self.edit_result_driver(number, DriverField::MissingRtCount, &missing_rt.to_string())?;
+            self.edit_result_driver(number, DriverField::OtherPenalties, &other.to_string())?;
+            return self.approve_result(number);
+        }
+        self.update_result(|project| {
+            let driver = project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+            let mut result = driver
+                .tallennettu_tulos
+                .clone()
+                .map_or_else(|| application::capture_project_result(project, number), Ok)?;
+            let expected = result
+                .rivit
+                .iter()
+                .filter(|r| r.expected_code == 0 && r.station_type != "L")
+                .map(|r| r.output_index)
+                .collect::<std::collections::BTreeSet<_>>();
+            let supplied = clocks
+                .iter()
+                .map(|(r, _)| *r)
+                .collect::<std::collections::BTreeSet<_>>();
+            if expected != supplied || supplied.len() != clocks.len() {
+                return Err(invalid(
+                    "Täydennä kaikki käsikellot; asemavalinta on muuttunut",
+                ));
+            }
+            let mut changed = result.kasikellot_muuttuneet;
+            for &(row, clock) in clocks {
+                let old = result.rivit.iter().find(|r| r.output_index == row).unwrap();
+                if old.clock != clock || !result.kasin_annetut_kellot.contains(&row) {
+                    result.set_clock(row, clock)?;
+                    changed = true;
+                }
+            }
+            if changed {
+                result = application::recalculate_stored_result(project, number, &result)?;
+            }
+            let rate = project
+                .virhepisteet
+                .puuttuva_rt
+                .unwrap_or(crate::scoring::ScoringParameters::default().missing_rt);
+            let points = i64::from(missing_rt)
+                .checked_mul(rate)
+                .ok_or(CoreError::ArithmeticOverflow("RT-pisteet"))?;
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap();
+            driver.lisavirheet.puuttuvat_rt_kpl = missing_rt;
+            driver.lisavirheet.puuttuvat_rt_pisteet = points;
+            driver.lisavirheet.muut_virhepisteet = other;
+            driver.tallennettu_tulos = Some(result);
+            Ok(())
+        })?;
+        self.approve_result(number)
+    }
+
     pub fn recalculate_stored(&mut self, number: u32) -> Result<(), CoreError> {
         self.update_result(|project| {
             let stored = project
