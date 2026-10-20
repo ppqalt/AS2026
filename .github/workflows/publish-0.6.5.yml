@@ -1,0 +1,44 @@
+name: Julkaise käyttäjän pyytämä AS2026 0.6.5
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-0.6.5.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-0.6.5
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Varmista versio ja luo täsmälleen tämän main-commitin julkaisutagi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          python3 -c 'import tomllib; assert tomllib.load(open("Cargo.toml", "rb"))["package"]["version"] == "0.6.5"'
+          if gh api "repos/$GH_REPO/git/ref/tags/v0.6.5" > existing-tag.json 2>/dev/null; then
+            test "$(python3 -c 'import json; print(json.load(open("existing-tag.json"))["object"]["sha"])')" = "$GITHUB_SHA"
+          else
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref=refs/tags/v0.6.5 -f sha="$GITHUB_SHA"
+          fi
+  publish:
+    needs: tag
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      release_tag: v0.6.5
+      publish_release: true
+    secrets: inherit
