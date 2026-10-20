@@ -1,6 +1,6 @@
 # AS2026
 
-Version 0.6.4 mukana ovat myös käyttöliittymäbetassa kehitetyt mukautuvat näkymät.
+Versio 0.6.5 sisältää yhdistetyt luokat, Beginners Cupin rinnakkaisen tuloslaskennan sekä käsiaikojen syötön ja tulostuksen.
 Esimerkkikilpailun voi avata komennolla `cargo run --features gui --bin as2026-gui -- --demo`.
 
 
