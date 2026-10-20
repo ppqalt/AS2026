@@ -331,6 +331,7 @@ pub(crate) fn invalidate_input_changes(
     before: &crate::native::Project,
     after: &mut crate::native::Project,
 ) {
+    crate::beginners::invalidate_input_changes(before, after);
     let global_timing_changed = before.kilpailu.ajanottotapa != after.kilpailu.ajanottotapa
         || before.virhepisteet != after.virhepisteet;
     for driver in &mut after.kilpailijat {

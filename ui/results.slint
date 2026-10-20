@@ -77,8 +77,7 @@ export component ResultSummary inherits Rectangle {
                 Text { text: root.data.total; color: Theme.accent-text; font-size: Theme.section-font-size; font-weight: 700; }
             }
             if root.editable: AccentButton {
-                text: root.interrupted ? "Vahvista keskeytys" : "Hyväksy tulos";
-                enabled: root.approvable;
+                text: "Tulosta tulos";
                 clicked => { root.approve(); }
             }
             if root.editable: Button {

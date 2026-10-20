@@ -1,0 +1,110 @@
+import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { ResultEntryInput } from "types.slint";
+
+component EntryLine inherits Rectangle {
+    height: Theme.control-height + 24px;
+    in property <ResultEntryInput> data;
+    in property <int> index;
+    in property <int> count;
+    in property <int> focus-index;
+    callback edited(int, string);
+    callback next(int);
+    vertical-stretch: 0;
+    init => { if root.index == 0 { focus-timer.running = true; } }
+    changed focus-index => { if root.focus-index == root.index { focus-timer.running = true; } }
+    focus-timer := Timer {
+        interval: 1ms;
+        triggered => { self.running = false; input.focus(); }
+    }
+    field-label := Note { x: 0px; y: 0px; width: parent.width; height: 20px; text: root.data.label; }
+    Rectangle {
+        x: 0px; y: 24px; width: parent.width;
+        height: Theme.control-height;
+        FocusScope {
+        width: parent.width; height: parent.height;
+        focus-on-tab-navigation: false;
+        capture-key-pressed(event) => {
+            if event.text == Key.Tab && ((!event.modifiers.shift && root.index == root.count - 1) || (event.modifiers.shift && root.index == 0)) { root.next(-1); return accept; }
+            reject
+        }
+        input := LineEdit {
+            width: parent.width; height: parent.height;
+            text: root.data.value;
+            edited => { root.edited(root.data.key, self.text); }
+        }
+        }
+    }
+}
+export component ResultEntryDialog inherits Rectangle {
+    in property <string> identity;
+    in property <[ResultEntryInput]> fields;
+    in property <string> error;
+    in-out property <int> focus-index: 0;
+    callback edited(int, string);
+    callback close(bool);
+    callback save();
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Return && !save.has-focus && !cancel.has-focus { root.close(true); return accept; }
+            if event.text == Key.Tab && print.has-focus {
+                if event.modifiers.shift { root.focus-index = root.fields.length - 1; }
+                else { save.focus(); }
+                return accept;
+            }
+            if event.text == Key.Tab && save.has-focus {
+                if event.modifiers.shift { print.focus(); } else { cancel.focus(); }
+                return accept;
+            }
+            if event.text == Key.Tab && cancel.has-focus {
+                if event.modifiers.shift { save.focus(); } else { root.focus-index = 0; }
+                return accept;
+            }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-height: 720px;
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: "Täydennä ajat ja tulosta"; }
+            Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: root.identity; }
+            Note { x: Theme.dialog-padding; y: 84px; width: parent.width - 2 * Theme.dialog-padding; height: 48px; text: "Syötä asemien kellonajat muodossa hh:mm:ss. Tab siirtyy seuraavaan aikaan, RT-määrään, muihin virhepisteisiin ja lopuksi Tulosta-painikkeeseen."; }
+            Rectangle {
+                x: Theme.dialog-padding; y: 144px; width: parent.width - 2 * Theme.dialog-padding;
+                height: max(0px, parent.height - self.y - Theme.dialog-padding - Theme.control-height - Theme.space-3 - (root.error == "" ? 0px : 48px));
+                clip: true;
+                body := ScrollView {
+                    width: parent.width; height: parent.height;
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width;
+                    viewport-height: entry-content.min-height;
+                    entry-content := VerticalLayout {
+                        x: 0px; y: 0px;
+                        width: body.visible-width; height: self.min-height;
+                        alignment: start; spacing: Theme.space-3;
+                        for field[i] in root.fields: EntryLine {
+                            data: field; index: i; count: root.fields.length; focus-index: root.focus-index;
+                            edited(key, value) => { root.edited(key, value); }
+                            next(index) => {
+                                if index < 0 || index >= root.fields.length { root.focus-index = -1; print.focus(); }
+                                else { root.focus-index = index; }
+                            }
+                        }
+                    }
+                }
+            }
+            if root.error != "": Note { x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height - 48px; width: parent.width - 2 * Theme.dialog-padding; height: 44px; text: root.error; color: Theme.danger; }
+            DialogActions {
+                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
+                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
+                cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                save := Button { text: "Tallenna"; clicked => { root.save(); } }
+                print := AccentButton { text: "Tallenna ja tulosta"; clicked => { root.close(true); } }
+            }
+        }
+    }
+}

@@ -306,8 +306,50 @@ pub fn project_ranking_html(archive: &Archive, report: &RankingReport) -> String
     ranking_html_with_source(archive, report, true)
 }
 
+/// Molemmat laskennat julkaistaan erillisistä arkistoista, jotta saman kilpailijan
+/// NAC- ja BC-hyväksynnät eivät sekoitu kilpailijanumeron perusteella.
+pub fn competition_ranking_html(
+    project: &crate::native::Project,
+    policy: crate::ranking::TiePolicy,
+) -> Result<String, CoreError> {
+    let archive = crate::application::calculated_project(project)?;
+    let ranked = crate::application::rank_stored(&archive, policy)?;
+    let mut html = document("Luokkakohtaiset tulokset", &project.kilpailu.nimi);
+    html.push_str(&ranking_body(&archive, &ranked, true));
+    if project.beginners_cup.is_some() {
+        let bc = crate::beginners::results(project)?;
+        let ranked = crate::application::rank_stored(&bc, policy)?;
+        html.push_str(&ranking_body(&bc, &ranked, true));
+    }
+    Ok(finish(html))
+}
+
+pub fn competition_ranking_csv(
+    project: &crate::native::Project,
+    policy: crate::ranking::TiePolicy,
+) -> Result<String, CoreError> {
+    let archive = crate::application::calculated_project(project)?;
+    let ranked = crate::application::rank_stored(&archive, policy)?;
+    let mut csv = ranking_csv(&archive, &ranked);
+    if project.beginners_cup.is_some() {
+        let bc = crate::beginners::results(project)?;
+        let ranked = crate::application::rank_stored(&bc, policy)?;
+        let bc_csv = ranking_csv(&bc, &ranked);
+        if let Some((_, rows)) = bc_csv.split_once('\n') {
+            csv.push_str(rows);
+        }
+    }
+    Ok(csv)
+}
+
 fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculated: bool) -> String {
     let mut html = document("Luokkakohtaiset tulokset", competition_name(archive));
+    html.push_str(&ranking_body(archive, report, calculated));
+    finish(html)
+}
+
+fn ranking_body(archive: &Archive, report: &RankingReport, calculated: bool) -> String {
+    let mut html = String::new();
     let report = match publication_ranking(archive, report) {
         Ok(report) => report,
         Err(error) => {
@@ -315,7 +357,7 @@ fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculate
                 "<p>Tulosten muodostaminen epäonnistui: {}</p>",
                 escape(&error.to_string())
             ));
-            return finish(html);
+            return html;
         }
     };
     if calculated {
@@ -382,7 +424,7 @@ fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculate
         }
         html.push_str("</tbody></table></div></section>\n");
     }
-    finish(html)
+    html
 }
 
 /// Vienti ei luota vanhentuneeseen tai käsin muodostettuun sijoitusraporttiin.

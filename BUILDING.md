@@ -43,7 +43,7 @@ cargo build --release --features gui --bin as2026-gui
 GUI käyttää Winitin Wayland- ja X11-tukea. Linuxin käännöksessä tarvitaan myös `pkg-config` ja käyttöliittymän fontti- ja ikkunakirjastojen kehitystiedostot. Ubuntu-pohjaisen CI:n asennus on:
 
 ```sh
-sudo apt-get install pkg-config libfontconfig1-dev libxkbcommon-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev
+sudo apt-get install pkg-config libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev
 ```
 
 Muiden jakelujen vastaavat paketit löytyvät jakelun omilla nimillä. CachyOS:ssa ja Archissa tarvittavat kirjastot ovat tavallisesti jo työpöydän mukana; tarkista käännösvirheen osoittama puuttuva kehitystiedosto ennen lisäasennuksia. Ohjelman toteutus ei riipu Archin pakettienhallinnasta.

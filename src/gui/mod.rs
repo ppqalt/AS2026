@@ -2,6 +2,7 @@
 slint::include_modules!();
 mod desktop;
 mod forms;
+mod printing;
 mod smoke;
 mod tables;
 
@@ -38,10 +39,6 @@ enum UpdateEvent {
 
 enum PendingAction {
     Review(u32),
-    ConfirmInterruption {
-        number: u32,
-        reason: String,
-    },
     Draw(Box<as2026::starts::StartDraw>),
     Import {
         preview: Box<as2026::excel_import::ImportPreview>,
@@ -91,6 +88,9 @@ struct State {
     receiver: Option<Receiver<ReaderEvent>>,
     unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
     read_notice_timer: Timer,
+    entry_number: Option<u32>,
+    print_test: bool,
+    last_print: Option<as2026::printing::Document>,
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -142,6 +142,16 @@ fn field_feedback(app: &AppWindow, route: bool, key: i32, value: &str, error: &s
 fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
     if let Err(error) = operation() {
         let message = error.to_string();
+        if app.get_bc_open() {
+            app.set_bc_error(error_text(&error).into());
+            status(app, "BC:n tietoja ei tallennettu.", false);
+            return;
+        }
+        if app.get_combined_open() {
+            app.set_combined_error(error_text(&error).into());
+            status(app, "Yhdistettyä luokkaa ei tallennettu.", false);
+            return;
+        }
         if app.get_import_open() {
             app.set_import_error(
                 message
@@ -286,6 +296,94 @@ fn current_workspace(state: &mut State) -> GuiResult<&mut Workspace> {
         .ok_or_else(|| invalid("Avaa ensin kilpailu"))
 }
 
+fn open_combined_class(state: &State, app: &AppWindow, index: usize) -> GuiResult<()> {
+    let project = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Avaa muokattava AS2026-kilpailu"))?;
+    if index > project.yhdistetyt_luokat.len() || index >= 4 {
+        return Err(invalid("Yhdistettyjä luokkia saa olla enintään neljä"));
+    }
+    let group = project.yhdistetyt_luokat.get(index);
+    app.set_combined_index(index as i32);
+    app.set_combined_creating(group.is_none());
+    app.set_combined_name(group.map_or("", |g| g.nimi.as_str()).into());
+    app.set_combined_np(group.map_or(0, |g| i32::from(g.nousupisteet)));
+    app.set_combined_sp(group.map_or(0, |g| i32::from(g.sarjapistetapa)));
+    app.set_combined_error("".into());
+    app.set_combined_classes(model(
+        project
+            .luokat
+            .iter()
+            .map(|class| DrawClassOption {
+                code: class.tunnus.as_str().into(),
+                label: format!("{} — {}", class.tunnus, class.nimi).into(),
+                selected: group.is_some_and(|g| g.luokat.contains(&class.tunnus)),
+            })
+            .collect(),
+    ));
+    app.set_combined_open(true);
+    Ok(())
+}
+
+fn populate_bc_route(state: &State, app: &AppWindow, index: i32) -> GuiResult<()> {
+    let project = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Avaa muokattava kilpailu"))?;
+    let route = usize::try_from(index)
+        .ok()
+        .and_then(|i| project.radat.get(i))
+        .ok_or_else(|| invalid("Valitse NAC-lähderata"))?;
+    let config = project
+        .beginners_cup
+        .as_ref()
+        .filter(|c| c.lahderata == route.numero && c.lahdeasemat == route.asemat);
+    app.set_bc_route(index);
+    app.set_bc_stations(model(
+        route
+            .asemat
+            .iter()
+            .enumerate()
+            .map(|(i, station)| BcStationOption {
+                sequence: (i + 1) as i32,
+                label: format!(
+                    "{} · {} {} · Emit {}",
+                    i + 1,
+                    station.tyyppi,
+                    station.nimi,
+                    station.emit_koodi
+                )
+                .into(),
+                selected: config.is_none_or(|c| c.mukana_asemat.contains(&((i + 1) as u32))),
+                fixed: matches!(station.tyyppi.trim(), "L" | "ULA"),
+            })
+            .collect(),
+    ));
+    app.set_bc_participants(model(
+        project
+            .kilpailijat
+            .iter()
+            .filter(|d| as2026::beginners::eligible(project, d.numero, route.numero))
+            .map(|driver| DrawClassOption {
+                code: driver.numero.to_string().into(),
+                label: format!(
+                    "#{} · {} / {} · {}",
+                    driver.numero, driver.kuljettaja, driver.kartanlukija, driver.luokka
+                )
+                .into(),
+                selected: project
+                    .bc_osallistujat
+                    .iter()
+                    .any(|e| e.numero == driver.numero && e.osallistuu),
+            })
+            .collect(),
+    ));
+    Ok(())
+}
+
 fn update_header(state: &State, app: &AppWindow) -> GuiResult<()> {
     let Some(ws) = &state.workspace else {
         return Ok(());
@@ -299,6 +397,8 @@ fn update_header(state: &State, app: &AppWindow) -> GuiResult<()> {
     app.set_class_count(archive.basic.classes.len() as i32);
     app.set_track_count(archive.routes.len() as i32);
     app.set_read_count(ws.project().map_or(0, |p| p.leimaluvut.len()) as i32);
+    app.set_bc_configured(ws.project().is_some_and(|p| p.beginners_cup.is_some()));
+    app.set_bc_results(ws.bc_view());
     app.set_unsaved_count(state.unsaved.len() as i32);
     Ok(())
 }
@@ -325,8 +425,9 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     app.set_result_overview(view.result_overview);
     app.set_selected_key(state.selected);
     app.set_detail_key(state.detail);
-    let stored = ws
-        .project()
+    let result_project = ws.result_project()?;
+    let stored = result_project
+        .as_ref()
         .and_then(|p| {
             usize::try_from(state.selected)
                 .ok()
@@ -334,8 +435,8 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
         })
         .and_then(|d| d.tallennettu_tulos.as_ref());
     app.set_examine_supported(stored.is_some());
-    let selected_number = ws
-        .project()
+    let selected_number = result_project
+        .as_ref()
         .and_then(|p| {
             usize::try_from(state.selected)
                 .ok()
@@ -343,7 +444,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
         })
         .map(|d| d.numero);
     let snapshot = selected_number.and_then(|number| ws.result_snapshot(number).ok().flatten());
-    let interrupted = ws.project().is_some_and(|project| {
+    let interrupted = result_project.as_ref().is_some_and(|project| {
         selected_number.is_some_and(|number| {
             project
                 .kilpailijat
@@ -357,7 +458,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
         selected_number.is_some_and(|number| ws.can_confirm_interruption(number))
     } else {
         snapshot.as_ref().is_some_and(|r| r.can_approve())
-            && ws.project().is_some_and(|p| {
+            && result_project.as_ref().is_some_and(|p| {
                 selected_number.is_some_and(|number| {
                     application::validate_project_result(p, number, snapshot.as_ref().unwrap())
                         .is_ok()
@@ -379,6 +480,7 @@ fn update_form(state: &State, app: &AppWindow) {
     app.set_form_blocked(state.invalid_field);
     let title = match &state.selection {
         Selection::Driver(_) => "Kilpailijan tiedot",
+        Selection::ResultDriver(_) => "BC:n virhepisteet ja tila",
         Selection::Class(_) => "Luokan tiedot",
         Selection::Track(_) => "Radan tiedot",
         Selection::Station { .. } => "Aseman tiedot",
@@ -402,11 +504,16 @@ fn update_form(state: &State, app: &AppWindow) {
         .into(),
     );
     app.set_editor_error(if new { state.new_error.as_str() } else { "" }.into());
-    let mut fields = state
+    let result_project = state
         .workspace
         .as_ref()
-        .and_then(Workspace::project)
-        .map_or_else(Vec::new, |p| forms::fields(p, &state.selection));
+        .and_then(|ws| ws.result_project().ok().flatten());
+    let mut fields = if state.page == 3 {
+        result_project.as_ref()
+    } else {
+        state.workspace.as_ref().and_then(Workspace::project)
+    }
+    .map_or_else(Vec::new, |p| forms::fields(p, &state.selection));
     for field in &mut fields {
         field.error = state
             .invalid_fields
@@ -499,6 +606,11 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
         return Ok(());
     }
     state.page = page;
+    if page != 3
+        && let Some(ws) = &mut state.workspace
+    {
+        ws.set_bc_view(false)?;
+    }
     state.filter.clear();
     state.draft.clear();
     app.set_page(page);
@@ -826,6 +938,10 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_about_open()
         && !app.get_confirm_open()
         && !app.get_draw_classes_open()
+        && !app.get_combined_open()
+        && !app.get_bc_open()
+        && !app.get_result_entry_open()
+        && !app.get_print_classes_open()
         && !app.get_setup_open()
         && !app.get_status_details_open()
         && !app.get_install_busy()
@@ -836,6 +952,8 @@ fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         return Ok(());
     }
     let pending = state.pending_result.take().unwrap();
+    // Kortinluku kohdistuu yhteen fyysiseen kilpailijaan perusluokassa.
+    current_workspace(state)?.set_bc_view(false)?;
     let index = state
         .workspace
         .as_ref()
@@ -856,6 +974,7 @@ fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     update_tables(state, app)?;
     update_form(state, app);
     status(app, pending.notice, false);
+    printing::open_entry(state, app)?;
     Ok(())
 }
 
@@ -1043,10 +1162,17 @@ fn poll_reader(state: &mut State, app: &AppWindow, timer: &Timer) {
 }
 
 fn selected_number(state: &State) -> GuiResult<u32> {
-    state
+    let ws = state
         .workspace
         .as_ref()
-        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Avaa kilpailu"))?;
+    let result_project = if state.page == 3 {
+        ws.result_project()?
+    } else {
+        ws.project().cloned()
+    };
+    result_project
+        .as_ref()
         .and_then(|p| {
             usize::try_from(state.selected)
                 .ok()
@@ -1066,7 +1192,6 @@ fn confirmation(
     app.set_confirm_action_label(
         match &action {
             PendingAction::Review(_) => "Tarkista leimaukset",
-            PendingAction::ConfirmInterruption { .. } => "Vahvista keskeytys",
             PendingAction::Draw(_) => "Arvo lähtöajat",
             PendingAction::Import { .. } => "Tuo kilpailu",
             PendingAction::Notice => "Sulje",
@@ -1345,6 +1470,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     });
     action!(on_select_row, |s, a, key| {
         if can_leave(s, &a) {
+            if s.page == 4
+                && let Some(project) = s.workspace.as_ref().and_then(Workspace::project)
+                && key >= project.luokat.len() as i32
+            {
+                return open_combined_class(s, &a, key as usize - project.luokat.len());
+            }
             choose_row(s, key)?;
             update_tables(s, &a)?;
             update_form(s, &a);
@@ -1527,7 +1658,11 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             return Ok(());
         }
         let number = selected_number(s)?;
-        s.selection = Selection::Driver(number);
+        s.selection = if current_workspace(s)?.bc_view() {
+            Selection::ResultDriver(number)
+        } else {
+            Selection::Driver(number)
+        };
         s.detail = -1;
         a.set_detail_key(-1);
         update_form(s, &a);
@@ -1537,47 +1672,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if !can_leave(s, &a) {
             return Ok(());
         }
-        let number = selected_number(s)?;
-        let interrupted = current_workspace(s)?
-            .project()
-            .and_then(|project| {
-                project
-                    .kilpailijat
-                    .iter()
-                    .find(|driver| driver.numero == number)
-            })
-            .and_then(|driver| driver.tila.as_ref())
-            .filter(|status| status.tunnus == "KESK")
-            .map(|status| status.syy.clone());
-        if let Some(reason) = interrupted {
-            if !current_workspace(s)?.can_confirm_interruption(number) {
-                return Err(invalid(
-                    "Tarkista keskeytyksen syy kilpailijan tiedoista. Jo vahvistettua keskeytystä ei tarvitse vahvistaa uudelleen.",
-                ));
-            }
-            confirmation(
-                s,
-                &a,
-                PendingAction::ConfirmInterruption {
-                    number,
-                    reason: reason.clone(),
-                },
-                "Vahvista keskeytys",
-                format!(
-                    "Kilpailija {number} merkitään vahvistetusti keskeyttäneeksi.\n\nSyy: {reason}\n\nPäätös ei edellytä korttilukua tai maaliaikaa eikä muodosta kilpailijalle sijoitusta."
-                ),
-            );
-            return Ok(());
-        }
-        current_workspace(s)?.approve_result(number)?;
-        update_tables(s, &a)?;
-        update_form(s, &a);
-        status(
-            &a,
-            "Tulos hyväksytty ja tallennettu. Asemien pistekorjaukset säilytettiin.",
-            false,
-        );
-        Ok(())
+        printing::open_entry(s, &a)
     });
     action!(on_import_excel, |s, a| {
         if !can_leave(s, &a) {
@@ -1645,6 +1740,189 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             "Tutki: tallennetut asemarivit ja käsikellot laskettu. Asemarivien pistekorjaukset korvattiin laskennalla.",
             false,
         );
+        Ok(())
+    });
+    action!(on_add_combined_class, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let count = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Avaa muokattava AS2026-kilpailu"))?
+            .yhdistetyt_luokat
+            .len();
+        open_combined_class(s, &a, count)
+    });
+    action!(on_combined_class_toggled, |_s, a, index, selected| {
+        let classes = a.get_combined_classes();
+        if let Ok(index) = usize::try_from(index)
+            && let Some(mut class) = classes.row_data(index)
+        {
+            class.selected = selected;
+            classes.set_row_data(index, class);
+        }
+        Ok(())
+    });
+    action!(on_combined_close, |s, a, accepted| {
+        if !accepted {
+            a.set_combined_open(false);
+            return follow_pending_result(s, &a);
+        }
+        let index = usize::try_from(a.get_combined_index())
+            .map_err(|_| invalid("Yhdistetyn luokan järjestysnumero ei kelpaa"))?;
+        let group = native::CombinedClass {
+            nimi: a.get_combined_name().to_string(),
+            luokat: a
+                .get_combined_classes()
+                .iter()
+                .filter(|class| class.selected)
+                .map(|class| class.code.to_string())
+                .collect(),
+            nousupisteet: u8::try_from(a.get_combined_np())
+                .map_err(|_| invalid("Nousupistevalinta ei kelpaa"))?,
+            sarjapistetapa: u8::try_from(a.get_combined_sp())
+                .map_err(|_| invalid("Sarjapistetapa ei kelpaa"))?,
+        };
+        current_workspace(s)?.save_combined_class(index, group)?;
+        a.set_combined_open(false);
+        update_tables(s, &a)?;
+        status(&a, "Yhdistetty luokka tallennettu.", false);
+        follow_pending_result(s, &a)
+    });
+    action!(on_configure_bc, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let project = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Avaa AS2026-kilpailu"))?;
+        let config = project.beginners_cup.as_ref();
+        a.set_bc_name(
+            config
+                .map_or("NAC Beginners Cup", |c| c.nimi.as_str())
+                .into(),
+        );
+        a.set_bc_code(config.map_or("BC", |c| c.tunnus.as_str()).into());
+        a.set_bc_routes(model(
+            project
+                .radat
+                .iter()
+                .map(|r| SharedString::from(format!("{} · {}", r.numero, r.nimi)))
+                .collect(),
+        ));
+        let index = config
+            .and_then(|c| project.radat.iter().position(|r| r.numero == c.lahderata))
+            .unwrap_or(0);
+        populate_bc_route(s, &a, index as i32)?;
+        a.set_bc_error("".into());
+        a.set_bc_open(true);
+        Ok(())
+    });
+    action!(on_bc_route_selected, |s, a, index| populate_bc_route(
+        s, &a, index
+    ));
+    action!(on_bc_station_toggled, |_s, a, index, selected| {
+        let stations = a.get_bc_stations();
+        if let Ok(index) = usize::try_from(index)
+            && let Some(mut station) = stations.row_data(index)
+            && !station.fixed
+        {
+            station.selected = selected;
+            stations.set_row_data(index, station);
+            if !selected && index + 1 == stations.row_count() {
+                let ws = current_workspace(_s)?;
+                if let Some(route) = ws
+                    .project()
+                    .and_then(|p| p.radat.get(a.get_bc_route() as usize))
+                    && let Some(last_jat) =
+                        route.asemat.iter().rposition(|s| s.tyyppi.trim() == "JAT")
+                    && let Some(mut option) = stations.row_data(last_jat)
+                {
+                    option.selected = true;
+                    stations.set_row_data(last_jat, option);
+                }
+            }
+        }
+        Ok(())
+    });
+    action!(on_bc_participant_toggled, |_s, a, index, selected| {
+        let participants = a.get_bc_participants();
+        if let Ok(index) = usize::try_from(index)
+            && let Some(mut participant) = participants.row_data(index)
+        {
+            participant.selected = selected;
+            participants.set_row_data(index, participant);
+        }
+        Ok(())
+    });
+    action!(on_bc_close, |s, a, accepted| {
+        if !accepted {
+            a.set_bc_open(false);
+            return follow_pending_result(s, &a);
+        }
+        let route_index =
+            usize::try_from(a.get_bc_route()).map_err(|_| invalid("Valitse NAC-lähderata"))?;
+        let project = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Avaa AS2026-kilpailu"))?;
+        let source = project
+            .radat
+            .get(route_index)
+            .ok_or_else(|| invalid("Valitse NAC-lähderata"))?;
+        let config = as2026::beginners::BeginnersCup {
+            nimi: a.get_bc_name().trim().into(),
+            tunnus: a.get_bc_code().trim().into(),
+            lahderata: source.numero,
+            lahdeasemat: source.asemat.clone(),
+            mukana_asemat: a
+                .get_bc_stations()
+                .iter()
+                .filter(|r| r.selected)
+                .map(|r| r.sequence as u32)
+                .collect(),
+        };
+        let participants = a
+            .get_bc_participants()
+            .iter()
+            .filter(|p| p.selected)
+            .map(|p| {
+                p.code
+                    .parse::<u32>()
+                    .map_err(|_| invalid("BC-kilpailijan numero ei kelpaa"))
+            })
+            .collect::<GuiResult<Vec<_>>>()?;
+        current_workspace(s)?.save_beginners_cup(config, &participants)?;
+        a.set_bc_open(false);
+        update_tables(s, &a)?;
+        update_form(s, &a);
+        status(
+            &a,
+            "Beginners Cupin rata ja osallistujat tallennettu.",
+            false,
+        );
+        follow_pending_result(s, &a)
+    });
+    action!(on_result_scope, |s, a, bc| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let number = selected_number(s).ok();
+        current_workspace(s)?.set_bc_view(bc)?;
+        let view = current_workspace(s)?.result_project()?;
+        s.selected = view
+            .as_ref()
+            .and_then(|p| {
+                number
+                    .and_then(|n| p.kilpailijat.iter().position(|d| d.numero == n))
+                    .or_else(|| (!p.kilpailijat.is_empty()).then_some(0))
+            })
+            .map_or(-1, |i| i as i32);
+        s.selection = Selection::None;
+        s.detail = -1;
+        s.filter.clear();
+        a.set_filter("".into());
+        update_tables(s, &a)?;
+        update_form(s, &a);
         Ok(())
     });
     action!(on_configure_draw_classes, |s, a| {
@@ -1827,10 +2105,6 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     current_workspace(s)?.review_results(number)?;
                     "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
                 }
-                PendingAction::ConfirmInterruption { number, reason } => {
-                    current_workspace(s)?.confirm_interruption(number, &reason)?;
-                    "Keskeytys ja sen syy vahvistettu ja tallennettu."
-                }
                 PendingAction::Import { .. } => {
                     return Err(invalid("Avaa Excel-tuonnin esikatselu uudelleen"));
                 }
@@ -1887,8 +2161,11 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         let archive = ws.results()?;
         let ranking =
             application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
-        let html = if ws.is_editable() {
-            report::project_ranking_html(&archive, &ranking)
+        let html = if let Some(project) = ws.project() {
+            report::competition_ranking_html(
+                project,
+                as2026::ranking::TiePolicy::KeepSharedAndFlag,
+            )?
         } else {
             report::ranking_html(&archive, &ranking)
         };
@@ -1922,7 +2199,11 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         let archive = ws.results()?;
         let ranking =
             application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
-        let csv = report::ranking_csv(&archive, &ranking);
+        let csv = if let Some(project) = ws.project() {
+            report::competition_ranking_csv(project, as2026::ranking::TiePolicy::KeepSharedAndFlag)?
+        } else {
+            report::ranking_csv(&archive, &ranking)
+        };
         let weak = a.as_weak();
         std::thread::Builder::new()
             .name("as2026-csv".into())
@@ -1953,7 +2234,14 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         let archive = ws.results()?;
         let ranked =
             application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
-        let bytes = report::ranking_xlsx(&archive, &ranked)?;
+        let bytes = if let Some(project) = ws.project() {
+            report::xlsx_from_csv(&report::competition_ranking_csv(
+                project,
+                as2026::ranking::TiePolicy::KeepSharedAndFlag,
+            )?)?
+        } else {
+            report::ranking_xlsx(&archive, &ranked)?
+        };
         let weak = a.as_weak();
         std::thread::Builder::new()
             .name("as2026-xlsx".into())
@@ -2194,7 +2482,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 80 } else { 24 } {
+        if current >= if keyboard_test { 103 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -2358,7 +2646,8 @@ fn capture_views(
                 56 => save_view(&app, &directory.join("20-kenttavirhe.png")).unwrap(),
                 57 => {
                     assert!(app.invoke_field_commit(4, "15:25:30".into()));
-                    app.window().set_size(slint::LogicalSize::new(900., 640.));
+                    let scale = app.window().scale_factor();
+                    app.window().set_size(slint::PhysicalSize::new((900. * scale).round() as u32, (640. * scale).round() as u32));
                     println!("GUI-koe: pieni ikkuna 900x640");
                 }
                 58 => {
@@ -2422,6 +2711,63 @@ fn capture_views(
                 77 => save_view(&app, &directory.join("28-aseman-muokkaus.png")).unwrap(),
                 78 => { app.invoke_filter_changed("Ei vastaavaa rataa".into()); }
                 79 => save_view(&app, &directory.join("29-radan-haku-tyhja.png")).unwrap(),
+                80 => {
+                    let scale = app.window().scale_factor();
+                    app.window().set_size(slint::PhysicalSize::new((900. * scale).round() as u32, (600. * scale).round() as u32));
+                    app.invoke_navigate(4);
+                    app.invoke_add_combined_class();
+                    assert!(app.get_combined_open());
+                }
+                81 => save_view(&app, &directory.join("30-yhdistetty-luokka.png")).unwrap(),
+                82 => {
+                    smoke::key(&app, "Kokeilu");
+                    assert_eq!(app.get_combined_name(), "Kokeilu");
+                    smoke::key(&app, slint::platform::Key::Tab);
+                    let before = app.get_combined_classes().row_data(0).unwrap().selected;
+                    smoke::key(&app, slint::platform::Key::Space);
+                    assert_ne!(app.get_combined_classes().row_data(0).unwrap().selected, before);
+                    smoke::key(&app, slint::platform::Key::Escape);
+                    assert!(!app.get_combined_open());
+                }
+                83 => { app.invoke_configure_bc(); assert!(app.get_bc_open()); }
+                84 => save_view(&app, &directory.join("31-bc-asemat.png")).unwrap(),
+                85 => {
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                        position: slint::LogicalPosition::new(450., 360.), delta_x: 0., delta_y: -4000.
+                    });
+                }
+                86 => save_view(&app, &directory.join("32-bc-osallistujat.png")).unwrap(),
+                87 => {
+                    smoke::key(&app, slint::platform::Key::Escape);
+                    assert!(!app.get_bc_open());
+                    println!("GUI-luokkakoe: 900 × 600, yhdistetyn luokan Tab/Space/Esc sekä BC:n vieritys ja Esc.");
+                }
+                88 => {
+                    let (parent, original) = {
+                        let s = state.borrow(); let ws = s.workspace.as_ref().unwrap();
+                        (ws.path().parent().unwrap().to_owned(), ws.project().unwrap().clone())
+                    };
+                    smoke::prepare_print_entry(&app, &state, &parent, &original, "nappaimisto-tulostus").unwrap();
+                }
+                89 => save_view(&app, &directory.join("33-aikojen-taydennys.png")).unwrap(),
+                90 => smoke::key(&app, "12:05:00"),
+                91 | 93 | 95 | 97 => smoke::key(&app, slint::platform::Key::Tab),
+                92 => smoke::key(&app, "12:08:00"),
+                94 => smoke::key(&app, "3"),
+                96 => smoke::key(&app, "25"),
+                98 => smoke::key(&app, slint::platform::Key::Return),
+                99 => {
+                    assert!(!app.get_result_entry_open(), "{}", app.get_result_entry_error());
+                    let s = state.borrow(); let d = &s.workspace.as_ref().unwrap().project().unwrap().kilpailijat[0];
+                    assert!(d.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
+                    assert_eq!(d.lisavirheet.puuttuvat_rt_kpl, 3);
+                    assert_eq!(d.lisavirheet.muut_virhepisteet, 25);
+                    assert!(s.last_print.is_some());
+                    println!("GUI-tulostuksen näppäimistökoe: AT → JAT → RT → muut → Tulosta, ilman erillistä hyväksymistä tai fyysistä tulostusta.");
+                }
+                100 => app.invoke_open_print_classes(true),
+                101 => save_view(&app, &directory.join("34-asematulosten-luokkavalinta.png")).unwrap(),
+                102 => { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_print_classes_open()); }
                 _ => {}
             }
             *phase.borrow_mut() += 1;
@@ -2595,10 +2941,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         detail: -1,
         preferences,
         install_bundle: package,
+        print_test: smoke_test,
         ..Default::default()
     }));
     let reader_timer = Rc::new(Timer::default());
     bind(&app, &state, &reader_timer);
+    printing::bind(&state, &app);
+    printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
     let path = if demo {

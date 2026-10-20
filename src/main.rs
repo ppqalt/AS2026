@@ -566,7 +566,10 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
         );
     }
     Ok(if is_native {
-        report::project_ranking_html(&a, &result)
+        report::competition_ranking_html(
+            storage::ProjectStore::open(&native_path)?.project(),
+            policy,
+        )?
     } else {
         report::ranking_html(&a, &result)
     })
@@ -585,6 +588,12 @@ fn rank_csv(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<St
         ranking::TiePolicy::KeepSharedAndFlag
     };
     let ranked = application::rank_stored(&archive, policy)?;
+    if native_path.is_file() {
+        return report::competition_ranking_csv(
+            storage::ProjectStore::open(&native_path)?.project(),
+            policy,
+        );
+    }
     Ok(report::ranking_csv(&archive, &ranked))
 }
 
@@ -604,7 +613,10 @@ fn rank_html_live(directory: &Path, encoding: Encoding, break_ties: bool) -> Res
     };
     let ranked = application::rank_stored(&archive, policy)?;
     Ok(if native {
-        report::project_ranking_html(&archive, &ranked)
+        report::competition_ranking_html(
+            storage::ProjectStore::open(&native_path)?.project(),
+            policy,
+        )?
     } else {
         report::ranking_html(&archive, &ranked)
     })

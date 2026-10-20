@@ -60,6 +60,7 @@ enum Source {
 pub struct Workspace {
     path: PathBuf,
     source: Source,
+    bc_view: bool,
 }
 
 impl Workspace {
@@ -79,7 +80,11 @@ impl Workspace {
         } else {
             Source::Native(ProjectStore::open(&path)?)
         };
-        Ok(Self { path, source })
+        Ok(Self {
+            path,
+            source,
+            bc_view: false,
+        })
     }
 
     pub fn create(directory: &Path, name: &str) -> Result<Self, CoreError> {
@@ -90,12 +95,17 @@ impl Workspace {
         Ok(Self {
             path: store.path().to_owned(),
             source: Source::Native(store),
+            bc_view: false,
         })
     }
 
     /// Epäonnistunut uudelleenavaus jättää nykyisen onnistuneen tilan näkyviin.
     pub fn reload(&mut self) -> Result<(), CoreError> {
-        let reopened = Self::open(&self.path)?;
+        let mut reopened = Self::open(&self.path)?;
+        reopened.bc_view = self.bc_view
+            && reopened
+                .project()
+                .is_some_and(|p| p.beginners_cup.is_some());
         *self = reopened;
         Ok(())
     }
@@ -113,6 +123,152 @@ impl Workspace {
             Source::Native(store) => Some(store.project()),
             Source::Legacy(_) => None,
         }
+    }
+
+    pub fn bc_view(&self) -> bool {
+        self.bc_view
+    }
+
+    pub fn set_bc_view(&mut self, selected: bool) -> Result<(), CoreError> {
+        if selected {
+            crate::beginners::projection(
+                self.project()
+                    .ok_or_else(|| invalid("Avaa AS2026-kilpailu"))?,
+            )?;
+        }
+        self.bc_view = selected;
+        Ok(())
+    }
+
+    pub fn result_project(&self) -> Result<Option<Project>, CoreError> {
+        self.project()
+            .map(|p| {
+                if self.bc_view {
+                    crate::beginners::projection(p)
+                } else {
+                    Ok(p.clone())
+                }
+            })
+            .transpose()
+    }
+
+    fn update_result<T>(
+        &mut self,
+        edit: impl FnOnce(&mut Project) -> Result<T, CoreError>,
+    ) -> Result<T, CoreError> {
+        if !self.bc_view {
+            return self.update(edit);
+        }
+        self.update(|project| {
+            let mut view = crate::beginners::projection(project)?;
+            let before = view.clone();
+            let value = edit(&mut view)?;
+            crate::corrections::invalidate_input_changes(&before, &mut view);
+            view.validate()?;
+            crate::beginners::store_projection(project, &view)?;
+            Ok(value)
+        })
+    }
+
+    pub fn save_beginners_cup(
+        &mut self,
+        config: crate::beginners::BeginnersCup,
+        participants: &[u32],
+    ) -> Result<(), CoreError> {
+        self.update(|project| {
+            let mut selected = std::collections::BTreeSet::new();
+            for &number in participants {
+                if !selected.insert(number)
+                    || !crate::beginners::eligible(project, number, config.lahderata)
+                {
+                    return Err(invalid("BC-osallistujavalinta on virheellinen"));
+                }
+            }
+            for entry in &mut project.bc_osallistujat {
+                entry.osallistuu = selected.contains(&entry.numero);
+            }
+            for &number in participants {
+                if !project.bc_osallistujat.iter().any(|e| e.numero == number) {
+                    project.bc_osallistujat.push(crate::beginners::Entry {
+                        numero: number,
+                        osallistuu: true,
+                        ..Default::default()
+                    });
+                }
+            }
+            project.beginners_cup = Some(Box::new(config));
+            Ok(())
+        })
+    }
+
+    /// Tulospaneelin erilliset pisteet ja tila; NAC-kilpailijatietoja ei muuteta BC-näkymässä.
+    pub fn edit_result_driver(
+        &mut self,
+        id: u32,
+        field: DriverField,
+        value: &str,
+    ) -> Result<(), CoreError> {
+        if !matches!(
+            field,
+            DriverField::MissingRtCount
+                | DriverField::ExtraRtCount
+                | DriverField::OtherPenalties
+                | DriverField::Status
+                | DriverField::StatusReason
+        ) {
+            return Err(invalid("Valitse tuloskohtainen piste- tai tilakenttä"));
+        }
+        self.update_result(|project| {
+            let parameters = project
+                .to_archive()?
+                .scoring_parameters()
+                .map_err(|e| invalid(e.to_string()))?;
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == id)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+            match field {
+                DriverField::MissingRtCount => {
+                    let count: u32 = number(value, "Puuttuvat RT-asemat")?;
+                    driver.lisavirheet.puuttuvat_rt_kpl = count;
+                    driver.lisavirheet.puuttuvat_rt_pisteet = i64::from(count)
+                        .checked_mul(parameters.missing_rt)
+                        .ok_or(CoreError::ArithmeticOverflow("RT-pisteet"))?;
+                }
+                DriverField::ExtraRtCount => {
+                    let count: u32 = number(value, "Ylimääräiset RT-asemat")?;
+                    driver.lisavirheet.ylimaaraiset_rt_kpl = count;
+                    driver.lisavirheet.ylimaaraiset_rt_pisteet = i64::from(count)
+                        .checked_mul(parameters.extra_rt)
+                        .ok_or(CoreError::ArithmeticOverflow("RT-pisteet"))?;
+                }
+                DriverField::OtherPenalties => {
+                    driver.lisavirheet.muut_virhepisteet = number(value, "Muut virhepisteet")?
+                }
+                DriverField::Status => {
+                    driver.tila = if value.trim().is_empty() {
+                        None
+                    } else {
+                        Some(native::ManualStatus::new(
+                            value.trim(),
+                            driver.tila.as_ref().map_or("", |s| s.syy.as_str()),
+                        )?)
+                    };
+                    driver.keskeytys_vahvistettu = false;
+                }
+                DriverField::StatusReason => {
+                    driver
+                        .tila
+                        .as_mut()
+                        .ok_or_else(|| invalid("Valitse ensin tila"))?
+                        .syy = value.trim().into();
+                    driver.keskeytys_vahvistettu = false;
+                }
+                _ => unreachable!(),
+            }
+            Ok(())
+        })
     }
 
     pub fn name(&self) -> &str {
@@ -141,6 +297,7 @@ impl Workspace {
     /// asematulokset pidetään erillään nykyisen sovellusytimen mukaisesti.
     pub fn results(&self) -> Result<Archive, CoreError> {
         match &self.source {
+            Source::Native(store) if self.bc_view => crate::beginners::results(store.project()),
             Source::Native(store) => application::calculated_project(store.project()),
             Source::Legacy(archive) => Ok(archive.clone()),
         }
@@ -151,7 +308,8 @@ impl Workspace {
         &self,
         number: u32,
     ) -> Result<Option<crate::corrections::StoredResult>, CoreError> {
-        let Some(project) = self.project() else {
+        let result_project = self.result_project()?;
+        let Some(project) = result_project.as_ref() else {
             return Ok(None);
         };
         let driver = project
@@ -170,14 +328,20 @@ impl Workspace {
 
     /// Keskeytyspäätös voidaan vahvistaa ilman korttia tai asematulosta.
     pub fn can_confirm_interruption(&self, number: u32) -> bool {
-        self.project()
+        self.result_project()
+            .ok()
+            .flatten()
+            .as_ref()
             .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
             .is_some_and(|driver| {
                 driver.can_confirm_interruption() && !driver.has_confirmed_interruption()
             })
     }
     pub fn interruption_confirmed(&self, number: u32) -> bool {
-        self.project()
+        self.result_project()
+            .ok()
+            .flatten()
+            .as_ref()
             .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
             .is_some_and(|driver| driver.has_confirmed_interruption())
     }
@@ -185,7 +349,7 @@ impl Workspace {
     /// asemarivit, kellot ja pisteet säilyvät täsmälleen ennallaan.
     pub fn confirm_interruption(&mut self, number: u32, reason: &str) -> Result<(), CoreError> {
         let reason = native::validate_interruption_reason(reason)?.to_owned();
-        self.update(|project| {
+        self.update_result(|project| {
             let driver = project
                 .kilpailijat
                 .iter_mut()
@@ -199,7 +363,8 @@ impl Workspace {
 
     pub fn approve_result(&mut self, number: u32) -> Result<(), CoreError> {
         if let Some(reason) = self
-            .project()
+            .result_project()?
+            .as_ref()
             .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
             .and_then(|d| d.tila.as_ref())
             .filter(|status| status.tunnus == "KESK")
@@ -216,7 +381,7 @@ impl Workspace {
             ));
         }
         snapshot.hyvaksytty = true;
-        self.update(|project| {
+        self.update_result(|project| {
             application::validate_project_result(project, number, &snapshot)?;
             project
                 .kilpailijat
@@ -230,14 +395,40 @@ impl Workspace {
 
     /// Ensimmäinen lukema saa asemarivit. Uusintaluku säilyttää aiemman tarkastuksen.
     pub fn ensure_readout_result(&mut self, number: u32) -> Result<(), CoreError> {
-        if self
-            .project()
-            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
-            .is_some_and(|d| d.tallennettu_tulos.is_none())
-        {
-            self.review_results(number)?;
-        }
-        Ok(())
+        self.update(|project| {
+            if project
+                .kilpailijat
+                .iter()
+                .any(|d| d.numero == number && d.tallennettu_tulos.is_none())
+            {
+                let result = application::capture_project_result(project, number)?;
+                project
+                    .kilpailijat
+                    .iter_mut()
+                    .find(|d| d.numero == number)
+                    .unwrap()
+                    .tallennettu_tulos = Some(result);
+            }
+            Ok(())
+        })?;
+        // BC:n epäselvä kohdistus ei saa perua onnistunutta NAC-tarkastusta.
+        self.update(|project| {
+            if project
+                .bc_osallistujat
+                .iter()
+                .any(|e| e.numero == number && e.osallistuu && e.tallennettu_tulos.is_none())
+            {
+                let view = crate::beginners::projection(project)?;
+                let result = application::capture_project_result(&view, number)?;
+                project
+                    .bc_osallistujat
+                    .iter_mut()
+                    .find(|e| e.numero == number)
+                    .unwrap()
+                    .tallennettu_tulos = Some(result);
+            }
+            Ok(())
+        })
     }
 
     pub fn create_imported(directory: &Path, project: Project) -> Result<Self, CoreError> {
@@ -247,6 +438,7 @@ impl Workspace {
         Ok(Self {
             path: store.path().to_owned(),
             source: Source::Native(store),
+            bc_view: false,
         })
     }
 
@@ -356,6 +548,11 @@ impl Workspace {
             if matches!(field, DriverField::Status | DriverField::StatusReason) {
                 driver.keskeytys_vahvistettu = false;
             }
+            if field == DriverField::Number {
+                for entry in &mut project.bc_osallistujat {
+                    if entry.numero == id { entry.numero = driver.numero; }
+                }
+            }
             if matches!(field, DriverField::Class | DriverField::Card | DriverField::Start | DriverField::Correction | DriverField::MissingRtCount | DriverField::ExtraRtCount | DriverField::OtherPenalties | DriverField::Status | DriverField::StatusReason)
                 && let Some(result) = &mut driver.tallennettu_tulos {
                 result.hyvaksytty = false;
@@ -367,7 +564,7 @@ impl Workspace {
 
     /// Tarkista muodostaa asematuloksen uudelleen kortinlukuhistoriasta.
     pub fn review_results(&mut self, number: u32) -> Result<(), CoreError> {
-        self.update(|project| {
+        self.update_result(|project| {
             let result = application::capture_project_result(project, number)?;
             project
                 .kilpailijat
@@ -380,8 +577,95 @@ impl Workspace {
     }
 
     /// Tutki käyttää tallennettuja asemarivejä ja mahdollisia käsikelloja.
+    /// Kortinluvun jälkeinen syöttö: käsikellot ja lisävirheet yhtenä muutoksena,
+    /// laskenta automaattisesti. Tulostaminen ei tarvitse erillistä hyväksymistä.
+    pub fn complete_result_entry(
+        &mut self,
+        number: u32,
+        clocks: &[(u32, [i64; 3])],
+        missing_rt: u32,
+        other: i64,
+    ) -> Result<(), CoreError> {
+        if other < 0 {
+            return Err(invalid("Muut virhepisteet eivät saa olla negatiivisia"));
+        }
+        let terminal_status = self
+            .result_project()?
+            .as_ref()
+            .and_then(|p| p.kilpailijat.iter().find(|d| d.numero == number))
+            .and_then(|d| d.tila.as_ref())
+            .map(|s| s.tunnus.clone());
+        if terminal_status
+            .as_deref()
+            .is_some_and(|s| matches!(s, "KESK" | "PER" | "HYL" | "SULJ" | "EILÄ"))
+        {
+            self.edit_result_driver(number, DriverField::MissingRtCount, &missing_rt.to_string())?;
+            self.edit_result_driver(number, DriverField::OtherPenalties, &other.to_string())?;
+            return if terminal_status.as_deref() == Some("KESK") {
+                self.approve_result(number)
+            } else {
+                Ok(())
+            };
+        }
+        self.update_result(|project| {
+            let driver = project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == number)
+                .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+            let mut result = driver
+                .tallennettu_tulos
+                .clone()
+                .map_or_else(|| application::capture_project_result(project, number), Ok)?;
+            let expected = result
+                .rivit
+                .iter()
+                .filter(|r| r.expected_code == 0 && r.station_type != "L")
+                .map(|r| r.output_index)
+                .collect::<std::collections::BTreeSet<_>>();
+            let supplied = clocks
+                .iter()
+                .map(|(r, _)| *r)
+                .collect::<std::collections::BTreeSet<_>>();
+            if expected != supplied || supplied.len() != clocks.len() {
+                return Err(invalid(
+                    "Täydennä kaikki käsikellot; asemavalinta on muuttunut",
+                ));
+            }
+            let mut changed = result.kasikellot_muuttuneet;
+            for &(row, clock) in clocks {
+                let old = result.rivit.iter().find(|r| r.output_index == row).unwrap();
+                if old.clock != clock || !result.kasin_annetut_kellot.contains(&row) {
+                    result.set_clock(row, clock)?;
+                    changed = true;
+                }
+            }
+            if changed {
+                result = application::recalculate_stored_result(project, number, &result)?;
+            }
+            let rate = project
+                .virhepisteet
+                .puuttuva_rt
+                .unwrap_or(crate::scoring::ScoringParameters::default().missing_rt);
+            let points = i64::from(missing_rt)
+                .checked_mul(rate)
+                .ok_or(CoreError::ArithmeticOverflow("RT-pisteet"))?;
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap();
+            driver.lisavirheet.puuttuvat_rt_kpl = missing_rt;
+            driver.lisavirheet.puuttuvat_rt_pisteet = points;
+            driver.lisavirheet.muut_virhepisteet = other;
+            driver.tallennettu_tulos = Some(result);
+            Ok(())
+        })?;
+        self.approve_result(number)
+    }
+
     pub fn recalculate_stored(&mut self, number: u32) -> Result<(), CoreError> {
-        self.update(|project| {
+        self.update_result(|project| {
             let stored = project
                 .kilpailijat
                 .iter()
@@ -407,7 +691,7 @@ impl Workspace {
         field: ResultField,
         value: &str,
     ) -> Result<(), CoreError> {
-        self.update(|project| {
+        self.update_result(|project| {
             let mut result = match project
                 .kilpailijat
                 .iter()
@@ -547,6 +831,29 @@ impl Workspace {
         })
     }
 
+    /// Tallentaa yhdistetyn luokan ja jäsenvalinnat yhtenä validoituna muutoksena.
+    pub fn save_combined_class(
+        &mut self,
+        index: usize,
+        mut group: CombinedClass,
+    ) -> Result<(), CoreError> {
+        self.update(|project| {
+            if index > project.yhdistetyt_luokat.len() || index >= 4 {
+                return Err(invalid("Yhdistetyn luokan järjestysnumero ei kelpaa"));
+            }
+            group.nimi = required(&group.nimi, "Yhdistetyn luokan nimi")?;
+            if group.luokat.is_empty() {
+                return Err(invalid("Valitse vähintään yksi yhdistettävä luokka"));
+            }
+            if index == project.yhdistetyt_luokat.len() {
+                project.yhdistetyt_luokat.push(group);
+            } else {
+                project.yhdistetyt_luokat[index] = group;
+            }
+            Ok(())
+        })
+    }
+
     /// Atominen yhdistetyn luokan muokkaus: nimi | luokat | Np | Sp.
     /// Tyhjä arvo poistaa olemassa olevan ryhmän.
     pub fn edit_combined_class(&mut self, index: usize, value: &str) -> Result<(), CoreError> {
@@ -608,6 +915,11 @@ impl Workspace {
             }
             let new_number = track.numero;
             if field == TrackField::Number {
+                if let Some(bc) = &mut project.beginners_cup
+                    && bc.lahderata == id
+                {
+                    bc.lahderata = new_number;
+                }
                 for class in &mut project.luokat {
                     if class.rata == id {
                         class.rata = new_number;

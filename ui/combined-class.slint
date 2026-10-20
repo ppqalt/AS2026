@@ -1,0 +1,78 @@
+import { Button, CheckBox, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { DrawClassOption } from "types.slint";
+
+export component CombinedClassDialog inherits Rectangle {
+    in property <bool> creating;
+    in-out property <string> name;
+    in property <[DrawClassOption]> classes;
+    in-out property <int> np;
+    in-out property <int> sp;
+    in property <string> error;
+    callback toggle(int, bool);
+    callback close(bool);
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    keys := FocusScope {
+        width: root.width;
+        height: root.height;
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        init => { name-input.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Tab {
+                if save.has-focus && !event.modifiers.shift { name-input.focus(); return accept; }
+                if name-input.has-focus && event.modifiers.shift { save.focus(); return accept; }
+            }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width;
+            available-height: root.height;
+            preferred-dialog-height: 620px;
+            VerticalLayout {
+                padding: Theme.dialog-padding;
+                spacing: Theme.space-3;
+                Heading { text: root.creating ? "Lisää yhdistetty luokka" : "Yhdistetyn luokan tiedot"; vertical-stretch: 0; }
+                body := ScrollView {
+                    min-height: 0px;
+                    vertical-stretch: 1;
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width;
+                    viewport-height: body-content.min-height;
+                    scrolled => { keys.focus(); }
+                    body-content := VerticalLayout {
+                        x: 0px; y: 0px;
+                        width: body.visible-width;
+                        height: self.min-height;
+                        alignment: start;
+                        spacing: Theme.space-3;
+                        Note { text: "Luokan nimi"; }
+                        name-input := LineEdit { text <=> root.name; placeholder-text: "Esimerkiksi A + B"; }
+                        Note { text: "Valitse yhdistettävät luokat. Niiden nykyiset tulokset järjestetään yhteiseen tulosluetteloon. Kilpailijat säilyvät omissa luokissaan."; }
+                        for entry[i] in root.classes: CheckBox {
+                            text: entry.label;
+                            checked: entry.selected;
+                            toggled => { root.toggle(i, self.checked); }
+                        }
+                        Note { text: "Nousupisteet (Np)"; }
+                        ComboBox { model: ["Ei", "Kyllä"]; current-index <=> root.np; }
+                        Note { text: "Sarjapisteet (Sp)"; }
+                        ComboBox {
+                            model: ["Ei", "100 pisteen taulukko", "60 pisteen taulukko", "16 pisteen taulukko", "Oma pistetaulukko", "100 pisteen perintä", "60 pisteen perintä"];
+                            current-index <=> root.sp;
+                        }
+                        if root.sp == 4: Note { text: "Oma pistetaulukko määritetään kilpailun asetuksissa."; }
+                        if root.error != "": Note { text: root.error; color: Theme.danger; }
+                    }
+                }
+                DialogActions {
+                    Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    save := AccentButton { text: root.creating ? "Lisää luokka" : "Tallenna"; clicked => { root.close(true); } }
+                }
+            }
+        }
+    }
+}

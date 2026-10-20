@@ -237,6 +237,29 @@ fn classes(archive: &Archive, view: &mut ViewData) {
             )
         })
         .collect();
+    for (index, group) in archive.basic.combined_classes.iter().enumerate() {
+        let members = archive
+            .basic
+            .classes
+            .iter()
+            .enumerate()
+            .filter(|(member, _)| field(group, member + 4) == "1")
+            .map(|(_, class)| class.code.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        view.rows.push(row(
+            archive.basic.classes.len() + index,
+            vec![
+                format!("Y{}", index + 1),
+                format!("{} · yhdistetty: {members}", field(group, 1)),
+                "-".into(),
+                "-".into(),
+                "-".into(),
+                "-".into(),
+                "-".into(),
+            ],
+        ));
+    }
 }
 
 fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
@@ -296,20 +319,19 @@ fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
 }
 
 fn result_row(
-    ws: &Workspace,
+    project: Option<&as2026::native::Project>,
     archive: &Archive,
     index: usize,
     driver: &Competitor,
     position: String,
 ) -> TableRow {
-    let native = ws.project().and_then(|project| {
+    let native = project.and_then(|project| {
         project
             .kilpailijat
             .iter()
             .find(|d| d.numero == driver.number)
     });
-    let pending = ws
-        .project()
+    let pending = project
         .and_then(|project| {
             project
                 .kilpailijat
@@ -341,7 +363,7 @@ fn result_row(
                 && matches!(driver.status.as_str(), "TRK" | "KESK")
                 && !archive.has_confirmed_interruption(driver.number)
             {
-                "Hyväksymätön esikatselu".into()
+                "Täydennettävä tulos".into()
             } else {
                 status(&driver.status)
             },
@@ -370,6 +392,7 @@ fn results(
     view: &mut ViewData,
     notes: &mut Vec<String>,
 ) -> Result<(), CoreError> {
+    let result_project = ws.result_project()?;
     view.headers = headers(&[
         "Sija",
         "Nro",
@@ -396,8 +419,13 @@ fn results(
                 } else {
                     "-".into()
                 };
-                view.rows
-                    .push(result_row(ws, archive, index, driver, position));
+                view.rows.push(result_row(
+                    result_project.as_ref(),
+                    archive,
+                    index,
+                    driver,
+                    position,
+                ));
             }
         }
     }
@@ -405,8 +433,13 @@ fn results(
         if let Some(index) = source_index.checked_sub(1)
             && let Some(driver) = archive.competitors.get(index)
         {
-            view.rows
-                .push(result_row(ws, archive, index, driver, "-".into()));
+            view.rows.push(result_row(
+                result_project.as_ref(),
+                archive,
+                index,
+                driver,
+                "-".into(),
+            ));
         }
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));
@@ -420,7 +453,7 @@ fn results(
     else {
         return Ok(());
     };
-    let native = ws.project().and_then(|project| {
+    let native = result_project.as_ref().and_then(|project| {
         project
             .kilpailijat
             .iter()
@@ -490,7 +523,7 @@ fn results(
             "Keskeytys odottaa vahvistusta".to_owned()
         }
     } else {
-        ws.project().map_or_else(
+        result_project.as_ref().map_or_else(
             || "AS2015A-aineisto · vain katselu".to_string(),
             |project| {
                 if driver
@@ -500,9 +533,9 @@ fn results(
                     .is_some_and(|card| project.active_readout(card).is_some())
                 {
                     if calculated && snapshot.as_ref().is_some_and(|result| result.hyvaksytty) {
-                        "Tulos hyväksytty".to_owned()
+                        "Tulos valmis".to_owned()
                     } else if calculated {
-                        "Emit-kortti luettu · tulos odottaa hyväksymistä".to_owned()
+                        "Emit-kortti luettu · täydennä ajat ja tulosta tulos".to_owned()
                     } else {
                         "Emit-kortti luettu · tulos vaatii tarkastuksen (katso huomautukset)"
                             .to_owned()
@@ -529,13 +562,13 @@ fn results(
     };
     if interrupted && !interruption_confirmed {
         issues.push(
-            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Vahvista keskeytys.".into(),
+            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Tulosta tulos.".into(),
         );
     }
     if !interrupted && let Some(result) = &snapshot {
         if !pending_clocks.is_empty() {
             issues.push(format!(
-                "Syötä käsikellot asemille {} ja valitse Tutki.",
+                "Täydennä käsikellot asemille {} Tulosta tulos -ikkunassa.",
                 pending_clocks
                     .iter()
                     .map(ToString::to_string)
@@ -565,7 +598,7 @@ fn results(
             && !archive.has_approved_result(driver.number)
             && matches!(driver.status.as_str(), "TRK" | "KESK")
         {
-            "Hyväksymätön esikatselu".into()
+            "Täydennettävä tulos".into()
         } else {
             status(&driver.status).into()
         },
@@ -943,6 +976,24 @@ mod tests {
 
     fn text(row: &TableRow, column: usize) -> String {
         row.cells.row_data(column).unwrap().to_string()
+    }
+
+    #[test]
+    fn combined_class_rows_keep_their_keys_when_filtered() {
+        let fixture = Fixture::new(|project| {
+            project
+                .yhdistetyt_luokat
+                .push(as2026::native::CombinedClass {
+                    nimi: "Yhteistulos".into(),
+                    luokat: vec!["A".into()],
+                    nousupisteet: 0,
+                    sarjapistetapa: 0,
+                });
+        });
+        let view = data(&fixture.workspace, 4, -1, "Yhteistulos").unwrap();
+        assert_eq!(view.rows.len(), 1);
+        assert_eq!(view.rows[0].key, 1);
+        assert!(text(&view.rows[0], 1).contains("yhdistetty: A"));
     }
 
     #[test]

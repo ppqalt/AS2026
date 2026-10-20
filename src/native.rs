@@ -37,6 +37,11 @@ pub struct Project {
     /// Up to four explicit combined result classes from the G08 ranking model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub yhdistetyt_luokat: Vec<CombinedClass>,
+    /// Rinnakkainen BC-tulos samoista kilpailijoista ja alkuperäisistä lukemista.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub beginners_cup: Option<Box<crate::beginners::BeginnersCup>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bc_osallistujat: Vec<crate::beginners::Entry>,
     #[serde(default)]
     pub radat: Vec<Track>,
     #[serde(default)]
@@ -300,7 +305,7 @@ impl AdditionalPenalties {
             && self.muut_virhepisteet == 0
     }
 
-    fn validate(&self) -> Result<(), CoreError> {
+    pub(crate) fn validate(&self) -> Result<(), CoreError> {
         if self.puuttuvat_rt_pisteet < 0
             || self.ylimaaraiset_rt_pisteet < 0
             || self.muut_virhepisteet < 0
@@ -369,6 +374,7 @@ impl Project {
     }
 
     pub fn into_archive(self) -> Result<Archive, CoreError> {
+        crate::beginners::validate(&self)?;
         if self.versio != 1 {
             return Err(invalid("Kilpailutiedoston versiota ei tueta (tuettu: 1)"));
         }
@@ -683,6 +689,8 @@ impl Project {
             virhepisteet: Overrides::default(),
             sarjapisteet: Vec::new(),
             yhdistetyt_luokat: Vec::new(),
+            beginners_cup: None,
+            bc_osallistujat: Vec::new(),
             luokat: vec![Class {
                 tunnus: "H".into(),
                 nimi: "Harjoitus".into(),

@@ -1,6 +1,27 @@
 //! Oikean GUI-sovittimen laitteeton työnkulkukoe erillisessä esimerkkikopiossa.
 use super::*;
 
+// Aiemmat työnkulkukokeet jatkavat asemakorjausten testaamista sulkemalla
+// automaattisen syöttöikkunan. Uusi tulostuskoe käyttää oikeaa tapahtumaa.
+fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool {
+    app.set_result_entry_open(false);
+    state.entry_number = None;
+    let result = super::handle_event(state, app, event);
+    app.set_result_entry_open(false);
+    state.entry_number = None;
+    result
+}
+fn print_current(app: &AppWindow) {
+    app.invoke_approve_results();
+    assert!(app.get_result_entry_open(), "{}", app.get_status_text());
+    app.invoke_result_entry_close(true);
+    assert!(
+        !app.get_result_entry_open(),
+        "{}",
+        app.get_result_entry_error()
+    );
+}
+
 pub fn key(app: &AppWindow, text: impl Into<SharedString>) {
     let text = text.into();
     app.window()
@@ -42,7 +63,10 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
             ws.project().ok_or("Muokattava esimerkki puuttuu")?.clone(),
         )
     };
+    combined_classes(app, state, &path, &original)?;
+    beginners_cup(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
+    result_entry_and_printing(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
     {
@@ -345,7 +369,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     );
     app.invoke_select_detail(1);
     assert!(app.invoke_field_commit(101, "-75".into()));
-    app.invoke_approve_results();
+    print_current(app);
     assert!(
         ProjectStore::open(&path)?.project().kilpailijat[0]
             .tallennettu_tulos
@@ -385,6 +409,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     assert!(state.borrow().pending_result.is_some());
     assert!(app.invoke_field_commit(1, "Keskeneräinen nimi".into()));
     follow_pending_result(&mut state.borrow_mut(), app)?;
+    app.invoke_result_entry_close(false);
     assert_eq!(app.get_page(), 3);
     assert_eq!(selected_number(&state.borrow())?, 7);
     assert!(
@@ -617,9 +642,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     app.invoke_navigate(3);
     app.invoke_select_row(0);
     assert!(app.get_result_approvable());
-    app.invoke_approve_results();
-    assert!(app.get_confirm_open());
-    app.invoke_confirm_action(true);
+    print_current(app);
     let interrupted = ProjectStore::open(&draft_directory.join(native::FILE_NAME))?;
     assert!(interrupted.project().kilpailijat[0].has_confirmed_interruption());
     assert!(
@@ -668,6 +691,179 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn beginners_cup(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = original_path.parent().unwrap().join("beginners-cup");
+    let mut fixture = original.clone();
+    let mut second = fixture.kilpailijat[0].clone();
+    second.numero = 9;
+    second.emit = 654321;
+    second.kuljettaja = "BC-koekilpailija".into();
+    fixture.kilpailijat.push(second);
+    let mut read = fixture.leimaluvut[0].clone();
+    read.emit = 654321;
+    fixture.leimaluvut.push(read);
+    let ws = Workspace::create_imported(&directory, fixture.clone())?;
+    let path = ws.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(4);
+    app.invoke_configure_bc();
+    assert!(app.get_bc_open());
+    app.invoke_bc_station_toggled(1, false);
+    app.invoke_bc_participant_toggled(1, true);
+    app.invoke_bc_close(true);
+    assert!(!app.get_bc_open(), "{}", app.get_bc_error());
+    assert!(app.get_bc_configured());
+    let stored = ProjectStore::open(&path)?;
+    assert_eq!(
+        stored
+            .project()
+            .beginners_cup
+            .as_ref()
+            .unwrap()
+            .mukana_asemat,
+        [1, 3, 4]
+    );
+    assert_eq!(stored.project().kilpailijat, fixture.kilpailijat);
+    assert_eq!(stored.project().leimaluvut, fixture.leimaluvut);
+    app.invoke_navigate(1);
+    app.invoke_select_row(1);
+    assert!(app.get_fields().iter().any(|field| field.key == 17));
+    assert!(app.invoke_field_commit(17, "0".into()));
+    assert!(!ProjectStore::open(&path)?.project().bc_osallistujat[0].osallistuu);
+    assert!(app.invoke_field_commit(17, "1".into()));
+    assert!(ProjectStore::open(&path)?.project().bc_osallistujat[0].osallistuu);
+    app.invoke_navigate(3);
+    app.invoke_result_scope(true);
+    assert!(app.get_bc_results());
+    assert_eq!(selected_number(&state.borrow())?, 9);
+    app.invoke_edit_result_competitor();
+    assert!(
+        app.get_fields()
+            .iter()
+            .all(|f| matches!(f.key, 8 | 9 | 10 | 13 | 14))
+    );
+    assert!(app.invoke_field_commit(10, "77".into()));
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(
+        saved.project().bc_osallistujat[0]
+            .lisavirheet
+            .muut_virhepisteet,
+        77
+    );
+    assert_eq!(
+        saved.project().kilpailijat[0].lisavirheet,
+        original.kilpailijat[0].lisavirheet
+    );
+    assert_eq!(
+        saved.project().kilpailijat[1].lisavirheet,
+        fixture.kilpailijat[1].lisavirheet
+    );
+    let archive = state.borrow().workspace.as_ref().unwrap().results()?;
+    let finish = archive.competitors[0]
+        .results
+        .iter()
+        .position(|r| r.station_type == "M")
+        .unwrap();
+    app.invoke_select_detail(finish as i32);
+    assert!(app.invoke_field_commit(100, "12:11:00".into()));
+    app.invoke_examine_results();
+    assert!(app.get_result_approvable(), "{}", app.get_status_text());
+    print_current(app);
+    let saved = ProjectStore::open(&path)?;
+    assert!(
+        saved.project().bc_osallistujat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .hyvaksytty
+    );
+    assert_eq!(
+        saved.project().kilpailijat[0].tallennettu_tulos,
+        original.kilpailijat[0].tallennettu_tulos
+    );
+    app.invoke_result_scope(false);
+    assert!(!app.get_bc_results());
+    assert_eq!(selected_number(&state.borrow())?, 9);
+    assert_eq!(
+        ProjectStore::open(&path)?.project().leimaluvut,
+        fixture.leimaluvut
+    );
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!("GUI-BC-koe: asemat, osallistuja, erilliset virheet, käsimaali ja hyväksyntä.");
+    Ok(())
+}
+
+fn combined_classes(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = original_path.parent().unwrap().join("yhdistetty-luokka");
+    let mut project = original.clone();
+    let mut second = project.luokat[0].clone();
+    second.tunnus = "B".into();
+    second.nimi = "Toinen luokka".into();
+    project.luokat.push(second);
+    let ws = Workspace::create_imported(&directory, project)?;
+    let path = ws.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(4);
+    app.invoke_add_combined_class();
+    assert!(app.get_combined_open());
+    app.invoke_combined_class_toggled(0, true);
+    app.invoke_combined_close(true);
+    assert!(
+        app.get_combined_open(),
+        "Puuttuva nimi jättää lomakkeen auki"
+    );
+    assert!(!app.get_combined_error().is_empty());
+    assert!(
+        ProjectStore::open(&path)?
+            .project()
+            .yhdistetyt_luokat
+            .is_empty()
+    );
+    app.set_combined_name("Yhteistulos".into());
+    app.invoke_combined_class_toggled(1, true);
+    app.invoke_combined_close(true);
+    assert!(!app.get_combined_open(), "{}", app.get_combined_error());
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(saved.project().yhdistetyt_luokat[0].luokat, ["A", "B"]);
+    assert_eq!(saved.project().kilpailijat, original.kilpailijat);
+    assert_eq!(saved.project().leimaluvut, original.leimaluvut);
+    app.invoke_filter_changed("Yhteistulos".into());
+    assert_eq!(app.get_rows().row_count(), 1);
+    let key = app.get_rows().row_data(0).unwrap().key;
+    app.invoke_select_row(key);
+    assert!(app.get_combined_open());
+    assert!(!app.get_combined_creating());
+    app.set_combined_name("Peruttu nimi".into());
+    app.invoke_combined_class_toggled(0, false);
+    app.invoke_combined_close(false);
+    assert_eq!(ProjectStore::open(&path)?.project(), saved.project());
+    app.invoke_select_row(key);
+    assert_eq!(app.get_combined_name(), "Yhteistulos");
+    assert!(app.get_combined_classes().row_data(0).unwrap().selected);
+    app.set_combined_name("Uusi yhteistulos".into());
+    app.invoke_combined_class_toggled(0, false);
+    app.invoke_combined_close(true);
+    let changed = ProjectStore::open(&path)?;
+    assert_eq!(
+        changed.project().yhdistetyt_luokat[0].nimi,
+        "Uusi yhteistulos"
+    );
+    assert_eq!(changed.project().yhdistetyt_luokat[0].luokat, ["B"]);
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!("GUI-yhdistetyn luokan koe: luonti, validointi, haku, peruutus ja muokkaus.");
+    Ok(())
 }
 
 fn automatic_preparation(
@@ -957,7 +1153,7 @@ fn finish_imported_race(
     )?;
     assert!(!report::ranking_html(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
     assert!(!report::ranking_csv(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
-    app.invoke_approve_results();
+    print_current(app);
     let approved = ProjectStore::open(&path)?.project().kilpailijat[0].clone();
     assert!(approved.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
     assert_eq!(approved.lisavirheet.puuttuvat_rt_pisteet, 1800);
@@ -979,6 +1175,7 @@ fn finish_imported_race(
     assert!(state.borrow().pending_result.is_some());
     assert!(app.invoke_route_field_commit(1, "Elinkaarikokeen rata".into()));
     follow_pending_result(&mut state.borrow_mut(), app)?;
+    app.invoke_result_entry_close(false);
     assert_eq!(app.get_page(), 3);
     assert_eq!(
         ProjectStore::open(&path)?.project().kilpailijat[0].tallennettu_tulos,
@@ -996,7 +1193,7 @@ fn finish_imported_race(
     );
     assert_eq!(selected_number(&state.borrow())?, 2);
     complete_manual_station(app, state, 2, "18:35:05")?;
-    app.invoke_approve_results();
+    print_current(app);
     let store = ProjectStore::open(&path)?;
     assert!(
         store.project().kilpailijat.iter().all(|d| d
@@ -1082,5 +1279,125 @@ fn complete_manual_station(
     assert!(app.invoke_field_commit(100, clock.into()));
     app.invoke_examine_results();
     assert!(app.get_result_approvable(), "{}", app.get_status_text());
+    Ok(())
+}
+
+pub fn prepare_print_entry(
+    app: &AppWindow,
+    state: &SharedState,
+    parent: &Path,
+    original: &Project,
+    suffix: &str,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut p = original.clone();
+    p.leimaluvut.clear();
+    p.beginners_cup = None;
+    p.bc_osallistujat.clear();
+    p.yhdistetyt_luokat.clear();
+    p.kilpailijat.truncate(1);
+    let driver = &mut p.kilpailijat[0];
+    driver.numero = 7;
+    driver.emit = 123456;
+    driver.lahtoaika = "12:00:00".into();
+    driver.emit_korjaus_sekuntia = 0;
+    driver.tallennettu_tulos = None;
+    driver.lisavirheet = Default::default();
+    driver.tila = None;
+    let route = p
+        .luokat
+        .iter()
+        .find(|c| c.tunnus == driver.luokka)
+        .unwrap()
+        .rata;
+    let stations = &mut p
+        .radat
+        .iter_mut()
+        .find(|r| r.numero == route)
+        .unwrap()
+        .asemat;
+    let mut at = stations[0].clone();
+    at.tyyppi = "AT".into();
+    at.nimi = "AT käsikello".into();
+    at.emit_koodi = 0;
+    at.tavoiteaika_sekuntia = 300;
+    let mut jat = at.clone();
+    jat.tyyppi = "JAT".into();
+    jat.nimi = "JAT käsikello".into();
+    jat.tavoiteaika_sekuntia = 480;
+    jat.jakso_minuutteina = Some(8);
+    let mut finish = at.clone();
+    finish.tyyppi = "M".into();
+    finish.nimi = "Maali".into();
+    finish.emit_koodi = 100;
+    finish.tavoiteaika_sekuntia = 180;
+    finish.jakso_minuutteina = Some(3);
+    *stations = vec![stations[0].clone(), at, jat, finish];
+    let directory = parent.join(suffix);
+    let workspace = Workspace::create_imported(&directory, p)?;
+    let path = workspace.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    super::handle_event(
+        &mut state.borrow_mut(),
+        app,
+        ReaderEvent::Frame {
+            frame: Box::new(synthetic_frame(123456, &[(0, 120), (100, 780), (250, 840)])),
+            read_clock: ClockTime::new(12, 12, 0)?,
+        },
+    );
+    assert!(app.get_result_entry_open(), "{}", app.get_status_text());
+    assert_eq!(app.get_result_entry_fields().row_count(), 4);
+    Ok(path)
+}
+fn result_entry_and_printing(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = prepare_print_entry(
+        app,
+        state,
+        original_path.parent().unwrap(),
+        original,
+        "tulostuksen-syotto",
+    )?;
+    let fields = app.get_result_entry_fields();
+    let first = fields.row_data(0).unwrap().key;
+    app.invoke_result_entry_edited(first, "24:00:00".into());
+    app.invoke_result_entry_close(true);
+    assert!(app.get_result_entry_open());
+    assert!(!app.get_result_entry_error().is_empty());
+    for (i, value) in ["12:05:00", "12:08:00", "3", "25"].iter().enumerate() {
+        app.invoke_result_entry_edited(fields.row_data(i).unwrap().key, (*value).into());
+    }
+    app.invoke_result_entry_close(true);
+    assert!(
+        !app.get_result_entry_open(),
+        "{}",
+        app.get_result_entry_error()
+    );
+    let stored = ProjectStore::open(&path)?;
+    let driver = &stored.project().kilpailijat[0];
+    assert!(driver.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
+    assert_eq!(driver.lisavirheet.puuttuvat_rt_pisteet, 1800);
+    assert_eq!(driver.lisavirheet.muut_virhepisteet, 25);
+    assert_eq!(state.borrow().last_print.as_ref().unwrap().pages.len(), 1);
+    app.invoke_open_print_classes(true);
+    assert!(app.get_print_classes_open());
+    assert!(app.get_print_landscape());
+    assert!(app.get_print_fit());
+    for i in 0..app.get_print_classes().row_count() {
+        app.invoke_print_class_toggled(i as i32, false);
+    }
+    app.invoke_print_classes_close(true);
+    assert!(!app.get_print_error().is_empty());
+    app.invoke_print_class_toggled(0, true);
+    app.invoke_print_classes_close(true);
+    assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
+    assert!(state.borrow().last_print.as_ref().unwrap().landscape);
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!(
+        "GUI-tulostuskoe: kortinluvun syöttöikkuna, aikavalidointi, automaattilaskenta, RT/muut pisteet, luokkavalinta ja asematuloste ilman fyysistä tulostusta."
+    );
     Ok(())
 }

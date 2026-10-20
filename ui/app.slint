@@ -1,10 +1,16 @@
 import { Button, LineEdit, Palette, AboutSlint, ScrollView, ComboBox, CheckBox } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { TableRow, EditorField, ResultOverview, DrawClassOption } from "types.slint";
+import { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption } from "types.slint";
 import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton, DialogSurface, DialogActions, Workspace } from "components.slint";
 import { ResultSummary } from "results.slint";
 import { DrawClassDialog } from "draw-classes.slint";
-export { TableRow, EditorField, ResultOverview, DrawClassOption }
+import { CombinedClassDialog } from "combined-class.slint";
+import { BeginnersCupDialog } from "beginners-cup.slint";
+import { ResultEntryDialog } from "result-entry.slint";
+import { PrintClassesDialog } from "print-classes.slint";
+import { ResultEntryInput } from "types.slint";
+export { ResultEntryInput }
+export { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption }
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
@@ -63,6 +69,29 @@ export component AppWindow inherits Window {
     in-out property <ResultOverview> result-overview;
     in-out property <string> app-version;
     in-out property <string> default-root;
+    in-out property <[string]> printers;
+    in-out property <int> printer-index;
+    in-out property <string> printer-name: "Käyttöjärjestelmän oletus";
+    callback refresh-printers();
+    callback select-printer(int);
+    in-out property <bool> print-busy;
+    in-out property <bool> result-entry-open;
+    in-out property <string> result-entry-identity;
+    in-out property <[ResultEntryInput]> result-entry-fields;
+    in-out property <string> result-entry-error;
+    in-out property <int> result-entry-focus;
+    callback result-entry-edited(int, string);
+    callback result-entry-close(bool);
+    callback result-entry-save();
+    in-out property <bool> print-classes-open;
+    in-out property <bool> print-stations;
+    in-out property <[DrawClassOption]> print-classes;
+    in-out property <bool> print-landscape;
+    in-out property <bool> print-fit: true;
+    in-out property <string> print-error;
+    callback open-print-classes(bool);
+    callback print-class-toggled(int, bool);
+    callback print-classes-close(bool);
     in-out property <string> update-status: "Päivityksiä ei ole tarkistettu.";
     in-out property <string> available-version;
     in-out property <bool> update-busy;
@@ -93,7 +122,7 @@ export component AppWindow inherits Window {
     callback navigate(int);
     callback focus-page();
     focus-page => {
-        if !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.status-details-open && !root.setup-open && !root.install-busy {
+        if !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
             keyboard.focus();
         }
     }
@@ -102,6 +131,8 @@ export component AppWindow inherits Window {
     changed about-open => { if !root.about-open { root.focus-page(); } }
     changed confirm-open => { if !root.confirm-open { root.focus-page(); } }
     changed draw-classes-open => { if !root.draw-classes-open { root.focus-page(); } }
+    changed bc-open => { if !root.bc-open { root.focus-page(); } }
+    changed combined-open => { if !root.combined-open { root.focus-page(); } }
     changed status-details-open => { if !root.status-details-open { root.focus-page(); } }
     changed setup-open => { if !root.setup-open { root.focus-page(); } }
     callback open-file();
@@ -188,6 +219,33 @@ export component AppWindow inherits Window {
     callback draw-class-toggled(int, bool);
     callback draw-classes-all(bool);
     callback draw-classes-close(bool);
+    in-out property <bool> combined-open;
+    in-out property <bool> combined-creating;
+    in-out property <int> combined-index;
+    in-out property <string> combined-name;
+    in-out property <[DrawClassOption]> combined-classes;
+    in-out property <int> combined-np;
+    in-out property <int> combined-sp;
+    in-out property <string> combined-error;
+    callback add-combined-class();
+    callback combined-class-toggled(int, bool);
+    callback combined-close(bool);
+    in-out property <bool> bc-open;
+    in-out property <bool> bc-configured;
+    in-out property <string> bc-name;
+    in-out property <string> bc-code;
+    in-out property <[string]> bc-routes;
+    in-out property <int> bc-route;
+    in-out property <[BcStationOption]> bc-stations;
+    in-out property <[DrawClassOption]> bc-participants;
+    in-out property <string> bc-error;
+    in-out property <bool> bc-results;
+    callback configure-bc();
+    callback bc-route-selected(int);
+    callback bc-station-toggled(int, bool);
+    callback bc-participant-toggled(int, bool);
+    callback bc-close(bool);
+    callback result-scope(bool);
     callback export-starts();
     in-out property <bool> result-stored;
     in-out property <bool> examine-supported;
@@ -206,12 +264,20 @@ export component AppWindow inherits Window {
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
+            if root.result-entry-open { root.result-entry-close(false); return accept; }
+            if root.print-classes-open { root.print-classes-close(false); return accept; }
             if root.notes-open { root.notes-open = false; return accept; }
             if root.setup-open {
                 root.setup-open = false;
                 return accept;
             } else if root.status-details-open {
                 root.status-details-open = false;
+                return accept;
+            } else if root.combined-open {
+                root.combined-close(false);
+                return accept;
+            } else if root.bc-open {
+                root.bc-close(false);
                 return accept;
             } else if root.draw-classes-open {
                 root.draw-classes-close(false);
@@ -230,7 +296,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -493,6 +559,8 @@ export component AppWindow inherits Window {
                         spacing: Theme.space-3;
                         search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla" : root.page == 3 ? "Hae kilpailijaa tai luokkaa" : "Hae luettelosta"; edited => { root.filter-changed(self.text); } }
                         if root.page != 3: AccentButton { height: Theme.control-height; text: root.page == 1 ? "+ Lisää kilpailija" : root.page == 4 ? "+ Lisää luokka" : "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); data-workspace.show-details = true; } }
+                        if root.page == 4: Button { text: "Lisää yhdistetty luokka"; enabled: root.editable; clicked => { root.add-combined-class(); } }
+                        if root.page == 4: Button { text: "Beginners Cup"; enabled: root.editable; clicked => { root.configure-bc(); } }
                         if root.page == 3: Rectangle {
                             width: 116px; height: Theme.control-height;
                             Button { width: 100%; height: 100%; text: "Vie tulokset"; clicked => { root.show-export-menu(); } }
@@ -509,13 +577,24 @@ export component AppWindow inherits Window {
                             AccentButton { text: "Arvo lähtöajat"; enabled: root.editable; clicked => { root.draw-starts(); } }
                         }
                     }
+                    if root.page == 3 && root.bc-configured: HorizontalLayout {
+                        alignment: start; vertical-stretch: 0; spacing: Theme.space-2;
+                        Button { text: "NAC / perusluokat"; enabled: root.bc-results; clicked => { root.result-scope(false); } }
+                        Button { text: "Beginners Cup"; enabled: !root.bc-results; clicked => { root.result-scope(true); } }
+                        Note { text: root.bc-results ? "BC:n virhepisteet ja tulosteet" : "Perusluokkien virhepisteet ja tulosteet"; }
+                    }
+                    if root.page == 3: HorizontalLayout {
+                        alignment: start; vertical-stretch: 0;
+                        spacing: Theme.space-2;
+                        Button { text: "Tulosta luokkatulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(false); } }
+                        Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); } }
+                    }
                     if root.page == 3: HorizontalLayout {
                         alignment: start; vertical-stretch: 0;
                         spacing: Theme.space-2;
                         AccentButton { text: "Tarkista"; enabled: root.editable && root.selected-key >= 0; clicked => { root.review-results(); } }
                         Button { text: "Tutki"; enabled: root.editable && root.result-stored && root.examine-supported; clicked => { root.examine-results(); } }
                         if root.calculation-notes != "": Button { text: "Huomautukset (" + root.calculation-note-count + ")"; clicked => { root.notes-open = true; } }
-                        if root.clock-pending: Note { horizontal-stretch: 1; text: root.clock-pending ? "Täydennä käsikellot. Tutki laskee pisteet uudelleen." : "Valitse asemarivi muokataksesi kelloa ja pisteitä."; }
                     }
                     data-workspace := Workspace {
                         horizontal-stretch: 1; vertical-stretch: 1;
@@ -807,6 +886,10 @@ export component AppWindow inherits Window {
                                         Rectangle { horizontal-stretch: 1; }
                                     }
                                     Note { text: "Sijainnin vaihtaminen koskee uusia kilpailuja. Aiemmat kilpailut säilyvät paikoillaan."; }
+                                    Text { text: "Tulostin"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                    ComboBox { model: root.printers; current-index <=> root.printer-index; selected => { root.select-printer(self.current-index); } }
+                                    Button { text: "Päivitä tulostinluettelo"; clicked => { root.refresh-printers(); } }
+                                    Note { text: "Valinta koskee kilpailijaparin tulosta sekä luokka- ja asematuloksia. Tyhjä oletus käyttää käyttöjärjestelmän oletustulostinta."; }
                                 }
                             }
                     }
@@ -1119,5 +1202,43 @@ export component AppWindow inherits Window {
         toggle(index, selected) => { root.draw-class-toggled(index, selected); }
         select-all(selected) => { root.draw-classes-all(selected); }
         close(accepted) => { root.draw-classes-close(accepted); }
+    }
+    if root.combined-open: CombinedClassDialog {
+        width: root.width; height: root.height;
+        creating: root.combined-creating;
+        name <=> root.combined-name;
+        classes: root.combined-classes;
+        np <=> root.combined-np;
+        sp <=> root.combined-sp;
+        error: root.combined-error;
+        toggle(index, selected) => { root.combined-class-toggled(index, selected); }
+        close(accepted) => { root.combined-close(accepted); }
+    }
+    if root.bc-open: BeginnersCupDialog {
+        width: root.width; height: root.height;
+        name <=> root.bc-name; code <=> root.bc-code;
+        routes: root.bc-routes; route <=> root.bc-route;
+        stations: root.bc-stations; participants: root.bc-participants;
+        error: root.bc-error;
+        route-selected(index) => { root.bc-route-selected(index); }
+        station-toggled(index, selected) => { root.bc-station-toggled(index, selected); }
+        participant-toggled(index, selected) => { root.bc-participant-toggled(index, selected); }
+        close(accepted) => { root.bc-close(accepted); }
+    }
+    if root.result-entry-open: ResultEntryDialog {
+        width: root.width; height: root.height;
+        identity: root.result-entry-identity; fields: root.result-entry-fields;
+        error: root.result-entry-error; focus-index <=> root.result-entry-focus;
+        edited(key, value) => { root.result-entry-edited(key, value); }
+        close(accepted) => { root.result-entry-close(accepted); }
+        save => { root.result-entry-save(); }
+    }
+    if root.print-classes-open: PrintClassesDialog {
+        width: root.width; height: root.height;
+        stations: root.print-stations; classes: root.print-classes;
+        landscape <=> root.print-landscape; fit <=> root.print-fit;
+        printer: root.printer-name; error: root.print-error;
+        toggle(index, selected) => { root.print-class-toggled(index, selected); }
+        close(accepted) => { root.print-classes-close(accepted); }
     }
 }

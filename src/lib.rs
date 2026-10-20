@@ -4,6 +4,7 @@
 //! Alkuperäisellä ohjelmalla tehtävää vertailua ei ole suoritettu.
 
 pub mod application;
+pub mod beginners;
 pub mod changes;
 pub mod corrections;
 pub mod emit;
@@ -229,6 +230,7 @@ pub struct MatchedRow {
 }
 
 pub mod native;
+pub mod printing;
 pub mod storage;
 
 pub mod terminal;

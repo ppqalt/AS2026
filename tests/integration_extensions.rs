@@ -2,7 +2,7 @@
 use as2026::{
     ClockTime, MatchKind, Punch, RouteStation, Rule, StationKind, application, live_report,
     matching,
-    native::Project,
+    native::{self, Project},
     ranking::TiePolicy,
     report,
     scoring::ScoringParameters,
@@ -64,6 +64,55 @@ fn stamped_finish_ignores_later_extras_for_finish_clock_and_keeps_extras() {
             .iter()
             .any(|diagnostic| diagnostic.code == "post-finish-extras-as2026-policy")
     );
+}
+
+#[test]
+fn combined_class_selection_is_validated_and_saved_atomically() {
+    let directory = std::env::temp_dir().join(format!(
+        "as2026-combined-selection-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut workspace = as2026::workspace::Workspace::create(&directory, "Valinnat").unwrap();
+    let group = native::CombinedClass {
+        nimi: "  Yhteinen tulos  ".into(),
+        luokat: vec!["H".into()],
+        nousupisteet: 0,
+        sarjapistetapa: 0,
+    };
+    workspace.save_combined_class(0, group.clone()).unwrap();
+    assert_eq!(
+        workspace.project().unwrap().yhdistetyt_luokat[0].nimi,
+        "Yhteinen tulos"
+    );
+    let before = workspace.project().unwrap().clone();
+    let content = std::fs::read(workspace.path()).unwrap();
+    for members in [
+        vec![],
+        vec!["Tuntematon".into()],
+        vec!["H".into(), "H".into()],
+    ] {
+        let mut invalid = group.clone();
+        invalid.luokat = members;
+        assert!(workspace.save_combined_class(0, invalid).is_err());
+        assert_eq!(workspace.project().unwrap(), &before);
+        assert_eq!(std::fs::read(workspace.path()).unwrap(), content);
+    }
+    assert!(workspace.save_combined_class(2, group.clone()).is_err());
+    let mut renamed = group.clone();
+    renamed.nimi = "Uusi nimi".into();
+    workspace.save_combined_class(0, renamed).unwrap();
+    assert_eq!(
+        workspace.project(),
+        as2026::workspace::Workspace::open(&directory)
+            .unwrap()
+            .project()
+    );
+    assert_eq!(workspace.project().unwrap().luokat, before.luokat);
+    assert_eq!(workspace.project().unwrap().kilpailijat, before.kilpailijat);
+    drop(workspace);
+    std::fs::remove_dir_all(directory).unwrap();
 }
 
 #[test]
