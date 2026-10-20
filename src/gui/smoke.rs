@@ -4,6 +4,8 @@ use super::*;
 // Aiemmat työnkulkukokeet jatkavat asemakorjausten testaamista sulkemalla
 // automaattisen syöttöikkunan. Uusi tulostuskoe käyttää oikeaa tapahtumaa.
 fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool {
+    app.set_result_entry_open(false);
+    state.entry_number = None;
     let result = super::handle_event(state, app, event);
     app.set_result_entry_open(false);
     state.entry_number = None;

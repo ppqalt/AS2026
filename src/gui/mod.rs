@@ -2469,7 +2469,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 88 } else { 24 } {
+        if current >= if keyboard_test { 103 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -2729,6 +2729,32 @@ fn capture_views(
                     assert!(!app.get_bc_open());
                     println!("GUI-luokkakoe: 900 × 600, yhdistetyn luokan Tab/Space/Esc sekä BC:n vieritys ja Esc.");
                 }
+                88 => {
+                    let (parent, original) = {
+                        let s = state.borrow(); let ws = s.workspace.as_ref().unwrap();
+                        (ws.path().parent().unwrap().to_owned(), ws.project().unwrap().clone())
+                    };
+                    smoke::prepare_print_entry(&app, &state, &parent, &original, "nappaimisto-tulostus").unwrap();
+                }
+                89 => save_view(&app, &directory.join("33-aikojen-taydennys.png")).unwrap(),
+                90 => smoke::key(&app, "12:05:00"),
+                91 | 93 | 95 | 97 => smoke::key(&app, slint::platform::Key::Tab),
+                92 => smoke::key(&app, "12:08:00"),
+                94 => smoke::key(&app, "3"),
+                96 => smoke::key(&app, "25"),
+                98 => smoke::key(&app, slint::platform::Key::Return),
+                99 => {
+                    assert!(!app.get_result_entry_open(), "{}", app.get_result_entry_error());
+                    let s = state.borrow(); let d = &s.workspace.as_ref().unwrap().project().unwrap().kilpailijat[0];
+                    assert!(d.tallennettu_tulos.as_ref().unwrap().hyvaksytty);
+                    assert_eq!(d.lisavirheet.puuttuvat_rt_kpl, 3);
+                    assert_eq!(d.lisavirheet.muut_virhepisteet, 25);
+                    assert!(s.last_print.is_some());
+                    println!("GUI-tulostuksen näppäimistökoe: AT → JAT → RT → muut → Tulosta, ilman erillistä hyväksymistä tai fyysistä tulostusta.");
+                }
+                100 => app.invoke_open_print_classes(true),
+                101 => save_view(&app, &directory.join("34-asematulosten-luokkavalinta.png")).unwrap(),
+                102 => { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_print_classes_open()); }
                 _ => {}
             }
             *phase.borrow_mut() += 1;

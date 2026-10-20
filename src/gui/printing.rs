@@ -111,11 +111,12 @@ fn queue(state: &mut State, app: &AppWindow, document: Document) -> GuiResult<()
     app.set_print_busy(true);
     let result = std::thread::Builder::new().name("as2026-tulostus".into()).spawn(move || {
         let result = printing::submit(&document,&printer);
+        let title = document.title;
         let _ = weak.upgrade_in_event_loop(move |app| {
             app.set_print_busy(false);
             match result {
-                Ok(()) => status(&app,"Tulostustyö lähetetty tulostusjonoon.",false),
-                Err(error) => status(&app,format!("{error}\nAjat ja virhepisteet ovat tallessa. Tarkista tulostin asetuksista ja tulosta uudelleen."),true),
+                Ok(()) => status(&app,format!("{title}: tulostustyö lähetetty tulostusjonoon."),false),
+                Err(error) => status(&app,format!("{title}: {error}\nAjat ja virhepisteet ovat tallessa. Tarkista tulostin asetuksista ja tulosta uudelleen."),true),
             }
         });
     });

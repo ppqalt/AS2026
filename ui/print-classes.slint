@@ -26,9 +26,11 @@ export component PrintClassesDialog inherits Rectangle {
                 padding: Theme.dialog-padding; spacing: Theme.space-3;
                 Heading { text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; vertical-stretch: 0; }
                 Note { text: "Valitse yksi tai useampi luokka. Jokainen luokka aloittaa oman sivun."; vertical-stretch: 0; }
-                ScrollView {
+                body := ScrollView {
                     min-height: 0px; horizontal-scrollbar-policy: always-off; viewport-width: self.visible-width;
-                    VerticalLayout {
+                    viewport-height: entries.min-height;
+                    entries := VerticalLayout {
+                        x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
                         alignment: start; spacing: Theme.space-2;
                         for item[i] in root.classes: CheckBox {
                             text: item.label; checked: item.selected;

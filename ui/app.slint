@@ -578,13 +578,17 @@ export component AppWindow inherits Window {
                         alignment: start; vertical-stretch: 0; spacing: Theme.space-2;
                         Button { text: "NAC / perusluokat"; enabled: root.bc-results; clicked => { root.result-scope(false); } }
                         Button { text: "Beginners Cup"; enabled: !root.bc-results; clicked => { root.result-scope(true); } }
-                        Note { text: root.bc-results ? "BC:n virhepisteet ja hyväksynnät" : "Perusluokkien virhepisteet ja hyväksynnät"; }
+                        Note { text: root.bc-results ? "BC:n virhepisteet ja tulosteet" : "Perusluokkien virhepisteet ja tulosteet"; }
                     }
                     if root.page == 3: HorizontalLayout {
                         alignment: start; vertical-stretch: 0;
                         spacing: Theme.space-2;
                         Button { text: "Tulosta luokkatulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(false); } }
                         Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); } }
+                    }
+                    if root.page == 3: HorizontalLayout {
+                        alignment: start; vertical-stretch: 0;
+                        spacing: Theme.space-2;
                         AccentButton { text: "Tarkista"; enabled: root.editable && root.selected-key >= 0; clicked => { root.review-results(); } }
                         Button { text: "Tutki"; enabled: root.editable && root.result-stored && root.examine-supported; clicked => { root.examine-results(); } }
                         if root.calculation-notes != "": Button { text: "Huomautukset (" + root.calculation-note-count + ")"; clicked => { root.notes-open = true; } }

@@ -369,9 +369,7 @@ pub fn classes(
                 publication
                     .competitors
                     .iter()
-                    .find(|d| {
-                        i64::from(d.number) == entry.number && archive.can_publish_competitor(d)
-                    })
+                    .find(|d| i64::from(d.number) == entry.number)
                     .map(|d| (entry, d))
             })
             .collect::<Vec<_>>();
@@ -419,7 +417,7 @@ pub fn classes(
                 let total = if classified {
                     d.total_penalties.to_string()
                 } else {
-                    d.status.clone()
+                    entry.status.as_legacy().to_owned()
                 };
                 if kind == Kind::Classes {
                     row.extend([
@@ -656,7 +654,10 @@ pub fn submit(document: &Document, printer: &str) -> Result<(), String> {
         if !printer.is_empty() {
             command.arg("-d").arg(printer);
         }
-        command.args(["-t", &document.title]).arg(&path).output()
+        command
+            .args(["-o", "media=A4", "-o", "fit-to-page", "-t", &document.title])
+            .arg(&path)
+            .output()
     };
     let output =
         output.map_err(|e| format!("Tulostusta ei voitu käynnistää: {}", crate::io_message(&e)))?;
