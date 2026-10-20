@@ -13,6 +13,10 @@ export component PrintClassesDialog inherits Rectangle {
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
+    Timer {
+        interval: 1ms; running: true;
+        triggered => { self.running = false; cancel.focus(); }
+    }
     FocusScope {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {
@@ -43,7 +47,7 @@ export component PrintClassesDialog inherits Rectangle {
                 Note { text: "Tulostin: " + root.printer; vertical-stretch: 0; }
                 if root.error != "": Note { text: root.error; color: Theme.danger; vertical-stretch: 0; }
                 DialogActions {
-                    Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
                     AccentButton { text: "Tulosta"; clicked => { root.close(true); } }
                 }
             }

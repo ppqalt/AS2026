@@ -188,6 +188,20 @@ fn class_selection_orientation_and_dense_page_fitting() {
         let doc = printing::classes(&archive, &["A".into(), "B".into()], kind, true, true).unwrap();
         assert_eq!(doc.pages.len(), 2);
         assert!(doc.landscape);
+        #[cfg(feature = "desktop")]
+        if let Some(root) = std::env::var_os("AS2026_PRINT_PREVIEW_DIR") {
+            let root = PathBuf::from(root);
+            std::fs::create_dir_all(&root).unwrap();
+            std::fs::write(
+                root.join(if kind == Kind::Stations {
+                    "tihea-asemat.json"
+                } else {
+                    "tihea-luokat.json"
+                }),
+                serde_json::to_vec(&doc).unwrap(),
+            )
+            .unwrap();
+        }
         for page in doc.pages {
             for text in page.texts {
                 assert!(text.x >= 10. && text.x + text.width <= 287.01);

@@ -358,6 +358,9 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow) {
             } else if let Err(error) = print_classes(&mut state2.borrow_mut(), &app) {
                 app.set_print_error(error_text(&error).into());
             }
+            if !app.get_print_classes_open() {
+                defer_pending_result(&state2, &app);
+            }
         }
     });
     let state2 = state.clone();

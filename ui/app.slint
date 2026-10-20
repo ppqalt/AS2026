@@ -263,6 +263,8 @@ export component AppWindow inherits Window {
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
+            if root.result-entry-open { root.result-entry-close(false); return accept; }
+            if root.print-classes-open { root.print-classes-close(false); return accept; }
             if root.notes-open { root.notes-open = false; return accept; }
             if root.setup-open {
                 root.setup-open = false;
