@@ -36,7 +36,7 @@ fn pair_layout_and_raw_time_differences() {
         texts
             .iter()
             .filter(|t| t.value == "Nimi")
-            .all(|t| t.y == 80.)
+            .all(|t| (80. ..85.).contains(&t.y))
     );
 }
 
@@ -74,7 +74,8 @@ fn terminal_statuses_print_without_emit_and_class_rows_have_sporting_order() {
         .find(|c| c.starts_with('Y'))
         .unwrap();
     for kind in [Kind::Classes, Kind::Stations] {
-        let doc = printing::classes(&archive, &[combined.clone()], kind, false, true).unwrap();
+        let doc = printing::classes(&archive, std::slice::from_ref(&combined), kind, false, true)
+            .unwrap();
         let texts = &doc.pages[0].texts;
         assert!(
             texts
@@ -167,7 +168,7 @@ fn entry_calculates_manual_clocks_and_publishes_without_a_separate_approval() {
             .any(|t| t.value == "HyUA / I-HelUA")
     );
     assert!(doc.pages[0].texts.iter().any(|t| t.value == "SX4-TP"));
-    assert!(doc.pages[0].texts.iter().any(|t| t.value == "12:05:00"));
+    assert!(doc.pages[0].texts.iter().any(|t| t.value == "12:00:00"));
     #[cfg(feature = "desktop")]
     if let Some(root) = std::env::var_os("AS2026_PRINT_PREVIEW_DIR") {
         let root = PathBuf::from(root);

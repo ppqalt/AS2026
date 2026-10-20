@@ -527,12 +527,10 @@ pub fn classes(
                 ];
                 let total = if classified {
                     d.total_penalties.to_string()
+                } else if driving {
+                    String::new()
                 } else {
-                    if driving {
-                        String::new()
-                    } else {
-                        d.status.clone()
-                    }
+                    d.status.clone()
                 };
                 if kind == Kind::Classes {
                     row.extend([
