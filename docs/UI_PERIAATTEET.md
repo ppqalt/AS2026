@@ -76,3 +76,8 @@ virhepalaute ja alapainikkeet pysyvät näkyvissä. Myös BC:n tallennusvirhe
 näytetään listan ulkopuolella tallennuspainikkeen lähellä.
 Valintarivin ajastettu kohdistus tarkistaa pyynnön ajantasaisuuden ennen
 kohdistamista, jotta vanha pyyntö ei vie kohdistusta nimikentästä.
+
+BC:n tiedot/asemat ja osallistujat erotetaan välilehdille. Osallistujalistalla
+on oma vieritysalue ja sama valintarivi kuin luokkavalinnoissa. Nopean
+Tab-siirtymisen tavoite pidetään erillään viiveellä saapuvasta kohdistuspalautteesta,
+jotta vanha kohdistus ei palauta listaa aiemmalle riville.
