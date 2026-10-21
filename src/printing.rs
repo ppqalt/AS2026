@@ -693,15 +693,26 @@ pub fn postscript(document: &Document) -> String {
     out
 }
 
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", windows))]
+#[path = "printing_windows.rs"]
+mod windows;
+
+#[cfg(all(feature = "desktop", windows))]
+pub fn printers() -> Result<Vec<String>, String> {
+    windows::printers()
+}
+
+#[cfg(all(feature = "gui", windows))]
+pub fn preview_png(
+    document: &Document,
+    directory: &std::path::Path,
+) -> Result<Vec<std::path::PathBuf>, String> {
+    windows::preview_png(document, directory)
+}
+
+#[cfg(all(feature = "desktop", not(windows)))]
 pub fn printers() -> Result<Vec<String>, String> {
     use std::process::Command;
-    #[cfg(windows)]
-    let output = {
-        use std::os::windows::process::CommandExt;
-        Command::new("powershell.exe").args(["-NoProfile","-NonInteractive","-Command", "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); Add-Type -AssemblyName System.Drawing; [System.Drawing.Printing.PrinterSettings]::InstalledPrinters | ForEach-Object { $_ }"]).creation_flags(0x08000000).output()
-    };
-    #[cfg(not(windows))]
     let output = Command::new("lpstat").args(["-a"]).output();
     let output = output.map_err(|e| {
         format!(
@@ -713,14 +724,6 @@ pub fn printers() -> Result<Vec<String>, String> {
         return Err(String::from_utf8_lossy(&output.stderr).trim().into());
     }
     let text = String::from_utf8_lossy(&output.stdout);
-    #[cfg(windows)]
-    let mut names = text
-        .lines()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(String::from)
-        .collect::<Vec<_>>();
-    #[cfg(not(windows))]
     let mut names = text
         .lines()
         .filter_map(|s| s.split_whitespace().next())
@@ -731,7 +734,12 @@ pub fn printers() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", windows))]
+pub fn submit(document: &Document, printer: &str) -> Result<(), String> {
+    windows::submit(document, printer)
+}
+
+#[cfg(all(feature = "desktop", not(windows)))]
 pub fn submit(document: &Document, printer: &str) -> Result<(), String> {
     use std::{fs, process::Command};
     struct JobDirectory(std::path::PathBuf);
@@ -748,35 +756,6 @@ pub fn submit(document: &Document, printer: &str) -> Result<(), String> {
         std::env::temp_dir().join(format!("as2026-print-{}-{nonce}", std::process::id())),
     );
     fs::create_dir(&directory.0).map_err(|e| crate::io_message(&e))?;
-    #[cfg(windows)]
-    let output = {
-        use std::os::windows::process::CommandExt;
-        let job = directory.0.join("job.json");
-        let script = directory.0.join("print.ps1");
-        fs::write(
-            &job,
-            serde_json::to_vec(document).map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| crate::io_message(&e))?;
-        fs::write(&script, include_str!("../scripts/print-windows.ps1"))
-            .map_err(|e| crate::io_message(&e))?;
-        Command::new("powershell.exe")
-            .args([
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-            ])
-            .arg(&script)
-            .arg("-Job")
-            .arg(&job)
-            .arg("-Printer")
-            .arg(printer)
-            .creation_flags(0x08000000)
-            .output()
-    };
-    #[cfg(not(windows))]
     let output = {
         let path = directory.0.join("tulokset.ps");
         fs::write(&path, postscript(document)).map_err(|e| crate::io_message(&e))?;
