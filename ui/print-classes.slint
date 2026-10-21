@@ -1,8 +1,9 @@
 import { Button, CheckBox, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
 import { DrawClassOption } from "types.slint";
 export component PrintClassesDialog inherits Rectangle {
+    private property <int> focus-index: -1;
     in property <bool> stations;
     in property <[DrawClassOption]> classes;
     in property <string> printer;
@@ -10,6 +11,7 @@ export component PrintClassesDialog inherits Rectangle {
     in-out property <bool> landscape;
     in-out property <bool> fit;
     callback toggle(int, bool);
+    callback select-all(bool);
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
@@ -22,6 +24,18 @@ export component PrintClassesDialog inherits Rectangle {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Tab {
+                if print.has-focus && !event.modifiers.shift { all.focus(); return accept; }
+                if all.has-focus && event.modifiers.shift { print.focus(); return accept; }
+                if clear.has-focus && !event.modifiers.shift {
+                    if root.classes.length > 0 { root.focus-index = 0; } else { direction.focus(); }
+                    return accept;
+                }
+                if direction.has-focus && event.modifiers.shift {
+                    if root.classes.length > 0 { root.focus-index = root.classes.length - 1; } else { clear.focus(); }
+                    return accept;
+                }
+            }
             reject
         }
         DialogSurface {
@@ -29,9 +43,17 @@ export component PrintClassesDialog inherits Rectangle {
             available-width: root.width; available-height: root.height;
             preferred-dialog-height: 600px;
             Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; }
-            Note { x: Theme.dialog-padding; y: 64px; width: parent.width - 2 * Theme.dialog-padding; height: 40px; text: "Valitse yksi tai useampi luokka. Jokainen luokka aloittaa oman sivun."; }
+            Note { x: Theme.dialog-padding; y: 64px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: "Jokainen luokka aloittaa oman sivun."; }
+            HorizontalLayout {
+                x: Theme.dialog-padding; y: 92px;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: Theme.control-height; spacing: Theme.space-2;
+                all := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Valitse kaikki"; clicked => { root.select-all(true); } }
+                clear := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }
+                Rectangle { horizontal-stretch: 1; }
+            }
             Rectangle {
-                x: Theme.dialog-padding; y: 112px; width: parent.width - 2 * Theme.dialog-padding;
+                x: Theme.dialog-padding; y: 140px; width: parent.width - 2 * Theme.dialog-padding;
                 height: max(0px, direction.y - self.y - Theme.space-3 - (root.error == "" ? 0px : 48px));
                 clip: true;
                 body := ScrollView {
@@ -41,22 +63,34 @@ export component PrintClassesDialog inherits Rectangle {
                     entries := VerticalLayout {
                         x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
                         alignment: start; spacing: Theme.space-2;
-                        for item[i] in root.classes: CheckBox {
-                            text: item.label; checked: item.selected;
-                            toggled => { root.toggle(i, self.checked); }
+                        for item[i] in root.classes: ChoiceRow {
+                            text: item.label; checked: item.selected; index: i; focus-index: root.focus-index;
+                            toggle(selected) => { root.toggle(i, selected); }
+                            move(index) => {
+                                if index < 0 { root.focus-index = -1; clear.focus(); }
+                                else if index >= root.classes.length { root.focus-index = -1; direction.focus(); }
+                                else { root.focus-index = index; }
+                            }
+                            focused(index) => {
+                                root.focus-index = index;
+                                let top = index * (Theme.control-height + Theme.space-2);
+                                let bottom = top + Theme.control-height;
+                                if top < -body.viewport-y { body.viewport-y = -top; }
+                                else if bottom > -body.viewport-y + body.visible-height { body.viewport-y = min(0px, body.visible-height - bottom); }
+                            }
                         }
                     }
                 }
             }
-            direction := CheckBox { x: Theme.dialog-padding; y: fit-choice.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
-            fit-choice := CheckBox { x: Theme.dialog-padding; y: printer-note.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
+            direction := CheckBox { changed has-focus => { if self.has-focus { root.focus-index = -1; } } x: Theme.dialog-padding; y: fit-choice.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
+            fit-choice := CheckBox { changed has-focus => { if self.has-focus { root.focus-index = -1; } } x: Theme.dialog-padding; y: printer-note.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
             printer-note := Note { x: Theme.dialog-padding; y: actions.y - Theme.space-3 - 20px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: "Tulostin: " + root.printer; }
             if root.error != "": Note { x: Theme.dialog-padding; y: direction.y - 48px; width: parent.width - 2 * Theme.dialog-padding; height: 44px; text: root.error; color: Theme.danger; }
             actions := DialogActions {
                 x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
                 width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
-                cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
-                AccentButton { text: "Tulosta"; clicked => { root.close(true); } }
+                cancel := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Peruuta"; clicked => { root.close(false); } }
+                print := AccentButton { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tulosta"; clicked => { root.close(true); } }
             }
         }
     }

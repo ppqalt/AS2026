@@ -52,3 +52,32 @@ Lähtöarvonta sijoitetaan toimintorivin oikeaan reunaan; luokkavalinnan
 rataskuvake on välittömästi arvontapainikkeen vieressä. Muokattavat kellot
 ja kestot käyttävät yhteistä h : min : s -kenttää. Mallin kokonaisminuutteihin
 perustuvissa kestoissa sekuntien on oltava 00. Pistekertoimet säilyvät numeroina.
+
+Vientivalikkojen pelkkää alkukohdistusta tekevä FocusScope ei saa peittää
+painikkeiden hiirialuetta. Valikko suljetaan valinnan jälkeen; sisäpuolinen
+napsautus ei saa kadottaa toimintoa. Tulosviennillä on näkyvä tallennusikkuna
+ja paikallinen virhepalaute myös ilman toimivaa työpöydän tiedostovalitsinta.
+Huomautuksissa oletus on ryhmitelty yhteenveto, tarkat tiedot erikseen.
+
+Pitkän tuloslomakkeen näppäimistökohdistus vierittää valitun kentän näkyviin.
+Tab ja Shift+Tab kiertävät kentät sekä alapainikkeet näkyvässä järjestyksessä.
+Näppäimistöllä kenttään siirryttäessä vanha arvo valitaan korvattavaksi.
+
+Tulostuksen luokkavalinnassa käytetään samoja joukkovalintoja kuin lähtöarvonnassa.
+Pitkän luokkalistan kaikki rivit ovat saavutettavissa näppäimistöllä myös
+vieritysalueen ulkopuolelta; kohdistus vierittää rivin näkyviin.
+
+Arvonnan ja tulostuksen luokkalistat käyttävät yhteistä ChoiceRow-riviä.
+Joukkovalintapainikkeet ja valintojen yhteenveto pysyvät listan ulkopuolella
+näkyvissä myös vieritettäessä; vain luokkalista vierii.
+
+Yhdistetyn luokan ikkunassa vain luokkalista vierii; nimi, pisteasetukset,
+virhepalaute ja alapainikkeet pysyvät näkyvissä. Myös BC:n tallennusvirhe
+näytetään listan ulkopuolella tallennuspainikkeen lähellä.
+Valintarivin ajastettu kohdistus tarkistaa pyynnön ajantasaisuuden ennen
+kohdistamista, jotta vanha pyyntö ei vie kohdistusta nimikentästä.
+
+BC:n tiedot/asemat ja osallistujat erotetaan välilehdille. Osallistujalistalla
+on oma vieritysalue ja sama valintarivi kuin luokkavalinnoissa. Nopean
+Tab-siirtymisen tavoite pidetään erillään viiveellä saapuvasta kohdistuspalautteesta,
+jotta vanha kohdistus ei palauta listaa aiemmalle riville.

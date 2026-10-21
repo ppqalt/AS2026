@@ -1,6 +1,6 @@
 import { Button, CheckBox, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
 import { DrawClassOption, BcStationOption } from "types.slint";
 
 export component BeginnersCupDialog inherits Rectangle {
@@ -11,24 +11,45 @@ export component BeginnersCupDialog inherits Rectangle {
     in property <[BcStationOption]> stations;
     in property <[DrawClassOption]> participants;
     in property <string> error;
+    private property <int> tab: 0;
+    private property <int> focus-index: -1;
     callback route-selected(int);
     callback station-toggled(int, bool);
     callback participant-toggled(int, bool);
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; name-input.focus(); } }
     keys := FocusScope {
         x: 0px; y: 0px;
         width: root.width;
         height: root.height;
         focus-on-click: false;
         focus-on-tab-navigation: false;
-        init => { name-input.focus(); }
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
             if event.text == Key.Tab {
-                if save.has-focus && !event.modifiers.shift { name-input.focus(); return accept; }
-                if name-input.has-focus && event.modifiers.shift { save.focus(); return accept; }
+                if root.tab == 1 && root.focus-index >= 0 {
+                    let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
+                    if next < 0 { root.focus-index = -1; participants-tab.focus(); }
+                    else if next >= root.participants.length { root.focus-index = -1; cancel.focus(); }
+                    else { root.focus-index = next; }
+                    return accept;
+                }
+                if save.has-focus && !event.modifiers.shift { settings-tab.focus(); return accept; }
+                if settings-tab.has-focus && event.modifiers.shift { save.focus(); return accept; }
+                if name-input.has-focus && event.modifiers.shift { participants-tab.focus(); return accept; }
+                if participants-tab.has-focus && !event.modifiers.shift {
+                    if root.tab == 1 && root.participants.length > 0 { root.focus-index = 0; }
+                    else if root.tab == 0 { name-input.focus(); }
+                    else { cancel.focus(); }
+                    return accept;
+                }
+                if cancel.has-focus && event.modifiers.shift && root.tab == 1 {
+                    if root.participants.length > 0 { root.focus-index = root.participants.length - 1; }
+                    else { participants-tab.focus(); }
+                    return accept;
+                }
             }
             reject
         }
@@ -42,12 +63,29 @@ export component BeginnersCupDialog inherits Rectangle {
                 width: parent.width - 2 * Theme.dialog-padding; height: 28px;
                 text: "NAC Beginners Cup";
             }
+            HorizontalLayout {
+                x: Theme.dialog-padding; y: 64px;
+                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
+                spacing: Theme.space-2;
+                settings-tab := Button {
+                    text: "Tiedot ja asemat"; checkable: true; checked: root.tab == 0;
+                    changed has-focus => { if self.has-focus { root.focus-index = -1; } }
+                    clicked => { root.focus-index = -1; root.tab = 0; }
+                }
+                participants-tab := Button {
+                    text: "Osallistujat (" + root.participants.length + ")"; checkable: true; checked: root.tab == 1;
+                    changed has-focus => { if self.has-focus { root.focus-index = -1; } }
+                    clicked => { root.focus-index = -1; root.tab = 1; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
             body-clip := Rectangle {
                 clip: true;
-                x: Theme.dialog-padding; y: Theme.dialog-padding + title.height + Theme.space-3;
+                x: Theme.dialog-padding; y: 112px;
                 width: parent.width - 2 * Theme.dialog-padding;
-                height: max(0px, parent.height - 2 * Theme.dialog-padding - title.height - Theme.control-height - 2 * Theme.space-3);
+                height: max(0px, error-note.y - self.y - Theme.space-3);
                 body := ScrollView {
+                    visible: root.tab == 0;
                     x: 0px; y: 0px;
                     width: parent.width; height: parent.height;
                     horizontal-scrollbar-policy: always-off;
@@ -73,22 +111,59 @@ export component BeginnersCupDialog inherits Rectangle {
                             enabled: !station.fixed;
                             toggled => { root.station-toggled(i, self.checked); }
                         }
-                        Heading { text: "BC-osallistujat"; }
-                        Note { text: "Valitse kilpailijat, joille lasketaan sekä NAC- että BC-tulos. Emit-kortti ja lähtöaika ovat yhteiset. Virhepisteet ja hyväksynnät ovat erillisiä. Osallistujavalinnan poistaminen säilyttää aiemmin tallennetut BC-tiedot."; }
-                        for participant[i] in root.participants: CheckBox {
-                            text: participant.label;
-                            checked: participant.selected;
-                            toggled => { root.participant-toggled(i, self.checked); }
-                        }
-                        if root.error != "": Note { text: root.error; color: Theme.danger; }
                     }
                 }
+                if root.tab == 1: Rectangle {
+                    x: 0px; y: 0px;
+                    width: parent.width; height: parent.height;
+                    participant-note := Note {
+                        x: 0px; y: 0px;
+                        width: parent.width; height: self.preferred-height;
+                        text: "Emit-kortti ja lähtöaika ovat yhteiset NAC:n kanssa. BC:n virhepisteet ja hyväksyntä ovat erillisiä. Valinnan poistaminen säilyttää aiemmat BC-tiedot.";
+                    }
+                    participant-list := ScrollView {
+                        x: 0px;
+                        y: participant-note.height + Theme.space-3;
+                        width: parent.width; height: max(0px, parent.height - self.y);
+                        horizontal-scrollbar-policy: always-off;
+                        viewport-width: self.visible-width;
+                        viewport-height: participant-entries.min-height;
+                        participant-entries := VerticalLayout {
+                            x: 0px; y: 0px;
+                            width: participant-list.visible-width; height: self.min-height;
+                            alignment: start; spacing: Theme.space-2;
+                            for entry[i] in root.participants: ChoiceRow {
+                                text: entry.label; checked: entry.selected; index: i; focus-index: root.focus-index;
+                                toggle(selected) => { root.focus-index = i; root.participant-toggled(i, selected); }
+                                move(index) => {
+                                    if index < 0 { root.focus-index = -1; participants-tab.focus(); }
+                                    else if index >= root.participants.length { root.focus-index = -1; cancel.focus(); }
+                                    else { root.focus-index = index; }
+                                }
+                                focused(index) => {
+                                    if root.focus-index == index {
+                                    let top = index * (Theme.control-height + Theme.space-2);
+                                    let bottom = top + Theme.control-height;
+                                    if top < -participant-list.viewport-y { participant-list.viewport-y = -top; }
+                                    else if bottom > -participant-list.viewport-y + participant-list.visible-height { participant-list.viewport-y = min(0px, participant-list.visible-height - bottom); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            error-note := Note {
+                x: Theme.dialog-padding; y: actions.y - Theme.space-3 - self.height;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: root.error == "" ? 0px : self.preferred-height;
+                text: root.error; color: Theme.danger;
             }
             actions := DialogActions {
                 x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
                 width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
-                Button { text: "Peruuta"; clicked => { root.close(false); } }
-                save := AccentButton { text: "Tallenna BC"; clicked => { root.close(true); } }
+                cancel := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Peruuta"; clicked => { root.close(false); } }
+                save := AccentButton { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tallenna BC"; clicked => { root.close(true); } }
             }
         }
     }

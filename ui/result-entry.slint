@@ -7,16 +7,16 @@ component EntryLine inherits Rectangle {
     height: Theme.control-height + 24px;
     in property <ResultEntryInput> data;
     in property <int> index;
-    in property <int> count;
     in property <int> focus-index;
     callback edited(int, string);
     callback next(int);
+    callback focused(int);
     vertical-stretch: 0;
     init => { if root.index == 0 { focus-timer.running = true; } }
     changed focus-index => { if root.focus-index == root.index { focus-timer.running = true; } }
     focus-timer := Timer {
         interval: 1ms;
-        triggered => { self.running = false; input.focus(); }
+        triggered => { self.running = false; input.focus(); input.select-all(); }
     }
     field-label := Note { x: 0px; y: 0px; width: parent.width; height: 20px; text: root.data.label; }
     Rectangle {
@@ -26,13 +26,14 @@ component EntryLine inherits Rectangle {
         width: parent.width; height: parent.height;
         focus-on-tab-navigation: false;
         capture-key-pressed(event) => {
-            if event.text == Key.Tab && ((!event.modifiers.shift && root.index == root.count - 1) || (event.modifiers.shift && root.index == 0)) { root.next(-1); return accept; }
+            if event.text == Key.Tab { root.next(root.index + (event.modifiers.shift ? -1 : 1)); return accept; }
             reject
         }
         input := LineEdit {
             width: parent.width; height: parent.height;
             text: root.data.value;
             edited => { root.edited(root.data.key, self.text); }
+            changed has-focus => { if self.has-focus { root.focused(root.index); } }
         }
         }
     }
@@ -53,16 +54,16 @@ export component ResultEntryDialog inherits Rectangle {
             if event.text == Key.Escape { root.close(false); return accept; }
             if event.text == Key.Return && !save.has-focus && !cancel.has-focus { root.close(true); return accept; }
             if event.text == Key.Tab && print.has-focus {
-                if event.modifiers.shift { root.focus-index = root.fields.length - 1; }
-                else { save.focus(); }
+                if event.modifiers.shift { save.focus(); }
+                else { root.focus-index = 0; }
                 return accept;
             }
             if event.text == Key.Tab && save.has-focus {
-                if event.modifiers.shift { print.focus(); } else { cancel.focus(); }
+                if event.modifiers.shift { cancel.focus(); } else { print.focus(); }
                 return accept;
             }
             if event.text == Key.Tab && cancel.has-focus {
-                if event.modifiers.shift { save.focus(); } else { root.focus-index = 0; }
+                if event.modifiers.shift { root.focus-index = root.fields.length - 1; } else { save.focus(); }
                 return accept;
             }
             reject
@@ -70,11 +71,11 @@ export component ResultEntryDialog inherits Rectangle {
         DialogSurface {
             available-width: root.width; available-height: root.height;
             preferred-dialog-height: 720px;
-            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: "Täydennä ajat ja tulosta"; }
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: "Täydennä tulos"; }
             Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: root.identity; }
-            Note { x: Theme.dialog-padding; y: 84px; width: parent.width - 2 * Theme.dialog-padding; height: 48px; text: "Syötä asemien kellonajat muodossa hh:mm:ss. Tab siirtyy seuraavaan aikaan, RT-määrään, muihin virhepisteisiin ja lopuksi Tulosta-painikkeeseen."; }
+            Note { x: Theme.dialog-padding; y: 84px; width: parent.width - 2 * Theme.dialog-padding; height: 24px; text: "Kellonajat muodossa h:min:s. Siirry kentästä toiseen Tab-näppäimellä."; }
             Rectangle {
-                x: Theme.dialog-padding; y: 144px; width: parent.width - 2 * Theme.dialog-padding;
+                x: Theme.dialog-padding; y: 120px; width: parent.width - 2 * Theme.dialog-padding;
                 height: max(0px, parent.height - self.y - Theme.dialog-padding - Theme.control-height - Theme.space-3 - (root.error == "" ? 0px : 48px));
                 clip: true;
                 body := ScrollView {
@@ -87,10 +88,18 @@ export component ResultEntryDialog inherits Rectangle {
                         width: body.visible-width; height: self.min-height;
                         alignment: start; spacing: Theme.space-3;
                         for field[i] in root.fields: EntryLine {
-                            data: field; index: i; count: root.fields.length; focus-index: root.focus-index;
+                            data: field; index: i; focus-index: root.focus-index;
                             edited(key, value) => { root.edited(key, value); }
+                            focused(index) => {
+                                root.focus-index = index;
+                                let top = index * (Theme.control-height + 24px + Theme.space-3);
+                                let bottom = top + Theme.control-height + 24px;
+                                if top < -body.viewport-y { body.viewport-y = -top; }
+                                else if bottom > -body.viewport-y + body.visible-height { body.viewport-y = min(0px, body.visible-height - bottom); }
+                            }
                             next(index) => {
-                                if index < 0 || index >= root.fields.length { root.focus-index = -1; print.focus(); }
+                                if index < 0 { root.focus-index = -1; print.focus(); }
+                                else if index >= root.fields.length { root.focus-index = -1; cancel.focus(); }
                                 else { root.focus-index = index; }
                             }
                         }
@@ -101,9 +110,9 @@ export component ResultEntryDialog inherits Rectangle {
             DialogActions {
                 x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
                 width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
-                cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
-                save := Button { text: "Tallenna"; clicked => { root.save(); } }
-                print := AccentButton { text: "Tallenna ja tulosta"; clicked => { root.close(true); } }
+                cancel := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Peruuta"; clicked => { root.close(false); } }
+                save := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tallenna"; clicked => { root.save(); } }
+                print := AccentButton { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tallenna ja tulosta"; clicked => { root.close(true); } }
             }
         }
     }

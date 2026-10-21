@@ -367,7 +367,21 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow) {
             {
                 item.selected = selected;
                 items.set_row_data(i, item);
+                app.set_print_error("".into());
             }
+        }
+    });
+    let weak = app.as_weak();
+    app.on_print_classes_all(move |selected| {
+        if let Some(app) = weak.upgrade() {
+            let items = app.get_print_classes();
+            for i in 0..items.row_count() {
+                if let Some(mut item) = items.row_data(i) {
+                    item.selected = selected;
+                    items.set_row_data(i, item);
+                }
+            }
+            app.set_print_error("".into());
         }
     });
     let state2 = state.clone();
