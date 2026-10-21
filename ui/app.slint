@@ -91,6 +91,7 @@ export component AppWindow inherits Window {
     in-out property <string> print-error;
     callback open-print-classes(bool);
     callback print-class-toggled(int, bool);
+    callback print-classes-all(bool);
     callback print-classes-close(bool);
     in-out property <string> update-status: "Päivityksiä ei ole tarkistettu.";
     in-out property <string> available-version;
@@ -1296,6 +1297,7 @@ export component AppWindow inherits Window {
         landscape <=> root.print-landscape; fit <=> root.print-fit;
         printer: root.printer-name; error: root.print-error;
         toggle(index, selected) => { root.print-class-toggled(index, selected); }
+        select-all(selected) => { root.print-classes-all(selected); }
         close(accepted) => { root.print-classes-close(accepted); }
     }
 }

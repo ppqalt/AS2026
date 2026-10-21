@@ -1386,11 +1386,14 @@ fn result_entry_and_printing(
     assert!(app.get_print_classes_open());
     assert!(app.get_print_landscape());
     assert!(app.get_print_fit());
-    for i in 0..app.get_print_classes().row_count() {
-        app.invoke_print_class_toggled(i as i32, false);
-    }
+    app.invoke_print_classes_all(false);
+    assert!(app.get_print_classes().iter().all(|item| !item.selected));
     app.invoke_print_classes_close(true);
     assert!(!app.get_print_error().is_empty());
+    app.invoke_print_classes_all(true);
+    assert!(app.get_print_classes().iter().all(|item| item.selected));
+    assert!(app.get_print_error().is_empty());
+    app.invoke_print_classes_all(false);
     app.invoke_print_class_toggled(0, true);
     app.invoke_print_classes_close(true);
     assert!(!app.get_print_classes_open(), "{}", app.get_print_error());

@@ -62,3 +62,7 @@ Huomautuksissa oletus on ryhmitelty yhteenveto, tarkat tiedot erikseen.
 Pitkän tuloslomakkeen näppäimistökohdistus vierittää valitun kentän näkyviin.
 Tab ja Shift+Tab kiertävät kentät sekä alapainikkeet näkyvässä järjestyksessä.
 Näppäimistöllä kenttään siirryttäessä vanha arvo valitaan korvattavaksi.
+
+Tulostuksen luokkavalinnassa käytetään samoja joukkovalintoja kuin lähtöarvonnassa.
+Pitkän luokkalistan kaikki rivit ovat saavutettavissa näppäimistöllä myös
+vieritysalueen ulkopuolelta; kohdistus vierittää rivin näkyviin.
