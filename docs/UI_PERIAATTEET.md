@@ -70,3 +70,9 @@ vieritysalueen ulkopuolelta; kohdistus vierittää rivin näkyviin.
 Arvonnan ja tulostuksen luokkalistat käyttävät yhteistä ChoiceRow-riviä.
 Joukkovalintapainikkeet ja valintojen yhteenveto pysyvät listan ulkopuolella
 näkyvissä myös vieritettäessä; vain luokkalista vierii.
+
+Yhdistetyn luokan ikkunassa vain luokkalista vierii; nimi, pisteasetukset,
+virhepalaute ja alapainikkeet pysyvät näkyvissä. Myös BC:n tallennusvirhe
+näytetään listan ulkopuolella tallennuspainikkeen lähellä.
+Valintarivin ajastettu kohdistus tarkistaa pyynnön ajantasaisuuden ennen
+kohdistamista, jotta vanha pyyntö ei vie kohdistusta nimikentästä.

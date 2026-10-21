@@ -517,7 +517,7 @@ export component ChoiceRow inherits Rectangle {
     callback focused(int);
     height: Theme.control-height; vertical-stretch: 0;
     changed focus-index => { if root.focus-index == root.index { focus-timer.running = true; } }
-    focus-timer := Timer { interval: 1ms; triggered => { self.running = false; choice.focus(); } }
+    focus-timer := Timer { interval: 1ms; triggered => { self.running = false; if root.focus-index == root.index { choice.focus(); } } }
     FocusScope {
         width: parent.width; height: parent.height;
         focus-on-tab-navigation: false;

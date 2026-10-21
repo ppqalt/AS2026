@@ -17,13 +17,13 @@ export component BeginnersCupDialog inherits Rectangle {
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; name-input.focus(); } }
     keys := FocusScope {
         x: 0px; y: 0px;
         width: root.width;
         height: root.height;
         focus-on-click: false;
         focus-on-tab-navigation: false;
-        init => { name-input.focus(); }
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
             if event.text == Key.Tab {
@@ -46,7 +46,7 @@ export component BeginnersCupDialog inherits Rectangle {
                 clip: true;
                 x: Theme.dialog-padding; y: Theme.dialog-padding + title.height + Theme.space-3;
                 width: parent.width - 2 * Theme.dialog-padding;
-                height: max(0px, parent.height - 2 * Theme.dialog-padding - title.height - Theme.control-height - 2 * Theme.space-3);
+                height: max(0px, error-note.y - self.y - Theme.space-3);
                 body := ScrollView {
                     x: 0px; y: 0px;
                     width: parent.width; height: parent.height;
@@ -80,9 +80,14 @@ export component BeginnersCupDialog inherits Rectangle {
                             checked: participant.selected;
                             toggled => { root.participant-toggled(i, self.checked); }
                         }
-                        if root.error != "": Note { text: root.error; color: Theme.danger; }
                     }
                 }
+            }
+            error-note := Note {
+                x: Theme.dialog-padding; y: actions.y - Theme.space-3 - self.height;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: root.error == "" ? 0px : self.preferred-height;
+                text: root.error; color: Theme.danger;
             }
             actions := DialogActions {
                 x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
