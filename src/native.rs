@@ -48,6 +48,9 @@ pub struct Project {
     pub kilpailijat: Vec<Driver>,
     #[serde(default)]
     pub leimaluvut: Vec<Readout>,
+    /// Toimitsijan perustellut laskentakorjaukset. Alkuperäisiä leimalukuja ei muuteta.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub emit_korjaukset: Vec<crate::emit_corrections::Correction>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -374,6 +377,7 @@ impl Project {
     }
 
     pub fn into_archive(self) -> Result<Archive, CoreError> {
+        crate::emit_corrections::validate_history(&self)?;
         crate::beginners::validate(&self)?;
         if self.versio != 1 {
             return Err(invalid("Kilpailutiedoston versiota ei tueta (tuettu: 1)"));
@@ -632,7 +636,8 @@ impl Project {
         }
         if !active.is_empty() {
             let mut source = String::new();
-            for read in active.values() {
+            for original in active.values() {
+                let read = crate::emit_corrections::effective_readout(&self, original)?;
                 let time = parse_clock(&read.lukukello)?;
                 source.push_str(&format!("999;{};{};", read.emit, read.leimat.len()));
                 for record in &read.leimat {
@@ -727,6 +732,7 @@ impl Project {
             }],
             kilpailijat: Vec::new(),
             leimaluvut: Vec::new(),
+            emit_korjaukset: Vec::new(),
         };
         project.validate()?;
         Ok(project)

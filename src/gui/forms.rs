@@ -390,6 +390,80 @@ fn station_fields(station: &StationEdit) -> Vec<EditorField> {
     ]
 }
 
+pub(super) fn emit_correction_fields(
+    project: &Project,
+    number: u32,
+    row: u32,
+) -> Result<Vec<EditorField>, CoreError> {
+    let rows = as2026::emit_corrections::rows(project, number)?;
+    let selected = rows
+        .iter()
+        .find(|r| r.index == row)
+        .ok_or_else(|| invalid())?;
+    let code = if selected.code == 0 {
+        selected.expected_code
+    } else {
+        selected.code
+    };
+    let elapsed = selected.elapsed_seconds;
+    let sources = std::iter::once(("Valittu leima / uusi puuttuva leima".into(), "0".into()))
+        .chain(
+            rows.iter()
+                .filter(|r| r.sequence == 0 && r.index != row)
+                .map(|r| {
+                    (
+                        format!(
+                            "Rivi {} · koodi {} · {:02}:{:02}:{:02}",
+                            r.index,
+                            r.code,
+                            r.elapsed_seconds / 3600,
+                            r.elapsed_seconds % 3600 / 60,
+                            r.elapsed_seconds % 60
+                        ),
+                        r.index.to_string(),
+                    )
+                }),
+        )
+        .collect();
+    Ok(vec![
+        choice(
+            0,
+            "Korjauksen tapa",
+            "0",
+            "",
+            named(&[
+                ("Muokkaa / lisää leima", "0"),
+                ("Poista leima laskennasta", "1"),
+                ("Palauta alkuperäiset leimat", "2"),
+            ]),
+        ),
+        choice(
+            1,
+            "Kohdistettava leima",
+            "0",
+            "Puuttuvalle asemalle voi kohdistaa ylimääräisen leiman",
+            sources,
+        ),
+        text(2, "Leimakoodi", code, "1–255, ei lukijakoodia 250"),
+        clock_field(
+            3,
+            "Korttiaika nollauksesta (h : min : s)",
+            &format!(
+                "{:02}:{:02}:{:02}",
+                elapsed / 3600,
+                elapsed % 3600 / 60,
+                elapsed % 60
+            ),
+        ),
+        text(
+            4,
+            "Korjauksen perustelu",
+            "",
+            "Esimerkiksi väärä asemakoodi tai varakellon mukainen puuttuva leima",
+        ),
+    ])
+}
+
 pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
     match selection {
         Selection::ResultDriver(number) => fields(project, &Selection::Driver(*number))

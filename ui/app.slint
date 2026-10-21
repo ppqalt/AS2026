@@ -7,6 +7,7 @@ import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
 import { BeginnersCupDialog } from "beginners-cup.slint";
 import { ResultEntryDialog } from "result-entry.slint";
+import { EmitCorrectionDialog } from "emit-correction.slint";
 import { PrintClassesDialog } from "print-classes.slint";
 import { ResultEntryInput } from "types.slint";
 export { ResultEntryInput }
@@ -14,7 +15,7 @@ export { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
-    title: "AS2026";
+    title: "AS2026 — Emit-korjauksen kehitysversio";
     preferred-width: 1480px; preferred-height: 960px;
     min-width: 900px; min-height: 600px;
     background: Theme.canvas;
@@ -83,6 +84,14 @@ export component AppWindow inherits Window {
     callback result-entry-edited(int, string);
     callback result-entry-close(bool);
     callback result-entry-save();
+    in-out property <bool> emit-edit-open;
+    in-out property <string> emit-edit-identity;
+    in-out property <[EditorField]> emit-edit-fields;
+    in-out property <string> emit-edit-error;
+    in-out property <string> emit-edit-history;
+    callback open-emit-edit();
+    callback emit-edit-edited(int, string);
+    callback emit-edit-close(bool);
     in-out property <bool> print-classes-open;
     in-out property <bool> print-stations;
     in-out property <[DrawClassOption]> print-classes;
@@ -276,6 +285,7 @@ export component AppWindow inherits Window {
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
+            if root.emit-edit-open { root.emit-edit-close(false); return accept; }
             if root.export-open { root.export-open = false; return accept; }
             if root.result-entry-open { root.result-entry-close(false); return accept; }
             if root.print-classes-open { root.print-classes-close(false); return accept; }
@@ -309,7 +319,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.export-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.export-open && !root.emit-edit-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -608,6 +618,7 @@ export component AppWindow inherits Window {
                         spacing: Theme.space-2;
                         AccentButton { text: "Tarkista"; enabled: root.editable && root.selected-key >= 0; clicked => { root.review-results(); } }
                         Button { text: "Tutki"; enabled: root.editable && root.result-stored && root.examine-supported; clicked => { root.examine-results(); } }
+                        if !root.bc-results: Button { text: "Korjaa Emit-rivi"; enabled: root.editable && root.detail-key >= 0; clicked => { root.open-emit-edit(); } }
                         if root.calculation-notes != "": Button { text: "Huomautukset (" + root.calculation-note-count + ")"; clicked => { root.notes-open = true; } }
                     }
                     data-workspace := Workspace {
@@ -1282,6 +1293,13 @@ export component AppWindow inherits Window {
         station-toggled(index, selected) => { root.bc-station-toggled(index, selected); }
         participant-toggled(index, selected) => { root.bc-participant-toggled(index, selected); }
         close(accepted) => { root.bc-close(accepted); }
+    }
+    if root.emit-edit-open: EmitCorrectionDialog {
+        width: root.width; height: root.height;
+        identity: root.emit-edit-identity; fields: root.emit-edit-fields;
+        error: root.emit-edit-error; history: root.emit-edit-history;
+        edited(key, value) => { root.emit-edit-edited(key, value); }
+        close(save) => { root.emit-edit-close(save); }
     }
     if root.result-entry-open: ResultEntryDialog {
         width: root.width; height: root.height;
