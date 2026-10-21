@@ -20,3 +20,8 @@ Nousu- ja sarjapisteiden odotus näytetään vain, kun pisteitä käytetään.
 **Näytä lisätiedot** avaa alkuperäisen, täydellisen diagnostiikan.
 Laskentasääntöjä, tulosten hyväksyntää tai tiedostomuotoa ei muuteta.
 Huomautusikkuna sulkeutuu myös Esc-näppäimellä.
+
+Tiedostonimen voi kirjoittaa ilman päätettä: valitun vientimuodon pääte lisätään
+automaattisesti. Pelkkä nimi ja suhteellinen polku tulkitaan kilpailun kansion
+suhteen. Väärän tiedostopäätteen virhe näytetään tallennusikkunassa, eikä tiedostoa
+luoda väärällä muodolla. Olemassa olevaa tiedostoa ei edelleenkään korvata.

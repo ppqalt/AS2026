@@ -942,7 +942,7 @@ export component AppWindow inherits Window {
                     Text { text: "Tiedosto"; color: Theme.muted; font-size: Theme.label-font-size; }
                     HorizontalLayout {
                         spacing: Theme.space-2;
-                        export-path-field := LineEdit { text <=> root.export-path; horizontal-stretch: 1; accessible-label: "Tulostiedosto"; accepted => { root.save-export(); } }
+                        export-path-field := LineEdit { text <=> root.export-path; horizontal-stretch: 1; accessible-label: "Tulostiedosto"; edited => { root.export-error = ""; } accepted => { root.save-export(); } }
                         Button { text: "Selaa"; clicked => { root.browse-export(); } }
                     }
                     if root.export-error != "": Text { text: root.export-error; color: Theme.danger; wrap: word-wrap; }

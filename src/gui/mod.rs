@@ -1341,6 +1341,66 @@ fn offer_excel_import(
     Ok(())
 }
 
+fn export_destination(input: &str, kind: i32, folder: &Path) -> GuiResult<PathBuf> {
+    let input = input.trim();
+    if input.is_empty() || input.ends_with(['/', '\\']) {
+        return Err(invalid("Anna tiedoston nimi"));
+    }
+    let extension = match kind {
+        0 => "xlsx",
+        1 => "csv",
+        _ => "html",
+    };
+    let mut path = PathBuf::from(input);
+    if path.file_name().is_none() {
+        return Err(invalid("Anna tiedoston nimi"));
+    }
+    match path.extension().and_then(|value| value.to_str()) {
+        None => {
+            path.set_extension(extension);
+        }
+        Some(value)
+            if value.eq_ignore_ascii_case(extension)
+                || (kind == 2 && value.eq_ignore_ascii_case("htm")) => {}
+        Some(_) => {
+            return Err(invalid(&format!(
+                "Tiedoston päätteen pitää olla .{extension}"
+            )));
+        }
+    }
+    Ok(if path.is_absolute() {
+        path
+    } else {
+        folder.join(path)
+    })
+}
+
+#[cfg(test)]
+mod export_path_tests {
+    use super::*;
+
+    #[test]
+    fn export_names_use_competition_folder_and_selected_format() {
+        let folder = std::env::temp_dir().join("as2026-vientipolku");
+        assert_eq!(
+            export_destination("  lopputulokset  ", 0, &folder).unwrap(),
+            folder.join("lopputulokset.xlsx")
+        );
+        assert_eq!(
+            export_destination("raportit/tulos.CSV", 1, &folder).unwrap(),
+            folder.join("raportit/tulos.CSV")
+        );
+        let absolute = folder.join("oma.htm");
+        assert_eq!(
+            export_destination(absolute.to_str().unwrap(), 2, &folder).unwrap(),
+            absolute
+        );
+        for name in ["", "   ", "raportit/", "tulos.csv", "tulos."] {
+            assert!(export_destination(name, 0, &folder).is_err(), "{name}");
+        }
+    }
+}
+
 fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> {
     if !can_leave(state, app) {
         return Ok(());
@@ -2213,10 +2273,13 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 .workspace
                 .as_ref()
                 .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
-            let path = PathBuf::from(a.get_export_path().trim());
-            if path.as_os_str().is_empty() {
-                return Err(invalid("Valitse tallennettava tiedosto"));
-            }
+            let folder = ws
+                .path()
+                .parent()
+                .ok_or_else(|| invalid("Kilpailun kansiota ei löydy"))?;
+            let path =
+                export_destination(a.get_export_path().as_str(), a.get_export_kind(), folder)?;
+            a.set_export_path(path.display().to_string().into());
             report::save_new_bytes(&path, &export_bytes(ws, a.get_export_kind())?)?;
             a.set_export_open(false);
             status(
