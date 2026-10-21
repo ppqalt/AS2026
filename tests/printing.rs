@@ -10,6 +10,38 @@ use std::{
 };
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
+#[cfg(feature = "desktop")]
+fn save_preview(root: &std::path::Path, name: &str, document: &printing::Document) {
+    std::fs::create_dir_all(root).unwrap();
+    std::fs::write(
+        root.join(format!("{name}.json")),
+        serde_json::to_vec(document).unwrap(),
+    )
+    .unwrap();
+    #[cfg(all(windows, feature = "gui"))]
+    {
+        let paths = printing::preview_png(document, &root.join(name)).unwrap();
+        assert_eq!(paths.len(), document.pages.len());
+        let expected = if document.landscape {
+            (1754, 1240)
+        } else {
+            (1240, 1754)
+        };
+        for path in paths {
+            let image = image::open(path).unwrap().to_rgb8();
+            assert_eq!(image.dimensions(), expected);
+            // Kokonaan valkoinen sivu ei ole onnistunut piirto.
+            assert!(
+                image
+                    .pixels()
+                    .filter(|p| p.0.iter().any(|&c| c < 200))
+                    .count()
+                    > 100
+            );
+        }
+    }
+}
+
 #[test]
 fn pair_layout_and_raw_time_differences() {
     let mut f = Fixture::new();
@@ -172,12 +204,7 @@ fn entry_calculates_manual_clocks_and_publishes_without_a_separate_approval() {
     #[cfg(feature = "desktop")]
     if let Some(root) = std::env::var_os("AS2026_PRINT_PREVIEW_DIR") {
         let root = PathBuf::from(root);
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(
-            root.join("kilpailija.json"),
-            serde_json::to_vec(&doc).unwrap(),
-        )
-        .unwrap();
+        save_preview(&root, "kilpailija", &doc);
         for (name, kind, landscape) in [
             ("luokka", Kind::Classes, false),
             ("asemat", Kind::Stations, true),
@@ -190,11 +217,7 @@ fn entry_calculates_manual_clocks_and_publishes_without_a_separate_approval() {
                 true,
             )
             .unwrap();
-            std::fs::write(
-                root.join(format!("{name}.json")),
-                serde_json::to_vec(&doc).unwrap(),
-            )
-            .unwrap();
+            save_preview(&root, name, &doc);
         }
     }
 }
@@ -280,16 +303,15 @@ fn class_selection_orientation_and_dense_page_fitting() {
         #[cfg(feature = "desktop")]
         if let Some(root) = std::env::var_os("AS2026_PRINT_PREVIEW_DIR") {
             let root = PathBuf::from(root);
-            std::fs::create_dir_all(&root).unwrap();
-            std::fs::write(
-                root.join(if kind == Kind::Stations {
-                    "tihea-asemat.json"
+            save_preview(
+                &root,
+                if kind == Kind::Stations {
+                    "tihea-asemat"
                 } else {
-                    "tihea-luokat.json"
-                }),
-                serde_json::to_vec(&doc).unwrap(),
-            )
-            .unwrap();
+                    "tihea-luokat"
+                },
+                &doc,
+            );
         }
         for page in doc.pages {
             for text in page.texts {

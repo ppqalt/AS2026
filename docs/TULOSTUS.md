@@ -49,8 +49,8 @@ Valitse **Asetukset → Tulostin → Päivitä tulostinluettelo** ja valitse tul
 Valinta tallennetaan käyttäjän sovellusasetuksiin, ei kilpailutiedostoon.
 **Käyttöjärjestelmän oletus** käyttää järjestelmän oletustulostinta.
 
-Windows lähettää sivumallin suoraan valitun tulostimen GDI-jonoon Windows
-PowerShellin ja System.Drawingin kautta. Erillistä selainta ei tarvita.
+Windows lähettää sivumallin suoraan valitun tulostimen GDI-jonoon Rustista
+Windowsin omilla rajapinnoilla. PowerShelliä, .NET-ajoympäristöä tai selainta ei tarvita.
 Tulostimen pitää tukea A4-paperia. Myös virtuaalisen PDF-tulostimen voi valita;
 sen oma tallennusikkuna voi kysyä tiedoston sijainnin.
 
@@ -64,6 +64,6 @@ ja jonon jatkokäsittely tarkistetaan käyttöjärjestelmästä.
 Ydintestit tarkistavat käsikellojen laskennan, tallennuksen, virheelliset syötteet,
 luokkien rajauksen, pitkän taulukon sovituksen ja PostScriptin tekstiescapet.
 GUI-koe käyttää oikeita Tab- ja Enter-tapahtumia AT → JAT → RT → muut → Tulosta
--järjestyksessä. CI renderöi kilpailija-, luokka- ja asematulosteet Windowsin
-oikealla piirtäjällä PNG-kuviksi lähettämättä niitä tulostusjonoon.
+-järjestyksessä. Windowsin testit renderöivät kilpailija-, luokka- ja asematulosteet
+samalla Rust/GDI-piirtäjällä PNG-kuviksi lähettämättä niitä tulostusjonoon.
 Fyysisen tulostimen ja Emit-lukijan yhteiskoe tehdään erikseen.

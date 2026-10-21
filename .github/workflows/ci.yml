@@ -50,13 +50,6 @@ jobs:
         env:
           AS2026_PRINT_PREVIEW_DIR: target/print-preview
         run: cargo +stable test --all-targets --features gui
-      - name: Renderöi Windowsin tulosteet ilman tulostusjonoa
-        if: runner.os == 'Windows'
-        run: |
-          Get-ChildItem target/print-preview -Filter '*.json' | ForEach-Object {
-            powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/print-windows.ps1 -Job $_.FullName -PreviewDirectory (Join-Path $_.DirectoryName $_.BaseName)
-            if ($LASTEXITCODE -ne 0) { throw 'Tulosteen renderöintikoe epäonnistui' }
-          }
       - name: Säilytä tulostuksen tarkistuskuvat
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

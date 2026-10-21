@@ -49,7 +49,8 @@ venyvää tyhjää aluetta.
 
 ## Kokeilu
 
-`scripts/kokeile-beta.sh` avaa erillisen esimerkkikilpailun. Käyttäjän nykyinen
+`cargo run --locked --features gui --bin as2026-gui -- --demo` avaa projektihakemistosta
+erillisen esimerkkikilpailun sekä Linuxissa että Windowsissa. Käyttäjän nykyinen
 asennus ja alkuperäiset kilpailutiedot eivät kuulu tähän kokeiluun.
 Beta tunnistetaan ikkunan otsikosta ja sivupalkin AS2026 Beta -nimestä.
 
