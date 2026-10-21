@@ -122,11 +122,11 @@ export component AppWindow inherits Window {
     callback navigate(int);
     callback focus-page();
     focus-page => {
-        if !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
+        if !root.export-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
             keyboard.focus();
         }
     }
-    changed notes-open => { if !root.notes-open { root.focus-page(); } }
+    changed notes-open => { root.note-details-open = false; if !root.notes-open { root.focus-page(); } }
     changed dialog-open => { if !root.dialog-open { root.focus-page(); } }
     changed about-open => { if !root.about-open { root.focus-page(); } }
     changed confirm-open => { if !root.confirm-open { root.focus-page(); } }
@@ -170,6 +170,7 @@ export component AppWindow inherits Window {
     callback show-export-menu();
     show-export-menu => { export-menu.show(); }
     export-menu := PopupWindow {
+        close-policy: close-on-click-outside;
         x: root.width - Theme.gutter - self.width;
         y: Theme.header-height + Theme.gutter + 2 * Theme.control-height + Theme.space-4 + Theme.space-2;
         width: 180px; height: 3 * Theme.control-height + 4 * Theme.space-2;
@@ -177,13 +178,23 @@ export component AppWindow inherits Window {
             background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
             VerticalLayout {
                 padding: Theme.space-2; spacing: Theme.space-2;
-                export-excel := Button { text: "Excel (XLSX)"; clicked => { export-menu.close(); root.focus-page(); root.export-xlsx(); } }
-                Button { text: "CSV"; clicked => { export-menu.close(); root.focus-page(); root.export-csv(); } }
-                Button { text: "HTML"; clicked => { export-menu.close(); root.focus-page(); root.export-report(); } }
+                export-excel := Button { text: "Excel (XLSX)"; clicked => { root.export-xlsx(); export-menu.close(); } }
+                Button { text: "CSV"; clicked => { root.export-csv(); export-menu.close(); } }
+                Button { text: "HTML"; clicked => { root.export-report(); export-menu.close(); } }
             }
-            FocusScope { init => { export-excel.focus(); } }
+            FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { export-excel.focus(); } }
         }
     }
+    in-out property <bool> export-open;
+    changed export-open => { if !root.export-open { root.focus-page(); } }
+    in-out property <int> export-kind;
+    in-out property <string> export-label;
+    in-out property <string> export-path;
+    in-out property <string> export-error;
+    callback save-export();
+    callback browse-export();
+    in-out property <string> calculation-note-details;
+    in-out property <bool> note-details-open;
     in-out property <bool> notes-open;
     in-out property <bool> result-stations;
     in-out property <bool> details-open;
@@ -264,6 +275,7 @@ export component AppWindow inherits Window {
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
+            if root.export-open { root.export-open = false; return accept; }
             if root.result-entry-open { root.result-entry-close(false); return accept; }
             if root.print-classes-open { root.print-classes-close(false); return accept; }
             if root.notes-open { root.notes-open = false; return accept; }
@@ -296,7 +308,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.export-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -398,6 +410,7 @@ export component AppWindow inherits Window {
                         width: 106px; height: Theme.control-height;
                         Button { width: 100%; height: 100%; text: "Toiminnot"; accessible-label: "Lisätoiminnot"; clicked => { root.show-extras-menu(); } }
                         extras-menu := PopupWindow {
+                            close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
                             width: 240px; height: root.page == 2 ? 100px : 56px;
                             Rectangle {
@@ -407,7 +420,7 @@ export component AppWindow inherits Window {
                                     refresh-menu := Button { text: "Päivitä tiedot"; enabled: true; clicked => { extras-menu.close(); root.focus-page(); root.reload(); } }
                                     if root.page == 2: Button { text: "Lue kehystiedosto"; enabled: root.editable; clicked => { extras-menu.close(); root.focus-page(); root.import-frame(); } }
                                 }
-                                FocusScope { init => { refresh-menu.focus(); } }
+                                FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                             }
                         }
                     }
@@ -907,13 +920,56 @@ export component AppWindow inherits Window {
             }
         }
     }
+    if root.export-open: Rectangle {
+        background: Theme.modal-backdrop;
+        TouchArea { }
+        FocusScope {
+            init => { export-save.focus(); }
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { root.export-open = false; return accept; }
+                if event.text == Key.Tab {
+                    if export-save.has-focus && !event.modifiers.shift { export-path-field.focus(); return accept; }
+                    if export-path-field.has-focus && event.modifiers.shift { export-save.focus(); return accept; }
+                }
+                reject
+            }
+            DialogSurface {
+                available-width: root.width; available-height: root.height;
+                preferred-dialog-width: 760px; preferred-dialog-height: 340px;
+                VerticalLayout {
+                    padding: Theme.dialog-padding; spacing: Theme.space-3;
+                    Heading { text: "Vie tulokset · " + root.export-label; }
+                    Text { text: "Tiedosto"; color: Theme.muted; font-size: Theme.label-font-size; }
+                    HorizontalLayout {
+                        spacing: Theme.space-2;
+                        export-path-field := LineEdit { text <=> root.export-path; horizontal-stretch: 1; accessible-label: "Tulostiedosto"; accepted => { root.save-export(); } }
+                        Button { text: "Selaa"; clicked => { root.browse-export(); } }
+                    }
+                    if root.export-error != "": Text { text: root.export-error; color: Theme.danger; wrap: word-wrap; }
+                    Note { text: "Vain hyväksytyt tulokset saavat sijoituksen ja pisteet."; }
+                    Rectangle { vertical-stretch: 1; }
+                    DialogActions {
+                        Button { text: "Peruuta"; clicked => { root.export-open = false; } }
+                        export-save := AccentButton { text: "Tallenna"; enabled: root.export-path != ""; clicked => { root.save-export(); } }
+                    }
+                }
+            }
+        }
+    }
     if root.notes-open: Rectangle {
         background: Theme.modal-backdrop;
         TouchArea { }
         FocusScope {
             focus-on-tab-navigation: false;
             init => { notes-close.focus(); }
-            capture-key-pressed(event) => { if event.text == Key.Tab { notes-close.focus(); return accept; } reject }
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { root.notes-open = false; return accept; }
+                if event.text == Key.Tab {
+                    if notes-close.has-focus && !event.modifiers.shift { notes-toggle.focus(); return accept; }
+                    if notes-toggle.has-focus && event.modifiers.shift { notes-close.focus(); return accept; }
+                }
+                reject
+            }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
                 preferred-dialog-width: 760px; preferred-dialog-height: 560px;
@@ -923,8 +979,9 @@ export component AppWindow inherits Window {
                     notes-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
                         viewport-width: self.visible-width; viewport-height: notes-text.preferred-height;
-                        notes-text := Note { width: notes-scroll.visible-width; height: self.preferred-height; text: root.calculation-notes != "" ? root.calculation-notes : "Ei huomautuksia."; }
+                        notes-text := Note { width: notes-scroll.visible-width; height: self.preferred-height; text: root.note-details-open ? root.calculation-note-details : (root.calculation-notes != "" ? root.calculation-notes : "Ei huomautuksia."); }
                     }
+                    HorizontalLayout { alignment: start; notes-toggle := Button { text: root.note-details-open ? "Näytä yhteenveto" : "Näytä lisätiedot"; clicked => { root.note-details-open = !root.note-details-open; } } }
                     DialogActions { notes-close := Button { text: "Sulje"; clicked => { root.notes-open = false; } } }
                 }
             }

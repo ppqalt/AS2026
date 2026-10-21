@@ -39,6 +39,7 @@ export component DrawClassDialog inherits Rectangle {
                         spacing: Theme.space-3;
                         Note { text: "Valitse arvontaan osallistuvat luokat."; }
                         HorizontalLayout {
+                            height: Theme.control-height; vertical-stretch: 0;
                             spacing: Theme.space-2;
                             all := Button { text: "Valitse kaikki"; clicked => { root.select-all(true); } }
                             Button { text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }

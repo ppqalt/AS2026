@@ -422,6 +422,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
             .count() as i32,
     );
     app.set_calculation_notes(view.notes.into());
+    app.set_calculation_note_details(view.note_details.into());
     app.set_result_overview(view.result_overview);
     app.set_selected_key(state.selected);
     app.set_detail_key(state.detail);
@@ -1340,6 +1341,56 @@ fn offer_excel_import(
     Ok(())
 }
 
+fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> {
+    if !can_leave(state, app) {
+        return Ok(());
+    }
+    let ws = state
+        .workspace
+        .as_ref()
+        .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
+    let (extension, label) = match kind {
+        0 => ("xlsx", "Excel (XLSX)"),
+        1 => ("csv", "CSV"),
+        _ => ("html", "HTML"),
+    };
+    let folder = ws
+        .path()
+        .parent()
+        .ok_or_else(|| invalid("Kilpailun kansiota ei löydy"))?;
+    let mut path = folder.join(format!("tulokset.{extension}"));
+    for index in 2.. {
+        if !path.exists() {
+            break;
+        }
+        path = folder.join(format!("tulokset-{index}.{extension}"));
+    }
+    app.set_export_kind(kind);
+    app.set_export_label(label.into());
+    app.set_export_path(path.display().to_string().into());
+    app.set_export_error("".into());
+    app.set_export_open(true);
+    Ok(())
+}
+
+fn export_bytes(ws: &Workspace, kind: i32) -> GuiResult<Vec<u8>> {
+    let policy = as2026::ranking::TiePolicy::KeepSharedAndFlag;
+    if let Some(project) = ws.project() {
+        return Ok(match kind {
+            0 => report::xlsx_from_csv(&report::competition_ranking_csv(project, policy)?)?,
+            1 => report::competition_ranking_csv(project, policy)?.into_bytes(),
+            _ => report::competition_ranking_html(project, policy)?.into_bytes(),
+        });
+    }
+    let archive = ws.results()?;
+    let ranked = application::rank_stored(&archive, policy)?;
+    Ok(match kind {
+        0 => report::ranking_xlsx(&archive, &ranked)?,
+        1 => report::ranking_csv(&archive, &ranked).into_bytes(),
+        _ => report::ranking_html(&archive, &ranked).into_bytes(),
+    })
+}
+
 fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     {
         let state = state.clone();
@@ -2153,115 +2204,56 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         Ok(())
     });
-    action!(on_export_report, |s, a| {
-        let ws = s
-            .workspace
-            .as_ref()
-            .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
-        let archive = ws.results()?;
-        let ranking =
-            application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
-        let html = if let Some(project) = ws.project() {
-            report::competition_ranking_html(
-                project,
-                as2026::ranking::TiePolicy::KeepSharedAndFlag,
-            )?
-        } else {
-            report::ranking_html(&archive, &ranking)
-        };
+    action!(on_export_report, |s, a| begin_export(s, &a, 2));
+    action!(on_export_csv, |s, a| begin_export(s, &a, 1));
+    action!(on_export_xlsx, |s, a| begin_export(s, &a, 0));
+    action!(on_save_export, |s, a| {
+        let result = (|| -> GuiResult<()> {
+            let ws = s
+                .workspace
+                .as_ref()
+                .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
+            let path = PathBuf::from(a.get_export_path().trim());
+            if path.as_os_str().is_empty() {
+                return Err(invalid("Valitse tallennettava tiedosto"));
+            }
+            report::save_new_bytes(&path, &export_bytes(ws, a.get_export_kind())?)?;
+            a.set_export_open(false);
+            status(
+                &a,
+                format!("Tulokset tallennettu: {}", path.display()),
+                false,
+            );
+            Ok(())
+        })();
+        if let Err(error) = result {
+            a.set_export_error(error_text(&error).into());
+        }
+        Ok(())
+    });
+    action!(on_browse_export, |_s, a| {
+        let path = PathBuf::from(a.get_export_path().as_str());
         let weak = a.as_weak();
         std::thread::Builder::new()
-            .name("as2026-raportti".into())
+            .name("as2026-vientipolku".into())
             .spawn(move || {
-                if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Vie tulokset uutena HTML-tiedostona")
-                    .set_file_name("tulokset.html")
-                    .add_filter("HTML-raportti", &["html"])
-                    .save_file()
-                {
-                    let result = report::save_new(&path, &html);
-                    let message = match &result {
-                        Ok(()) => format!("Raportti tallennettu: {}", path.display()),
-                        Err(error) => error.to_string(),
-                    };
-                    let failed = result.is_err();
-                    let _ = weak.upgrade_in_event_loop(move |app| status(&app, message, failed));
+                let mut dialog = rfd::FileDialog::new().set_title("Valitse tulostiedosto");
+                if let Some(parent) = path.parent() {
+                    dialog = dialog.set_directory(parent);
+                }
+                if let Some(name) = path.file_name() {
+                    dialog = dialog.set_file_name(name.to_string_lossy());
+                }
+                if let Some(path) = dialog.save_file() {
+                    let _ = weak.upgrade_in_event_loop(move |a| {
+                        if a.get_export_open() {
+                            a.set_export_path(path.display().to_string().into());
+                            a.set_export_error("".into());
+                        }
+                    });
                 }
             })
             .map_err(|e| invalid(&io_message(&e)))?;
-        Ok(())
-    });
-    action!(on_export_csv, |s, a| {
-        let ws = s
-            .workspace
-            .as_ref()
-            .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
-        let archive = ws.results()?;
-        let ranking =
-            application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
-        let csv = if let Some(project) = ws.project() {
-            report::competition_ranking_csv(project, as2026::ranking::TiePolicy::KeepSharedAndFlag)?
-        } else {
-            report::ranking_csv(&archive, &ranking)
-        };
-        let weak = a.as_weak();
-        std::thread::Builder::new()
-            .name("as2026-csv".into())
-            .spawn(move || {
-                if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Vie tulokset uutena CSV-tiedostona")
-                    .set_file_name("tulokset.csv")
-                    .add_filter("CSV-taulukko", &["csv"])
-                    .save_file()
-                {
-                    let result = report::save_new(&path, &csv);
-                    let message = match &result {
-                        Ok(()) => format!("CSV tallennettu: {}", path.display()),
-                        Err(error) => error.to_string(),
-                    };
-                    let failed = result.is_err();
-                    let _ = weak.upgrade_in_event_loop(move |app| status(&app, message, failed));
-                }
-            })
-            .map_err(|e| invalid(&io_message(&e)))?;
-        Ok(())
-    });
-    action!(on_export_xlsx, |s, a| {
-        let ws = s
-            .workspace
-            .as_ref()
-            .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
-        let archive = ws.results()?;
-        let ranked =
-            application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
-        let bytes = if let Some(project) = ws.project() {
-            report::xlsx_from_csv(&report::competition_ranking_csv(
-                project,
-                as2026::ranking::TiePolicy::KeepSharedAndFlag,
-            )?)?
-        } else {
-            report::ranking_xlsx(&archive, &ranked)?
-        };
-        let weak = a.as_weak();
-        std::thread::Builder::new()
-            .name("as2026-xlsx".into())
-            .spawn(move || {
-                if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Vie tulokset uutena XLSX-tiedostona")
-                    .set_file_name("tulokset.xlsx")
-                    .add_filter("Excel-työkirja", &["xlsx"])
-                    .save_file()
-                {
-                    let result = report::save_new_bytes(&path, &bytes);
-                    let message = match &result {
-                        Ok(()) => format!("XLSX tallennettu: {}", path.display()),
-                        Err(error) => error.to_string(),
-                    };
-                    let failed = result.is_err();
-                    let _ = weak.upgrade_in_event_loop(move |app| status(&app, message, failed));
-                }
-            })
-            .map_err(|error| invalid(&io_message(&error)))?;
         Ok(())
     });
     action!(on_import_frame, |s, a| {

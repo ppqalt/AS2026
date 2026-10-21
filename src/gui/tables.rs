@@ -21,6 +21,7 @@ pub struct ViewData {
     pub detail_weights: Vec<f32>,
     pub detail_title: String,
     pub notes: String,
+    pub note_details: String,
     pub result_overview: ResultOverview,
 }
 
@@ -126,12 +127,93 @@ pub fn data(
     }
     notes.sort();
     notes.dedup();
-    view.notes = notes
-        .iter()
-        .filter_map(|note| as2026::report::user_notice(note))
-        .collect::<Vec<_>>()
-        .join("\n");
+    view.note_details = notes.join("\n");
+    view.notes = summarize_notices(
+        &notes,
+        ws.project().is_none_or(|p| {
+            p.luokat
+                .iter()
+                .any(|c| c.nousupisteet != 0 || c.sarjapistetapa != 0)
+        }),
+    );
     Ok(view)
+}
+
+/// Toistuvat viestit ryhmitellään; alkuperäinen diagnostiikka säilyy lisätiedoissa.
+fn summarize_notices(notes: &[String], publish_points: bool) -> String {
+    use std::collections::{BTreeMap, BTreeSet};
+    let mut groups: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut provisional = BTreeSet::new();
+    for raw in notes {
+        if raw.contains("Tuntematon tarkastustulos \"HYVÄKSYMÄTÖN\"")
+            || raw.contains(
+                "koodin etuliite tai päinvastoin; luokat erotetaan koko koodin perusteella",
+            )
+        {
+            continue;
+        }
+        if raw.contains("Käsin kirjattavan aseman puuttuvasta leimasta ei määrätä puuttumissakkoa")
+        {
+            continue;
+        }
+        if raw.contains("Tulokset ovat alustavat: ILM-tiloja") {
+            if !publish_points {
+                continue;
+            }
+            if let Some(group) = raw
+                .strip_prefix("Ryhmä ")
+                .and_then(|s| s.split_once(": "))
+                .map(|(group, _)| group)
+            {
+                provisional.insert(group.to_owned());
+            }
+            continue;
+        }
+        let Some(note) = as2026::report::user_notice(raw) else {
+            continue;
+        };
+        if note.contains("Käsin kirjattavan aseman puuttuvasta leimasta ei määrätä puuttumissakkoa")
+        {
+            continue;
+        }
+        if let Some((driver, message)) = note
+            .split_once(": ")
+            .filter(|(prefix, _)| prefix.starts_with("Kilpailija "))
+        {
+            groups
+                .entry(message.to_owned())
+                .or_default()
+                .insert(driver.trim_start_matches("Kilpailija ").to_owned());
+        } else {
+            groups.entry(note).or_default();
+        }
+    }
+    let mut output = Vec::new();
+    for (message, drivers) in groups {
+        if drivers.is_empty() {
+            output.push(message);
+        } else {
+            let mut drivers = drivers.into_iter().collect::<Vec<_>>();
+            drivers.sort_by_key(|number| number.parse::<u32>().unwrap_or(u32::MAX));
+            let mut numbers = drivers
+                .iter()
+                .take(8)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            if drivers.len() > 8 {
+                numbers.push_str(&format!(" ja {} muuta", drivers.len() - 8));
+            }
+            output.push(format!("{message} — kilpailijat {numbers}"));
+        }
+    }
+    if !provisional.is_empty() {
+        output.push(format!(
+            "Nousu- ja sarjapisteet odottavat luokkien valmistumista: {}.",
+            provisional.into_iter().collect::<Vec<_>>().join(", ")
+        ));
+    }
+    output.join("\n\n")
 }
 
 fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
@@ -444,7 +526,7 @@ fn results(
     }
     notes.extend(ranking.diagnostics.iter().map(ToString::to_string));
     if !ranking.omitted_source_indices.is_empty() {
-        notes.push("Keskeneräiset ja tuntemattomat tarkastustilat näkyvät luettelon lopussa ilman sijoitusta.".into());
+        notes.push(format!("{} kilpailijan tulos odottaa hyväksyntää tai täydentämistä. Valitse kilpailija tulosluettelosta.", ranking.omitted_source_indices.len()));
     }
 
     let Some(driver) = usize::try_from(selected_key)
@@ -568,10 +650,17 @@ fn results(
     if !interrupted && let Some(result) = &snapshot {
         if !pending_clocks.is_empty() {
             issues.push(format!(
-                "Täydennä käsikellot asemille {} Tulosta tulos -ikkunassa.",
+                "Täydennä käsikellot: {}. Valitse Tulosta tulos.",
                 pending_clocks
                     .iter()
-                    .map(ToString::to_string)
+                    .map(|index| driver
+                        .results
+                        .iter()
+                        .find(|row| row.output_index == *index)
+                        .map_or_else(
+                            || format!("rivi {index}"),
+                            |row| format!("asema {} {}", row.sequence, row.name)
+                        ))
                     .collect::<Vec<_>>()
                     .join(", ")
             ));
@@ -938,6 +1027,62 @@ mod tests {
         path::PathBuf,
         sync::atomic::{AtomicUsize, Ordering},
     };
+
+    #[test]
+    fn notices_group_repetition_without_losing_full_diagnostics() {
+        let mut notes = (1..=70)
+            .map(|n| format!("Kilpailija {n}: Maalileima puuttuu."))
+            .collect::<Vec<_>>();
+        notes.push("Tuntematon tarkastustulos \"HYVÄKSYMÄTÖN\"; tietue jätettiin tulosluettelon ulkopuolelle".into());
+        let summary = summarize_notices(&notes, false);
+        assert_eq!(summary.lines().count(), 1);
+        assert!(summary.contains("Maalileima puuttuu."));
+        assert!(summary.contains("62 muuta"));
+        assert!(summary.contains("1, 2, 3, 4, 5, 6, 7, 8"));
+        assert!(!summary.contains("Tuntematon tarkastustulos"));
+        assert_eq!(notes.len(), 71);
+    }
+
+    #[test]
+    fn all_export_formats_respect_approval_and_can_be_read_back() {
+        let mut fixture = Fixture::new(|_| {});
+        let csv =
+            String::from_utf8(super::super::export_bytes(&fixture.workspace, 1).unwrap()).unwrap();
+        assert!(!csv.contains("Esimerkkikuljettaja"));
+        fixture.workspace.review_results(7).unwrap();
+        let finish = fixture
+            .workspace
+            .result_snapshot(7)
+            .unwrap()
+            .unwrap()
+            .rivit
+            .last()
+            .unwrap()
+            .output_index;
+        fixture
+            .workspace
+            .complete_result_entry(7, &[(finish, [12, 11, 0])], 0, 0)
+            .unwrap();
+        for kind in 0..=2 {
+            let bytes = super::super::export_bytes(&fixture.workspace, kind).unwrap();
+            if kind == 0 {
+                use std::io::Read;
+                let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
+                let mut xml = String::new();
+                zip.by_name("xl/worksheets/sheet1.xml")
+                    .unwrap()
+                    .read_to_string(&mut xml)
+                    .unwrap();
+                assert!(xml.contains("Esimerkkikuljettaja"));
+            } else {
+                assert!(
+                    String::from_utf8(bytes)
+                        .unwrap()
+                        .contains("Esimerkkikuljettaja")
+                );
+            }
+        }
+    }
 
     static NEXT: AtomicUsize = AtomicUsize::new(0);
 

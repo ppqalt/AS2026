@@ -52,3 +52,9 @@ Lähtöarvonta sijoitetaan toimintorivin oikeaan reunaan; luokkavalinnan
 rataskuvake on välittömästi arvontapainikkeen vieressä. Muokattavat kellot
 ja kestot käyttävät yhteistä h : min : s -kenttää. Mallin kokonaisminuutteihin
 perustuvissa kestoissa sekuntien on oltava 00. Pistekertoimet säilyvät numeroina.
+
+Vientivalikkojen pelkkää alkukohdistusta tekevä FocusScope ei saa peittää
+painikkeiden hiirialuetta. Valikko suljetaan valinnan jälkeen; sisäpuolinen
+napsautus ei saa kadottaa toimintoa. Tulosviennillä on näkyvä tallennusikkuna
+ja paikallinen virhepalaute myös ilman toimivaa työpöydän tiedostovalitsinta.
+Huomautuksissa oletus on ryhmitelty yhteenveto, tarkat tiedot erikseen.
