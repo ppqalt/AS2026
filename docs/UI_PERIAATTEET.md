@@ -66,3 +66,7 @@ Näppäimistöllä kenttään siirryttäessä vanha arvo valitaan korvattavaksi.
 Tulostuksen luokkavalinnassa käytetään samoja joukkovalintoja kuin lähtöarvonnassa.
 Pitkän luokkalistan kaikki rivit ovat saavutettavissa näppäimistöllä myös
 vieritysalueen ulkopuolelta; kohdistus vierittää rivin näkyviin.
+
+Arvonnan ja tulostuksen luokkalistat käyttävät yhteistä ChoiceRow-riviä.
+Joukkovalintapainikkeet ja valintojen yhteenveto pysyvät listan ulkopuolella
+näkyvissä myös vieritettäessä; vain luokkalista vierii.

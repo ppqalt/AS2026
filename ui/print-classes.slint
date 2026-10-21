@@ -1,32 +1,7 @@
 import { Button, CheckBox, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
 import { DrawClassOption } from "types.slint";
-component PrintClassRow inherits Rectangle {
-    in property <DrawClassOption> data;
-    in property <int> index;
-    in property <int> focus-index;
-    callback toggle(bool);
-    callback move(int);
-    callback focused(int);
-    height: Theme.control-height; vertical-stretch: 0;
-    changed focus-index => { if root.focus-index == root.index { focus-timer.running = true; } }
-    focus-timer := Timer { interval: 1ms; triggered => { self.running = false; choice.focus(); } }
-    FocusScope {
-        width: parent.width; height: parent.height;
-        focus-on-tab-navigation: false;
-        capture-key-pressed(event) => {
-            if event.text == Key.Tab { root.move(root.index + (event.modifiers.shift ? -1 : 1)); return accept; }
-            reject
-        }
-        choice := CheckBox {
-            width: parent.width; height: parent.height;
-            text: root.data.label; checked: root.data.selected;
-            toggled => { root.toggle(self.checked); }
-            changed has-focus => { if self.has-focus { root.focused(root.index); } }
-        }
-    }
-}
 export component PrintClassesDialog inherits Rectangle {
     private property <int> focus-index: -1;
     in property <bool> stations;
@@ -88,8 +63,8 @@ export component PrintClassesDialog inherits Rectangle {
                     entries := VerticalLayout {
                         x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
                         alignment: start; spacing: Theme.space-2;
-                        for item[i] in root.classes: PrintClassRow {
-                            data: item; index: i; focus-index: root.focus-index;
+                        for item[i] in root.classes: ChoiceRow {
+                            text: item.label; checked: item.selected; index: i; focus-index: root.focus-index;
                             toggle(selected) => { root.toggle(i, selected); }
                             move(index) => {
                                 if index < 0 { root.focus-index = -1; clear.focus(); }

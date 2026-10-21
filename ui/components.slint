@@ -1,4 +1,4 @@
-import { Button, LineEdit, ScrollView, ComboBox, ListView } from "std-widgets.slint";
+import { Button, LineEdit, ScrollView, ComboBox, ListView, CheckBox } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { TableRow, EditorField } from "types.slint";
 
@@ -504,4 +504,32 @@ export component Metric inherits VerticalLayout {
     spacing: Theme.space-1;
     Text { text: root.count; color: Theme.ink; font-size: 26px; font-weight: 700; }
     Note { text: root.label; }
+}
+
+// Vieritettävän valintalistan rivit saavutetaan myös näkymän ulkopuolelta.
+export component ChoiceRow inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    in property <int> index;
+    in property <int> focus-index;
+    callback toggle(bool);
+    callback move(int);
+    callback focused(int);
+    height: Theme.control-height; vertical-stretch: 0;
+    changed focus-index => { if root.focus-index == root.index { focus-timer.running = true; } }
+    focus-timer := Timer { interval: 1ms; triggered => { self.running = false; choice.focus(); } }
+    FocusScope {
+        width: parent.width; height: parent.height;
+        focus-on-tab-navigation: false;
+        capture-key-pressed(event) => {
+            if event.text == Key.Tab { root.move(root.index + (event.modifiers.shift ? -1 : 1)); return accept; }
+            reject
+        }
+        choice := CheckBox {
+            width: parent.width; height: parent.height;
+            text: root.text; checked: root.checked;
+            toggled => { root.toggle(self.checked); }
+            changed has-focus => { if self.has-focus { root.focused(root.index); } }
+        }
+    }
 }

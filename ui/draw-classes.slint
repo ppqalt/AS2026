@@ -1,25 +1,35 @@
-import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { Button, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
 import { DrawClassOption } from "types.slint";
 
 export component DrawClassDialog inherits Rectangle {
     in property <[DrawClassOption]> classes;
     in property <string> summary;
+    private property <int> focus-index: -1;
     callback toggle(int, bool);
     callback select-all(bool);
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
     FocusScope {
+        width: root.width; height: root.height;
         focus-on-click: false;
         focus-on-tab-navigation: false;
-        init => { cancel.focus(); }
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
             if event.text == Key.Tab {
                 if save.has-focus && !event.modifiers.shift { all.focus(); return accept; }
                 if all.has-focus && event.modifiers.shift { save.focus(); return accept; }
+                if clear.has-focus && !event.modifiers.shift {
+                    if root.classes.length > 0 { root.focus-index = 0; } else { cancel.focus(); }
+                    return accept;
+                }
+                if cancel.has-focus && event.modifiers.shift {
+                    if root.classes.length > 0 { root.focus-index = root.classes.length - 1; } else { clear.focus(); }
+                    return accept;
+                }
             }
             reject
         }
@@ -31,40 +41,43 @@ export component DrawClassDialog inherits Rectangle {
                 padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
                 Heading { text: "Lähtöarvonnan luokat"; }
-                ScrollView {
+                HorizontalLayout {
+                    height: Theme.control-height; vertical-stretch: 0;
+                    spacing: Theme.space-2;
+                    all := Button { text: "Valitse kaikki"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.select-all(true); } }
+                    clear := Button { text: "Tyhjennä valinta"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.select-all(false); } }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                body := ScrollView {
                     vertical-stretch: 1;
                     horizontal-scrollbar-policy: always-off;
                     viewport-width: self.visible-width;
-                    VerticalLayout {
-                        spacing: Theme.space-3;
-                        Note { text: "Valitse arvontaan osallistuvat luokat."; }
-                        HorizontalLayout {
-                            height: Theme.control-height; vertical-stretch: 0;
-                            spacing: Theme.space-2;
-                            all := Button { text: "Valitse kaikki"; clicked => { root.select-all(true); } }
-                            Button { text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }
-                            Rectangle { horizontal-stretch: 1; }
-                        }
-                        for entry[i] in root.classes: Rectangle {
-                            height: Theme.row-height;
-                            vertical-stretch: 0;
-                            background: Theme.surface;
-                            HorizontalLayout {
-                                padding-left: Theme.space-2;
-                                padding-right: Theme.space-2;
-                                CheckBox {
-                                    text: entry.label;
-                                    checked: entry.selected;
-                                    toggled => { root.toggle(i, self.checked); }
-                                }
+                    viewport-height: entries.min-height;
+                    entries := VerticalLayout {
+                        width: body.visible-width; height: self.min-height;
+                        alignment: start; spacing: Theme.space-2;
+                        for entry[i] in root.classes: ChoiceRow {
+                            text: entry.label; checked: entry.selected; index: i; focus-index: root.focus-index;
+                            toggle(selected) => { root.toggle(i, selected); }
+                            move(index) => {
+                                if index < 0 { root.focus-index = -1; clear.focus(); }
+                                else if index >= root.classes.length { root.focus-index = -1; cancel.focus(); }
+                                else { root.focus-index = index; }
+                            }
+                            focused(index) => {
+                                root.focus-index = index;
+                                let top = index * (Theme.control-height + Theme.space-2);
+                                let bottom = top + Theme.control-height;
+                                if top < -body.viewport-y { body.viewport-y = -top; }
+                                else if bottom > -body.viewport-y + body.visible-height { body.viewport-y = min(0px, body.visible-height - bottom); }
                             }
                         }
-                        if root.summary != "": Note { text: root.summary; }
                     }
                 }
+                if root.summary != "": Note { text: root.summary; }
                 DialogActions {
-                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
-                    save := AccentButton { text: "Tallenna valinnat"; clicked => { root.close(true); } }
+                    cancel := Button { text: "Peruuta"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(false); } }
+                    save := AccentButton { text: "Tallenna valinnat"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(true); } }
                 }
             }
         }
