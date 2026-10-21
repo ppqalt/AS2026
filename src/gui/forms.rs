@@ -396,10 +396,7 @@ pub(super) fn emit_correction_fields(
     row: u32,
 ) -> Result<Vec<EditorField>, CoreError> {
     let rows = as2026::emit_corrections::rows(project, number)?;
-    let selected = rows
-        .iter()
-        .find(|r| r.index == row)
-        .ok_or_else(|| invalid())?;
+    let selected = rows.iter().find(|r| r.index == row).ok_or_else(invalid)?;
     let code = if selected.code == 0 {
         selected.expected_code
     } else {

@@ -1381,32 +1381,6 @@ fn export_destination(input: &str, kind: i32, folder: &Path) -> GuiResult<PathBu
     })
 }
 
-#[cfg(test)]
-mod export_path_tests {
-    use super::*;
-
-    #[test]
-    fn export_names_use_competition_folder_and_selected_format() {
-        let folder = std::env::temp_dir().join("as2026-vientipolku");
-        assert_eq!(
-            export_destination("  lopputulokset  ", 0, &folder).unwrap(),
-            folder.join("lopputulokset.xlsx")
-        );
-        assert_eq!(
-            export_destination("raportit/tulos.CSV", 1, &folder).unwrap(),
-            folder.join("raportit/tulos.CSV")
-        );
-        let absolute = folder.join("oma.htm");
-        assert_eq!(
-            export_destination(absolute.to_str().unwrap(), 2, &folder).unwrap(),
-            absolute
-        );
-        for name in ["", "   ", "raportit/", "tulos.csv", "tulos."] {
-            assert!(export_destination(name, 0, &folder).is_err(), "{name}");
-        }
-    }
-}
-
 fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> {
     if !can_leave(state, app) {
         return Ok(());
@@ -3071,4 +3045,30 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     reader_timer.stop();
     stop_reader(&mut state.borrow_mut(), &app)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod export_path_tests {
+    use super::*;
+
+    #[test]
+    fn export_names_use_competition_folder_and_selected_format() {
+        let folder = std::env::temp_dir().join("as2026-vientipolku");
+        assert_eq!(
+            export_destination("  lopputulokset  ", 0, &folder).unwrap(),
+            folder.join("lopputulokset.xlsx")
+        );
+        assert_eq!(
+            export_destination("raportit/tulos.CSV", 1, &folder).unwrap(),
+            folder.join("raportit/tulos.CSV")
+        );
+        let absolute = folder.join("oma.htm");
+        assert_eq!(
+            export_destination(absolute.to_str().unwrap(), 2, &folder).unwrap(),
+            absolute
+        );
+        for name in ["", "   ", "raportit/", "tulos.csv", "tulos."] {
+            assert!(export_destination(name, 0, &folder).is_err(), "{name}");
+        }
+    }
 }
