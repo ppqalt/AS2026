@@ -2743,7 +2743,8 @@ fn capture_views(
                 }
                 89 => save_view(&app, &directory.join("33-aikojen-taydennys.png")).unwrap(),
                 90 => smoke::key(&app, "12:05:00"),
-                91 | 93 | 95 | 97 => smoke::key(&app, slint::platform::Key::Tab),
+                91 | 93 | 95 => smoke::key(&app, slint::platform::Key::Tab),
+                97 => { for _ in 0..3 { smoke::key(&app, slint::platform::Key::Tab); } },
                 92 => smoke::key(&app, "12:08:00"),
                 94 => smoke::key(&app, "3"),
                 96 => smoke::key(&app, "25"),

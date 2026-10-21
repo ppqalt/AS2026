@@ -58,3 +58,7 @@ painikkeiden hiirialuetta. Valikko suljetaan valinnan jälkeen; sisäpuolinen
 napsautus ei saa kadottaa toimintoa. Tulosviennillä on näkyvä tallennusikkuna
 ja paikallinen virhepalaute myös ilman toimivaa työpöydän tiedostovalitsinta.
 Huomautuksissa oletus on ryhmitelty yhteenveto, tarkat tiedot erikseen.
+
+Pitkän tuloslomakkeen näppäimistökohdistus vierittää valitun kentän näkyviin.
+Tab ja Shift+Tab kiertävät kentät sekä alapainikkeet näkyvässä järjestyksessä.
+Näppäimistöllä kenttään siirryttäessä vanha arvo valitaan korvattavaksi.
