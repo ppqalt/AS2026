@@ -1,6 +1,7 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
 slint::include_modules!();
 mod desktop;
+mod emit_correction;
 mod forms;
 mod printing;
 mod smoke;
@@ -91,6 +92,7 @@ struct State {
     entry_number: Option<u32>,
     print_test: bool,
     last_print: Option<as2026::printing::Document>,
+    emit_edit_basis: Option<emit_correction::Basis>,
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -142,6 +144,10 @@ fn field_feedback(app: &AppWindow, route: bool, key: i32, value: &str, error: &s
 fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
     if let Err(error) = operation() {
         let message = error.to_string();
+        if app.get_emit_edit_open() {
+            app.set_emit_edit_error(error_text(&error).into());
+            return;
+        }
         if app.get_bc_open() {
             app.set_bc_error(error_text(&error).into());
             status(app, "BC:n tietoja ei tallennettu.", false);
@@ -1361,6 +1367,13 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }}
     }
     action!(on_navigate, |s, a, page| navigate(s, &a, page));
+    action!(on_open_emit_edit, |s, a| emit_correction::open(s, &a));
+    action!(on_emit_edit_edited, |s, a, key, value| {
+        emit_correction::edit(s, &a, key, &value)
+    });
+    action!(on_emit_edit_close, |s, a, save| emit_correction::close(
+        s, &a, save
+    ));
     action!(on_open_path, |s, a, path| {
         if can_switch(s, &a) {
             let path = as2026::terminal::clean_path(&path);
@@ -2854,6 +2867,7 @@ fn capture_views(
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let emit_correction_test = std::env::var_os("AS2026_EMIT_CORRECTION_TEST").is_some();
     let mut initial_path = None;
     let mut demo = false;
     let mut smoke_test = false;
@@ -2895,6 +2909,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     if smoke_test && !demo {
         return Err("Työnkulkukoe tarvitsee --demo-valinnan".into());
     }
+    if emit_correction_test && (!demo || captures.is_none()) {
+        return Err("Emit-korjauksen GUI-koe tarvitsee --demo- ja --capture-dir-valinnat".into());
+    }
     if captures.is_some() {
         // Kuvataan nykyinen näkymä suoraan ohjelmistorenderöinnistä, ei edellistä GL-puskuria.
         slint::BackendSelector::new()
@@ -2904,7 +2921,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let app = AppWindow::new()?;
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
-    app.set_app_version(env!("CARGO_PKG_VERSION").into());
+    app.set_app_version(
+        format!(
+            "{} · Emit-korjaus (kehitysversio)",
+            env!("CARGO_PKG_VERSION")
+        )
+        .into(),
+    );
     app.set_managed(installation::is_managed());
     let preferences = if demo {
         let root = demo_path()?.parent().unwrap().to_owned();
@@ -2981,7 +3004,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
     if let Some(directory) = captures {
-        capture_views(&app, state.clone(), directory, smoke_test, lifecycle_path)?;
+        if emit_correction_test {
+            emit_correction::capture(&app, state.clone(), directory)?;
+        } else {
+            capture_views(&app, state.clone(), directory, smoke_test, lifecycle_path)?;
+        }
     }
     slint::run_event_loop()?;
     update_timer.stop();

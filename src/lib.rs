@@ -8,6 +8,7 @@ pub mod beginners;
 pub mod changes;
 pub mod corrections;
 pub mod emit;
+pub mod emit_corrections;
 pub mod excel_import;
 #[cfg(feature = "desktop")]
 pub mod installation;

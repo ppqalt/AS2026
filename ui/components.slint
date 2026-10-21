@@ -141,6 +141,17 @@ export component FormField inherits VerticalLayout {
     callback draft(string);
     property <bool> dirty: false;
     out property <bool> invalid: false;
+    public function focus-first() {
+        if root.duration { hour-input.focus(); }
+        else if root.options.length > 0 { choice.focus(); }
+        else { input.focus(); }
+    }
+    public function focus-last() {
+        if root.duration { second-input.focus(); }
+        else { root.focus-first(); }
+    }
+    public function first-focused() -> bool { root.duration ? hour-input.has-focus : root.options.length > 0 ? choice.has-focus : input.has-focus }
+    public function last-focused() -> bool { root.duration ? second-input.has-focus : root.first-focused() }
     init => { root.invalid = root.error != ""; }
     changed error => { root.invalid = root.error != ""; }
     function duration-value() -> string {

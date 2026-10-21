@@ -340,13 +340,16 @@ pub fn projection(project: &Project) -> Result<Project, CoreError> {
         driver.tallennettu_tulos = entry.tallennettu_tulos.clone();
     }
     view.leimaluvut.clear();
+    // Projektio sisältää jo korjatut leimat. Historia säilyy vain alkuperäisessä projektissa.
+    view.emit_korjaukset.clear();
     for driver in &view.kilpailijat {
         // Vain aktiivinen lukema tarvitaan projektioon. Alkuperäinen historia säilyy projektissa.
         if let Some(read) = project.active_readout(driver.emit)
             && let Some(start) = driver.start_clock()?
         {
+            let read = crate::emit_corrections::effective_readout(project, read)?;
             view.leimaluvut
-                .push(filtered_readout(config, &route, start, read)?);
+                .push(filtered_readout(config, &route, start, &read)?);
         }
     }
     let track = view

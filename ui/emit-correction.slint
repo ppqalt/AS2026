@@ -1,0 +1,93 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions, FormField } from "components.slint";
+import { EditorField } from "types.slint";
+
+component CorrectionField inherits FocusScope {
+    in property <EditorField> data;
+    in property <int> index;
+    in property <int> focus-index;
+    in property <bool> focus-last;
+    callback edited(int, string);
+    callback next(int, bool);
+    height: field.min-height;
+    vertical-stretch: 0;
+    changed focus-index => { if root.index == root.focus-index { focus-timer.running = true; } }
+    focus-timer := Timer {
+        interval: 1ms;
+        triggered => { self.running = false; if root.focus-last { field.focus-last(); } else { field.focus-first(); } }
+    }
+    capture-key-pressed(event) => {
+        if event.text == Key.Tab {
+            if event.modifiers.shift && field.first-focused() { root.next(root.index - 1, true); return accept; }
+            if !event.modifiers.shift && field.last-focused() { root.next(root.index + 1, false); return accept; }
+        }
+        reject
+    }
+    field := FormField {
+        width: parent.width;
+        label: root.data.label; value: root.data.value; hint: root.data.hint;
+        options: root.data.options; values: root.data.values; choice: root.data.choice;
+        duration: root.data.duration; hours: root.data.hours; minutes: root.data.minutes; seconds: root.data.seconds;
+        draft(value) => { root.edited(root.data.key, value); }
+        commit(value) => { root.edited(root.data.key, value); true }
+    }
+}
+
+export component EmitCorrectionDialog inherits Rectangle {
+    in property <string> identity;
+    in property <[EditorField]> fields;
+    in property <string> error;
+    in property <string> history;
+    callback edited(int, string);
+    callback close(bool);
+    property <int> focus-index: -1;
+    property <bool> focus-last;
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    FocusScope {
+        width: root.width; height: root.height;
+        init => { cancel.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Tab && !event.modifiers.shift && save.has-focus { root.focus-last = false; root.focus-index = 0; return accept; }
+            if event.text == Key.Tab && event.modifiers.shift && cancel.has-focus { root.focus-last = true; root.focus-index = root.fields.length - 1; return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-width: 620px; preferred-dialog-height: 740px;
+            VerticalLayout {
+                padding: Theme.dialog-padding; spacing: Theme.space-3;
+                Heading { text: "Korjaa Emit-rivi"; vertical-stretch: 0; }
+                Note { text: root.identity; }
+                body := ScrollView {
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width; viewport-height: content.min-height;
+                    content := VerticalLayout {
+                        x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
+                        spacing: Theme.space-2; alignment: start;
+                        Note { text: "Korjaus laskee NAC- ja BC-tulokset uudelleen. Hyväksynnät ja asemien pistekorjaukset poistuvat. Käsikellot ja erilliset lisävirheet säilyvät."; }
+                        for field[i] in root.fields: CorrectionField {
+                            data: field; index: i; focus-index: root.focus-index; focus-last: root.focus-last;
+                            edited(key, value) => { root.edited(key, value); }
+                            next(index, last) => {
+                                root.focus-index = -1;
+                                if index < 0 { save.focus(); }
+                                else if index >= root.fields.length { cancel.focus(); }
+                                else { root.focus-last = last; root.focus-index = index; }
+                            }
+                        }
+                        Note { text: "Alkuperäinen kortti säilyy Emit-lukuhistoriassa. Korjauksen voi perua valinnalla Palauta alkuperäiset leimat."; }
+                        if root.history != "": Note { text: root.history; }
+                    }
+                }
+                if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; vertical-stretch: 0; }
+                DialogActions {
+                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    save := AccentButton { text: "Tallenna korjaus"; clicked => { root.close(true); } }
+                }
+            }
+        }
+    }
+}

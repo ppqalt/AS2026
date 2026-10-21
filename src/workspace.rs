@@ -52,8 +52,8 @@ fn card_number(value: &str) -> Result<u32, CoreError> {
 }
 
 enum Source {
-    Native(ProjectStore),
-    Legacy(Archive),
+    Native(Box<ProjectStore>),
+    Legacy(Box<Archive>),
 }
 
 /// Ei käyttöliittymäkirjaston, tapahtumasilmukan tai verkkopalvelun riippuvuuksia.
@@ -74,11 +74,11 @@ impl Workspace {
             path
         };
         let source = if path.is_dir() {
-            Source::Legacy(
+            Source::Legacy(Box::new(
                 Archive::load(&path, Encoding::Windows1252).map_err(|e| invalid(e.to_string()))?,
-            )
+            ))
         } else {
-            Source::Native(ProjectStore::open(&path)?)
+            Source::Native(Box::new(ProjectStore::open(&path)?))
         };
         Ok(Self {
             path,
@@ -94,7 +94,7 @@ impl Workspace {
         let store = ProjectStore::create(&directory.join(native::FILE_NAME), project)?;
         Ok(Self {
             path: store.path().to_owned(),
-            source: Source::Native(store),
+            source: Source::Native(Box::new(store)),
             bc_view: false,
         })
     }
@@ -285,7 +285,7 @@ impl Workspace {
     pub fn archive(&self) -> Result<Archive, CoreError> {
         match &self.source {
             Source::Native(store) => store.project().to_archive(),
-            Source::Legacy(archive) => Ok(archive.clone()),
+            Source::Legacy(archive) => Ok((**archive).clone()),
         }
     }
 
@@ -299,7 +299,7 @@ impl Workspace {
         match &self.source {
             Source::Native(store) if self.bc_view => crate::beginners::results(store.project()),
             Source::Native(store) => application::calculated_project(store.project()),
-            Source::Legacy(archive) => Ok(archive.clone()),
+            Source::Legacy(archive) => Ok((**archive).clone()),
         }
     }
 
@@ -437,7 +437,7 @@ impl Workspace {
         let store = ProjectStore::create(&directory.join(native::FILE_NAME), project)?;
         Ok(Self {
             path: store.path().to_owned(),
-            source: Source::Native(store),
+            source: Source::Native(Box::new(store)),
             bc_view: false,
         })
     }
@@ -681,6 +681,21 @@ impl Workspace {
                 .tallennettu_tulos = Some(result);
             Ok(())
         })
+    }
+
+    /// Yhteinen korttikorjaus koskee NAC- ja BC-laskentaa. Kumpikin tarkistetaan
+    /// uudelleen; alkuperäiset leimat ja erilliset lisävirheet säilyvät.
+    pub fn correct_emit_row(
+        &mut self,
+        number: u32,
+        request: &crate::emit_corrections::Request,
+    ) -> Result<(), CoreError> {
+        if self.bc_view {
+            return Err(invalid(
+                "Korjaa yhteinen Emit-leima NAC / perusluokat -näkymässä",
+            ));
+        }
+        self.update(|project| crate::emit_corrections::apply(project, number, request))
     }
 
     /// Muutos ja ensimmäisen tuloskopion luonti tallentuvat yhtenä tapahtumana.
