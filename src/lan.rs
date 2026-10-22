@@ -549,6 +549,9 @@ fn raw_read(s: &mut TcpStream, max: usize) -> Result<Vec<u8>, CoreError> {
 }
 impl Wire {
     fn open(mut stream: TcpStream, code: &str, initiator: bool) -> Result<Self, CoreError> {
+        // Windowsin accept perii kuuntelijan ei-estävän tilan. Kättely ja
+        // kehystetty read_exact/write_all tarvitsevat estävän yhteyden aikarajoilla.
+        stream.set_nonblocking(false).map_err(io)?;
         stream
             .set_read_timeout(Some(Duration::from_secs(2)))
             .map_err(io)?;
@@ -1218,6 +1221,35 @@ mod tests {
             assert!(Instant::now() < until, "LAN-koe ei valmistunut ajoissa");
             thread::sleep(Duration::from_millis(25));
         }
+    }
+    #[test]
+    fn noise_normalizes_nonblocking_sockets_and_keeps_final_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            // Pakota Windowsin periytyvä tila myös Linuxissa. Ennen korjausta
+            // read_exact epäonnistuu heti, kun asiakas ei ole vielä lähettänyt.
+            stream.set_nonblocking(true).unwrap();
+            let mut wire = Wire::open(stream, "KOKEILU23456", false).unwrap();
+            let request: String = wire.receive().unwrap();
+            assert_eq!(request.len(), 180_000);
+            wire.send(&request).unwrap();
+            // Pudota palvelinpää heti viimeisen vastauksen jälkeen kuten RPC:ssä.
+        });
+        let stream = TcpStream::connect(address).unwrap();
+        thread::sleep(Duration::from_millis(60));
+        stream.set_nonblocking(true).unwrap();
+        let mut wire = Wire::open(stream, "KOKEILU23456", true).unwrap();
+        let request = "koe".repeat(60_000);
+        wire.send(&request).unwrap();
+        let response: String = wire.receive().unwrap();
+        assert_eq!(response, request);
+        assert!(
+            wire.receive::<String>().is_err(),
+            "Suljettu yhteys ei tuota näennäistä vastausta"
+        );
+        server.join().unwrap();
     }
     #[test]
     fn independent_edits_merge_but_same_driver_conflicts() {
