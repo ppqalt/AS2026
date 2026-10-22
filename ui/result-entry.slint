@@ -16,7 +16,10 @@ component EntryLine inherits Rectangle {
     changed focus-index => { if root.focus-index == root.index { focus-timer.running = true; } }
     focus-timer := Timer {
         interval: 1ms;
-        triggered => { self.running = false; input.focus(); input.select-all(); }
+        triggered => {
+            self.running = false;
+            if root.focus-index == root.index { input.focus(); input.select-all(); }
+        }
     }
     field-label := Note { x: 0px; y: 0px; width: parent.width; height: 20px; text: root.data.label; }
     Rectangle {
@@ -53,6 +56,13 @@ export component ResultEntryDialog inherits Rectangle {
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
             if event.text == Key.Return && !save.has-focus && !cancel.has-focus { root.close(true); return accept; }
+            if event.text == Key.Tab && root.focus-index >= 0 && root.focus-index < root.fields.length {
+                let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
+                if next < 0 { root.focus-index = -1; print.focus(); }
+                else if next >= root.fields.length { root.focus-index = -1; cancel.focus(); }
+                else { root.focus-index = next; }
+                return accept;
+            }
             if event.text == Key.Tab && print.has-focus {
                 if event.modifiers.shift { save.focus(); }
                 else { root.focus-index = 0; }

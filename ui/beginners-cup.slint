@@ -28,14 +28,21 @@ export component BeginnersCupDialog inherits Rectangle {
         focus-on-tab-navigation: false;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
-            if event.text == Key.Tab {
-                if root.tab == 1 && root.focus-index >= 0 {
+            // Looginen kohde päivittyy heti, vaikka ChoiceRow:n kohdistus odottaa ajastinta.
+            if root.tab == 1 && root.focus-index >= 0 && root.focus-index < root.participants.length {
+                if event.text == Key.Space {
+                    root.participant-toggled(root.focus-index, !root.participants[root.focus-index].selected);
+                    return accept;
+                }
+                if event.text == Key.Tab {
                     let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
                     if next < 0 { root.focus-index = -1; participants-tab.focus(); }
                     else if next >= root.participants.length { root.focus-index = -1; cancel.focus(); }
                     else { root.focus-index = next; }
                     return accept;
                 }
+            }
+            if event.text == Key.Tab {
                 if save.has-focus && !event.modifiers.shift { settings-tab.focus(); return accept; }
                 if settings-tab.has-focus && event.modifiers.shift { save.focus(); return accept; }
                 if name-input.has-focus && event.modifiers.shift { participants-tab.focus(); return accept; }

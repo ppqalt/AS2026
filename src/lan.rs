@@ -15,7 +15,7 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream, UdpSocket},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Condvar, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread,
@@ -549,6 +549,9 @@ fn raw_read(s: &mut TcpStream, max: usize) -> Result<Vec<u8>, CoreError> {
 }
 impl Wire {
     fn open(mut stream: TcpStream, code: &str, initiator: bool) -> Result<Self, CoreError> {
+        // Windowsin accept perii kuuntelijan ei-estävän tilan. Kättely ja
+        // kehystetty read_exact/write_all tarvitsevat estävän yhteyden aikarajoilla.
+        stream.set_nonblocking(false).map_err(io)?;
         stream
             .set_read_timeout(Some(Duration::from_secs(2)))
             .map_err(io)?;
@@ -650,6 +653,8 @@ pub struct Host {
     stop: Arc<AtomicBool>,
     authority: Arc<Mutex<Authority>>,
     _lock: Arc<File>,
+    threads: Mutex<Vec<thread::JoinHandle<()>>>,
+    connections: Arc<Mutex<Vec<thread::JoinHandle<()>>>>,
 }
 impl Host {
     pub fn start(path: &Path, bind: SocketAddr) -> Result<Self, CoreError> {
@@ -678,40 +683,47 @@ impl Host {
         let a = authority.clone();
         let c = code.clone();
         let s = stop.clone();
-        thread::Builder::new()
-            .name("as2026-lan-isanta".into())
-            .spawn(move || {
-                // Rajattu määrä kättelyjä; huono asiakas ei saa luoda rajattomasti säikeitä.
-                let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-                while !s.load(Ordering::Relaxed) {
-                    match listener.accept() {
-                        Ok((stream, _)) => {
-                            if active.load(Ordering::Relaxed) >= 16 {
-                                continue;
+        let connections = Arc::new(Mutex::new(Vec::<thread::JoinHandle<()>>::new()));
+        let accepted = connections.clone();
+        let mut threads = vec![
+            thread::Builder::new()
+                .name("as2026-lan-isanta".into())
+                .spawn(move || {
+                    // Rajattu määrä kättelyjä; huono asiakas ei saa luoda rajattomasti säikeitä.
+                    let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                    while !s.load(Ordering::Relaxed) {
+                        match listener.accept() {
+                            Ok((stream, _)) => {
+                                if active.load(Ordering::Relaxed) >= 16 {
+                                    continue;
+                                }
+                                active.fetch_add(1, Ordering::Relaxed);
+                                let active = active.clone();
+                                let connection_lock = listener_lock.clone();
+                                let a = a.clone();
+                                let c = c.clone();
+                                let connection = thread::spawn(move || {
+                                    let _lock = connection_lock;
+                                    let _ = serve(stream, &c, &a);
+                                    active.fetch_sub(1, Ordering::Relaxed);
+                                });
+                                let mut handles = accepted.lock().unwrap();
+                                handles.retain(|handle| !handle.is_finished());
+                                handles.push(connection);
                             }
-                            active.fetch_add(1, Ordering::Relaxed);
-                            let active = active.clone();
-                            let connection_lock = listener_lock.clone();
-                            let a = a.clone();
-                            let c = c.clone();
-                            thread::spawn(move || {
-                                let _lock = connection_lock;
-                                let _ = serve(stream, &c, &a);
-                                active.fetch_sub(1, Ordering::Relaxed);
-                            });
+                            Err(_) => thread::sleep(Duration::from_millis(20)),
                         }
-                        Err(_) => thread::sleep(Duration::from_millis(20)),
                     }
-                }
-            })
-            .map_err(io)?;
+                })
+                .map_err(io)?,
+        ];
         if let Ok(socket) = UdpSocket::bind(("0.0.0.0", DISCOVERY_PORT)) {
             socket
                 .set_read_timeout(Some(Duration::from_millis(200)))
                 .map_err(io)?;
             let s = stop.clone();
             let a = authority.clone();
-            thread::spawn(move || {
+            threads.push(thread::spawn(move || {
                 let mut buf = [0; 128];
                 while !s.load(Ordering::Relaxed) {
                     if let Ok((n, peer)) = socket.recv_from(&mut buf)
@@ -728,7 +740,7 @@ impl Host {
                         }
                     }
                 }
-            });
+            }));
         }
         Ok(Self {
             address,
@@ -736,6 +748,8 @@ impl Host {
             stop,
             authority,
             _lock: lock,
+            threads: Mutex::new(threads),
+            connections,
         })
     }
     pub fn connection_address(&self) -> Option<SocketAddr> {
@@ -754,6 +768,14 @@ impl Host {
     }
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
+        // Lopeta hyväksyminen ja löytöpalvelu ennen yhteyksien tyhjentämistä.
+        // Paluu takaa, ettei vanha säie pidä porttia tai kilpailulukkoa elossa.
+        for handle in self.threads.lock().unwrap().drain(..) {
+            let _ = handle.join();
+        }
+        for handle in self.connections.lock().unwrap().drain(..) {
+            let _ = handle.join();
+        }
     }
 }
 impl Drop for Host {
@@ -859,6 +881,8 @@ pub struct Client {
     host: bool,
     lifetime: Arc<()>,
     _queue_lock: Arc<File>,
+    wake: Arc<(Mutex<bool>, Condvar)>,
+    worker: Arc<Mutex<Option<thread::JoinHandle<()>>>>,
 }
 impl Client {
     pub fn identify(endpoint: SocketAddr, code: &str) -> Result<String, CoreError> {
@@ -949,20 +973,28 @@ impl Client {
             host,
             lifetime: Arc::new(()),
             _queue_lock: Arc::new(queue_lock),
+            wake: Arc::new((Mutex::new(false), Condvar::new())),
+            worker: Arc::new(Mutex::new(None)),
         };
         client.persist()?;
         let worker = client.clone();
-        thread::Builder::new()
+        let handle = thread::Builder::new()
             .name("as2026-lan-asiakas".into())
             .spawn(move || {
                 while !worker.stop.load(Ordering::Relaxed)
                     && Arc::strong_count(&worker.lifetime) > 1
                 {
                     worker.tick();
-                    thread::sleep(Duration::from_millis(180));
+                    let (pending, signal) = &*worker.wake;
+                    let wake = pending.lock().unwrap();
+                    let (mut wake, _) = signal
+                        .wait_timeout_while(wake, Duration::from_millis(180), |wake| !*wake)
+                        .unwrap();
+                    *wake = false;
                 }
             })
             .map_err(io)?;
+        *client.worker.lock().unwrap() = Some(handle);
         Ok(client)
     }
     fn persist(&self) -> Result<(), CoreError> {
@@ -1075,6 +1107,17 @@ impl Client {
     }
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
+        self.wake_worker();
+        // Pysäytys ei saa palautua verkkosäikeen pitäessä jonolukkoa auki.
+        // Myös keskeneräinen aikarajattu RPC odotetaan loppuun.
+        if let Some(handle) = self.worker.lock().unwrap().take() {
+            let _ = handle.join();
+        }
+    }
+    fn wake_worker(&self) {
+        let (pending, signal) = &*self.wake;
+        *pending.lock().unwrap() = true;
+        signal.notify_one();
     }
     fn tick(&self) {
         let request = {
@@ -1090,6 +1133,7 @@ impl Client {
         let mut s = self.shared.lock().unwrap();
         match response {
             Ok(r) => {
+                let pending_before = s.outbox.pending.len();
                 if r.competition != s.outbox.competition || r.version != PROTOCOL {
                     s.connected = false;
                     s.notice = "Isännän kilpailu tai protokolla vaihtui".into();
@@ -1127,7 +1171,11 @@ impl Client {
                     s.project = p;
                     s.revision = r.revision;
                 }
-                let _ = durable_write(&self.path, &json(&s.outbox).unwrap_or_default());
+                // Tilakysely ei muuta lähetysjonoa. Turha sync_all jokaisella
+                // kierroksella hidasti Windowsissa myös seuraavan muutoksen kuittausta.
+                if s.outbox.pending.len() != pending_before {
+                    let _ = durable_write(&self.path, &json(&s.outbox).unwrap_or_default());
+                }
             }
             Err(_) => {
                 s.connected = false;
@@ -1167,6 +1215,7 @@ impl Client {
         if reads && !self.shared.lock().unwrap().connected {
             return self.snapshot();
         }
+        self.wake_worker();
         // Tavallisen muokkauksen kuittaus on lyhyt. Epäselvä toimitus jää pysyvään jonoon.
         let until = Instant::now() + Duration::from_millis(750);
         while Instant::now() < until {
@@ -1218,6 +1267,103 @@ mod tests {
             assert!(Instant::now() < until, "LAN-koe ei valmistunut ajoissa");
             thread::sleep(Duration::from_millis(25));
         }
+    }
+    #[test]
+    fn noise_normalizes_nonblocking_sockets_and_keeps_final_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            // Pakota Windowsin periytyvä tila myös Linuxissa. Ennen korjausta
+            // read_exact epäonnistuu heti, kun asiakas ei ole vielä lähettänyt.
+            stream.set_nonblocking(true).unwrap();
+            let mut wire = Wire::open(stream, "KOKEILU23456", false).unwrap();
+            let request: String = wire.receive().unwrap();
+            assert_eq!(request.len(), 180_000);
+            wire.send(&request).unwrap();
+            // Pudota palvelinpää heti viimeisen vastauksen jälkeen kuten RPC:ssä.
+        });
+        let stream = TcpStream::connect(address).unwrap();
+        thread::sleep(Duration::from_millis(60));
+        stream.set_nonblocking(true).unwrap();
+        let mut wire = Wire::open(stream, "KOKEILU23456", true).unwrap();
+        let request = "koe".repeat(60_000);
+        wire.send(&request).unwrap();
+        let response: String = wire.receive().unwrap();
+        assert_eq!(response, request);
+        assert!(
+            wire.receive::<String>().is_err(),
+            "Suljettu yhteys ei tuota näennäistä vastausta"
+        );
+        server.join().unwrap();
+    }
+    #[test]
+    fn unchanged_polls_do_not_rewrite_the_durable_outbox() {
+        let root = folder();
+        let path = root.join("kilpailu.toml");
+        ProjectStore::create(&path, sample()).unwrap();
+        let host = Host::start(&path, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let queue = root.join("jono.json");
+        let client = Client::join(host.address, &host.code, &queue, false).unwrap();
+        client.stop();
+        wait(|| Arc::strong_count(&client.lifetime) == 1);
+        let modified = fs::metadata(&queue).unwrap().modified().unwrap();
+        let bytes = fs::read(&queue).unwrap();
+        thread::sleep(Duration::from_millis(60));
+        client.tick();
+        client.tick();
+        assert_eq!(fs::read(&queue).unwrap(), bytes);
+        assert_eq!(
+            fs::metadata(&queue).unwrap().modified().unwrap(),
+            modified,
+            "Muuttumaton tilakysely ei tee turhaa pysyvää levykirjoitusta"
+        );
+    }
+    #[test]
+    fn stop_waits_for_inflight_rpc_and_releases_queue_and_host_locks() {
+        let root = folder();
+        let path = root.join("kilpailu.toml");
+        ProjectStore::create(&path, sample()).unwrap();
+        let host = Host::start(&path, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let address = host.address;
+        let code = host.code.clone();
+        let queue = root.join("jono.json");
+        let client = Client::join(address, &code, &queue, false).unwrap();
+        // Pidä oikea palvelinpyyntö kesken pysäytyksen ajan.
+        let authority = host.authority.lock().unwrap();
+        client.wake_worker();
+        wait(|| {
+            host.connections
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|h| !h.is_finished())
+        });
+        let stopped = client.clone();
+        let (sent, received) = std::sync::mpsc::channel();
+        let shutdown = thread::spawn(move || {
+            stopped.stop();
+            sent.send(()).unwrap();
+        });
+        assert!(
+            received.recv_timeout(Duration::from_millis(60)).is_err(),
+            "Pysäytys ei saa ilmoittaa valmistumisesta RPC:n ja jonolukon ollessa auki"
+        );
+        drop(authority);
+        received.recv_timeout(Duration::from_secs(4)).unwrap();
+        shutdown.join().unwrap();
+        assert_eq!(Arc::strong_count(&client.lifetime), 1);
+        drop(client);
+        // Ei kiinteää odotusta lukkojen vapautumista varten.
+        let restored = Client::join(address, &code, &queue, false).unwrap();
+        restored.stop();
+        drop(restored);
+        host.stop();
+        drop(host);
+        let restarted = Host::start(&path, address).unwrap();
+        assert_eq!(restarted.code, code);
+        let restored = Client::join(address, &code, &queue, false).unwrap();
+        restored.stop();
     }
     #[test]
     fn independent_edits_merge_but_same_driver_conflicts() {

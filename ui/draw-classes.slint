@@ -19,6 +19,20 @@ export component DrawClassDialog inherits Rectangle {
         focus-on-tab-navigation: false;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
+            // Looginen kohde päivittyy heti, vaikka ChoiceRow:n kohdistus odottaa ajastinta.
+            if root.focus-index >= 0 && root.focus-index < root.classes.length {
+                if event.text == Key.Space {
+                    root.toggle(root.focus-index, !root.classes[root.focus-index].selected);
+                    return accept;
+                }
+                if event.text == Key.Tab {
+                    let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
+                    if next < 0 { root.focus-index = -1; clear.focus(); }
+                    else if next >= root.classes.length { root.focus-index = -1; cancel.focus(); }
+                    else { root.focus-index = next; }
+                    return accept;
+                }
+            }
             if event.text == Key.Tab {
                 if save.has-focus && !event.modifiers.shift { all.focus(); return accept; }
                 if all.has-focus && event.modifiers.shift { save.focus(); return accept; }

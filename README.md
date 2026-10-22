@@ -1,6 +1,6 @@
 # AS2026
 
-Versio 0.6.6 lisää kilpailun yhteiskäytön lähiverkossa, yksittäisten Emit-asemarivien korjauksen sekä vientien ja huomautusten käytettävyysparannukset.
+Versio 0.6.7 lisää kilpailun yhteiskäytön lähiverkossa, yksittäisten Emit-asemarivien korjauksen sekä vientien ja huomautusten käytettävyysparannukset.
 Esimerkkikilpailun voi avata komennolla `cargo run --features gui --bin as2026-gui -- --demo`.
 
 

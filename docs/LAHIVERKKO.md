@@ -1,6 +1,6 @@
 # Kilpailun yhteiskäyttö lähiverkossa
 
-Saatavilla versiosta 0.6.6 alkaen. Käyttöliittymä ja yhteysvirheet ovat suomeksi.
+Saatavilla versiosta 0.6.7 alkaen. Käyttöliittymä ja yhteysvirheet ovat suomeksi.
 
 ## Käyttö
 
@@ -93,6 +93,10 @@ ja salataan. Löytöviestissä välitetään kilpailun nimi ja osoite, ei paritu
 Katso [kirjaston dokumentaatio](https://docs.rs/snow/0.10.0/snow/).
 
 Asiakas tarkistaa muutokset taustalla noin 180 ms välein ja GUI noin 250 ms välein.
+Uusi paikallinen muutos herättää lähetyssäikeen heti. Muuttumaton tilakysely ei
+kirjoita lähetysjonoa uudelleen levylle; jonon lisäys tallennetaan silti ennen lähetystä.
+Yhteyden sulkeminen odottaa aikarajatun verkkopyynnön ja taustasäikeiden päättymisen.
+Jonon tai isännän avaaminen uudelleen ei tarvitse arvausta lukkojen vapautumisajasta.
 Muutoksista lähetetään tietuekohtaiset erot; uusi kokonaiskuva lähetetään vain revision
 vaihtuessa. Tavallinen muokkaus odottaa kuittausta enintään 750 ms GUI-kutsussa.
 Verkkoluku ja uudelleenyhdistäminen toimivat taustasäikeissä. Sanomakoko on rajattu
