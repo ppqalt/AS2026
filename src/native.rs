@@ -545,11 +545,12 @@ impl Project {
             });
         }
         for class in &mut classes {
-            class.fields[7] = self
+            let maximum = self
                 .virhepisteet
                 .kokonaismyohastymisraja_minuutteina
-                .unwrap_or(60)
-                .to_string();
+                .unwrap_or(60);
+            let class_limit = class.fields[7].parse::<i64>().unwrap_or(maximum);
+            class.fields[7] = maximum.min(class_limit).to_string();
         }
         let mut competitors = Vec::new();
         let mut numbers = HashSet::new();

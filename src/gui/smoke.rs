@@ -63,6 +63,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
             ws.project().ok_or("Muokattava esimerkki puuttuu")?.clone(),
         )
     };
+    competition_settings_068(app, state, &path, &original)?;
     combined_classes(app, state, &path, &original)?;
     beginners_cup(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
@@ -699,6 +700,114 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn competition_settings_068(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = original_path.parent().unwrap().join("asetukset-068");
+    std::fs::create_dir(&directory)?;
+    let path = directory.join(native::FILE_NAME);
+    ProjectStore::create(&path, original.clone())?;
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(6);
+    assert!(
+        app.get_fields()
+            .iter()
+            .any(|f| f.label.contains("Maksimi kokonais"))
+    );
+    assert!(
+        !app.get_fields()
+            .iter()
+            .any(|f| f.label == "Kilpailun numero"
+                || f.label == "Puuttuvan JAT:n pisteet"
+                || f.label == "JAT:n enimmäispisteet")
+    );
+    app.invoke_configure_start_columns();
+    assert!(app.get_start_columns_open());
+    app.invoke_move_start_column(2, -1);
+    app.invoke_start_column_toggled(8, false);
+    app.invoke_start_columns_close(false);
+    assert!(
+        ProjectStore::open(&path)?
+            .project()
+            .virhepisteet
+            .lahtoluettelon_kentat
+            .is_empty()
+    );
+    app.invoke_configure_start_columns();
+    app.invoke_move_start_column(2, -1);
+    app.invoke_start_column_toggled(8, false);
+    app.invoke_start_columns_close(true);
+    app.invoke_navigate(1);
+    assert_eq!(app.get_headers().row_count(), 8);
+    assert_eq!(app.get_headers().row_data(1).unwrap(), "Emit");
+    assert!(!app.get_headers().iter().any(|h| h == "Tila"));
+    app.invoke_navigate(3);
+    app.invoke_result_class_changed(1);
+    assert!(
+        app.get_rows()
+            .iter()
+            .all(|r| r.cells.row_data(2).unwrap() == "A")
+    );
+    app.invoke_result_class_changed(0);
+    app.invoke_navigate(2);
+    app.invoke_select_row(0);
+    assert_eq!(
+        app.get_detail_rows()
+            .row_data(0)
+            .unwrap()
+            .cells
+            .row_data(3)
+            .unwrap(),
+        "12:00:00"
+    );
+    let row = app
+        .get_detail_rows()
+        .iter()
+        .find(|r| r.cells.row_data(1).unwrap() == "31")
+        .unwrap()
+        .key;
+    app.invoke_select_detail(row);
+    app.invoke_open_emit_edit();
+    assert!(app.get_emit_edit_open(), "{}", app.get_status_text());
+    app.invoke_emit_edit_edited(3, "420".into());
+    assert_eq!(
+        app.get_emit_edit_fields()
+            .iter()
+            .find(|f| f.key == 5)
+            .unwrap()
+            .value,
+        "12:05:00"
+    );
+    app.invoke_emit_edit_edited(5, "12:05:01".into());
+    assert_eq!(
+        app.get_emit_edit_fields()
+            .iter()
+            .find(|f| f.key == 3)
+            .unwrap()
+            .value,
+        "421"
+    );
+    app.invoke_emit_edit_edited(5, "25:00:00".into());
+    app.invoke_emit_edit_edited(4, "Aikakenttien tarkistus".into());
+    app.invoke_emit_edit_close(true);
+    assert!(app.get_emit_edit_open());
+    app.invoke_emit_edit_close(false);
+    assert!(
+        ProjectStore::open(&path)?
+            .project()
+            .emit_korjaukset
+            .is_empty()
+    );
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!(
+        "0.6.8 GUI-koe: kenttien valinta, järjestys, peruutus, luokkarajaus ja Emit-sivun aikamuokkaus hyväksytty."
+    );
+    Ok(())
 }
 
 fn beginners_cup(

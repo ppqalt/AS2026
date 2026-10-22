@@ -1,5 +1,7 @@
 # AS2026
 
+Versio 0.6.8 sisältää kilpailun kokonaismyöhästymisrajan, valittavat lähtöluettelon kentät, Emit-korjauksen Emit-sivulla sekä selkeytetyt toimintovalikot. Pohjana ovat uusimmat 0.6.7:n lähiverkko- ja tulostuskorjaukset. [Muutosten käyttöohje](docs/KAYTTOLIITTYMA_068.md).
+
 Versio 0.6.7 lisää kilpailun yhteiskäytön lähiverkossa, yksittäisten Emit-asemarivien korjauksen sekä vientien ja huomautusten käytettävyysparannukset.
 Esimerkkikilpailun voi avata komennolla `cargo run --features gui --bin as2026-gui -- --demo`.
 
@@ -10,7 +12,7 @@ Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 - Kilpailun salattu lähiverkkoyhteys parituskoodilla, samat muokkausoikeudet kaikilla koneilla ja katkon aikana tallentuva Emit-lähetysjono; [käyttö- ja palautumisohje](docs/LAHIVERKKO.md).
 - Fluent 2 / Dark Spruce koko käyttöliittymän suunnittelukielenä, ilman animaatioita ja koriste-efektejä.
 - Kilpailijan tilat ja perustelut sekä molempien lisenssi- ja seuratiedot.
-- Lähtöarvonnan luokkavalinnat arvontapainikkeen vieressä, kellonaikojen esikatselu sekä HTML- ja CSV-lähtöluettelo.
+- Lähtöarvonnan luokkavalinnat Kilpailijat-sivun Toiminnot-valikossa, kellonaikojen esikatselu sekä HTML- ja CSV-lähtöluettelo.
 - Kortinluvun jälkeinen käsiaikojen ja virhepisteiden syöttö Tab-näppäimellä sekä kilpailijaparin tulostus ilman erillistä hyväksymistä.
 - Luokka- ja asematulosteet monivalinnalla ja käyttäjäkohtainen tulostinvalinta; [käyttöohje](docs/TULOSTUS.md).
 - Pysyvät radan ja aseman muokkauspaneelit sekä tavoiteajan erilliset h/min/s-syöttökentät.

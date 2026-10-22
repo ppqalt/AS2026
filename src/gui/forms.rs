@@ -665,9 +665,6 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                 text(5, "Oletus Emit-korjaus (s)",
                     project.virhepisteet.oletus_emit_korjaus_sekuntia.map_or_else(String::new, |v| v.to_string()),
                     "Tyhjä = 120 s. Uusien kilpailijoiden nollaus on tämän verran ennen lähtöä."),
-                text(6, "Lähtöluettelon kentät ja järjestys",
-                    project.virhepisteet.lahtoluettelon_kentat.join(", "),
-                    "Pilkuilla eroteltu järjestys: numero, luokka, emit, lahtoaika, kuljettaja, kuljettajan_seura, kartturi, kartturin_seura, auto. Tyhjä = oletus; jätä piilotettavat kentät pois."),
                 choice(
                     2,
                     "Ajanottotapa",

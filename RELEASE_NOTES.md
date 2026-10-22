@@ -1,32 +1,15 @@
-# AS2026 0.6.7
+# AS2026 0.6.8
 
-Tämä on 0.6.6-julkaisuehdokkaan korjattu seuraaja. 0.6.6:n tarkistukset epäonnistuivat,
-eikä sen julkaisutagia tai paketteja korvata. Alla ovat myös edellisen ehdokkaan uudet ominaisuudet.
+Kilpailun valmistelun ja Emit-korjausten työnkulut on selkeytetty uusimman 0.6.7-päähaaran pohjalta. Lähiverkon ja Windows-tulostuksen korjaukset säilyvät mukana.
 
-- Korjattu Windowsin LAN-yhteyden muodostus: kättely ei enää peri kuuntelijan ei-estävää yhteystilaa. Salattu kättely, viestien aikarajat ja virheellisen parituskoodin torjunta säilyvät.
-- Korjattu nopea Tab/Space-käyttö luokkavalinnoissa ja Tab-siirtymät tuloksen syöttöikkunassa. Vanhentunut ajastin ei saa siirtää kohdistusta takaisin aiempaan kenttään.
-- LAN-muutos herättää lähetyssäikeen heti, ja tarpeettomat lähetysjonon levykirjoitukset poistettiin muuttumattomista tilakyselyistä. Tämä ehkäisee kuittausviiveitä hitaammalla levyllä säilyttäen pysyvän jonon ja samat kuittausvaatimukset.
-- Yhteyden sulkeminen odottaa asiakas-, isäntä- ja löytöpalvelun säikeiden päättymisen. Nopea uudelleenliittyminen ei enää törmää vanhan verkkosäikeen tiedostolukkoon tai varattuun porttiin.
-- Lisätty alustariippumaton ei-estävän yhteyden regressiotesti sekä Windows-GUI:n työnkulkukokeet 100 % ja 150 % skaalauksella. Aiemmat testit ja niiden tarkistukset säilyvät.
-- Kilpailua voi käyttää yhtä aikaa usealta koneelta lähiverkossa. Yksi kone jakaa kilpailun, muut liittyvät yläpalkin **Lähiverkko**-painikkeesta parituskoodilla. Automaattisen haun rinnalla on IP-osoiteyhteys.
-- Kaikilla koneilla on samat kilpailun muokkausoikeudet ja oma lukija sekä tulostin. Muutokset päivittyvät taustalla avaamatta toisen toimitsijan lomaketta uudelleen. Ristiriitainen muutos ei korvaa uudempia tietoja huomaamatta.
-- Katkon aikana Emit-luvut tallentuvat paikalliseen jonoon ja välittyvät turvallisesti yhteyden palattua. Alkuperäiset luvut ja korjaushistoria säilyvät. Muut muokkaukset, vienti ja tulostus edellyttävät toimivaa yhteyttä isäntään.
-- Lisätty yksittäisten Emit-asemarivien manuaalinen korjaus ja alkuperäisen lukuaineiston jäljitettävyys.
-- Korjattu tulosvientien tallennustoimintoja ja tiedostopäätteiden käsittelyä.
-- Selkeytetty kilpailun huomautuksia ja niiden yksityiskohtaista tarkastelua.
-- Parannettu käsikellojen syöttöä, Tab-navigointia ja vieritystä.
-- Parannettu lähtöarvonnan, luokkatulostuksen, yhdistettyjen luokkien ja Beginners Cupin käyttöliittymiä.
-- Siirretty Windows-tulostuksen toteutusta PowerShellistä natiiviin Rust-koodiin.
-- Laajennettu tulostuksen ja kilpailutyönkulkujen testejä.
+- Sivupalkin otsikkona kilpailun nimi, sen alla yhteyden tila. Avaa ja Uusi ovat yleiskatsauksessa.
+- Asetuksissa kilpailun maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja minuutteina, molempien oletus 60 min. Luokan pienempi kokonaisraja säilyy voimassa. Aikavirheen 10 sekunnin toleranssi on nimetty erikseen.
+- Kilpailun numero, puuttuvan JAT:n pisteasetus ja JAT:n pistekatto on poistettu asetuslomakkeesta. Puuttuva JAT ja myöhästymisrajan ylitys aiheuttavat keskeytyksen. JAT:n ja maalin aikavirhettä ei katkaista pistekattoon toimitsijalaskennassa.
+- Lähtöluettelon kentät valitaan Asetuksissa valintaruuduilla ja järjestetään nuolilla. Sama järjestys koskee kilpailijataulukkoa, HTML:ää ja CSV:tä. Tila-sarake on poistettu lähtöluettelosta.
+- Oletus Emit-korjaus on 120 s. Uuden kilpailijan lomake käyttää kilpailun oletusta, ja kilpailijakohtainen korjaus voidaan vaihtaa. Erillinen 0 s tarkoittaa nollausta lähtöhetkellä; vanhan tiedoston 0 säilyttää vanhan 120 s oletuksen.
+- Kilpailijoiden Toiminnot-valikossa Lisää kilpailija ja Arvo lähtöajat. Arvonta avaa luokkavalinnan ja sen jälkeen lähtöaikojen esikatselun.
+- Emit-sivulla Muokkaa avaa valitun leiman korjauksen. Sekuntiaika ja lähtöaikaan sidottu hh:mm:ss-kellonaika päivittyvät toistensa mukana. Alkuperäiset leimat ja korjaushistoria säilyvät.
+- Tulosten otsikon vieressä kilpailijahaku ja Luokka-valinta, jossa myös kilpailuun määritelty Beginners Cup. Vienti ja luokka- sekä asematulosteet ovat Toiminnot-valikossa.
+- Luokkien lisääminen, yhdistetty luokka ja Beginners Cup ovat Luokat-sivun Toiminnot-valikossa.
 
-## Käyttöohjeet
-
-[Lähiverkon perustaminen, ristiriidat ja palautuminen](https://github.com/ppqalt/AS2026/blob/v0.6.7/docs/LAHIVERKKO.md) · [Kilpailutoiminnot](https://github.com/ppqalt/AS2026/blob/v0.6.7/KILPAILUTOIMINNOT.md) · [Tulostus](https://github.com/ppqalt/AS2026/blob/v0.6.7/docs/TULOSTUS.md)
-
-Isännän palomuurissa tarvitaan TCP 42165 ja automaattisessa haussa UDP 42166. Internetiä tai jaettua kansiota ei tarvita. Isäntä on pidettävä käynnissä; automaattista varaisäntää ei ole. Säilytä katkon aikana myös LAN-sivutiedostot ja asiakkaiden lähetysjonot.
-
-## Varmennus
-
-Linuxissa läpäistiin 392 Rust-testiä ja 16 GUI-sovitintestiä. Kahdella oikealla sovellusprosessilla virtuaalinäytössä kokeiltiin samanaikaisia Emit-lukuja, käsiaikoja, virhepisteitä, hyväksyntää, tulosteiden muodostusta ja katkon jälkeistä jonon purkamista. Tulokset vastasivat toisiaan. Erilliset kokeet kattoivat ristiriidat, uusintalähetykset, tallennuksen palautumisen ja NAC/BC-korjaukset. Käyttöliittymää tarkastettiin myös 150 % skaalauksella ja pienessä ikkunassa.
-
-Nämä kokeet eivät korvaa kahden fyysisen koneen WLAN-, Windows-palomuuri-, Emit-lukija- tai paperitulostuskoetta. GitHubin julkaisutarkistukset varmentavat erikseen Linux- ja Windows-käännökset ennen pakettien julkaisemista.
+Vanhoja kilpailutiedostoja voi edelleen avata. Uusien asetusten tallennuksen jälkeen kilpailutiedoston avaaminen vanhalla ohjelmaversiolla ei ole tuettu.

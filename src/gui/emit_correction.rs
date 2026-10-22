@@ -281,6 +281,17 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
     };
     let (code, elapsed_seconds, source_row) = if action == Action::Edit {
         let elapsed = parse(value(3))?;
+        let clock = as2026::terminal::parse_clock(value(5))?;
+        let expected = emit_corrections::punch_clock(
+            ws.project().ok_or_else(|| invalid("Kilpailu puuttuu"))?,
+            basis.number,
+            i64::from(elapsed),
+        )?;
+        if clock.seconds_since_midnight()? != expected.rem_euclid(86_400) {
+            return Err(invalid(
+                "Sekuntiaika ja kellonaika eivät vastaa toisiaan. Tarkista aikakentät.",
+            ));
+        }
         (
             parse(value(2))?,
             elapsed,

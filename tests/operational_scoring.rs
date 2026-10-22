@@ -194,6 +194,7 @@ fn section_and_cumulative_limits_preserve_all_reasons_at_exact_seconds() {
     let repeated = application::recalculate_stored_result(&p, 7, &r).unwrap();
     assert_eq!(repeated.syy, checked.syy);
     p.virhepisteet.jakson_raja_minuutteina = Some(61);
+    p.virhepisteet.kokonaismyohastymisraja_minuutteina = Some(61);
     p.luokat[0].myohastymisraja_minuutteina = 61;
     let relaxed = application::recalculate_stored_result(&p, 7, &r).unwrap();
     assert!(!relaxed.syy.contains("jakson myöhästymisraja"));
