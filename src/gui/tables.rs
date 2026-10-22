@@ -474,8 +474,12 @@ fn results(
     ]);
     view.weights = vec![0.05, 0.05, 0.07, 0.20, 0.20, 0.14, 0.19, 0.10];
     let ranking = application::rank_stored(archive, TiePolicy::KeepSharedAndFlag)?;
+    let combined = ranking
+        .groups
+        .iter()
+        .any(|g| g.kind == GroupKind::Combined && g.code == result_group);
     for group in ranking.groups.iter().filter(|group| {
-        if result_group.starts_with("Y") && result_group.contains(": ") {
+        if combined {
             group.code == result_group
         } else {
             group.kind == GroupKind::Ordinary

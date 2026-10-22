@@ -223,7 +223,7 @@ fn filtered_readout(
 ) -> Result<Readout, CoreError> {
     let content = read.content()?;
     let interior = &content[1..];
-    let rows = crate::matching::match_route(route, interior, start)?;
+    let rows = crate::matching::match_operational_route(route, interior, start)?;
     let finish = finish_index(config)?;
     let shortened = finish + 1 < config.lahdeasemat.len();
     let included =

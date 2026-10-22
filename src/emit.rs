@@ -84,7 +84,11 @@ pub fn accepted_records(
 ) -> Result<EmitReadout, CoreError> {
     let readout_seconds = readout_clock.seconds_since_midnight()?;
     let marker_index = reader_marker_index(records)?;
-    let last_punch_elapsed_seconds = records[marker_index - 1].elapsed_seconds;
+    let last_punch_elapsed_seconds = records[..marker_index]
+        .iter()
+        .rev()
+        .find(|p| !matches!(p.code, 99 | 999))
+        .map_or(records[0].elapsed_seconds, |p| p.elapsed_seconds);
     let reader_elapsed_seconds = records[marker_index].elapsed_seconds;
     let lag = i64::from(reader_elapsed_seconds) - i64::from(last_punch_elapsed_seconds);
     let finish_clock_seconds = readout_seconds

@@ -492,8 +492,7 @@ export component AppWindow inherits Window {
                             Text { text: "Avaa kilpailu"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
                             HorizontalLayout {
                                 spacing: Theme.space-2;
-                                AccentButton { height: Theme.control-height; text: "Avaa kilpailutiedosto"; clicked => { root.open-file(); } }
-                                Button { height: Theme.control-height; text: "Tuo kilpailu Excelistä"; clicked => { root.import-excel(); } }
+                                Note { text: "Avaa, luo tai tuo kilpailu Toiminnot-valikosta."; }
                                 Button { height: Theme.control-height; text: "Kokeile esimerkillä"; clicked => { root.open-demo(); } }
                                 Rectangle { horizontal-stretch: 1; }
                             }

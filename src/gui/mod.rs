@@ -2152,7 +2152,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             project
                 .radat
                 .iter()
-                .map(|r| SharedString::from(format!("{} · {}", r.numero, r.nimi)))
+                .map(|r| SharedString::from(r.nimi.clone()))
                 .collect(),
         ));
         let index = config

@@ -1,5 +1,7 @@
 # AS2026
 
+Versio 0.6.9 korjaa toimintovalikot, lähtöluettelon järjestyksen, tulosteet ja yhdistettyjen luokkien tulosvalinnan sekä avaa koko Emit-kortin leimaukset muokattaviksi. Luokkia ja ratoja voi muokata laskennan jälkeen; ratamuutos tarjoaa tulosten uudelleenlaskentaa. [Muutosten käyttöohje](docs/KAYTTOLIITTYMA_069.md).
+
 Versio 0.6.8 sisältää kilpailun kokonaismyöhästymisrajan, valittavat lähtöluettelon kentät, Emit-korjauksen Emit-sivulla sekä selkeytetyt toimintovalikot. Pohjana ovat uusimmat 0.6.7:n lähiverkko- ja tulostuskorjaukset. [Muutosten käyttöohje](docs/KAYTTOLIITTYMA_068.md).
 
 Versio 0.6.7 lisää kilpailun yhteiskäytön lähiverkossa, yksittäisten Emit-asemarivien korjauksen sekä vientien ja huomautusten käytettävyysparannukset.

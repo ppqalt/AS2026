@@ -37,7 +37,7 @@ jobs:
       - name: Tarkista kääntyminen
         run: cargo +stable check --all-targets
       - name: Suorita testit
-        run: cargo +stable test --all-targets
+        run: cargo +stable test --all-targets --no-fail-fast
       - name: Tarkista varoitukset
         run: cargo +stable clippy --all-targets -- -D warnings
       - name: Käännä alustakohtainen julkaisuversio
@@ -49,7 +49,7 @@ jobs:
       - name: Suorita käyttöliittymän ja yhteisen sovelluslogiikan testit
         env:
           AS2026_PRINT_PREVIEW_DIR: target/print-preview
-        run: cargo +stable test --all-targets --features gui
+        run: cargo +stable test --all-targets --features gui --no-fail-fast
       - name: Säilytä tulostuksen tarkistuskuvat
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -68,6 +68,7 @@ jobs:
         run: |
           SLINT_SCALE_FACTOR=1 xvfb-run -a target/debug/as2026-gui --demo --smoke-test --capture-dir target/gui-smoke/100
           SLINT_SCALE_FACTOR=1.5 xvfb-run -a target/debug/as2026-gui --demo --smoke-test --capture-dir target/gui-smoke/150
+          AS2026_EMIT_CORRECTION_TEST=1 SLINT_SCALE_FACTOR=1 xvfb-run -a target/debug/as2026-gui --demo --capture-dir target/gui-smoke/emit-069
       - name: Säilytä GUI:n tarkistuskuvat
         if: always() && runner.os == 'Linux'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -97,6 +98,10 @@ jobs:
               if ($test.ExitCode -ne 0) { throw "Windows-GUI-koe epäonnistui $folder % skaalauksella: $($test.ExitCode)" }
             } finally { $test.Dispose() }
           }
+          $env:AS2026_EMIT_CORRECTION_TEST = '1'
+          $env:SLINT_SCALE_FACTOR = '1'
+          $test = Start-Process -FilePath $app -ArgumentList @('--demo', '--capture-dir', 'target/gui-smoke/emit-069') -WindowStyle Hidden -Wait -PassThru
+          if ($test.ExitCode -ne 0) { throw "Emit-editorin GUI-koe epäonnistui: $($test.ExitCode)" }
       - name: Säilytä Windows-GUI:n tarkistuskuvat
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

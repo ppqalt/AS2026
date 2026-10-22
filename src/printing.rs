@@ -483,6 +483,28 @@ pub fn classes(
         });
         let mut stations = Vec::new();
         if kind == Kind::Stations {
+            // Show the selected course's columns even before any card is read.
+            for class in archive
+                .basic
+                .classes
+                .iter()
+                .filter(|c| member_codes.contains(&c.code.as_str()))
+            {
+                if let Some(route) = archive
+                    .routes
+                    .iter()
+                    .find(|r| r.index.to_string() == class.route)
+                {
+                    for s in &route.stations {
+                        let key = (s.index, s.station_type.clone(), s.name.clone());
+                        if matches!(s.station_type.as_str(), "AT" | "JAT" | "M")
+                            && !stations.contains(&key)
+                        {
+                            stations.push(key);
+                        }
+                    }
+                }
+            }
             for (_, d) in &drivers {
                 for r in &d.results {
                     let key = (r.sequence, r.station_type.clone(), r.name.clone());

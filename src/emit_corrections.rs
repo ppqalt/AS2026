@@ -200,30 +200,32 @@ pub fn rows(project: &Project, number: u32) -> Result<Vec<Row>, CoreError> {
         .start_clock()?
         .ok_or_else(|| invalid("Kilpailijan lähtöaika puuttuu"))?;
     let mut position = 1;
-    Ok(matching::match_route(&route, &punches[1..], start)?
-        .into_iter()
-        .map(|r| {
-            let consumes = matches!(r.kind, MatchKind::Matched | MatchKind::Extra);
-            let row = Row {
-                index: r.output_index as u32,
-                sequence: r.station.as_ref().map_or(0, |s| s.sequence),
-                name: r
-                    .station
-                    .as_ref()
-                    .map_or("Ylimääräinen leima".into(), |s| s.label.clone()),
-                expected_code: r.station.as_ref().map_or(999, |s| s.expected_code),
-                code: r.punch.map_or(0, |p| p.code),
-                elapsed_seconds: r.punch.map_or(0, |p| p.elapsed_seconds),
-                position,
-                consumes,
-                shared: r.kind == MatchKind::SharedUla,
-            };
-            if consumes {
-                position += 1;
-            }
-            row
-        })
-        .collect())
+    Ok(
+        matching::match_operational_route(&route, &punches[1..], start)?
+            .into_iter()
+            .map(|r| {
+                let consumes = matches!(r.kind, MatchKind::Matched | MatchKind::Extra);
+                let row = Row {
+                    index: r.output_index as u32,
+                    sequence: r.station.as_ref().map_or(0, |s| s.sequence),
+                    name: r
+                        .station
+                        .as_ref()
+                        .map_or("Ylimääräinen leima".into(), |s| s.label.clone()),
+                    expected_code: r.station.as_ref().map_or(999, |s| s.expected_code),
+                    code: r.punch.map_or(0, |p| p.code),
+                    elapsed_seconds: r.punch.map_or(0, |p| p.elapsed_seconds),
+                    position,
+                    consumes,
+                    shared: r.kind == MatchKind::SharedUla,
+                };
+                if consumes {
+                    position += 1;
+                }
+                row
+            })
+            .collect(),
+    )
 }
 
 pub(crate) fn recapture(

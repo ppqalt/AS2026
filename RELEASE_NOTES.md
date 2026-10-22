@@ -1,3 +1,16 @@
+# AS2026 0.6.9
+
+- Kilpailun nimi ja Automaattinen tallennus -teksti pois sivujen yläreunasta.
+- Kilpailun avaus, luonti ja Excel-tuonti Yleiskatsauksen Toiminnot-valikkoon; kilpailijoiden Excel-tuonti ja HTML-lähtöluettelo sekä ratojen lisäys ja tuonti sivujensa Toiminnot-valikkoihin.
+- HTML-lähtöluettelo lähtöaikajärjestykseen kaikkien luokkien kesken.
+- Kilpailijaparin ATp-sarake sisältää aseman kaikki AT-virhepisteet.
+- Tulostaulukkoon Emit-numero, luokkavalintaan yhdistetyt luokat. Luokka- ja asematulostus käyttää valittua luokkaa ja sisältää myös laskemattomat kilpailijat.
+- Koko Emit-kortin editori: kellonajan syöttö hh:mm:ss, puuttuvan leiman lisäys, minkä tahansa leiman poisto sekä korttiajan automaattinen laskenta. Perustelua ei vaadita. Akun häiriöleimat 99/999 sivuutetaan laskennassa.
+- Luokan poistaminen sen tiedoista. Luokkien ja ratojen muokkaaminen laskennan jälkeen sekä ratakohtainen uudelleenlaskentakysely.
+- Radoista näytetään nimi sisäisen numeron sijaan.
+
+[Käyttöohje](docs/KAYTTOLIITTYMA_069.md).
+
 # AS2026 0.6.8
 
 Kilpailun valmistelun ja Emit-korjausten työnkulut on selkeytetty uusimman 0.6.7-päähaaran pohjalta. Lähiverkon ja Windows-tulostuksen korjaukset säilyvät mukana.

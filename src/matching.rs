@@ -8,6 +8,25 @@ pub fn match_route(
     punches: &[Punch],
     official_start: ClockTime,
 ) -> Result<Vec<MatchedRow>, CoreError> {
+    match_route_inner(route, punches, official_start, false)
+}
+
+/// The competition workflow ignores Emit battery markers while retaining them
+/// as editable extra rows. The recovered legacy matcher remains available above.
+pub fn match_operational_route(
+    route: &[RouteStation],
+    punches: &[Punch],
+    official_start: ClockTime,
+) -> Result<Vec<MatchedRow>, CoreError> {
+    match_route_inner(route, punches, official_start, true)
+}
+
+fn match_route_inner(
+    route: &[RouteStation],
+    punches: &[Punch],
+    official_start: ClockTime,
+    ignore_battery: bool,
+) -> Result<Vec<MatchedRow>, CoreError> {
     official_start.seconds_since_midnight()?;
     if route.is_empty() {
         return Err(CoreError::Unsupported("tyhjän reitin käsittely".into()));
@@ -33,7 +52,8 @@ pub fn match_route(
         let kind = match station {
             // Battery markers never satisfy a course control, even if its code
             // happens to be configured as 99/999. Keep them visible for editing.
-            _ if punches.get(p).is_some_and(|p| matches!(p.code, 99 | 999))
+            _ if ignore_battery
+                && punches.get(p).is_some_and(|p| matches!(p.code, 99 | 999))
                 && station.is_none_or(|s| s.expected_code != 0) =>
             {
                 MatchKind::Extra
@@ -95,7 +115,7 @@ pub fn match_route(
                 let elapsed_seconds = punches[..p]
                     .iter()
                     .rev()
-                    .find(|p| !matches!(p.code, 99 | 999))
+                    .find(|p| !ignore_battery || !matches!(p.code, 99 | 999))
                     .map_or(0, |punch| punch.elapsed_seconds);
                 row.punch = Some(Punch {
                     code: route[r].expected_code,

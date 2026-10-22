@@ -300,7 +300,11 @@ pub fn calculate_live_frame(
         archive,
         competitor,
         &records[1..],
-        records[records.len() - 1].elapsed_seconds,
+        records
+            .iter()
+            .rev()
+            .find(|p| !matches!(p.code, 99 | 999))
+            .map_or(records[0].elapsed_seconds, |p| p.elapsed_seconds),
     )?;
     Ok(LiveCardPreview {
         card_number: frame.card_number,
@@ -579,7 +583,7 @@ fn capture_archive_operational(
     let route = route_for(archive, c)?
         .to_core()
         .map_err(|e| invalid(e.to_string()))?;
-    let matched = matching::match_route(&route, &read.interior_punches, start(c)?)?;
+    let matched = matching::match_operational_route(&route, &read.interior_punches, start(c)?)?;
     let source = matched
         .into_iter()
         .map(|r| {
