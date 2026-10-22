@@ -175,7 +175,7 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
             .value
             .trim()
             .parse::<u32>()
-            .map_err(|_| invalid(format!("Leima {}: anna Emit-koodi", i + 1)))?;
+            .map_err(|_| invalid(&format!("Leima {}: anna Emit-koodi", i + 1)))?;
         let clock = as2026::terminal::parse_clock(&fields[1].value)?.seconds_since_midnight()?;
         let elapsed = (clock - origin).rem_euclid(86_400) as u32;
         punches.push(native::ReadPunch {

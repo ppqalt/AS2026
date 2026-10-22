@@ -492,7 +492,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     let Some(ws) = &state.workspace else {
         return Ok(());
     };
-    let mut view = tables::data(
+    let mut view = tables::data_for_group(
         ws,
         state.page,
         state.selected,
@@ -755,7 +755,7 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
     app.set_filter("".into());
     choose_row(state, -1)?;
     if let Some(ws) = &state.workspace {
-        let first = tables::data(ws, page, -1, "", "")?
+        let first = tables::data(ws, page, -1, "")?
             .rows
             .first()
             .map(|row| row.key);

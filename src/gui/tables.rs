@@ -100,6 +100,15 @@ pub fn data(
     page: i32,
     selected_key: i32,
     filter: &str,
+) -> Result<ViewData, CoreError> {
+    data_for_group(ws, page, selected_key, filter, "")
+}
+
+pub fn data_for_group(
+    ws: &Workspace,
+    page: i32,
+    selected_key: i32,
+    filter: &str,
     result_group: &str,
 ) -> Result<ViewData, CoreError> {
     let archive = if page == 3 {
