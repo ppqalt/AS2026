@@ -15,7 +15,7 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream, UdpSocket},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Condvar, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread,
@@ -862,6 +862,7 @@ pub struct Client {
     host: bool,
     lifetime: Arc<()>,
     _queue_lock: Arc<File>,
+    wake: Arc<(Mutex<bool>, Condvar)>,
 }
 impl Client {
     pub fn identify(endpoint: SocketAddr, code: &str) -> Result<String, CoreError> {
@@ -952,6 +953,7 @@ impl Client {
             host,
             lifetime: Arc::new(()),
             _queue_lock: Arc::new(queue_lock),
+            wake: Arc::new((Mutex::new(false), Condvar::new())),
         };
         client.persist()?;
         let worker = client.clone();
@@ -962,7 +964,12 @@ impl Client {
                     && Arc::strong_count(&worker.lifetime) > 1
                 {
                     worker.tick();
-                    thread::sleep(Duration::from_millis(180));
+                    let (pending, signal) = &*worker.wake;
+                    let wake = pending.lock().unwrap();
+                    let (mut wake, _) = signal
+                        .wait_timeout_while(wake, Duration::from_millis(180), |wake| !*wake)
+                        .unwrap();
+                    *wake = false;
                 }
             })
             .map_err(io)?;
@@ -1078,6 +1085,12 @@ impl Client {
     }
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
+        self.wake_worker();
+    }
+    fn wake_worker(&self) {
+        let (pending, signal) = &*self.wake;
+        *pending.lock().unwrap() = true;
+        signal.notify_one();
     }
     fn tick(&self) {
         let request = {
@@ -1093,6 +1106,7 @@ impl Client {
         let mut s = self.shared.lock().unwrap();
         match response {
             Ok(r) => {
+                let pending_before = s.outbox.pending.len();
                 if r.competition != s.outbox.competition || r.version != PROTOCOL {
                     s.connected = false;
                     s.notice = "Isännän kilpailu tai protokolla vaihtui".into();
@@ -1130,7 +1144,11 @@ impl Client {
                     s.project = p;
                     s.revision = r.revision;
                 }
-                let _ = durable_write(&self.path, &json(&s.outbox).unwrap_or_default());
+                // Tilakysely ei muuta lähetysjonoa. Turha sync_all jokaisella
+                // kierroksella hidasti Windowsissa myös seuraavan muutoksen kuittausta.
+                if s.outbox.pending.len() != pending_before {
+                    let _ = durable_write(&self.path, &json(&s.outbox).unwrap_or_default());
+                }
             }
             Err(_) => {
                 s.connected = false;
@@ -1170,6 +1188,7 @@ impl Client {
         if reads && !self.shared.lock().unwrap().connected {
             return self.snapshot();
         }
+        self.wake_worker();
         // Tavallisen muokkauksen kuittaus on lyhyt. Epäselvä toimitus jää pysyvään jonoon.
         let until = Instant::now() + Duration::from_millis(750);
         while Instant::now() < until {
@@ -1250,6 +1269,28 @@ mod tests {
             "Suljettu yhteys ei tuota näennäistä vastausta"
         );
         server.join().unwrap();
+    }
+    #[test]
+    fn unchanged_polls_do_not_rewrite_the_durable_outbox() {
+        let root = folder();
+        let path = root.join("kilpailu.toml");
+        ProjectStore::create(&path, sample()).unwrap();
+        let host = Host::start(&path, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let queue = root.join("jono.json");
+        let client = Client::join(host.address, &host.code, &queue, false).unwrap();
+        client.stop();
+        wait(|| Arc::strong_count(&client.lifetime) == 1);
+        let modified = fs::metadata(&queue).unwrap().modified().unwrap();
+        let bytes = fs::read(&queue).unwrap();
+        thread::sleep(Duration::from_millis(60));
+        client.tick();
+        client.tick();
+        assert_eq!(fs::read(&queue).unwrap(), bytes);
+        assert_eq!(
+            fs::metadata(&queue).unwrap().modified().unwrap(),
+            modified,
+            "Muuttumaton tilakysely ei tee turhaa pysyvää levykirjoitusta"
+        );
     }
     #[test]
     fn independent_edits_merge_but_same_driver_conflicts() {
