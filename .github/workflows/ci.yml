@@ -82,13 +82,21 @@ jobs:
         env:
           SLINT_BACKEND: winit-software
         run: |
-          $env:SLINT_SCALE_FACTOR = '1'
           $app = (Resolve-Path target/debug/as2026-gui.exe).Path
-          $test = Start-Process -FilePath $app -ArgumentList @('--demo', '--smoke-test', '--capture-dir', 'target/gui-smoke/100') -NoNewWindow -Wait -PassThru
-          if ($test.ExitCode -ne 0) { throw "Windows-GUI-koe epäonnistui 100 % skaalauksella: $($test.ExitCode)" }
-          $env:SLINT_SCALE_FACTOR = '1.5'
-          $test = Start-Process -FilePath $app -ArgumentList @('--demo', '--smoke-test', '--capture-dir', 'target/gui-smoke/150') -NoNewWindow -Wait -PassThru
-          if ($test.ExitCode -ne 0) { throw "Windows-GUI-koe epäonnistui 150 % skaalauksella: $($test.ExitCode)" }
+          foreach ($scale in @('1', '1.5')) {
+            $env:SLINT_SCALE_FACTOR = $scale
+            $folder = if ($scale -eq '1') { '100' } else { '150' }
+            $start = [System.Diagnostics.ProcessStartInfo]::new($app)
+            $start.UseShellExecute = $false
+            foreach ($argument in @('--demo', '--smoke-test', '--capture-dir', "target/gui-smoke/$folder")) {
+              $start.ArgumentList.Add($argument)
+            }
+            $test = [System.Diagnostics.Process]::Start($start)
+            try {
+              $test.WaitForExit()
+              if ($test.ExitCode -ne 0) { throw "Windows-GUI-koe epäonnistui $folder % skaalauksella: $($test.ExitCode)" }
+            } finally { $test.Dispose() }
+          }
       - name: Säilytä Windows-GUI:n tarkistuskuvat
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
