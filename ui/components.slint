@@ -455,6 +455,8 @@ export component Editor inherits Rectangle {
     in property <[EditorField]> fields;
     in property <bool> writable;
     in property <bool> new-record;
+    in property <bool> deletable;
+    callback delete();
     in property <bool> blocked;
     in property <bool> station-layout: false;
     in property <bool> driver-layout: false;
@@ -497,6 +499,7 @@ export component Editor inherits Rectangle {
                 field-draft(key, value) => { root.field-draft(key, value); }
             }
         }
+        if root.deletable: Button { text: "Poista luokka"; clicked => { root.delete(); } }
         if root.new-record: HorizontalLayout {
             spacing: Theme.space-2;
             Rectangle { horizontal-stretch: 1; }

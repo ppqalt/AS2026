@@ -56,13 +56,11 @@ fn validate_content(values: &[ReadPunch]) -> Result<(), CoreError> {
             "Korjattuun korttiin mahtuu ankkuri ja enintään 48 leimaa; lukijakoodia 250 ei saa lisätä",
         ));
     }
-    if values
-        .iter()
-        .skip(1)
-        .any(|p| p.koodi == 0 || p.koodi > 255 || p.aika_sekuntia > u16::MAX.into())
-    {
+    if values.iter().skip(1).any(|p| {
+        p.koodi == 0 || (p.koodi > 255 && p.koodi != 999) || p.aika_sekuntia > u16::MAX.into()
+    }) {
         return Err(invalid(
-            "Emit-koodin on oltava 1–255 (ei 250) ja korttiajan enintään 18:12:15",
+            "Emit-koodin on oltava 1–255 tai 999 (ei 250) ja korttiajan enintään 18:12:15",
         ));
     }
     if values
@@ -90,8 +88,7 @@ pub fn validate_history(project: &Project) -> Result<(), CoreError> {
             .chain(baseline.iter().map(|p| (p.koodi, p.aika_sekuntia)))
             .collect();
         let previous = chains.entry(key).or_insert(baseline.clone());
-        if edit.syy.trim().is_empty()
-            || edit.syy.chars().any(char::is_control)
+        if edit.syy.chars().any(char::is_control)
             || edit.ennen != *previous
             || edit.jalkeen.first() != baseline.first()
         {
@@ -229,7 +226,7 @@ pub fn rows(project: &Project, number: u32) -> Result<Vec<Row>, CoreError> {
         .collect())
 }
 
-fn recapture(
+pub(crate) fn recapture(
     project: &Project,
     number: u32,
     previous: Option<&crate::corrections::StoredResult>,
@@ -244,7 +241,11 @@ fn recapture(
                 && let Some(index) = result
                     .rivit
                     .iter()
-                    .find(|r| r.sequence == row.sequence && r.expected_code == 0)
+                    .find(|r| {
+                        r.name == row.name
+                            && r.station_type == row.station_type
+                            && r.expected_code == 0
+                    })
                     .map(|r| r.output_index)
             {
                 result.set_clock(index, row.clock)?;
@@ -259,7 +260,7 @@ fn recapture(
 /// Kutsutaan ProjectStoren atomisen muutoksen sisällä. Virhe ei tallenna mitään.
 pub fn apply(project: &mut Project, number: u32, request: &Request) -> Result<(), CoreError> {
     let reason = request.reason.trim();
-    if reason.is_empty() || reason.chars().any(char::is_control) {
+    if reason.chars().any(char::is_control) {
         return Err(invalid(
             "Anna korjaukselle selkeä perustelu yhdellä rivillä",
         ));
@@ -358,6 +359,55 @@ pub fn apply(project: &mut Project, number: u32, request: &Request) -> Result<()
             ));
         }
     }
+    rebuild_results(project, number)
+}
+
+pub fn replace_content(
+    project: &mut Project,
+    number: u32,
+    punches: Vec<ReadPunch>,
+) -> Result<(), CoreError> {
+    let mut candidate = project.clone();
+    let card = candidate
+        .kilpailijat
+        .iter()
+        .find(|d| d.numero == number)
+        .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?
+        .emit;
+    let (index, original) = candidate
+        .leimaluvut
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, r)| r.emit == card && r.validate().is_ok())
+        .ok_or_else(|| invalid("Korttiluku puuttuu"))?;
+    let before = content(&effective_readout(&candidate, original)?)?;
+    let mut after = vec![before[0].clone()];
+    after.extend(punches);
+    validate_content(&after)?;
+    if before == after {
+        return Ok(());
+    }
+    candidate.emit_korjaukset.push(Correction {
+        lahdelukema: index + 1,
+        kilpailija: number,
+        asema: "Kaikki leimaukset".into(),
+        syy: String::new(),
+        aika_unix_ms: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| invalid("Järjestelmän kello on virheellinen"))?
+            .as_millis() as u64,
+        ennen: before,
+        jalkeen: after,
+    });
+    validate_history(&candidate)?;
+    rebuild_results(&mut candidate, number)?;
+    candidate.validate()?;
+    *project = candidate;
+    Ok(())
+}
+
+fn rebuild_results(project: &mut Project, number: u32) -> Result<(), CoreError> {
     let previous = project
         .kilpailijat
         .iter()

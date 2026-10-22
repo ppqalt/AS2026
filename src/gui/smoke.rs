@@ -774,26 +774,21 @@ fn competition_settings_068(
     app.invoke_select_detail(row);
     app.invoke_open_emit_edit();
     assert!(app.get_emit_edit_open(), "{}", app.get_status_text());
-    app.invoke_emit_edit_edited(3, "420".into());
-    assert_eq!(
-        app.get_emit_edit_fields()
+    assert_eq!(app.get_emit_edit_fields().row_count(), 9);
+    assert!(
+        !app.get_emit_edit_fields()
             .iter()
-            .find(|f| f.key == 5)
-            .unwrap()
-            .value,
-        "12:05:00"
+            .any(|f| f.label.contains("perustelu"))
     );
-    app.invoke_emit_edit_edited(5, "12:05:01".into());
+    app.invoke_emit_edit_edited(1, "12:05:01".into());
     assert_eq!(
-        app.get_emit_edit_fields()
-            .iter()
-            .find(|f| f.key == 3)
-            .unwrap()
-            .value,
-        "421"
+        app.get_emit_edit_fields().row_data(1).unwrap().value,
+        "12:05:01"
     );
-    app.invoke_emit_edit_edited(5, "25:00:00".into());
-    app.invoke_emit_edit_edited(4, "Aikakenttien tarkistus".into());
+    app.invoke_emit_edit_add(false);
+    assert_eq!(app.get_emit_edit_fields().row_count(), 12);
+    app.invoke_emit_edit_edited(9, "99".into());
+    app.invoke_emit_edit_edited(10, "25:00:00".into());
     app.invoke_emit_edit_close(true);
     assert!(app.get_emit_edit_open());
     app.invoke_emit_edit_close(false);

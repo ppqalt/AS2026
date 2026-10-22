@@ -159,41 +159,20 @@ fn clock_text(time: ClockTime) -> String {
 
 fn sorted_drivers(project: &Project) -> Result<Vec<&crate::native::Driver>, CoreError> {
     project.validate()?;
-    // Ilman päivämäärää luokkien välisestä vuorokauden vaihteesta ei arvata.
-    // Luokan lähtökello toimii sen sisäisen lähtöjärjestyksen alkupisteenä.
-    let schedules = project
-        .luokat
-        .iter()
-        .map(|class| {
-            Ok((
-                class.tunnus.trim(),
-                parse_clock(&class.lahtoaika)?.seconds_since_midnight()?,
-            ))
-        })
-        .collect::<Result<Vec<_>, CoreError>>()?;
     let mut rows = project
         .kilpailijat
         .iter()
         .map(|driver| {
-            let (class_index, (_, first)) = schedules
-                .iter()
-                .enumerate()
-                .find(|(_, (code, _))| *code == driver.luokka.trim())
-                .ok_or_else(|| invalid("Kilpailijan luokkaa ei löydy"))?;
-            let offset = driver
+            let clock = driver
                 .start_clock()?
-                .map(|clock| {
-                    clock
-                        .seconds_since_midnight()
-                        .map(|clock| (clock - first).rem_euclid(86_400))
-                })
+                .map(|c| c.seconds_since_midnight())
                 .transpose()?
                 .unwrap_or(86_400);
-            Ok((class_index, offset, driver))
+            Ok((clock, driver))
         })
         .collect::<Result<Vec<_>, CoreError>>()?;
-    rows.sort_by_key(|(class, offset, driver)| (*class, *offset, driver.numero));
-    Ok(rows.into_iter().map(|(_, _, driver)| driver).collect())
+    rows.sort_by_key(|(clock, driver)| (*clock, driver.numero));
+    Ok(rows.into_iter().map(|(_, driver)| driver).collect())
 }
 
 fn escape(value: &str) -> String {

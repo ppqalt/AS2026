@@ -216,6 +216,7 @@ fn sources(
 }
 fn open_classes(state: &mut State, app: &AppWindow, stations: bool) -> GuiResult<()> {
     let number = selected_number(state).ok();
+    let selected_class = state.result_class.clone();
     let ws = current_workspace(state)?;
     let selected = ws
         .results()?
@@ -229,7 +230,11 @@ fn open_classes(state: &mut State, app: &AppWindow, stations: bool) -> GuiResult
             choices.push(DrawClassOption {
                 code: format!("{scope}:{code}").into(),
                 label: printing::class_label(&code).into(),
-                selected: selected.as_ref() == Some(&code),
+                selected: if selected_class.is_empty() {
+                    selected.as_ref() == Some(&code)
+                } else {
+                    selected_class == code
+                },
             });
         }
     }
@@ -246,6 +251,9 @@ fn open_classes(state: &mut State, app: &AppWindow, stations: bool) -> GuiResult
     app.set_print_fit(true);
     app.set_print_error("".into());
     app.set_print_classes_open(true);
+    if !selected_class.is_empty() {
+        print_classes(state, app)?;
+    }
     Ok(())
 }
 fn print_classes(state: &mut State, app: &AppWindow) -> GuiResult<()> {

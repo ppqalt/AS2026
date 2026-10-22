@@ -31,6 +31,13 @@ pub fn match_route(
                 && station.kind == StationKind::Ula
         });
         let kind = match station {
+            // Battery markers never satisfy a course control, even if its code
+            // happens to be configured as 99/999. Keep them visible for editing.
+            _ if punches.get(p).is_some_and(|p| matches!(p.code, 99 | 999))
+                && station.is_none_or(|s| s.expected_code != 0) =>
+            {
+                MatchKind::Extra
+            }
             None => MatchKind::Extra,
             Some(station) if p >= punches.len() => {
                 if shared_ula {
@@ -85,9 +92,10 @@ pub fn match_route(
             MatchKind::SharedUla => {
                 row.station = Some(route[r].clone());
                 // Alkuperäinen p-1 on nollattu ankkuripaikka ennen ensimmäistä sisäleimausta.
-                let elapsed_seconds = p
-                    .checked_sub(1)
-                    .and_then(|index| punches.get(index))
+                let elapsed_seconds = punches[..p]
+                    .iter()
+                    .rev()
+                    .find(|p| !matches!(p.code, 99 | 999))
                     .map_or(0, |punch| punch.elapsed_seconds);
                 row.punch = Some(Punch {
                     code: route[r].expected_code,

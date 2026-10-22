@@ -294,7 +294,7 @@ pub fn competitor(
         "Ihanne",
         "Käytetty",
         "AT",
-        "ATp/ATy",
+        "ATp (AT pisteet)",
         "Myöhä",
     ]
     .map(String::from);
@@ -344,7 +344,7 @@ pub fn competitor(
                     } else {
                         String::new()
                     },
-                    format!("{:+}", r.other_penalty),
+                    (r.signed_time_penalty.abs() + r.other_penalty).to_string(),
                     if known && matches!(r.station_type.as_str(), "JAT" | "M") {
                         r.section_text
                             .trim()

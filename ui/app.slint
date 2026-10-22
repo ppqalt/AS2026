@@ -118,6 +118,8 @@ export component AppWindow inherits Window {
     in-out property <string> emit-edit-history;
     callback open-emit-edit();
     callback emit-edit-edited(int, string);
+    callback emit-edit-add(bool);
+    callback delete-class();
     callback emit-edit-close(bool);
     in-out property <bool> print-classes-open;
     in-out property <bool> print-stations;
@@ -423,20 +425,6 @@ export component AppWindow inherits Window {
         VerticalLayout {
             horizontal-stretch: 1;
             spacing: 0px;
-            Rectangle {
-                height: Theme.header-height; background: Theme.surface;
-                HorizontalLayout {
-                    padding-left: Theme.gutter; padding-right: Theme.gutter;
-                    padding-top: Theme.space-3; padding-bottom: Theme.space-3; spacing: Theme.space-3;
-                    VerticalLayout {
-                        spacing: Theme.space-1;
-                        Text { text: root.competition-name; max-width: 200px; min-width: 0px; overflow: elide; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
-                        Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.editable ? "Automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: Theme.caption-font-size; }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
-            }
             VerticalLayout {
                 horizontal-stretch: 1;
                 padding: Theme.gutter; spacing: Theme.space-4;
@@ -453,18 +441,24 @@ export component AppWindow inherits Window {
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Rectangle {
-                        visible: root.opened;
+                        visible: root.opened || root.page == 0;
                         width: 106px; height: Theme.control-height;
                         Button { width: 100%; height: 100%; text: "Toiminnot"; accessible-label: "Lisätoiminnot"; clicked => { root.show-extras-menu(); } }
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
-                            width: 250px; height: root.page == 3 || root.page == 4 ? 188px : root.page == 1 ? 144px : root.page == 2 ? 100px : 56px;
+                            width: 280px; height: root.page == 1 ? 232px : root.page == 0 || root.page == 3 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
                                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                                 VerticalLayout {
                                     padding: Theme.space-2; spacing: Theme.space-2;
                                     refresh-menu := Button { text: "Päivitä tiedot"; enabled: true; clicked => { extras-menu.close(); root.focus-page(); root.reload(); } }
+                                    if root.page == 0: Button { text: "Avaa"; clicked => { extras-menu.close(); root.open-file(); } }
+                                    if root.page == 0: Button { text: "+ Uusi"; clicked => { extras-menu.close(); root.begin-new(); } }
+                                    if root.page == 0: Button { text: "Tuo kilpailu Excelistä"; clicked => { extras-menu.close(); root.import-excel(); } }
+                                    if root.page == 1 || root.page == 5: Button { text: "Tuo Excel"; clicked => { extras-menu.close(); root.import-excel(); } }
+                                    if root.page == 1: Button { text: "Tallenna html-lähtöluettelo"; enabled: root.editable; clicked => { extras-menu.close(); root.export-starts(); } }
+                                    if root.page == 5: Button { text: "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { extras-menu.close(); root.add-record(); root.details-open = true; } }
                                     if root.page == 1: Button { text: "Lisää kilpailija"; enabled: root.editable && !root.new-record; clicked => { extras-menu.close(); root.add-record(); root.details-open = true; } }
                                     if root.page == 1: Button { text: "Arvo lähtöajat"; enabled: root.editable; clicked => { extras-menu.close(); root.configure-draw-classes(); } }
                                     if root.page == 4: Button { text: "Lisää luokka"; enabled: root.editable && !root.new-record; clicked => { extras-menu.close(); root.add-record(); root.details-open = true; } }
@@ -489,15 +483,6 @@ export component AppWindow inherits Window {
                     x: 0px; y: 0px;
                     width: overview-scroll.visible-width; height: self.min-height;
                     spacing: Theme.space-4;
-                    HorizontalLayout {
-                        Button { text: "Avaa"; clicked => { root.open-file(); } }
-                        AccentButton { text: "+ Uusi"; clicked => { root.begin-new(); } }
-                        Rectangle { horizontal-stretch: 1; }
-                    }
-                    if root.opened: HorizontalLayout {
-                        Button { text: "Tuo kilpailu Excelistä"; clicked => { root.import-excel(); } }
-                        Rectangle { horizontal-stretch: 1; }
-                    }
                     if !root.opened: Rectangle {
                         height: welcome-content.min-height; vertical-stretch: 0;
                         horizontal-stretch: 1;
@@ -621,7 +606,7 @@ export component AppWindow inherits Window {
                                 spacing: Theme.space-2;
                                 HorizontalLayout {
                                     Text { text: root.detail-title; min-width: 0px; wrap: word-wrap; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; horizontal-stretch: 1; }
-                                    Button { text: "Muokkaa"; enabled: root.editable && root.detail-key >= 0; clicked => { root.open-emit-edit(); } }
+                                    Button { text: "Muokkaa leimauksia"; enabled: root.editable && root.selected-key >= 0; clicked => { root.open-emit-edit(); } }
                                 }
                                 DataTable { rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; table-min-height: Theme.table-min-height; empty-text: "Valitse lukutapahtuma."; selected(key) => { root.select-detail(key); } }
                             }
@@ -634,11 +619,6 @@ export component AppWindow inherits Window {
                     if root.page != 3: HorizontalLayout {
                         spacing: Theme.space-3;
                         search := LineEdit { horizontal-stretch: 1; text <=> root.filter; placeholder-text: root.page == 1 ? "Hae nimellä, numerolla tai Emit-numerolla" : "Hae luettelosta"; edited => { root.filter-changed(self.text); } }
-                    }
-                    if root.page == 1: HorizontalLayout {
-                        Button { text: "Tuo Excel"; clicked => { root.import-excel(); } }
-                        Button { text: "Lähtöluettelo"; enabled: root.editable; clicked => { root.export-starts(); } }
-                        Rectangle { horizontal-stretch: 1; }
                     }
                     if root.page == 3: HorizontalLayout {
                         alignment: start; vertical-stretch: 0;
@@ -724,6 +704,8 @@ export component AppWindow inherits Window {
                                     fit-content: true;
                                     heading: root.editor-title; description: root.editor-description;
                                     fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                            deletable: root.page == 4 && root.editable && !root.new-record;
+                            delete => { root.delete-class(); }
                                     field-commit(key, value) => { root.field-commit(key, value) }
                                     field-draft(key, value) => { root.field-draft(key, value); }
                                     add => { root.add-commit(); } cancel => { root.cancel-edit(); }
@@ -737,6 +719,8 @@ export component AppWindow inherits Window {
                             horizontal-stretch: 0;
                             heading: root.editor-title; description: root.editor-description;
                             fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                            deletable: root.page == 4 && root.editable && !root.new-record;
+                            delete => { root.delete-class(); }
                             field-commit(key, value) => { root.field-commit(key, value) }
                             field-draft(key, value) => { root.field-draft(key, value); }
                             add => { root.add-commit(); } cancel => { root.cancel-edit(); }
@@ -759,13 +743,7 @@ export component AppWindow inherits Window {
                             placeholder-text: "Hae radoista";
                             edited => { root.filter-changed(self.text); }
                         }
-                        AccentButton {
-                            height: Theme.control-height;
-                            text: "+ Lisää rata";
-                            enabled: root.editable && !root.new-record;
-                            clicked => { root.add-record(); route-workspace.show-details = true; }
-                        }
-                        Button { text: "Tuo Excel"; enabled: true; clicked => { root.import-excel(); } }
+
                     }
                     route-workspace := Workspace {
                         horizontal-stretch: 1; vertical-stretch: 1;
@@ -781,7 +759,7 @@ export component AppWindow inherits Window {
                             if route-workspace.compact: Rectangle {
                                 height: Theme.control-height; vertical-stretch: 0;
                                 Button { width: parent.width; height: parent.height;
-                                text: root.route-fields.length > 1 ? "Rata: " + root.route-fields[1].value : "Valitse rata";
+                                text: root.route-fields.length > 0 ? "Rata: " + root.route-fields[0].value : "Valitse rata";
                                 clicked => { route-menu.show(); }
                                 }
                                 route-menu := PopupWindow {
@@ -879,6 +857,8 @@ export component AppWindow inherits Window {
                                 fit-content: true;
                                 heading: root.editor-title; description: root.editor-description;
                                 fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                            deletable: root.page == 4 && root.editable && !root.new-record;
+                            delete => { root.delete-class(); }
                                 field-commit(key, value) => { root.field-commit(key, value) }
                                 field-draft(key, value) => { root.field-draft(key, value); }
                                 add => { root.add-commit(); } cancel => { root.cancel-edit(); }
@@ -891,6 +871,8 @@ export component AppWindow inherits Window {
                                 record-key: root.selected-key + "/" + root.detail-key;
                                 heading: root.editor-title; description: root.editor-description;
                                 fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                            deletable: root.page == 4 && root.editable && !root.new-record;
+                            delete => { root.delete-class(); }
                                 field-commit(key, value) => { root.field-commit(key, value) }
                                 field-draft(key, value) => { root.field-draft(key, value); }
                                 add => { root.add-commit(); } cancel => { root.cancel-edit(); }
@@ -1401,6 +1383,7 @@ export component AppWindow inherits Window {
         identity: root.emit-edit-identity; fields: root.emit-edit-fields;
         error: root.emit-edit-error; history: root.emit-edit-history;
         edited(key, value) => { root.emit-edit-edited(key, value); }
+        add(restore) => { root.emit-edit-add(restore); }
         close(save) => { root.emit-edit-close(save); }
     }
     if root.result-entry-open: ResultEntryDialog {

@@ -181,10 +181,7 @@ fn invalid_input_or_external_save_conflict_preserves_file_history_and_approvals(
     f.complete_and_approve("12:10:00");
     let before = f.ws.project().unwrap().clone();
     let bytes = std::fs::read(f.file()).unwrap();
-    let mut blank = request(2, 31, 420);
-    blank.reason.clear();
     for invalid in [
-        blank,
         request(2, 250, 420),
         request(2, 31, 100_000),
         request(2, 31, 721),

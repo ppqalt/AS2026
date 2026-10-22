@@ -100,6 +100,7 @@ pub fn data(
     page: i32,
     selected_key: i32,
     filter: &str,
+    result_group: &str,
 ) -> Result<ViewData, CoreError> {
     let archive = if page == 3 {
         ws.results()?
@@ -111,7 +112,14 @@ pub fn data(
     match page {
         1 => competitors(ws, &archive, &mut view),
         2 => history(ws, &archive, selected_key, &mut view, &mut notes),
-        3 => results(ws, &archive, selected_key, &mut view, &mut notes)?,
+        3 => results(
+            ws,
+            &archive,
+            selected_key,
+            &mut view,
+            &mut notes,
+            result_group,
+        )?,
         4 => classes(&archive, &mut view),
         5 => tracks(&archive, selected_key, &mut view),
         _ => {}
@@ -286,7 +294,11 @@ fn classes(archive: &Archive, view: &mut ViewData) {
                     if class.route == "0" {
                         "-".into()
                     } else {
-                        class.route.clone()
+                        archive
+                            .routes
+                            .iter()
+                            .find(|r| r.index.to_string() == class.route)
+                            .map_or_else(|| class.route.clone(), |r| r.name.clone())
                     },
                     field(&class.fields, 3),
                     field(&class.fields, 4).replace('.', ":"),
@@ -322,8 +334,8 @@ fn classes(archive: &Archive, view: &mut ViewData) {
 }
 
 fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
-    view.headers = headers(&["Numero", "Radan nimi", "Asemia"]);
-    view.weights = vec![0.14, 0.68, 0.18];
+    view.headers = headers(&["Radan nimi", "Asemia"]);
+    view.weights = vec![0.82, 0.18];
     view.rows = archive
         .routes
         .iter()
@@ -331,11 +343,7 @@ fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
         .map(|(index, track)| {
             row(
                 index,
-                vec![
-                    track.index.to_string(),
-                    track.name.clone(),
-                    track.stations.len().to_string(),
-                ],
+                vec![track.name.clone(), track.stations.len().to_string()],
             )
         })
         .collect();
@@ -345,7 +353,7 @@ fn tracks(archive: &Archive, selected_key: i32, view: &mut ViewData) {
     else {
         return;
     };
-    view.detail_title = format!("Rata {} · {}", track.index, track.name);
+    view.detail_title = track.name.clone();
     view.detail_headers = headers(&[
         "Järj.",
         "Tyyppi",
@@ -440,6 +448,7 @@ fn result_row(
             } else {
                 format!("{} p", driver.total_penalties)
             },
+            driver.emit_card.clone(),
         ],
     )
 }
@@ -450,6 +459,7 @@ fn results(
     selected_key: i32,
     view: &mut ViewData,
     notes: &mut Vec<String>,
+    result_group: &str,
 ) -> Result<(), CoreError> {
     let result_project = ws.result_project()?;
     view.headers = headers(&[
@@ -460,14 +470,17 @@ fn results(
         "Kartanlukija",
         "Tila",
         "Tulos",
+        "Emit",
     ]);
-    view.weights = vec![0.06, 0.06, 0.08, 0.23, 0.23, 0.14, 0.20];
+    view.weights = vec![0.05, 0.05, 0.07, 0.20, 0.20, 0.14, 0.19, 0.10];
     let ranking = application::rank_stored(archive, TiePolicy::KeepSharedAndFlag)?;
-    for group in ranking
-        .groups
-        .iter()
-        .filter(|group| group.kind == GroupKind::Ordinary)
-    {
+    for group in ranking.groups.iter().filter(|group| {
+        if result_group.starts_with("Y") && result_group.contains(": ") {
+            group.code == result_group
+        } else {
+            group.kind == GroupKind::Ordinary
+        }
+    }) {
         for entry in &group.entries {
             let Some(index) = entry.source_index.checked_sub(1) else {
                 continue;

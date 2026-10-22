@@ -41,6 +41,7 @@ export component EmitCorrectionDialog inherits Rectangle {
     in property <string> history;
     callback edited(int, string);
     callback close(bool);
+    callback add(bool);
     property <int> focus-index: -1;
     property <bool> focus-last;
     background: Theme.modal-backdrop;
@@ -59,7 +60,7 @@ export component EmitCorrectionDialog inherits Rectangle {
             preferred-dialog-width: 620px; preferred-dialog-height: 740px;
             VerticalLayout {
                 padding: Theme.dialog-padding; spacing: Theme.space-3;
-                Heading { text: "Korjaa Emit-rivi"; vertical-stretch: 0; }
+                Heading { text: "Muokkaa Emit-leimauksia"; vertical-stretch: 0; }
                 Note { text: root.identity; }
                 body := ScrollView {
                     horizontal-scrollbar-policy: always-off;
@@ -68,6 +69,11 @@ export component EmitCorrectionDialog inherits Rectangle {
                         x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
                         spacing: Theme.space-2; alignment: start;
                         Note { text: "Korjaus laskee NAC- ja BC-tulokset uudelleen. Hyväksynnät ja asemien pistekorjaukset poistuvat. Käsikellot ja erilliset lisävirheet säilyvät."; }
+                        Note { text: "Anna puuttuvan leiman koodi ja kilpailukortin kellonaika hh:mm:ss. Korttiaika lasketaan automaattisesti. Leimat 99 ja 999 sivuutetaan. Valitse Poista leima poistaaksesi minkä tahansa leimauksen."; }
+                        HorizontalLayout {
+                            Button { text: "+ Lisää leima"; clicked => { root.add(false); } }
+                            Button { text: "Palauta alkuperäiset leimat"; clicked => { root.add(true); } }
+                        }
                         for field[i] in root.fields: CorrectionField {
                             data: field; index: i; focus-index: root.focus-index; focus-last: root.focus-last;
                             edited(key, value) => { root.edited(key, value); }

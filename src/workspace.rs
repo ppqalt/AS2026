@@ -852,6 +852,78 @@ impl Workspace {
         self.update(|project| draw.apply(project))
     }
 
+    pub fn replace_emit_content(
+        &mut self,
+        number: u32,
+        punches: Vec<native::ReadPunch>,
+    ) -> Result<(), CoreError> {
+        match &mut self.source {
+            Source::Native(store) => {
+                store.update(|p| crate::emit_corrections::replace_content(p, number, punches))
+            }
+            _ => Err(invalid("Avaa muokattava kilpailu")),
+        }
+    }
+
+    pub fn delete_class(&mut self, code: &str) -> Result<(), CoreError> {
+        self.update(|project| {
+            if project
+                .kilpailijat
+                .iter()
+                .any(|d| d.luokka.trim() == code.trim())
+            {
+                return Err(invalid("Siirrä luokan kilpailijat ensin toiseen luokkaan"));
+            }
+            let index = project
+                .luokat
+                .iter()
+                .position(|c| c.tunnus == code)
+                .ok_or_else(|| invalid("Luokkaa ei löydy"))?;
+            project.luokat.remove(index);
+            for group in &mut project.yhdistetyt_luokat {
+                group.luokat.retain(|c| c != code);
+            }
+            project.yhdistetyt_luokat.retain(|g| !g.luokat.is_empty());
+            Ok(())
+        })
+    }
+
+    pub fn rebuild_route_results(&mut self, tracks: &[u32]) -> Result<(), CoreError> {
+        self.update(|project| {
+            let numbers = project
+                .kilpailijat
+                .iter()
+                .filter(|d| {
+                    d.tallennettu_tulos.is_some()
+                        && project
+                            .luokat
+                            .iter()
+                            .any(|c| c.tunnus == d.luokka && tracks.contains(&c.rata))
+                })
+                .map(|d| d.numero)
+                .collect::<Vec<_>>();
+            for number in numbers {
+                let driver = project
+                    .kilpailijat
+                    .iter()
+                    .find(|d| d.numero == number)
+                    .unwrap();
+                let result = crate::emit_corrections::recapture(
+                    project,
+                    number,
+                    driver.tallennettu_tulos.as_ref(),
+                )?;
+                project
+                    .kilpailijat
+                    .iter_mut()
+                    .find(|d| d.numero == number)
+                    .unwrap()
+                    .tallennettu_tulos = Some(result);
+            }
+            Ok(())
+        })
+    }
+
     pub fn add_class(&mut self, edit: ClassEdit) -> Result<(), CoreError> {
         self.update(|project| {
             project.luokat.push(edit.parse()?);

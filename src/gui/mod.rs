@@ -48,6 +48,8 @@ enum PendingAction {
         directory: Option<PathBuf>,
     },
     Notice,
+    DeleteClass(String),
+    RebuildRoutes(Vec<u32>),
 }
 
 struct PendingResult {
@@ -355,6 +357,7 @@ fn save_new_if_ready(state: &mut State, app: &AppWindow) -> GuiResult<bool> {
     }
     let selection = state.selection.clone();
     let draft = state.draft.clone();
+    let before = Some(project.clone());
     let added = forms::add(current_workspace(state)?, &selection, &draft)?;
     state.selection = added;
     state.draft.clear();
@@ -367,6 +370,7 @@ fn save_new_if_ready(state: &mut State, app: &AppWindow) -> GuiResult<bool> {
     update_tables(state, app)?;
     update_form(state, app);
     status(app, "Tiedot tallennettu automaattisesti.", false);
+    ask_route_recalculation(state, app, before.as_ref());
     Ok(true)
 }
 
@@ -488,9 +492,15 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     let Some(ws) = &state.workspace else {
         return Ok(());
     };
-    let mut view = tables::data(ws, state.page, state.selected, &state.filter)?;
+    let mut view = tables::data(
+        ws,
+        state.page,
+        state.selected,
+        &state.filter,
+        &state.result_class,
+    )?;
     let mut result_classes = vec!["Luokka".to_owned()];
-    result_classes.extend(ws.archive()?.basic.classes.iter().map(|c| c.code.clone()));
+    result_classes.extend(as2026::printing::class_choices(&ws.archive()?)?);
     if ws.project().is_some_and(|p| p.beginners_cup.is_some()) {
         result_classes.push("Beginners Cup".into());
     }
@@ -504,10 +514,31 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
         result_classes.into_iter().map(SharedString::from).collect(),
     ));
     if state.page == 3 && !state.result_class.is_empty() && state.result_class != "Beginners Cup" {
+        let archive = ws.archive()?;
+        let members = archive
+            .basic
+            .combined_classes
+            .iter()
+            .find(|g| {
+                g.first()
+                    .zip(g.get(1))
+                    .is_some_and(|(i, name)| format!("Y{i}: {}", name.trim()) == state.result_class)
+            })
+            .map(|g| {
+                archive
+                    .basic
+                    .classes
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| g.get(4 + i).is_some_and(|v| v.trim() == "1"))
+                    .map(|(_, c)| c.code.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_else(|| vec![state.result_class.clone()]);
         view.rows.retain(|row| {
             row.cells
                 .row_data(2)
-                .is_some_and(|c| c.as_str() == state.result_class)
+                .is_some_and(|c| members.iter().any(|m| m == c.as_str()))
         });
     }
     app.set_rows(model(view.rows));
@@ -724,7 +755,7 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
     app.set_filter("".into());
     choose_row(state, -1)?;
     if let Some(ws) = &state.workspace {
-        let first = tables::data(ws, page, -1, "")?
+        let first = tables::data(ws, page, -1, "", "")?
             .rows
             .first()
             .map(|row| row.key);
@@ -916,6 +947,11 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
         };
     }
     let selection = state.selection.clone();
+    let before = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .cloned();
     let result =
         current_workspace(state).and_then(|ws| forms::apply_field(ws, &selection, key, value));
     match result {
@@ -947,6 +983,7 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
                     false,
                 );
             }
+            ask_route_recalculation(state, app, before.as_ref());
             // Lomaketta ei rakenneta uudelleen joka kentällä: kohdistus ja luonnokset säilyvät.
             true
         }
@@ -985,6 +1022,11 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
         status(app, "Valitse ensin rata.", true);
         return false;
     };
+    let before = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .cloned();
     match current_workspace(state).and_then(|workspace| {
         forms::apply_field(workspace, &Selection::Track(route_number), key, value)
     }) {
@@ -1009,6 +1051,7 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
             } else {
                 status(app, "Radan tiedot tallennettu.", false);
             }
+            ask_route_recalculation(state, app, before.as_ref());
             // Updating route number changes the editor's referent.
             if key == 0 {
                 update_form(state, app);
@@ -1043,6 +1086,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         .and_then(Workspace::lan_client)
         .is_none_or(|client| client.ready())
         && !app.get_lan_open()
+        && !app.get_emit_edit_open()
         && !app.get_lan_busy()
         && !state.invalid_field
         && state.edit_draft.is_empty()
@@ -1297,6 +1341,65 @@ fn selected_number(state: &State) -> GuiResult<u32> {
         .ok_or_else(|| invalid("Valitse kilpailija"))
 }
 
+fn ask_route_recalculation(state: &mut State, app: &AppWindow, before: Option<&Project>) {
+    let Some(before) = before else {
+        return;
+    };
+    let Some(after) = state.workspace.as_ref().and_then(Workspace::project) else {
+        return;
+    };
+    let mut tracks = after
+        .radat
+        .iter()
+        .filter(|r| {
+            before
+                .radat
+                .iter()
+                .find(|old| old.numero == r.numero)
+                .is_some_and(|old| old.asemat != r.asemat)
+        })
+        .map(|r| r.numero)
+        .collect::<Vec<_>>();
+    // A class may have been moved to another route.
+    tracks.extend(
+        after
+            .luokat
+            .iter()
+            .filter(|c| {
+                before
+                    .luokat
+                    .iter()
+                    .find(|old| old.tunnus == c.tunnus)
+                    .is_some_and(|old| old.rata != c.rata)
+            })
+            .map(|c| c.rata),
+    );
+    tracks.sort_unstable();
+    tracks.dedup();
+    let count = after
+        .kilpailijat
+        .iter()
+        .filter(|d| {
+            d.tallennettu_tulos.is_some()
+                && after
+                    .luokat
+                    .iter()
+                    .any(|c| c.tunnus == d.luokka && tracks.contains(&c.rata))
+        })
+        .count();
+    if count > 0 {
+        confirmation(
+            state,
+            app,
+            PendingAction::RebuildRoutes(tracks),
+            "Päivitetäänkö lasketut tulokset?",
+            format!(
+                "Ratatiedot on tallennettu. Lasketaanko muokattuja ratoja käyttävien kilpailijoiden ({count} kpl) tulokset uudelleen? Käsikellot säilytetään vastaaville asemille. Tulokset pitää tarkistaa uudelleen. Peruuta säilyttää aiemmat pisteet."
+            ),
+        );
+    }
+}
+
 fn confirmation(
     state: &mut State,
     app: &AppWindow,
@@ -1310,6 +1413,8 @@ fn confirmation(
             PendingAction::Draw(_) => "Arvo lähtöajat",
             PendingAction::Import { .. } => "Tuo kilpailu",
             PendingAction::Notice => "Sulje",
+            PendingAction::DeleteClass(_) => "Poista luokka",
+            PendingAction::RebuildRoutes(_) => "Kyllä, laske uudelleen",
         }
         .into(),
     );
@@ -1775,6 +1880,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .get(s.selected as usize)
             .ok_or_else(|| invalid("Valitse rata"))?;
         let track_number = track.numero;
+        let before = Some(project.clone());
         let target = s.detail + delta;
         if s.detail >= 0 && target >= 0 && (target as usize) < track.asemat.len() {
             let from = s.detail as usize;
@@ -1788,6 +1894,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             update_tables(s, &a)?;
             update_form(s, &a);
             status(&a, "Asemajärjestys tallennettu.", false);
+            ask_route_recalculation(s, &a, before.as_ref());
         }
         Ok(())
     });
@@ -2371,6 +2478,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     return Err(invalid("Avaa Excel-tuonnin esikatselu uudelleen"));
                 }
                 PendingAction::Notice => "Esikatselu suljettu.",
+                PendingAction::DeleteClass(code) => {
+                    current_workspace(s)?.delete_class(&code)?;
+                    s.selection = Selection::None;
+                    s.selected = -1;
+                    "Luokka poistettu."
+                }
+                PendingAction::RebuildRoutes(tracks) => {
+                    current_workspace(s)?.rebuild_route_results(&tracks)?;
+                    "Ratojen kilpailijoiden tulokset laskettu uudelleen."
+                }
                 PendingAction::Draw(draw) => {
                     current_workspace(s)?.apply_start_draw(&draw)?;
                     "Arvotut lähtöajat tallennettu."
@@ -2382,6 +2499,24 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         follow_pending_result(s, &a)
     });
+    action!(on_emit_edit_add, |s, a, restore| emit_correction::add(
+        s, &a, restore
+    ));
+    action!(on_delete_class, |s, a| {
+        if let Selection::Class(code) = &s.selection {
+            let code = code.clone();
+            confirmation(
+                s,
+                &a,
+                PendingAction::DeleteClass(code.clone()),
+                "Poista luokka",
+                format!(
+                    "Poistetaanko luokka {code}? Luokan kilpailijat pitää ensin siirtää toiseen luokkaan."
+                ),
+            );
+        }
+        Ok(())
+    });
     action!(on_export_starts, |s, a| {
         if !can_leave(s, &a) {
             return Ok(());
@@ -2390,23 +2525,13 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .project()
             .ok_or_else(|| invalid("Lähtöluettelo edellyttää AS2026-kilpailua"))?;
         let html = as2026::starts::start_list_html(project)?;
-        let csv = as2026::starts::start_list_csv(project)?;
         if let Some(path) = rfd::FileDialog::new()
             .set_title("Tallenna lähtöluettelo")
             .add_filter("HTML-lähtöluettelo", &["html"])
-            .add_filter("CSV-lähtöluettelo", &["csv"])
             .set_file_name("lahtoluettelo.html")
             .save_file()
         {
-            let output = if path
-                .extension()
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("csv"))
-            {
-                &csv
-            } else {
-                &html
-            };
-            report::save_new(&path, output)?;
+            report::save_new(&path, &html)?;
             status(
                 &a,
                 "Lähtöluettelo tallennettu. Sen voi avata ja tulostaa selaimella.",

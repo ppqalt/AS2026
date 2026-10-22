@@ -142,12 +142,12 @@ fn classes(project: &Project) -> Vec<(String, String)> {
 
 fn tracks(project: &Project) -> Vec<(String, String)> {
     std::iter::once(("-".to_owned(), "0".to_owned()))
-        .chain(project.radat.iter().map(|track| {
-            (
-                format!("{} — {}", track.numero, track.nimi),
-                track.numero.to_string(),
-            )
-        }))
+        .chain(
+            project
+                .radat
+                .iter()
+                .map(|track| (track.nimi.clone(), track.numero.to_string())),
+        )
         .collect()
 }
 
@@ -335,7 +335,7 @@ pub fn ready_to_add(
         Selection::NewStation { .. } => &[0, 1, 2, 3],
         Selection::NewDriver => &[0, 1, 3],
         Selection::NewClass => &[0, 1, 2, 3, 4, 5],
-        Selection::NewTrack => &[0, 1],
+        Selection::NewTrack => &[1],
         _ => return false,
     };
     required.iter().all(|key| {
@@ -384,75 +384,38 @@ fn station_fields(station: &StationEdit) -> Vec<EditorField> {
     ]
 }
 
-pub(super) fn emit_correction_fields(
+pub(super) fn emit_card_fields(
     project: &Project,
     number: u32,
-    row: u32,
+    punches: &[as2026::Punch],
 ) -> Result<Vec<EditorField>, CoreError> {
-    let rows = as2026::emit_corrections::rows(project, number)?;
-    let selected = rows.iter().find(|r| r.index == row).ok_or_else(invalid)?;
-    let code = if selected.code == 0 {
-        selected.expected_code
-    } else {
-        selected.code
-    };
-    let elapsed = selected.elapsed_seconds;
-    let sources = std::iter::once(("Valittu leima / uusi puuttuva leima".into(), "0".into()))
-        .chain(
-            rows.iter()
-                .filter(|r| r.sequence == 0 && r.index != row)
-                .map(|r| {
-                    (
-                        format!(
-                            "Rivi {} · koodi {} · {:02}:{:02}:{:02}",
-                            r.index,
-                            r.code,
-                            r.elapsed_seconds / 3600,
-                            r.elapsed_seconds % 3600 / 60,
-                            r.elapsed_seconds % 60
-                        ),
-                        r.index.to_string(),
-                    )
-                }),
-        )
-        .collect();
-    Ok(vec![
-        choice(
-            0,
-            "Korjauksen tapa",
-            "0",
-            "",
-            named(&[
-                ("Muokkaa / lisää leima", "0"),
-                ("Poista leima laskennasta", "1"),
-                ("Palauta alkuperäiset leimat", "2"),
-            ]),
-        ),
-        choice(
-            1,
-            "Kohdistettava leima",
-            "0",
-            "Puuttuvalle asemalle voi kohdistaa ylimääräisen leiman",
-            sources,
-        ),
-        text(2, "Leimakoodi", code, "1–255, ei lukijakoodia 250"),
-        text(3, "Aika (s)", elapsed, "Korttiaika nollauksesta sekunteina"),
-        clock_field(
-            5,
-            "Aika (hh:mm:ss)",
+    let mut fields = Vec::new();
+    for (i, punch) in punches.iter().enumerate().skip(1) {
+        let key = (i as i32 - 1) * 3;
+        fields.push(text(
+            key,
+            &format!("Leima {i} · Emit-koodi"),
+            punch.code,
+            "99 ja 999 sivuutetaan laskennassa",
+        ));
+        fields.push(clock_field(
+            key + 1,
+            "Kellonaika (hh:mm:ss)",
             &as2026::emit_corrections::clock_text(as2026::emit_corrections::punch_clock(
                 project,
                 number,
-                i64::from(elapsed),
+                i64::from(punch.elapsed_seconds),
             )?),
-        ),
-        text(
-            4,
-            "Korjauksen perustelu",
+        ));
+        fields.push(choice(
+            key + 2,
+            "Leiman käyttö",
+            "0",
             "",
-            "Esimerkiksi väärä asemakoodi tai varakellon mukainen puuttuva leima",
-        ),
-    ])
+            named(&[("Käytä", "0"), ("Poista leima", "1")]),
+        ));
+    }
+    Ok(fields)
 }
 
 pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
@@ -596,24 +559,11 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
             .find(|track| track.numero == *number)
             .map(|track| {
                 vec![
-                    text(0, "Radan numero", track.numero, "Radan yksilöllinen numero"),
                     text(1, "Radan nimi", &track.nimi, "Radan kuvaava nimi"),
                 ]
             })
             .unwrap_or_default(),
         Selection::NewTrack => vec![
-            text(
-                0,
-                "Radan numero",
-                project
-                    .radat
-                    .iter()
-                    .map(|track| track.numero)
-                    .max()
-                    .unwrap_or(0)
-                    .saturating_add(1),
-                "Radan yksilöllinen numero",
-            ),
             text(
                 1,
                 "Radan nimi",
@@ -1012,9 +962,17 @@ pub fn add(
             Ok(Selection::Class(code))
         }
         Selection::NewTrack => {
-            let number = identifier(&value(0))?;
+            let number = ws
+                .project()
+                .unwrap()
+                .radat
+                .iter()
+                .map(|r| r.numero)
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1);
             ws.add_track(TrackEdit {
-                number: value(0),
+                number: number.to_string(),
                 name: value(1),
             })?;
             Ok(Selection::Track(number))
