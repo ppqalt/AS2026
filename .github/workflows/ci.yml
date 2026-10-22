@@ -79,6 +79,26 @@ jobs:
           retention-days: 7
       - name: Käännä GUI, käynnistin ja komentoriviohjelma
         run: cargo +stable build --locked --release --features gui
+      - name: Kokeile Windows-GUI:n työnkulut ja näppäimistö 100 ja 150 prosentin skaalauksella
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        env:
+          SLINT_BACKEND: winit-software
+        run: |
+          $env:SLINT_SCALE_FACTOR = '1'
+          & target/release/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/100
+          if ($LASTEXITCODE -ne 0) { throw 'Windows-GUI-koe epäonnistui 100 % skaalauksella' }
+          $env:SLINT_SCALE_FACTOR = '1.5'
+          & target/release/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/150
+          if ($LASTEXITCODE -ne 0) { throw 'Windows-GUI-koe epäonnistui 150 % skaalauksella' }
+      - name: Säilytä Windows-GUI:n tarkistuskuvat
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: gui-smoke-windows-${{ github.sha }}
+          path: target/gui-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Kokoa yksityinen BSD-2-Clause-paketti Linuxille
         if: runner.os == 'Linux'
         run: cargo +stable run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-unknown-linux-gnu --output target/ci-release-payload

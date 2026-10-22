@@ -2824,6 +2824,9 @@ fn capture_views(
                     let before = app.get_combined_classes().row_data(0).unwrap().selected;
                     smoke::key(&app, slint::platform::Key::Space);
                     assert_ne!(app.get_combined_classes().row_data(0).unwrap().selected, before);
+                    assert_eq!(app.get_combined_name(), "Kokeilu", "Space ei päädy nimikenttään");
+                    smoke::key(&app, slint::platform::Key::Space);
+                    assert_eq!(app.get_combined_classes().row_data(0).unwrap().selected, before);
                     smoke::key(&app, slint::platform::Key::Escape);
                     assert!(!app.get_combined_open());
                 }
@@ -2854,7 +2857,11 @@ fn capture_views(
                 92 => smoke::key(&app, "12:08:00"),
                 94 => smoke::key(&app, "3"),
                 96 => smoke::key(&app, "25"),
-                98 => smoke::key(&app, slint::platform::Key::Return),
+                98 => {
+                    let values = app.get_result_entry_fields().iter().map(|f| f.value.to_string()).collect::<Vec<_>>();
+                    assert_eq!(values, ["12:05:00", "12:08:00", "3", "25"], "Tab ja tekstisyöte kohdistuvat oikeille riveille");
+                    smoke::key(&app, slint::platform::Key::Return);
+                }
                 99 => {
                     assert!(!app.get_result_entry_open(), "{}", app.get_result_entry_error());
                     let s = state.borrow(); let d = &s.workspace.as_ref().unwrap().project().unwrap().kilpailijat[0];
