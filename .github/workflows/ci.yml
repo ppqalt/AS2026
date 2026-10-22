@@ -83,11 +83,12 @@ jobs:
           SLINT_BACKEND: winit-software
         run: |
           $env:SLINT_SCALE_FACTOR = '1'
-          & target/debug/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/100
-          if ($LASTEXITCODE -ne 0) { throw 'Windows-GUI-koe epäonnistui 100 % skaalauksella' }
+          $app = (Resolve-Path target/debug/as2026-gui.exe).Path
+          $test = Start-Process -FilePath $app -ArgumentList @('--demo', '--smoke-test', '--capture-dir', 'target/gui-smoke/100') -NoNewWindow -Wait -PassThru
+          if ($test.ExitCode -ne 0) { throw "Windows-GUI-koe epäonnistui 100 % skaalauksella: $($test.ExitCode)" }
           $env:SLINT_SCALE_FACTOR = '1.5'
-          & target/debug/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/150
-          if ($LASTEXITCODE -ne 0) { throw 'Windows-GUI-koe epäonnistui 150 % skaalauksella' }
+          $test = Start-Process -FilePath $app -ArgumentList @('--demo', '--smoke-test', '--capture-dir', 'target/gui-smoke/150') -NoNewWindow -Wait -PassThru
+          if ($test.ExitCode -ne 0) { throw "Windows-GUI-koe epäonnistui 150 % skaalauksella: $($test.ExitCode)" }
       - name: Säilytä Windows-GUI:n tarkistuskuvat
         if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
