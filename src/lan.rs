@@ -1622,6 +1622,23 @@ mod workflow_tests {
         emit_corrections::{Action, Request},
         workspace::Workspace,
     };
+    // A slow filesystem can exceed the short synchronous acknowledgement
+    // window. The operation is already queued: wait, never resubmit it.
+    fn await_edit(ws: &mut Workspace, client: &Client, outcome: Result<(), CoreError>) {
+        if let Err(error) = outcome {
+            assert!(
+                error.to_string().contains("odottaa isännän kuittausta"),
+                "{error}"
+            );
+        }
+        let until = Instant::now() + Duration::from_secs(8);
+        while !client.ready() {
+            assert!(Instant::now() < until, "LAN operation was not acknowledged");
+            thread::sleep(Duration::from_millis(30));
+        }
+        assert!(client.notice().is_empty(), "{}", client.notice());
+        ws.poll_lan().unwrap();
+    }
     #[test]
     fn two_workspaces_share_manual_clocks_approvals_bc_and_emit_corrections() {
         let dir =
@@ -1671,7 +1688,8 @@ mod workflow_tests {
         wa.attach_lan(a.clone()).unwrap();
         wb.attach_lan(b.clone()).unwrap();
         wa.pin_lan_basis();
-        wa.review_results(7).unwrap();
+        let reviewed = wa.review_results(7);
+        await_edit(&mut wa, &a, reviewed);
         let finish = wa
             .result_snapshot(7)
             .unwrap()
@@ -1692,7 +1710,8 @@ mod workflow_tests {
         }
         wb.set_bc_view(true).unwrap();
         wb.pin_lan_basis();
-        wb.review_results(7).unwrap();
+        let reviewed = wb.review_results(7);
+        await_edit(&mut wb, &b, reviewed);
         wb.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 30)
             .unwrap();
         assert!(wb.result_snapshot(7).unwrap().unwrap().hyvaksytty);

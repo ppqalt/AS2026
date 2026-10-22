@@ -62,6 +62,11 @@ export component EmitCorrectionDialog inherits Rectangle {
                 padding: Theme.dialog-padding; spacing: Theme.space-3;
                 Heading { text: "Muokkaa Emit-leimauksia"; vertical-stretch: 0; }
                 Note { text: root.identity; }
+                HorizontalLayout {
+                    vertical-stretch: 0;
+                    Button { text: "+ Lisää leima"; clicked => { root.add(false); } }
+                    Button { text: "Palauta alkuperäiset leimat"; clicked => { root.add(true); } }
+                }
                 body := ScrollView {
                     horizontal-scrollbar-policy: always-off;
                     viewport-width: self.visible-width; viewport-height: content.min-height;
@@ -70,10 +75,6 @@ export component EmitCorrectionDialog inherits Rectangle {
                         spacing: Theme.space-2; alignment: start;
                         Note { text: "Korjaus laskee NAC- ja BC-tulokset uudelleen. Hyväksynnät ja asemien pistekorjaukset poistuvat. Käsikellot ja erilliset lisävirheet säilyvät."; }
                         Note { text: "Anna puuttuvan leiman koodi ja kilpailukortin kellonaika hh:mm:ss. Korttiaika lasketaan automaattisesti. Leimat 99 ja 999 sivuutetaan. Valitse Poista leima poistaaksesi minkä tahansa leimauksen."; }
-                        HorizontalLayout {
-                            Button { text: "+ Lisää leima"; clicked => { root.add(false); } }
-                            Button { text: "Palauta alkuperäiset leimat"; clicked => { root.add(true); } }
-                        }
                         for field[i] in root.fields: CorrectionField {
                             data: field; index: i; focus-index: root.focus-index; focus-last: root.focus-last;
                             edited(key, value) => { root.edited(key, value); }
