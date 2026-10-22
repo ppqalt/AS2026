@@ -74,7 +74,15 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         let created = state.workspace.as_ref().unwrap();
         let preferences = state.preferences.as_ref().unwrap();
         assert_eq!(created.name(), "Nimellä luotu kilpailu");
-        assert!(created.path().starts_with(preferences.competition_root()?));
+        // Workspace käyttää kanonista polkua; Windowsissa se voi sisältää
+        // \\?\-etuliitteen, jota asetusten vielä luomattomalla juurella ei ollut.
+        let root = std::fs::canonicalize(preferences.competition_root()?)?;
+        assert!(created.path().starts_with(&root));
+        assert_eq!(
+            created.path().parent().and_then(Path::parent),
+            Some(root.as_path()),
+            "Kilpailu syntyy omaan kansioonsa valitun tallennuspaikan alle"
+        );
         let reopened =
             PreferencesStore::open_at(preferences.path(), &preferences.competition_root()?)?;
         assert_eq!(

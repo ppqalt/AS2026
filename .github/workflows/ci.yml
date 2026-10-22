@@ -60,8 +60,7 @@ jobs:
           retention-days: 7
       - name: Tarkista myös käyttöliittymän varoitukset
         run: cargo +stable clippy --all-targets --features gui -- -D warnings
-      - name: Käännä Linuxin GUI-työnkulkukoe
-        if: runner.os == 'Linux'
+      - name: Käännä GUI-työnkulkukoe
         run: cargo +stable build --locked --features gui --bin as2026-gui
       - name: Kokeile GUI:n työnkulut ja näppäimistö 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Linux'
@@ -77,8 +76,6 @@ jobs:
           path: target/gui-smoke/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Käännä GUI, käynnistin ja komentoriviohjelma
-        run: cargo +stable build --locked --release --features gui
       - name: Kokeile Windows-GUI:n työnkulut ja näppäimistö 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Windows'
         timeout-minutes: 10
@@ -86,10 +83,10 @@ jobs:
           SLINT_BACKEND: winit-software
         run: |
           $env:SLINT_SCALE_FACTOR = '1'
-          & target/release/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/100
+          & target/debug/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/100
           if ($LASTEXITCODE -ne 0) { throw 'Windows-GUI-koe epäonnistui 100 % skaalauksella' }
           $env:SLINT_SCALE_FACTOR = '1.5'
-          & target/release/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/150
+          & target/debug/as2026-gui.exe --demo --smoke-test --capture-dir target/gui-smoke/150
           if ($LASTEXITCODE -ne 0) { throw 'Windows-GUI-koe epäonnistui 150 % skaalauksella' }
       - name: Säilytä Windows-GUI:n tarkistuskuvat
         if: always() && runner.os == 'Windows'
@@ -99,6 +96,8 @@ jobs:
           path: target/gui-smoke/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Käännä GUI, käynnistin ja komentoriviohjelma
+        run: cargo +stable build --locked --release --features gui
       - name: Kokoa yksityinen BSD-2-Clause-paketti Linuxille
         if: runner.os == 'Linux'
         run: cargo +stable run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-unknown-linux-gnu --output target/ci-release-payload
