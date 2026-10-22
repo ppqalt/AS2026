@@ -153,6 +153,10 @@ impl Random {
     }
 }
 
+fn clock_text(time: ClockTime) -> String {
+    format!("{:02}:{:02}:{:02}", time.hour, time.minute, time.second)
+}
+
 fn sorted_drivers(project: &Project) -> Result<Vec<&crate::native::Driver>, CoreError> {
     project.validate()?;
     // Ilman päivämäärää luokkien välisestä vuorokauden vaihteesta ei arvata.

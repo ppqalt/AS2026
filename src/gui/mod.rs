@@ -102,7 +102,7 @@ struct State {
 }
 
 fn preview_draw(s: &mut State, a: &AppWindow) -> GuiResult<()> {
-    if !can_leave(s, &a) {
+    if !can_leave(s, a) {
         return Ok(());
     }
     let project = current_workspace(s)?
@@ -138,7 +138,7 @@ fn preview_draw(s: &mut State, a: &AppWindow) -> GuiResult<()> {
         .join("\n");
     confirmation(
         s,
-        &a,
+        a,
         PendingAction::Draw(Box::new(draw)),
         "Lähtöaikojen arvonta",
         format!(
@@ -1047,6 +1047,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !app.get_dialog_open()
         && !app.get_about_open()
         && !app.get_confirm_open()
+        && !app.get_start_columns_open()
         && !app.get_draw_classes_open()
         && !app.get_combined_open()
         && !app.get_bc_open()
@@ -2157,6 +2158,76 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         update_tables(s, &a)?;
         update_form(s, &a);
         Ok(())
+    });
+    action!(on_configure_start_columns, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let p = current_workspace(s)?
+            .project()
+            .ok_or_else(|| invalid("Avaa kilpailu"))?;
+        let selected = as2026::starts::columns(p)?;
+        let mut all = selected.clone();
+        all.extend(
+            as2026::starts::START_COLUMNS
+                .into_iter()
+                .filter(|c| !selected.contains(c)),
+        );
+        a.set_start_columns(model(
+            all.into_iter()
+                .map(|(id, label)| DrawClassOption {
+                    code: id.into(),
+                    label: label.into(),
+                    selected: selected.iter().any(|(key, _)| *key == id),
+                })
+                .collect(),
+        ));
+        a.set_start_columns_error("".into());
+        a.set_start_columns_open(true);
+        Ok(())
+    });
+    action!(on_start_column_toggled, |_s, a, index, selected| {
+        let columns = a.get_start_columns();
+        if let Some(mut column) = columns.row_data(index as usize) {
+            column.selected = selected;
+            columns.set_row_data(index as usize, column);
+        }
+        Ok(())
+    });
+    action!(on_move_start_column, |_s, a, index, delta| {
+        let mut columns = a.get_start_columns().iter().collect::<Vec<_>>();
+        let target = index + delta;
+        if index >= 0
+            && target >= 0
+            && (index as usize) < columns.len()
+            && (target as usize) < columns.len()
+        {
+            columns.swap(index as usize, target as usize);
+            a.set_start_columns(model(columns));
+        }
+        Ok(())
+    });
+    action!(on_start_columns_close, |s, a, accepted| {
+        if accepted {
+            let columns = a
+                .get_start_columns()
+                .iter()
+                .filter(|c| c.selected)
+                .map(|c| c.code.to_string())
+                .collect::<Vec<_>>();
+            if columns.is_empty() {
+                a.set_start_columns_error("Valitse vähintään yksi kenttä.".into());
+                return Ok(());
+            }
+            current_workspace(s)?.edit_competition(
+                as2026::workspace::CompetitionField::StartColumns,
+                &columns.join(","),
+            )?;
+            update_tables(s, &a)?;
+            update_form(s, &a);
+        }
+        a.set_start_columns_open(false);
+        follow_pending_result(s, &a)
     });
     action!(on_configure_draw_classes, |s, a| {
         if !can_leave(s, &a) {

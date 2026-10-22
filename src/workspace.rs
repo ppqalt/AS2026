@@ -529,8 +529,9 @@ impl Workspace {
 
     pub fn add_driver(&mut self, edit: DriverEdit) -> Result<(), CoreError> {
         self.update(|project| {
+            let use_default = edit.correction_seconds.trim().is_empty();
             let mut driver = edit.parse()?;
-            if edit.correction_seconds.trim().is_empty() {
+            if use_default {
                 driver.emit_korjaus_sekuntia = project
                     .virhepisteet
                     .oletus_emit_korjaus_sekuntia

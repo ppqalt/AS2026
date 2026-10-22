@@ -25,6 +25,7 @@ struct ProvidedDriverFields {
     confirmed_interruption: bool,
     penalties: bool,
     stored_result: bool,
+    explicit_correction: bool,
 }
 
 impl<'de> Deserialize<'de> for Changes {
@@ -54,6 +55,7 @@ impl<'de> Deserialize<'de> for Changes {
                 confirmed_interruption: fields.contains_key("keskeytys_vahvistettu"),
                 penalties: fields.contains_key("lisavirheet"),
                 stored_result: fields.contains_key("tallennettu_tulos"),
+                explicit_correction: fields.contains_key("emit_korjaus_annettu"),
             });
             let driver = value
                 .try_into()
@@ -137,6 +139,11 @@ impl Changes {
                     }
                     if !provided.penalties {
                         value.lisavirheet = old.lisavirheet.clone();
+                    }
+                    if !provided.explicit_correction
+                        && value.emit_korjaus_sekuntia == old.emit_korjaus_sekuntia
+                    {
+                        value.emit_korjaus_annettu = old.emit_korjaus_annettu;
                     }
                     if !provided.stored_result {
                         value.tallennettu_tulos = old.tallennettu_tulos.clone();

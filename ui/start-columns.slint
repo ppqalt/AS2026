@@ -1,0 +1,52 @@
+import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { DrawClassOption } from "types.slint";
+
+export component StartColumnsDialog inherits Rectangle {
+    in property <[DrawClassOption]> columns;
+    in property <string> error;
+    callback toggle(int, bool);
+    callback move(int, int);
+    callback close(bool);
+    background: Theme.modal-backdrop;
+    TouchArea { }
+    FocusScope {
+        width: root.width; height: root.height;
+        init => { cancel.focus(); }
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(false); return accept; }
+            if event.text == Key.Tab && !event.modifiers.shift && save.has-focus { cancel.focus(); return accept; }
+            if event.text == Key.Tab && event.modifiers.shift && cancel.has-focus { save.focus(); return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-width: 560px; preferred-dialog-height: 700px;
+            VerticalLayout {
+                padding: Theme.dialog-padding; spacing: Theme.space-3;
+                Heading { text: "Lähtöluettelon kentät"; }
+                Note { text: "Valitse näytettävät kentät ja muuta järjestystä nuolilla. Valinta koskee kilpailijataulukkoa sekä HTML- ja CSV-lähtöluetteloa."; }
+                body := ScrollView {
+                    horizontal-scrollbar-policy: always-off;
+                    viewport-width: self.visible-width; viewport-height: content.min-height;
+                    content := VerticalLayout {
+                        x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
+                        spacing: Theme.space-2;
+                        for column[i] in root.columns: HorizontalLayout {
+                            spacing: Theme.space-2;
+                            CheckBox { text: column.label; checked: column.selected; horizontal-stretch: 1; toggled => { root.toggle(i, self.checked); } }
+                            Button { text: "↑"; accessible-label: "Siirrä " + column.label + " ylemmäs"; enabled: i > 0; clicked => { root.move(i, -1); } }
+                            Button { text: "↓"; accessible-label: "Siirrä " + column.label + " alemmas"; enabled: i < root.columns.length - 1; clicked => { root.move(i, 1); } }
+                        }
+                    }
+                }
+                if root.error != "": Note { text: root.error; }
+                DialogActions {
+                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    save := AccentButton { text: "Tallenna"; clicked => { root.close(true); } }
+                }
+            }
+        }
+    }
+}

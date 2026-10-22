@@ -333,7 +333,7 @@ pub(crate) fn invalidate_input_changes(
 ) {
     crate::beginners::invalidate_input_changes(before, after);
     let global_timing_changed = before.kilpailu.ajanottotapa != after.kilpailu.ajanottotapa
-        || before.virhepisteet != after.virhepisteet;
+        || !before.virhepisteet.same_scoring(&after.virhepisteet);
     for driver in &mut after.kilpailijat {
         let Some(old) = before
             .kilpailijat

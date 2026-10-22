@@ -87,6 +87,11 @@ pub struct Overrides {
     pub ylimaarainen_rt: Option<i64>,
 }
 impl Overrides {
+    pub(crate) fn same_scoring(&self, other: &Self) -> bool {
+        self.as_legacy() == other.as_legacy()
+            && self.kokonaismyohastymisraja_minuutteina == other.kokonaismyohastymisraja_minuutteina
+    }
+
     fn as_legacy(&self) -> Vec<Option<i64>> {
         vec![
             self.vapaa_aika_sekunteina,
@@ -682,7 +687,7 @@ impl Project {
                 "Kokonaismyöhästymisrajan pitää olla 0–100000 minuuttia",
             ));
         }
-        crate::starts::columns(self)?;
+        crate::starts::columns(&self)?;
         let params = self.virhepisteet.as_legacy();
         let basic = BasicSettings {
             identity: vec![

@@ -434,7 +434,7 @@ pub(crate) fn invalidate_input_changes(before: &Project, after: &mut Project) {
             || source_changed
             || class_changed
             || before.kilpailu.ajanottotapa != after.kilpailu.ajanottotapa
-            || before.virhepisteet != after.virhepisteet
+            || !before.virhepisteet.same_scoring(&after.virhepisteet)
             || driver.lahtoaika != old_driver.lahtoaika
             || driver.effective_emit_correction() != old_driver.effective_emit_correction();
         if let Some(result) = &mut entry.tallennettu_tulos {

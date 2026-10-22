@@ -3,6 +3,7 @@ import { Theme } from "theme.slint";
 import { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption } from "types.slint";
 import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton, DialogSurface, DialogActions, Workspace } from "components.slint";
 import { ResultSummary } from "results.slint";
+import { StartColumnsDialog } from "start-columns.slint";
 import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
 import { BeginnersCupDialog } from "beginners-cup.slint";
@@ -87,6 +88,14 @@ export component AppWindow inherits Window {
     callback lan-discover();
     changed lan-open => { if !root.lan-open { root.focus-page(); } }
 
+    in-out property <bool> start-columns-open;
+    in-out property <[DrawClassOption]> start-columns;
+    in-out property <string> start-columns-error;
+    callback configure-start-columns();
+    callback start-column-toggled(int, bool);
+    callback move-start-column(int, int);
+    callback start-columns-close(bool);
+    changed start-columns-open => { if !root.start-columns-open { root.focus-page(); } }
     in-out property <string> default-root;
     in-out property <[string]> printers;
     in-out property <int> printer-index;
@@ -150,7 +159,7 @@ export component AppWindow inherits Window {
     callback navigate(int);
     callback focus-page();
     focus-page => {
-        if !root.lan-open && !root.export-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
+        if !root.start-columns-open && !root.lan-open && !root.export-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
             keyboard.focus();
         }
     }
@@ -303,6 +312,7 @@ export component AppWindow inherits Window {
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
+            if root.start-columns-open { root.start-columns-close(false); return accept; }
             if root.emit-edit-open { root.emit-edit-close(false); return accept; }
             if root.lan-open { root.lan-open = false; return accept; }
             if root.export-open { root.export-open = false; return accept; }
@@ -338,7 +348,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -361,7 +371,7 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                         padding-left: Theme.space-3; padding-top: Theme.space-2; spacing: Theme.space-1;
                         Text { text: root.competition-name; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; overflow: elide; }
-                        Button { text: root.lan-busy ? "Yhdistetään…" : root.lan-status; clicked => { root.lan-open = true; if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); } } }
+                        Button { text: root.lan-busy ? "Yhdistetään…" : root.lan-active ? root.lan-status : "Yhteys: paikallinen"; clicked => { root.lan-open = true; if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); } } }
                     }
                 }
                 nav-scroll := ScrollView {
@@ -913,6 +923,7 @@ export component AppWindow inherits Window {
                                 height: storage-content.min-height; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                                 storage-content := VerticalLayout {
                                     padding: Theme.panel-padding; spacing: Theme.space-3;
+                                    if root.opened: Button { text: "Valitse lähtöluettelon kentät ja järjestys"; enabled: root.editable; clicked => { root.configure-start-columns(); } }
                                     Text { text: "Kilpailujen tallennuspaikka"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
                                     Note { text: "Uusi kilpailu tallennetaan omaan kansioonsa tämän sijainnin alle."; }
                                     Text { text: root.default-root; color: Theme.ink; wrap: word-wrap; }
@@ -1344,6 +1355,13 @@ export component AppWindow inherits Window {
                 }
             }
         }
+    }
+    if root.start-columns-open: StartColumnsDialog {
+        width: root.width; height: root.height;
+        columns: root.start-columns; error: root.start-columns-error;
+        toggle(index, selected) => { root.start-column-toggled(index, selected); }
+        move(index, delta) => { root.move-start-column(index, delta); }
+        close(accepted) => { root.start-columns-close(accepted); }
     }
     if root.draw-classes-open: DrawClassDialog {
         classes: root.draw-classes;
