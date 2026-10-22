@@ -370,8 +370,12 @@ export component AppWindow inherits Window {
                     height: 100px;
                     VerticalLayout {
                         padding-left: Theme.space-3; padding-top: Theme.space-2; spacing: Theme.space-1;
-                        Text { text: root.competition-name; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; overflow: elide; }
-                        Button { text: root.lan-busy ? "Yhdistetään…" : root.lan-active ? root.lan-status : "Yhteys: paikallinen"; clicked => { root.lan-open = true; if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); } } }
+                        Text { text: root.competition-name; min-width: 0px; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; overflow: elide; }
+                        Rectangle {
+                            height: Theme.control-height;
+                            Button { width: 100%; height: 100%; text: ""; accessible-label: root.lan-status; clicked => { root.lan-open = true; if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); } } }
+                            Text { x: Theme.space-2; width: parent.width - 2 * Theme.space-2; height: parent.height; text: root.lan-busy ? "Yhdistetään…" : root.lan-active ? root.lan-status : "Yhteys: paikallinen"; overflow: elide; color: Theme.muted; font-size: Theme.caption-font-size; vertical-alignment: center; }
+                        }
                     }
                 }
                 nav-scroll := ScrollView {
