@@ -2,7 +2,7 @@
 
 ## Asetukset
 
-Maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja annetaan kokonaisina minuutteina. Tyhjä käyttää 60 minuuttia. Kokonaisraja rajoittaa kaikkia luokkia; mahdollinen pienempi luokkakohtainen kokonaisraja pysyy voimassa. Täsmälleen rajalla oleva myöhästyminen ei keskeytä, mutta yhden sekunnin ylitys keskeyttää. Puuttuva JAT aiheuttaa keskeytyksen. Aikavirheen toleranssi (oletus 10 s) on näistä erillinen pisteytysasetus.
+Maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja annetaan kokonaisina minuutteina. Tyhjä käyttää 60 minuuttia. Kokonaisraja koskee kaikkia luokkia ja korvaa vanhan luokkakohtaisen kokonaisrajan. Täsmälleen rajalla oleva myöhästyminen ei keskeytä, mutta yhden sekunnin ylitys keskeyttää. Puuttuva JAT aiheuttaa keskeytyksen. Aikavirheen toleranssi (oletus 10 s) on näistä erillinen pisteytysasetus.
 
 Valitse lähtöluettelon kentät ja järjestys -painike avaa valintaruudut ja siirtonuolet. Valitse vähintään yksi kenttä. Peruuta säilyttää entisen valinnan. Oletusjärjestys: numero, luokka, Emit, lähtöaika, kuljettaja, kuljettajan seura, kartturi, kartturin seura, auto. Valinta tallennetaan kilpailuun ja sitä käytetään myös HTML- ja CSV-vienneissä. Tila kuuluu tuloksiin ja kilpailijan tietoihin.
 

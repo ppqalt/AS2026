@@ -3,7 +3,7 @@
 Kilpailun valmistelun ja Emit-korjausten työnkulut on selkeytetty uusimman 0.6.7-päähaaran pohjalta. Lähiverkon ja Windows-tulostuksen korjaukset säilyvät mukana.
 
 - Sivupalkin otsikkona kilpailun nimi, sen alla yhteyden tila. Avaa ja Uusi ovat yleiskatsauksessa.
-- Asetuksissa kilpailun maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja minuutteina, molempien oletus 60 min. Luokan pienempi kokonaisraja säilyy voimassa. Aikavirheen 10 sekunnin toleranssi on nimetty erikseen.
+- Asetuksissa kilpailun maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja minuutteina, molempien oletus 60 min. Aikavirheen 10 sekunnin toleranssi on nimetty erikseen.
 - Kilpailun numero, puuttuvan JAT:n pisteasetus ja JAT:n pistekatto on poistettu asetuslomakkeesta. Puuttuva JAT ja myöhästymisrajan ylitys aiheuttavat keskeytyksen. JAT:n ja maalin aikavirhettä ei katkaista pistekattoon toimitsijalaskennassa.
 - Lähtöluettelon kentät valitaan Asetuksissa valintaruuduilla ja järjestetään nuolilla. Sama järjestys koskee kilpailijataulukkoa, HTML:ää ja CSV:tä. Tila-sarake on poistettu lähtöluettelosta.
 - Oletus Emit-korjaus on 120 s. Uuden kilpailijan lomake käyttää kilpailun oletusta, ja kilpailijakohtainen korjaus voidaan vaihtaa. Erillinen 0 s tarkoittaa nollausta lähtöhetkellä; vanhan tiedoston 0 säilyttää vanhan 120 s oletuksen.

@@ -549,8 +549,7 @@ impl Project {
                 .virhepisteet
                 .kokonaismyohastymisraja_minuutteina
                 .unwrap_or(60);
-            let class_limit = class.fields[7].parse::<i64>().unwrap_or(maximum);
-            class.fields[7] = maximum.min(class_limit).to_string();
+            class.fields[7] = maximum.to_string();
         }
         let mut competitors = Vec::new();
         let mut numbers = HashSet::new();

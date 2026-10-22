@@ -209,12 +209,6 @@ fn class_fields(project: &Project, class: &ClassEdit) -> Vec<EditorField> {
             &class.interval_minutes,
             "Lähtöjen väli minuutteina",
         ),
-        text(
-            6,
-            "Myöhästymisraja (min)",
-            &class.lateness_minutes,
-            "Kokonaismyöhästymisen raja minuutteina",
-        ),
         choice(
             7,
             "Nousupisteet (Np)",
@@ -340,7 +334,7 @@ pub fn ready_to_add(
     let required: &[i32] = match selection {
         Selection::NewStation { .. } => &[0, 1, 2, 3],
         Selection::NewDriver => &[0, 1, 3],
-        Selection::NewClass => &[0, 1, 2, 3, 4, 5, 6],
+        Selection::NewClass => &[0, 1, 2, 3, 4, 5],
         Selection::NewTrack => &[0, 1],
         _ => return false,
     };
@@ -1011,7 +1005,7 @@ pub fn add(
                 first_number: value(3),
                 start_time: value(4),
                 interval_minutes: value(5),
-                lateness_minutes: value(6),
+                lateness_minutes: "60".into(),
                 np_enabled: value(7),
                 series_method: value(8),
             })?;
