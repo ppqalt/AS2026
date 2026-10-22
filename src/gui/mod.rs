@@ -3,6 +3,8 @@ slint::include_modules!();
 mod desktop;
 mod emit_correction;
 mod forms;
+mod lan;
+mod lan_smoke;
 mod printing;
 mod smoke;
 mod tables;
@@ -93,6 +95,9 @@ struct State {
     print_test: bool,
     last_print: Option<as2026::printing::Document>,
     emit_edit_basis: Option<emit_correction::Basis>,
+    lan_host: Option<as2026::lan::Host>,
+    lan_last_notice: String,
+    lan_pending: Option<Receiver<GuiResult<lan::Joined>>>,
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -142,6 +147,10 @@ fn field_feedback(app: &AppWindow, route: bool, key: i32, value: &str, error: &s
     }
 }
 fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
+    if app.get_lan_busy() {
+        status(app, "Odota lähiverkkoyhteyden valmistumista.", false);
+        return;
+    }
     if let Err(error) = operation() {
         let message = error.to_string();
         if app.get_emit_edit_open() {
@@ -244,6 +253,20 @@ fn can_leave(state: &mut State, app: &AppWindow) -> bool {
     true
 }
 fn can_switch(state: &mut State, app: &AppWindow) -> bool {
+    if state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::lan_client)
+        .is_some()
+        || state.lan_pending.is_some()
+    {
+        status(
+            app,
+            "Katkaise LAN-yhteys ennen kilpailun vaihtamista.",
+            true,
+        );
+        return false;
+    }
     if !can_leave(state, app) {
         return false;
     }
@@ -480,6 +503,9 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
 }
 
 fn update_form(state: &State, app: &AppWindow) {
+    if let Some(ws) = &state.workspace {
+        ws.pin_lan_basis();
+    }
     let new = is_new(&state.selection);
     let visible = !matches!(state.selection, Selection::None) && state.page != 6;
     app.set_editor_visible(visible);
@@ -937,7 +963,14 @@ fn commit_route_field(state: &mut State, app: &AppWindow, key: i32, value: &str)
 }
 
 fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
-    !state.invalid_field
+    state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::lan_client)
+        .is_none_or(|client| client.ready())
+        && !app.get_lan_open()
+        && !app.get_lan_busy()
+        && !state.invalid_field
         && state.edit_draft.is_empty()
         && state.route_draft.is_empty()
         && !is_new(&state.selection)
@@ -1550,7 +1583,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_reload, |s, a| {
-        if can_switch(s, &a) {
+        if if s
+            .workspace
+            .as_ref()
+            .and_then(Workspace::lan_client)
+            .is_some()
+        {
+            can_leave(s, &a)
+        } else {
+            can_switch(s, &a)
+        } {
             current_workspace(s)?.reload()?;
             choose_row(s, s.selected)?;
             if s.page == 6 {
@@ -1717,6 +1759,10 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         follow_pending_result(s, &a)
     });
     action!(on_cancel_edit, |s, a| {
+        if let Some(client) = s.workspace.as_ref().and_then(Workspace::lan_client) {
+            client.acknowledge_notice();
+            a.set_lan_error("".into());
+        }
         if let Some(key) = draft_key(s) {
             s.form_drafts.remove(&key);
         }
@@ -2256,6 +2302,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     action!(on_export_xlsx, |s, a| begin_export(s, &a, 0));
     action!(on_save_export, |s, a| {
         let result = (|| -> GuiResult<()> {
+            current_workspace(s)?.synchronize_lan()?;
             let ws = s
                 .workspace
                 .as_ref()
@@ -2340,7 +2387,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             let mut s = state.borrow_mut();
             if app.get_update_busy()
                 || app.get_install_busy()
-                || !can_switch(&mut s, &app)
+                || !(if s
+                    .workspace
+                    .as_ref()
+                    .and_then(Workspace::lan_client)
+                    .is_some()
+                {
+                    can_leave(&mut s, &app)
+                } else {
+                    can_switch(&mut s, &app)
+                })
                 || !s.workspace.as_ref().is_some_and(Workspace::is_editable)
             {
                 return;
@@ -2951,13 +3007,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let app = AppWindow::new()?;
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
-    app.set_app_version(
-        format!(
-            "{} · Emit-korjaus (kehitysversio)",
-            env!("CARGO_PKG_VERSION")
-        )
-        .into(),
-    );
+    app.set_app_version(format!("{} · LAN (kehitysversio)", env!("CARGO_PKG_VERSION")).into());
     app.set_managed(installation::is_managed());
     let preferences = if demo {
         let root = demo_path()?.parent().unwrap().to_owned();
@@ -2999,6 +3049,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }));
     let reader_timer = Rc::new(Timer::default());
     bind(&app, &state, &reader_timer);
+    let lan_timer = Timer::default();
+    lan::bind(&app, &state, &lan_timer);
     printing::bind(&state, &app);
     printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
@@ -3017,6 +3069,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         status(&app, error, true);
     }
     app.show()?;
+    let _lan_smoke = if let Some(role) = std::env::var_os("AS2026_LAN_GUI_ROLE") {
+        if !demo {
+            return Err("LAN-GUI-koe vaatii --demo-valinnan".into());
+        }
+        let directory =
+            std::env::var_os("AS2026_LAN_GUI_DIR").ok_or("LAN-GUI-kokeen hakemisto puuttuu")?;
+        Some(lan_smoke::start(
+            &app,
+            &state,
+            role.to_string_lossy().into_owned(),
+            PathBuf::from(directory),
+        )?)
+    } else {
+        None
+    };
     if let Some(token) = health_check {
         let weak = app.as_weak();
         Timer::single_shot(Duration::from_millis(150), move || {
@@ -3041,6 +3108,15 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     slint::run_event_loop()?;
+    lan_timer.stop();
+    if let Some(client) = state
+        .borrow()
+        .workspace
+        .as_ref()
+        .and_then(Workspace::lan_client)
+    {
+        client.stop();
+    }
     update_timer.stop();
     reader_timer.stop();
     stop_reader(&mut state.borrow_mut(), &app)?;

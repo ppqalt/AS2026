@@ -69,6 +69,21 @@ export component AppWindow inherits Window {
     in-out property <int> calculation-note-count;
     in-out property <ResultOverview> result-overview;
     in-out property <string> app-version;
+    in-out property <bool> lan-open;
+    in-out property <bool> lan-active;
+    in-out property <bool> lan-hosting;
+    in-out property <bool> lan-busy;
+    in-out property <string> lan-status: "Lähiverkko";
+    in-out property <string> lan-address;
+    in-out property <string> lan-code;
+    in-out property <string> lan-info;
+    in-out property <string> lan-error;
+    callback lan-host();
+    callback lan-join();
+    callback lan-leave();
+    callback lan-discover();
+    changed lan-open => { if !root.lan-open { root.focus-page(); } }
+
     in-out property <string> default-root;
     in-out property <[string]> printers;
     in-out property <int> printer-index;
@@ -132,7 +147,7 @@ export component AppWindow inherits Window {
     callback navigate(int);
     callback focus-page();
     focus-page => {
-        if !root.export-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
+        if !root.lan-open && !root.export-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
             keyboard.focus();
         }
     }
@@ -286,6 +301,7 @@ export component AppWindow inherits Window {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
             if root.emit-edit-open { root.emit-edit-close(false); return accept; }
+            if root.lan-open { root.lan-open = false; return accept; }
             if root.export-open { root.export-open = false; return accept; }
             if root.result-entry-open { root.result-entry-close(false); return accept; }
             if root.print-classes-open { root.print-classes-close(false); return accept; }
@@ -319,7 +335,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.export-open && !root.emit-edit-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -396,12 +412,18 @@ export component AppWindow inherits Window {
                     padding-top: Theme.space-3; padding-bottom: Theme.space-3; spacing: Theme.space-3;
                     VerticalLayout {
                         spacing: Theme.space-1;
-                        Text { text: root.competition-name; min-width: 0px; overflow: elide; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                        Text { text: root.competition-name; max-width: 200px; min-width: 0px; overflow: elide; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
                         Text { text: !root.opened ? "Valitse kilpailu aloittaaksesi" : root.editable ? "Automaattinen tallennus" : "AS2015A-aineisto · vain katselu"; color: Theme.muted; font-size: Theme.caption-font-size; }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Button { height: Theme.control-height; text: "Avaa"; enabled: true; clicked => { root.open-file(); } }
                     AccentButton { height: Theme.control-height; text: "+ Uusi"; enabled: true; clicked => { root.begin-new(); } }
+                }
+                Button {
+                    x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                    width: root.width < 1100px ? 230px : 340px; height: Theme.control-height;
+                    text: root.lan-busy ? "Yhdistetään lähiverkkoon" : root.lan-status;
+                    clicked => { root.lan-open = true; if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); } }
                 }
                 Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
             }
@@ -928,6 +950,74 @@ export component AppWindow inherits Window {
                     Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.accent; font-weight: 700; width: 14px; vertical-alignment: center; }
                     Text { text: root.status-summary; color: root.status-error ? Theme.danger : Theme.muted; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
                     if root.status-error: Button { text: "Lisätiedot"; clicked => { root.status-details-open = true; } }
+                }
+            }
+        }
+    }
+    if root.lan-open: Rectangle {
+        background: Theme.modal-backdrop;
+        TouchArea { }
+        FocusScope {
+            width: parent.width; height: parent.height; focus-on-tab-navigation: false;
+            property <bool> joined: root.lan-active;
+            changed joined => { lan-close.focus(); }
+            init => { lan-close.focus(); }
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { if !root.lan-busy { root.lan-open = false; } return accept; }
+                if event.text == Key.Tab {
+                    if root.lan-busy { lan-close.focus(); return accept; }
+                    if root.lan-active {
+                        if lan-close.has-focus && event.modifiers.shift { lan-disconnect.focus(); return accept; }
+                        if lan-disconnect.has-focus && !event.modifiers.shift { lan-close.focus(); return accept; }
+                    } else {
+                        if event.modifiers.shift && (lan-share.has-focus || (!lan-share.enabled && lan-find.has-focus)) {
+                            if lan-connect.enabled { lan-connect.focus(); } else { lan-close.focus(); }
+                            return accept;
+                        }
+                        if !event.modifiers.shift && (lan-connect.has-focus || (lan-close.has-focus && !lan-connect.enabled)) {
+                            if lan-share.enabled { lan-share.focus(); } else { lan-find.focus(); }
+                            return accept;
+                        }
+                    }
+                }
+                reject
+            }
+            DialogSurface {
+                available-width: root.width; available-height: root.height;
+                preferred-dialog-width: 640px; preferred-dialog-height: root.lan-active ? 340px : 480px;
+                VerticalLayout {
+                    padding: Theme.dialog-padding; spacing: Theme.space-3;
+                    Heading { text: "Kilpailu lähiverkossa"; }
+                    lan-dialog-scroll := ScrollView {
+                        horizontal-stretch: 1; vertical-stretch: 1;
+                        horizontal-scrollbar-policy: always-off;
+                        viewport-width: self.visible-width; viewport-height: lan-dialog-body.min-height;
+                        lan-dialog-body := VerticalLayout {
+                            width: lan-dialog-scroll.visible-width; height: self.min-height;
+                            spacing: Theme.space-3; alignment: start;
+                            Note { text: root.lan-active ? root.lan-status : "Avaa kilpailu isäntäkoneessa. Muut koneet liittyvät sen parituskoodilla."; }
+                            Rectangle {
+                                visible: !root.lan-active; min-height: root.lan-active ? 0px : Theme.control-height; max-height: root.lan-active ? 0px : Theme.control-height; vertical-stretch: 0; clip: true;
+                                HorizontalLayout {
+                                    spacing: Theme.space-2;
+                                    lan-share := Button { text: "Jaa tämä kilpailu"; enabled: root.editable && !root.lan-busy; clicked => { root.lan-host(); } }
+                                    lan-find := Button { text: "Etsi lähiverkosta"; enabled: !root.lan-busy; clicked => { root.lan-discover(); } }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                            }
+                            if !root.lan-active: Text { text: "Isäntäkoneen IP-osoite"; color: Theme.muted; font-size: Theme.label-font-size; }
+                            if !root.lan-active: LineEdit { text <=> root.lan-address; placeholder-text: "192.168.1.20"; enabled: !root.lan-busy; }
+                            if !root.lan-active: Text { text: "Parituskoodi"; color: Theme.muted; font-size: Theme.label-font-size; }
+                            if !root.lan-active: LineEdit { text <=> root.lan-code; enabled: !root.lan-busy; }
+                            if root.lan-info != "": Text { text: root.lan-info; color: Theme.ink; wrap: word-wrap; min-height: 40px; }
+                            if root.lan-error != "": Text { text: root.lan-error; color: Theme.danger; wrap: word-wrap; }
+                        }
+                    }
+                    DialogActions {
+                        lan-close := Button { text: "Sulje"; enabled: !root.lan-busy; clicked => { root.lan-open = false; } }
+                        lan-disconnect := Button { visible: root.lan-active; min-width: root.lan-active ? 76px : 0px; max-width: root.lan-active ? 10000px : 0px; text: root.lan-hosting ? "Lopeta jakaminen" : "Katkaise yhteys"; enabled: !root.lan-busy; clicked => { root.lan-leave(); } }
+                        lan-connect := AccentButton { visible: !root.lan-active; min-width: root.lan-active ? 0px : 76px; max-width: root.lan-active ? 0px : 10000px; text: "Yhdistä kilpailuun"; enabled: !root.lan-busy && root.lan-address != "" && root.lan-code != ""; clicked => { root.lan-join(); } }
+                    }
                 }
             }
         }

@@ -2,7 +2,8 @@
 //!
 //! Sivutiedoston käyttöjärjestelmälukko suojaa tämän sovelluksen paikallisia
 //! kirjoittajia. Avaamisen jälkeen muuttunut sisältö havaitaan myös ulkoisen
-//! editorin jäljiltä. Tämä ei ole usean tietokoneen tietokanta.
+//! editorin jäljiltä. LAN-tilassa GUI:n muutokset kulkevat isännän kautta;
+//! vain LAN-isäntä kirjoittaa jaettua kilpailutiedostoa paikallisesti.
 
 use crate::{CoreError, native::Project};
 use std::{
@@ -13,6 +14,19 @@ use std::{
 };
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(1);
+
+#[cfg(feature = "desktop")]
+pub(crate) fn durable_write(path: &Path, content: &[u8]) -> Result<(), CoreError> {
+    #[cfg(not(unix))]
+    let permissions = fs::metadata(path).ok().map(|m| m.permissions());
+    #[cfg(unix)]
+    let permissions = {
+        use std::os::unix::fs::PermissionsExt;
+        Some(fs::Permissions::from_mode(0o600))
+    };
+    Temporary::write(path, content, permissions)?.replace(path)?;
+    sync_parent(path)
+}
 
 fn invalid(message: impl Into<String>) -> CoreError {
     CoreError::InvalidInput(message.into())
@@ -28,7 +42,7 @@ fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(name)
 }
 
-fn lock(path: &Path) -> Result<File, CoreError> {
+pub(crate) fn lock(path: &Path) -> Result<File, CoreError> {
     let lock_path = sidecar(path, ".lukko");
     let file = OpenOptions::new()
         .read(true)
@@ -123,6 +137,11 @@ pub struct ProjectStore {
     path: PathBuf,
     project: Project,
     expected: Vec<u8>,
+    lan_authority: bool,
+    #[cfg(feature = "desktop")]
+    lan: Option<crate::lan::Client>,
+    #[cfg(feature = "desktop")]
+    edit_basis: std::cell::RefCell<Option<Project>>,
 }
 
 impl ProjectStore {
@@ -138,6 +157,11 @@ impl ProjectStore {
             path: path.to_owned(),
             project,
             expected,
+            lan_authority: false,
+            #[cfg(feature = "desktop")]
+            lan: None,
+            #[cfg(feature = "desktop")]
+            edit_basis: std::cell::RefCell::new(None),
         })
     }
 
@@ -174,6 +198,11 @@ impl ProjectStore {
             path: path.to_owned(),
             project,
             expected,
+            lan_authority: false,
+            #[cfg(feature = "desktop")]
+            lan: None,
+            #[cfg(feature = "desktop")]
+            edit_basis: std::cell::RefCell::new(None),
         })
     }
 
@@ -208,8 +237,50 @@ impl ProjectStore {
     ) -> Result<T, CoreError> {
         let mut candidate = self.project.clone();
         let result = edit(&mut candidate)?;
+        #[cfg(feature = "desktop")]
+        if let Some(client) = &self.lan {
+            let before = self.project.clone();
+            self.project =
+                client.submit(&self.project, &candidate, self.edit_basis.borrow().as_ref())?;
+            crate::lan::advance_basis(
+                &before,
+                &candidate,
+                &self.project,
+                &mut self.edit_basis.borrow_mut(),
+            )?;
+            self.expected = self.project.to_toml()?.into_bytes();
+            // Isännän tiedoston kirjoittaa yksin palvelin. Asiakkaan kopio on palautumista varten.
+            if !client.is_host()
+                && let Err(error) = durable_write(&self.path, &self.expected)
+            {
+                // Verkkotapahtuma on jo pysyvä. Sitä ei saa esittää uutena tallentamattomana lukuna.
+                client.cache_warning(&error);
+            }
+            return Ok(result);
+        }
         let content = candidate.to_toml()?.into_bytes();
         let _lock = lock(&self.path)?;
+        let _lan_writer = if self.lan_authority || !sidecar(&self.path, ".lan-lukko").exists() {
+            None
+        } else {
+            let path = sidecar(&self.path, ".lan-lukko");
+            let file = OpenOptions::new()
+                .create(true)
+                .truncate(false)
+                .read(true)
+                .write(true)
+                .open(&path)
+                .map_err(|e| file_error(&path, &e))?;
+            match file.try_lock() {
+                Ok(()) => Some(file),
+                Err(TryLockError::WouldBlock) => {
+                    return Err(invalid(
+                        "Kilpailu on jaettu lähiverkossa. Liity siihen yläpalkin Lähiverkko-painikkeesta ennen muokkaamista.",
+                    ));
+                }
+                Err(TryLockError::Error(e)) => return Err(file_error(&path, &e)),
+            }
+        };
         self.check_unchanged()?;
         if candidate == self.project {
             return Ok(result);
@@ -230,5 +301,50 @@ impl ProjectStore {
         self.project = candidate;
         self.expected = content;
         Ok(result)
+    }
+
+    #[cfg(feature = "desktop")]
+    pub(crate) fn enable_lan_authority(&mut self) {
+        self.lan_authority = true;
+    }
+    #[cfg(feature = "desktop")]
+    pub fn attach_lan(&mut self, client: crate::lan::Client) {
+        self.lan = Some(client);
+    }
+
+    #[cfg(feature = "desktop")]
+    pub fn lan_client(&self) -> Option<&crate::lan::Client> {
+        self.lan.as_ref()
+    }
+
+    #[cfg(feature = "desktop")]
+    pub(crate) fn take_edit_basis(&self) -> Option<Project> {
+        self.edit_basis.take()
+    }
+    #[cfg(feature = "desktop")]
+    pub(crate) fn restore_edit_basis(&self, basis: Option<Project>) {
+        self.edit_basis.replace(basis);
+    }
+    #[cfg(feature = "desktop")]
+    pub fn pin_edit_basis(&self) {
+        *self.edit_basis.borrow_mut() = Some(self.project.clone());
+    }
+
+    #[cfg(feature = "desktop")]
+    pub fn poll_lan(&mut self) -> Result<bool, CoreError> {
+        let Some(client) = &self.lan else {
+            return Ok(false);
+        };
+        let project = client.snapshot()?;
+        if project == self.project {
+            return Ok(false);
+        }
+        let content = project.to_toml()?.into_bytes();
+        if !client.is_host() {
+            durable_write(&self.path, &content)?;
+        }
+        self.project = project;
+        self.expected = content;
+        Ok(true)
     }
 }
