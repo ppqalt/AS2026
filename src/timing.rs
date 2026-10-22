@@ -1024,9 +1024,16 @@ fn score_prepared_rows(
                     .expect("asemalaji tarkistettu")
                     .section_time_text
                     .clone();
-                if let Some(difference) =
-                    section_difference(&text, result.rows[index].actual_seconds, options.policy)?
-                {
+                let mut difference =
+                    section_difference(&text, result.rows[index].actual_seconds, options.policy)?;
+                if difference.is_none() && result.policy == CalculationPolicy::As2026OperationalV1 {
+                    difference = Some(sub(
+                        result.rows[index].target_seconds,
+                        result.rows[index].actual_seconds,
+                        "jakson tavoitteen aikatauluero",
+                    )?);
+                }
+                if let Some(difference) = difference {
                     result.cumulative_schedule_difference_seconds = add(
                         result.cumulative_schedule_difference_seconds,
                         difference,

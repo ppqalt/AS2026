@@ -27,6 +27,7 @@ fn configurable_start_columns_share_export_order_and_escape_content() {
 #[test]
 fn defaults_and_explicit_zero_reset_correction_survive_roundtrip() {
     let mut p = example();
+    p.kilpailijat[0].emit_korjaus_sekuntia = 0;
     assert_eq!(p.kilpailijat[0].effective_emit_correction(), 120);
     p.kilpailijat[0].emit_korjaus_annettu = true;
     p.kilpailijat[0].emit_korjaus_sekuntia = 0;
@@ -43,6 +44,36 @@ fn defaults_and_explicit_zero_reset_correction_survive_roundtrip() {
     );
     p.kilpailijat[0].emit_korjaus_sekuntia = -30;
     assert_eq!(emit_corrections::punch_clock(&p, 7, 0).unwrap(), 90);
+}
+
+#[test]
+fn jat_section_limit_works_without_separate_section_text_at_exact_seconds() {
+    for (late, status) in [(3600, "TRK"), (3601, "KESK")] {
+        let mut p = example();
+        p.radat[0].asemat[1].tyyppi = "JAT".into();
+        p.radat[0].asemat[1].jakso_minuutteina = None;
+        p.virhepisteet.kokonaismyohastymisraja_minuutteina = Some(120);
+        p.luokat[0].myohastymisraja_minuutteina = 120;
+        let shift = 120 + 300 + late - 395;
+        for punch in p.leimaluvut[0].leimat.iter_mut().skip(1) {
+            punch.aika_sekuntia += shift;
+        }
+        let mut result = application::capture_project_result(&p, 7).unwrap();
+        let finish = result
+            .rivit
+            .iter()
+            .find(|r| r.station_type == "M")
+            .unwrap()
+            .output_index;
+        result
+            .set_clock(finish, [13, 15, i64::from(late - 3600)])
+            .unwrap();
+        let result = application::recalculate_stored_result(&p, 7, &result).unwrap();
+        assert_eq!(result.tila, status, "{}", result.syy);
+        if late > 3600 {
+            assert!(result.syy.contains("JAT-aseman"));
+        }
+    }
 }
 
 #[test]
