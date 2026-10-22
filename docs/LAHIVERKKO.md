@@ -1,6 +1,6 @@
 # Kilpailun yhteiskäyttö lähiverkossa
 
-Saatavilla versiosta 0.6.6 alkaen. Käyttöliittymä ja yhteysvirheet ovat suomeksi.
+Saatavilla versiosta 0.6.7 alkaen. Käyttöliittymä ja yhteysvirheet ovat suomeksi.
 
 ## Käyttö
 
