@@ -167,7 +167,7 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
     let origin = emit_corrections::punch_clock(project, basis.number, 0)?;
     let fields = app.get_emit_edit_fields().iter().collect::<Vec<_>>();
     let mut punches = Vec::new();
-    for (i, fields) in fields.chunks_exact(3).enumerate() {
+    for (i, fields) in fields.as_chunks::<3>().0.iter().enumerate() {
         if fields[2].value == "1" {
             continue;
         }
