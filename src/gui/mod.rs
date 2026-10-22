@@ -3007,7 +3007,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let app = AppWindow::new()?;
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
-    app.set_app_version(format!("{} · LAN (kehitysversio)", env!("CARGO_PKG_VERSION")).into());
+    app.set_app_version(env!("CARGO_PKG_VERSION").into());
     app.set_managed(installation::is_managed());
     let preferences = if demo {
         let root = demo_path()?.parent().unwrap().to_owned();

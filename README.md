@@ -1,12 +1,13 @@
 # AS2026
 
-Versio 0.6.5 sisältää yhdistetyt luokat, Beginners Cupin rinnakkaisen tuloslaskennan sekä käsiaikojen syötön ja tulostuksen.
+Versio 0.6.6 lisää kilpailun yhteiskäytön lähiverkossa, yksittäisten Emit-asemarivien korjauksen sekä vientien ja huomautusten käytettävyysparannukset.
 Esimerkkikilpailun voi avata komennolla `cargo run --features gui --bin as2026-gui -- --demo`.
 
 
 Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
 
 - Kilpailijat, luokat, radat ja asemat samassa sovelluksessa.
+- Kilpailun salattu lähiverkkoyhteys parituskoodilla, samat muokkausoikeudet kaikilla koneilla ja katkon aikana tallentuva Emit-lähetysjono; [käyttö- ja palautumisohje](docs/LAHIVERKKO.md).
 - Fluent 2 / Dark Spruce koko käyttöliittymän suunnittelukielenä, ilman animaatioita ja koriste-efektejä.
 - Kilpailijan tilat ja perustelut sekä molempien lisenssi- ja seuratiedot.
 - Lähtöarvonnan luokkavalinnat arvontapainikkeen vieressä, kellonaikojen esikatselu sekä HTML- ja CSV-lähtöluettelo.
