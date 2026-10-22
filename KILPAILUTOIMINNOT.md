@@ -50,9 +50,9 @@ Tuodut luokat eivät aluksi osallistu lähtöarvontaan. Näin KILP-välilehden l
 
 ## Lähtöajat ja lähtöluettelo
 
-Aseta luokan lähtöaika ja lähtöväli. Avaa arvontapainikkeen vierestä **Arvonnan luokat…**: samassa ikkunassa näkyvät kaikkien luokkien valintaruudut. Voit valita kaikki tai tyhjentää valinnan. **Tallenna valinnat** tallentaa luokkavalinnat yhdessä; **Peruuta** jättää ne ennalleen. Valinta ei vielä muuta lähtöaikoja. Sama asetus näkyy luokan **Osallistuu lähtöarvontaan** -kentässä. A- ja M-luokille ei ole kiinteää poikkeussääntöä.
+Aseta luokan lähtöaika ja lähtöväli. Avaa **Kilpailijat → Toiminnot → Arvo lähtöajat**: samassa ikkunassa näkyvät kaikkien luokkien valintaruudut. Voit valita kaikki tai tyhjentää valinnan. **Arvo lähtöajat** tallentaa luokkavalinnat yhdessä ja avaa lähtöaikojen esikatselun; **Peruuta** jättää ne ennalleen. Luokkavalinta ei vielä muuta lähtöaikoja. Sama asetus näkyy luokan **Osallistuu lähtöarvontaan** -kentässä. A- ja M-luokille ei ole kiinteää poikkeussääntöä.
 
-**Arvo lähtöajat…** löytyy Kilpailijat- ja Luokat-näkymistä. Esikatselu näyttää kilpailunumerot ja arvotut kellot. **Peruuta** ei muuta kilpailua; **Hyväksy** tallentaa näytetyt lähtöajat yhdessä. Arvonnan ulkopuolisten luokkien ajat sekä kilpailunumerot, kortit ja muut tiedot säilyvät.
+**Arvo lähtöajat** löytyy Kilpailijat-näkymän Toiminnot-valikosta. Esikatselu näyttää kilpailunumerot ja arvotut kellot. **Peruuta** ei muuta kilpailua; **Hyväksy** tallentaa näytetyt lähtöajat yhdessä. Arvonnan ulkopuolisten luokkien ajat sekä kilpailunumerot, kortit ja muut tiedot säilyvät.
 
 Valituista luokista arvotaan automaattiset/ILM-kilpailijat, joiden korttia ei ole luettu eikä asematulosta tallennettu. Jo luetut, asematuloksen saaneet ja muut käsin valitut tilat ohitetaan: heidän lähtöaikansa ja tuloksensa säilyvät, mutta muiden arvonta jatkuu. Jos yhtään arvottavaa ei jää, ohjelma ilmoittaa asiasta. Kilpailun muuttuminen mitätöi vanhan esikatselun.
 

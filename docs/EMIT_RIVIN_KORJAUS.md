@@ -1,16 +1,13 @@
-# Emit-rivin korjaus — erillinen kehitysversio
+# Emit-rivin korjaus
 
-Tämä toiminto ei kuulu alkuperäiseen GitHubin AS2026 0.6.5 -julkaisuun.
-Haara `fix/v065-emit-rivin-korjaus` alkaa julkaisutagista. Ikkunan otsikko ja
-version lisäteksti erottavat tämän kehitysversion julkaisusta. Ei asennusta,
-julkaisua, fyysistä lukijaa eikä oikeita kilpailuja tämän muutoksen kokeissa.
+Versiossa 0.6.8 korjaus avataan Emit-sivulta. [Uusien toimintojen käyttöohje](KAYTTOLIITTYMA_068.md).
 
 ## Käyttö
 
-1. Valitse **Tulokset → NAC / perusluokat**, kilpailija ja korjattava asemarivi.
-2. Valitse **Korjaa Emit-rivi**.
+1. Valitse **Emit**, aktiivinen lukutapahtuma ja korjattava asemarivi.
+2. Valitse luetun sisällön otsikon vierestä **Muokkaa**.
 3. **Muokkaa / lisää leima** korjaa valitun leiman koodin ja korttiajan.
-   Korttiaika on aika Emit-kortin nollauksesta, ei kellonaika. Puuttuvan aseman
+   Sekuntiaika on aika Emit-kortin nollauksesta. Rinnalla oleva hh:mm:ss-kellonaika lasketaan kilpailijan lähtöajasta ja Emit-korjauksesta; kentät päivittyvät toistensa mukana. Puuttuvan aseman
    kohdalla lisätään leima. **Kohdistettava leima** voi siirtää olemassa olevan
    ylimääräisen leiman puuttuvalle asemalle: valitse leima ja tarkista koodi ja aika.
 4. **Poista leima laskennasta** jättää kyseisen leiman pois laskennan syötteestä.
@@ -43,10 +40,7 @@ kohdistuvaa muutosta ei tallenneta.
   toisessa ikkunassa tehty tallennus estää koko muutoksen.
 
 Vanhojen kilpailujen avaaminen säilyy: puuttuva korjaushistoria on tyhjä.
-Korjauksia sisältävässä tiedostossa on uusi lisäkenttä, jota alkuperäinen
-0.6.5 ei tunne. Käytä näihin tiedostoihin kehitysversiota ja säilytä erilliset
-synteettiset testikopiot. Vanha julkaisu torjuu lisäkentän hiljaisen ohittamisen
-sijaan.
+Uusia asetuksia tai korjauksia sisältävän kilpailutiedoston avaaminen vanhemmalla ohjelmaversiolla ei ole tuettu.
 
 ## Toistettava varmennus
 

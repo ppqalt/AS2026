@@ -22,7 +22,7 @@ Vasemman reunan navigaatio pysyy näkyvissä. Työalue käyttää tavallisia lue
 | --- | --- |
 | Yleiskatsaus | Kilpailun avaaminen ja perustaminen sekä yhteenveto. |
 | Kilpailijat | Haettava kilpailijaluettelo, uuden kilpailijan lisäys ja tietojen muokkaus. |
-| Emit-lukeminen | Automaattinen tai manuaalinen portti, jatkuvan luvun käynnistys ja pysäytys sekä lukutapahtumien seuranta. |
+| Emit | Automaattinen tai manuaalinen portti, jatkuvan luvun käynnistys ja pysäytys sekä lukutapahtumien seuranta. |
 | Tulokset | Kilpailijan ajat, viisi pisteosaa, asemarivit, käsikellot, käsikorjaukset ja tuloksen hyväksyminen. |
 | Luokat | Luokan lisäys ja muokkaus sekä yhteys rataan. |
 | Radat ja asemat | Ratojen ja niiden asemien lisäys ja muokkaus. |

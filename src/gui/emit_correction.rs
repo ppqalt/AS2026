@@ -183,7 +183,14 @@ pub(super) fn edit(state: &mut State, app: &AppWindow, key: i32, value: &str) ->
             }
         } else if let Ok(clock) = as2026::terminal::parse_clock(value) {
             let origin = emit_corrections::punch_clock(project, basis.number, 0)?;
-            let elapsed = (clock.seconds_since_midnight()? - origin).rem_euclid(86_400);
+            let current = app
+                .get_emit_edit_fields()
+                .iter()
+                .find(|f| f.key == 3)
+                .and_then(|f| f.value.parse::<u32>().ok())
+                .unwrap_or(0);
+            let elapsed = (clock.seconds_since_midnight()? - origin).rem_euclid(86_400)
+                + i64::from(current / 86_400) * 86_400;
             set_field(app, 3, &elapsed.to_string());
         }
     }

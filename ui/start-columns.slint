@@ -9,6 +9,8 @@ export component StartColumnsDialog inherits Rectangle {
     callback toggle(int, bool);
     callback move(int, int);
     callback close(bool);
+    property <int> focus-request;
+    property <bool> first-focused;
     background: Theme.modal-backdrop;
     TouchArea { }
     FocusScope {
@@ -16,8 +18,8 @@ export component StartColumnsDialog inherits Rectangle {
         init => { cancel.focus(); }
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
-            if event.text == Key.Tab && !event.modifiers.shift && save.has-focus { cancel.focus(); return accept; }
-            if event.text == Key.Tab && event.modifiers.shift && cancel.has-focus { save.focus(); return accept; }
+            if event.text == Key.Tab && !event.modifiers.shift && save.has-focus { root.focus-request += 1; return accept; }
+            if event.text == Key.Tab && event.modifiers.shift && root.first-focused { save.focus(); return accept; }
             reject
         }
         DialogSurface {
@@ -35,7 +37,13 @@ export component StartColumnsDialog inherits Rectangle {
                         spacing: Theme.space-2;
                         for column[i] in root.columns: HorizontalLayout {
                             spacing: Theme.space-2;
-                            CheckBox { text: column.label; checked: column.selected; horizontal-stretch: 1; toggled => { root.toggle(i, self.checked); } }
+                            CheckBox {
+                                property <int> focus-request: root.focus-request;
+                                changed focus-request => { if i == 0 { self.focus(); } }
+                                changed has-focus => { if i == 0 { root.first-focused = self.has-focus; } }
+                                text: column.label; checked: column.selected; horizontal-stretch: 1;
+                                toggled => { root.toggle(i, self.checked); }
+                            }
                             Button { text: "↑"; accessible-label: "Siirrä " + column.label + " ylemmäs"; enabled: i > 0; clicked => { root.move(i, -1); } }
                             Button { text: "↓"; accessible-label: "Siirrä " + column.label + " alemmas"; enabled: i < root.columns.length - 1; clicked => { root.move(i, 1); } }
                         }

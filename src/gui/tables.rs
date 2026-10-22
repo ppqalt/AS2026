@@ -230,6 +230,10 @@ fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
             _ => 0.17,
         })
         .collect();
+    let total: f32 = view.weights.iter().sum();
+    for weight in &mut view.weights {
+        *weight /= total;
+    }
     view.rows = archive
         .competitors
         .iter()
@@ -978,6 +982,17 @@ fn history(
                                 ],
                             )
                         }));
+                    if let Some(marker) = read.leimat.iter().find(|p| p.koodi == 250) {
+                        view.detail_rows.push(row(
+                            usize::MAX - 1,
+                            vec![
+                                "Lukumerkki".into(),
+                                "250".into(),
+                                marker.aika_sekuntia.to_string(),
+                                String::new(),
+                            ],
+                        ));
+                    }
                 }
             }
         }

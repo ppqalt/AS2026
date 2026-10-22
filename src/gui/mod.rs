@@ -201,6 +201,10 @@ fn run_action(app: &AppWindow, operation: impl FnOnce() -> GuiResult<()>) {
     }
     if let Err(error) = operation() {
         let message = error.to_string();
+        if app.get_start_columns_open() {
+            app.set_start_columns_error(error_text(&error).into());
+            return;
+        }
         if app.get_emit_edit_open() {
             app.set_emit_edit_error(error_text(&error).into());
             return;
