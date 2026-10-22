@@ -12,6 +12,8 @@ pub mod emit_corrections;
 pub mod excel_import;
 #[cfg(feature = "desktop")]
 pub mod installation;
+#[cfg(feature = "desktop")]
+pub mod lan;
 pub mod legacy;
 pub mod live_reader;
 pub mod matching;

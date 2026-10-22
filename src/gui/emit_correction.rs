@@ -32,6 +32,7 @@ pub(super) fn open(state: &mut State, app: &AppWindow) -> GuiResult<()> {
             "Korjaa yhteinen leima NAC / perusluokat -näkymässä",
         ));
     }
+    ws.pin_lan_basis();
     let project = ws
         .project()
         .ok_or_else(|| invalid("Avaa muokattava kilpailu"))?;

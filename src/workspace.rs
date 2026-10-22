@@ -56,7 +56,7 @@ enum Source {
     Legacy(Box<Archive>),
 }
 
-/// Ei käyttöliittymäkirjaston, tapahtumasilmukan tai verkkopalvelun riippuvuuksia.
+/// Käyttöliittymästä riippumaton kilpailu. Työpöytäominaisuus voi liittää LAN-asiakkaan.
 pub struct Workspace {
     path: PathBuf,
     source: Source,
@@ -101,6 +101,11 @@ impl Workspace {
 
     /// Epäonnistunut uudelleenavaus jättää nykyisen onnistuneen tilan näkyviin.
     pub fn reload(&mut self) -> Result<(), CoreError> {
+        #[cfg(feature = "desktop")]
+        if self.lan_client().is_some() {
+            self.poll_lan()?;
+            return Ok(());
+        }
         let mut reopened = Self::open(&self.path)?;
         reopened.bc_view = self.bc_view
             && reopened
@@ -110,6 +115,45 @@ impl Workspace {
         Ok(())
     }
 
+    #[cfg(feature = "desktop")]
+    pub fn attach_lan(&mut self, client: crate::lan::Client) -> Result<(), CoreError> {
+        match &mut self.source {
+            Source::Native(store) => {
+                store.attach_lan(client);
+                store.poll_lan()?;
+                Ok(())
+            }
+            _ => Err(invalid("LAN-yhteiskäyttö tarvitsee AS2026-kilpailun")),
+        }
+    }
+    #[cfg(feature = "desktop")]
+    pub fn lan_client(&self) -> Option<&crate::lan::Client> {
+        match &self.source {
+            Source::Native(store) => store.lan_client(),
+            _ => None,
+        }
+    }
+    #[cfg(feature = "desktop")]
+    pub fn pin_lan_basis(&self) {
+        if let Source::Native(store) = &self.source {
+            store.pin_edit_basis();
+        }
+    }
+    #[cfg(feature = "desktop")]
+    pub fn synchronize_lan(&mut self) -> Result<(), CoreError> {
+        if let Some(client) = self.lan_client() {
+            client.refresh()?;
+        }
+        self.poll_lan()?;
+        Ok(())
+    }
+    #[cfg(feature = "desktop")]
+    pub fn poll_lan(&mut self) -> Result<bool, CoreError> {
+        match &mut self.source {
+            Source::Native(store) => store.poll_lan(),
+            _ => Ok(false),
+        }
+    }
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -395,6 +439,18 @@ impl Workspace {
 
     /// Ensimmäinen lukema saa asemarivit. Uusintaluku säilyttää aiemman tarkastuksen.
     pub fn ensure_readout_result(&mut self, number: u32) -> Result<(), CoreError> {
+        #[cfg(feature = "desktop")]
+        if let Source::Native(store) = &self.source {
+            let basis = store.take_edit_basis();
+            let result = self.ensure_readout_result_current(number);
+            if let Source::Native(store) = &self.source {
+                store.restore_edit_basis(basis);
+            }
+            return result;
+        }
+        self.ensure_readout_result_current(number)
+    }
+    fn ensure_readout_result_current(&mut self, number: u32) -> Result<(), CoreError> {
         self.update(|project| {
             if project
                 .kilpailijat

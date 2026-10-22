@@ -81,3 +81,8 @@ BC:n tiedot/asemat ja osallistujat erotetaan välilehdille. Osallistujalistalla
 on oma vieritysalue ja sama valintarivi kuin luokkavalinnoissa. Nopean
 Tab-siirtymisen tavoite pidetään erillään viiveellä saapuvasta kohdistuspalautteesta,
 jotta vanha kohdistus ei palauta listaa aiemmalle riville.
+
+Lähiverkkoyhteys avataan yläpalkin keskeltä. Tila kertoo yhteyden ja jonon ilman
+pysyviä ohjetekstejä sivuilla. Etäpäivitys ei korvaa avoimen lomakkeen syötettä,
+kohdistusta tai muokkauspohjaa. Muokkausristiriita näkyy kyseisessä lomakkeessa;
+yhteysvirhe yhteysikkunassa. Yhteyskatkoa ei koskaan merkitä ajan tasalla olevaksi.

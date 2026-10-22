@@ -6,6 +6,8 @@ use as2026::printing::{self, Document, Kind};
 pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     let number = selected_number(state)?;
     let ws = current_workspace(state)?;
+    ws.synchronize_lan()?;
+    ws.pin_lan_basis();
     let project = ws
         .result_project()?
         .ok_or_else(|| invalid("Aikojen syöttö tarvitsee AS2026-kilpailun"))?;
@@ -168,6 +170,9 @@ fn finish_entry(state: &mut State, app: &AppWindow, print: bool) -> GuiResult<()
     }
     let ws = current_workspace(state)?;
     ws.complete_result_entry(number, &clocks, missing, other)?;
+    if print {
+        ws.synchronize_lan()?;
+    }
     let project = ws.result_project()?.unwrap();
     let label = if ws.bc_view() {
         ws.project()
@@ -259,6 +264,7 @@ fn print_classes(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         pages: Vec::new(),
     };
     let include_bc = selections.iter().any(|s| s.starts_with("B:"));
+    current_workspace(state)?.synchronize_lan()?;
     for (scope, archive) in sources(current_workspace(state)?, include_bc)? {
         let codes = selections
             .iter()
