@@ -156,7 +156,11 @@ pub fn punch_clock(project: &Project, number: u32, elapsed: i64) -> Result<i64, 
         .start_clock()?
         .ok_or_else(|| invalid("Kilpailijan lähtöaika puuttuu"))?
         .seconds_since_midnight()?;
-    let correction = driver.effective_emit_correction();
+    let correction = if project.kilpailu.ajanottotapa == 0 {
+        0
+    } else {
+        driver.effective_emit_correction()
+    };
     start
         .checked_add(elapsed)
         .and_then(|v| v.checked_sub(correction))
@@ -235,6 +239,12 @@ pub(crate) fn recapture(
 ) -> Result<crate::corrections::StoredResult, CoreError> {
     let mut result = application::capture_project_result(project, number)?;
     if let Some(old) = previous {
+        let same_layout = old.rata.len() == result.rata.len()
+            && old
+                .rata
+                .iter()
+                .zip(&result.rata)
+                .all(|(a, b)| a.tyyppi == b.tyyppi && a.emit_koodi == b.emit_koodi);
         // Käsikellot tunnistetaan rata-asemasta, eivät muuttuvasta rivinumerosta.
         for row in &old.rivit {
             if row.sequence != 0
@@ -247,6 +257,17 @@ pub(crate) fn recapture(
                         r.name == row.name
                             && r.station_type == row.station_type
                             && r.expected_code == 0
+                    })
+                    .or_else(|| {
+                        if same_layout {
+                            result.rivit.iter().find(|r| {
+                                r.sequence == row.sequence
+                                    && r.station_type == row.station_type
+                                    && r.expected_code == 0
+                            })
+                        } else {
+                            None
+                        }
                     })
                     .map(|r| r.output_index)
             {

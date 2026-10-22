@@ -266,7 +266,12 @@ fn filtered_readout(
                 }
             }
             MatchKind::SharedUla if included && punch > 0 => {
-                needed.insert(punch);
+                if let Some(index) = interior[..punch]
+                    .iter()
+                    .rposition(|p| !matches!(p.code, 99 | 999))
+                {
+                    needed.insert(index + 1);
+                }
             }
             _ => {}
         }

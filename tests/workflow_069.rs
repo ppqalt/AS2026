@@ -191,6 +191,20 @@ fn trailing_battery_marker_does_not_change_readout_time() {
 }
 
 #[test]
+fn paper_clock_mapping_respects_the_timing_method() {
+    let mut p = Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
+    assert_eq!(
+        emit_corrections::punch_clock(&p, 7, 420).unwrap(),
+        12 * 3600 + 5 * 60
+    );
+    p.kilpailu.ajanottotapa = 0;
+    assert_eq!(
+        emit_corrections::punch_clock(&p, 7, 300).unwrap(),
+        12 * 3600 + 5 * 60
+    );
+}
+
+#[test]
 fn classes_combined_classes_and_routes_remain_editable_after_scoring() {
     let mut f = Fixture::new();
     f.complete();
@@ -218,6 +232,16 @@ fn classes_combined_classes_and_routes_remain_editable_after_scoring() {
     assert!(result.aikavirheet > 45);
     assert!(!result.hyvaksytty);
     assert_eq!(result.maalikello_sekuntia, 12 * 3600 + 10 * 60);
+    f.ws.edit_station(1, 3, StationField::Name, "Uusi maalin nimi")
+        .unwrap();
+    f.ws.rebuild_route_results(&[1]).unwrap();
+    assert_eq!(
+        f.ws.result_snapshot(7)
+            .unwrap()
+            .unwrap()
+            .maalikello_sekuntia,
+        12 * 3600 + 10 * 60
+    );
     f.ws.delete_class("B").unwrap();
     assert_eq!(f.ws.project().unwrap().yhdistetyt_luokat[0].luokat, ["A"]);
     assert!(f.ws.delete_class("A").is_err());
