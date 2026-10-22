@@ -165,6 +165,32 @@ fn battery_markers_are_unscored_and_can_be_removed_without_reason() {
 }
 
 #[test]
+fn trailing_battery_marker_does_not_change_readout_time() {
+    use as2026::{ClockTime, Punch, emit};
+    let records = [
+        Punch {
+            code: 0,
+            elapsed_seconds: 0,
+        },
+        Punch {
+            code: 31,
+            elapsed_seconds: 420,
+        },
+        Punch {
+            code: 999,
+            elapsed_seconds: 500,
+        },
+        Punch {
+            code: 250,
+            elapsed_seconds: 600,
+        },
+    ];
+    let read = emit::accepted_records(&records, ClockTime::new(12, 8, 0).unwrap()).unwrap();
+    assert_eq!(read.last_punch_elapsed_seconds, 420);
+    assert_eq!(read.finish_clock_seconds, 12 * 3600 + 5 * 60);
+}
+
+#[test]
 fn classes_combined_classes_and_routes_remain_editable_after_scoring() {
     let mut f = Fixture::new();
     f.complete();
@@ -178,7 +204,6 @@ fn classes_combined_classes_and_routes_remain_editable_after_scoring() {
         lateness_minutes: "60".into(),
         np_enabled: "0".into(),
         series_method: "0".into(),
-        ..Default::default()
     })
     .unwrap();
     f.ws.edit_combined_class(0, "Yhteistulos | A,B | 0 | 0")

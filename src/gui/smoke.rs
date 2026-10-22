@@ -68,6 +68,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     beginners_cup(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
     result_entry_and_printing(app, state, &path, &original)?;
+    workflow_069(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
     {
@@ -700,6 +701,111 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn workflow_069(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut p = original.clone();
+    let mut unread = p.kilpailijat[0].clone();
+    unread.numero = 8;
+    unread.emit = 654321;
+    unread.kuljettaja = "Laskematon kilpailija".into();
+    unread.tallennettu_tulos = None;
+    p.kilpailijat.push(unread);
+    let dir = original_path.parent().unwrap().join("workflow-069");
+    let mut ws = Workspace::create_imported(&dir, p)?;
+    ws.ensure_readout_result(7)?;
+    let finish = ws
+        .result_snapshot(7)?
+        .unwrap()
+        .rivit
+        .iter()
+        .find(|r| r.station_type == "M")
+        .unwrap()
+        .output_index;
+    ws.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 0)?;
+    let path = ws.path().to_owned();
+    open_workspace(&mut state.borrow_mut(), app, &path, true)?;
+    app.invoke_navigate(4);
+    app.invoke_add_record();
+    app.invoke_field_draft(1, "Laskennan jälkeen lisätty".into());
+    assert!(app.invoke_field_commit(0, "B".into()));
+    assert!(!app.get_new_record(), "{}", app.get_editor_error());
+    app.invoke_add_combined_class();
+    app.set_combined_name("Yhdistetty 069".into());
+    app.invoke_combined_class_toggled(0, true);
+    app.invoke_combined_class_toggled(1, true);
+    app.invoke_combined_close(true);
+    assert!(!app.get_combined_open(), "{}", app.get_combined_error());
+    app.invoke_navigate(3);
+    assert!(app.get_headers().iter().any(|h| h == "Emit"));
+    let index = app
+        .get_result_classes()
+        .iter()
+        .position(|c| c == "Y1: Yhdistetty 069")
+        .unwrap();
+    app.invoke_result_class_changed(index as i32);
+    assert_eq!(app.get_rows().row_count(), 2);
+    for stations in [false, true] {
+        state.borrow_mut().last_print = None;
+        app.invoke_open_print_classes(stations);
+        assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
+        let s = state.borrow();
+        let doc = s.last_print.as_ref().unwrap();
+        assert_eq!(doc.pages.len(), 1);
+        assert!(
+            doc.pages[0]
+                .texts
+                .iter()
+                .any(|t| t.value == "Laskematon kilpailija")
+        );
+    }
+    app.invoke_navigate(5);
+    app.invoke_select_row(0);
+    app.invoke_select_detail(1);
+    let before = ProjectStore::open(&path)?.project().kilpailijat[0]
+        .tallennettu_tulos
+        .clone()
+        .unwrap();
+    assert!(app.invoke_field_commit(3, "00:04:00".into()));
+    assert!(app.get_confirm_open());
+    app.invoke_confirm_action(false);
+    assert_eq!(
+        ProjectStore::open(&path)?.project().kilpailijat[0]
+            .tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .aikavirheet,
+        before.aikavirheet
+    );
+    assert!(app.invoke_field_commit(3, "00:03:00".into()));
+    assert!(app.get_confirm_open());
+    app.invoke_confirm_action(true);
+    let p = ProjectStore::open(&path)?.project().clone();
+    let result = p.kilpailijat[0].tallennettu_tulos.as_ref().unwrap();
+    assert_eq!(result.rata[1].tavoiteaika_sekuntia, 180);
+    assert_eq!(result.maalikello_sekuntia, 12 * 3600 + 10 * 60);
+    assert!(!result.hyvaksytty);
+    assert!(p.kilpailijat[1].tallennettu_tulos.is_none());
+    app.invoke_add_record();
+    assert_eq!(app.get_fields().row_count(), 1);
+    assert!(app.invoke_field_commit(1, "Nimellä luotu rata".into()));
+    assert!(!app.get_new_record());
+    app.invoke_navigate(4);
+    app.invoke_select_row(1);
+    app.invoke_delete_class();
+    assert!(app.get_confirm_open());
+    app.invoke_confirm_action(true);
+    assert_eq!(ProjectStore::open(&path)?.project().luokat.len(), 1);
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!(
+        "0.6.9 GUI: luokkien lisäys ja poisto laskennan jälkeen, yhdistetty luokkarajaus, Emit-sarake, valitun luokan molemmat tulosteet laskemattomine kilpailijoineen, ratamuutoksen Kyllä/Peruuta ja nimeen perustuva rataeditori hyväksytty."
+    );
+    Ok(())
 }
 
 fn competition_settings_068(

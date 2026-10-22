@@ -171,7 +171,32 @@ fn sorted_drivers(project: &Project) -> Result<Vec<&crate::native::Driver>, Core
             Ok((clock, driver))
         })
         .collect::<Result<Vec<_>, CoreError>>()?;
-    rows.sort_by_key(|(clock, driver)| (*clock, driver.numero));
+    // Place the overnight break before the first departure. This preserves a
+    // continuous departure order around midnight across all classes.
+    let mut clocks = rows
+        .iter()
+        .filter_map(|(c, _)| (*c < 86_400).then_some(*c))
+        .collect::<Vec<_>>();
+    clocks.sort_unstable();
+    clocks.dedup();
+    let origin = clocks
+        .iter()
+        .enumerate()
+        .max_by_key(|(i, c)| {
+            let next = clocks.get(i + 1).copied().unwrap_or(clocks[0] + 86_400);
+            next - **c
+        })
+        .map_or(0, |(i, _)| clocks[(i + 1) % clocks.len()]);
+    rows.sort_by_key(|(clock, driver)| {
+        (
+            if *clock == 86_400 {
+                86_400
+            } else {
+                (*clock - origin).rem_euclid(86_400)
+            },
+            driver.numero,
+        )
+    });
     Ok(rows.into_iter().map(|(_, driver)| driver).collect())
 }
 
