@@ -224,6 +224,41 @@ fn classes_combined_classes_and_routes_remain_editable_after_scoring() {
 }
 
 #[test]
+fn route_rebuild_updates_the_bc_projection_and_preserves_its_manual_finish() {
+    let mut f = Fixture::new();
+    let source = f.ws.project().unwrap().radat[0].asemat.clone();
+    f.ws.save_beginners_cup(
+        as2026::beginners::BeginnersCup {
+            nimi: "BC".into(),
+            tunnus: "BC".into(),
+            lahderata: 1,
+            lahdeasemat: source,
+            mukana_asemat: vec![1, 2, 3, 4],
+        },
+        &[7],
+    )
+    .unwrap();
+    f.complete();
+    f.ws.set_bc_view(true).unwrap();
+    f.complete();
+    f.ws.set_bc_view(false).unwrap();
+    f.ws.edit_station(1, 1, StationField::Target, "200")
+        .unwrap();
+    f.ws.rebuild_route_results(&[1]).unwrap();
+    let p = f.ws.project().unwrap();
+    assert_eq!(
+        p.beginners_cup.as_ref().unwrap().lahdeasemat,
+        p.radat[0].asemat
+    );
+    f.ws.set_bc_view(true).unwrap();
+    let r = f.ws.result_snapshot(7).unwrap().unwrap();
+    assert_eq!(r.rata[1].tavoiteaika_sekuntia, 200);
+    assert_eq!(r.maalikello_sekuntia, 12 * 3600 + 10 * 60);
+    assert!(!r.hyvaksytty);
+    assert!(!r.kasikellot_muuttuneet);
+}
+
+#[test]
 fn selected_combined_print_contains_unread_drivers_and_start_list_sorts_across_classes() {
     let mut f = Fixture::new();
     f.complete();

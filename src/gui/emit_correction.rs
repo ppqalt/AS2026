@@ -148,7 +148,7 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
     if !save {
         state.emit_edit_basis = None;
         app.set_emit_edit_open(false);
-        return Ok(());
+        return follow_pending_result(state, app);
     }
     let basis = state
         .emit_edit_basis
@@ -198,7 +198,7 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
         "Leimat tallennettu ja tulokset laskettu uudelleen.",
         false,
     );
-    Ok(())
+    follow_pending_result(state, app)
 }
 
 /// Todellinen ikkunallinen koe vain --demo-ajon omaan synteettiseen kilpailuun.

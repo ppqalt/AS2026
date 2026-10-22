@@ -302,6 +302,9 @@ pub fn competitor(
     if let Some(result) = result {
         for r in &result.rivit {
             let extra = r.sequence == 0;
+            if extra && matches!(r.received_code, 99 | 999) {
+                continue;
+            }
             let known = !extra
                 && (r.station_type == "L"
                     || if r.expected_code == 0 {

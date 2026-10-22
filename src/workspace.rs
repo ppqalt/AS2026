@@ -889,7 +889,42 @@ impl Workspace {
     }
 
     pub fn rebuild_route_results(&mut self, tracks: &[u32]) -> Result<(), CoreError> {
-        self.update(|project| {
+        let Source::Native(store) = &mut self.source else {
+            return Err(invalid("Avaa muokattava kilpailu"));
+        };
+        store.update(|project| {
+            let update_bc = project
+                .beginners_cup
+                .as_ref()
+                .is_some_and(|c| tracks.contains(&c.lahderata));
+            if update_bc {
+                let config = project.beginners_cup.as_mut().unwrap();
+                let stations = &project
+                    .radat
+                    .iter()
+                    .find(|r| r.numero == config.lahderata)
+                    .unwrap()
+                    .asemat;
+                let mut selected = Vec::new();
+                for (i, station) in stations.iter().enumerate() {
+                    let old = config
+                        .lahdeasemat
+                        .iter()
+                        .position(|s| s.tyyppi == station.tyyppi && s.nimi == station.nimi)
+                        .or_else(|| {
+                            (stations.len() == config.lahdeasemat.len()
+                                && config.lahdeasemat[i].tyyppi == station.tyyppi)
+                                .then_some(i)
+                        });
+                    if matches!(station.tyyppi.as_str(), "L" | "ULA")
+                        || old.is_some_and(|i| config.mukana_asemat.contains(&((i + 1) as u32)))
+                    {
+                        selected.push((i + 1) as u32);
+                    }
+                }
+                config.lahdeasemat = stations.clone();
+                config.mukana_asemat = selected;
+            }
             let numbers = project
                 .kilpailijat
                 .iter()
@@ -919,6 +954,23 @@ impl Workspace {
                     .find(|d| d.numero == number)
                     .unwrap()
                     .tallennettu_tulos = Some(result);
+            }
+            if update_bc {
+                let projection = crate::beginners::projection(project)?;
+                for entry in &mut project.bc_osallistujat {
+                    if entry.tallennettu_tulos.is_none() {
+                        continue;
+                    }
+                    entry.tallennettu_tulos = if entry.osallistuu {
+                        Some(crate::emit_corrections::recapture(
+                            &projection,
+                            entry.numero,
+                            entry.tallennettu_tulos.as_ref(),
+                        )?)
+                    } else {
+                        None
+                    };
+                }
             }
             Ok(())
         })

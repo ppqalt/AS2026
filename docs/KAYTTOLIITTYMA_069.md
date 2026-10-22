@@ -2,7 +2,7 @@
 
 Sivujen yläreunan kilpailuotsikko ja Automaattinen tallennus -teksti on poistettu. Kilpailun nimi näkyy edelleen sivupalkissa.
 
-Yleiskatsauksen Toiminnot-valikossa ovat Avaa, + Uusi ja Tuo kilpailu Excelistä. Kilpailijoiden Toiminnot-valikossa ovat myös Tuo Excel ja Tallenna html-lähtöluettelo. Lähtöluettelo järjestetään lähtökellon mukaan kaikkien luokkien kesken; samaan aikaan lähtevät kilpailunumeron mukaan ja puuttuvat lähtöajat viimeiseksi. Radat ja asemat -sivun Lisää rata ja Tuo Excel löytyvät Toiminnot-valikosta.
+Yleiskatsauksen Toiminnot-valikossa ovat Avaa, + Uusi ja Tuo kilpailu Excelistä. Kilpailijoiden Toiminnot-valikossa ovat myös Tuo Excel ja Tallenna html-lähtöluettelo. Lähtöluettelo järjestetään lähtökellon mukaan kaikkien luokkien kesken, myös keskiyön yli; samaan aikaan lähtevät kilpailunumeron mukaan ja puuttuvat lähtöajat viimeiseksi. Radat ja asemat -sivun Lisää rata ja Tuo Excel löytyvät Toiminnot-valikosta.
 
 ## Emit-leimausten muokkaaminen
 
