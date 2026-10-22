@@ -934,7 +934,12 @@ fn score_prepared_rows(
                     result.rows[index].note = "AT puuttuu".into();
                 }
                 Some(StationKind::Jat | StationKind::Ula) => {
-                    result.rows[index].other_points = options.parameters.missing_jat;
+                    result.rows[index].other_points =
+                        if result.policy == CalculationPolicy::As2026OperationalV1 {
+                            0
+                        } else {
+                            options.parameters.missing_jat
+                        };
                     result.rows[index].note = "JAT puuttuu".into();
                     let reason = if result.policy == CalculationPolicy::As2026OperationalV1 {
                         result.rows[index].source.station.as_ref().map_or_else(
@@ -988,12 +993,18 @@ fn score_prepared_rows(
                 Some(StationKind::At | StationKind::Jat | StationKind::Finish)
             )
         {
+            let mut parameters = options.parameters.clone();
+            if result.policy == CalculationPolicy::As2026OperationalV1
+                && matches!(kind, Some(StationKind::Jat | StationKind::Finish))
+            {
+                parameters.jat_cap = i64::MAX;
+            }
             let penalty = time_penalty(
                 result.rows[index].target_seconds,
                 result.rows[index].actual_seconds,
                 kind.expect("asemalaji tarkistettu"),
                 result.rows[index].effective_rule,
-                &options.parameters,
+                &parameters,
             )?;
             result.rows[index].signed_time_points = penalty.signed_points;
             if penalty.capped {
@@ -1531,13 +1542,7 @@ pub fn calculate_operational(
     let anchor = if expected(&result.rows[0]) == 0 {
         match options.timing_method {
             TimingMethod::ManualClock => 0,
-            TimingMethod::Emit | TimingMethod::LegacyMode2 => {
-                if options.reset_correction_seconds == 0 {
-                    120
-                } else {
-                    options.reset_correction_seconds
-                }
-            }
+            TimingMethod::Emit | TimingMethod::LegacyMode2 => options.reset_correction_seconds,
         }
     } else {
         add(

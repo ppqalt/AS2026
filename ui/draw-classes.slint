@@ -91,7 +91,7 @@ export component DrawClassDialog inherits Rectangle {
                 if root.summary != "": Note { text: root.summary; }
                 DialogActions {
                     cancel := Button { text: "Peruuta"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(false); } }
-                    save := AccentButton { text: "Tallenna valinnat"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(true); } }
+                    save := AccentButton { text: "Arvo lähtöajat"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(true); } }
                 }
             }
         }

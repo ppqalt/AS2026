@@ -153,10 +153,6 @@ impl Random {
     }
 }
 
-fn clock_text(time: ClockTime) -> String {
-    format!("{:02}:{:02}:{:02}", time.hour, time.minute, time.second)
-}
-
 fn sorted_drivers(project: &Project) -> Result<Vec<&crate::native::Driver>, CoreError> {
     project.validate()?;
     // Ilman päivämäärää luokkien välisestä vuorokauden vaihteesta ei arvata.
@@ -205,25 +201,69 @@ fn escape(value: &str) -> String {
         .replace('\'', "&#39;")
 }
 
+pub const START_COLUMNS: [(&str, &str); 9] = [
+    ("numero", "Nro"),
+    ("luokka", "Luokka"),
+    ("emit", "Emit"),
+    ("lahtoaika", "Lähtöaika"),
+    ("kuljettaja", "Kuljettaja"),
+    ("kuljettajan_seura", "Kuljettajan seura"),
+    ("kartturi", "Kartturi"),
+    ("kartturin_seura", "Kartturin seura"),
+    ("auto", "Auto"),
+];
+pub fn columns(project: &Project) -> Result<Vec<(&'static str, &'static str)>, CoreError> {
+    if project.virhepisteet.lahtoluettelon_kentat.is_empty() {
+        return Ok(START_COLUMNS.to_vec());
+    }
+    let mut result = Vec::new();
+    for id in &project.virhepisteet.lahtoluettelon_kentat {
+        let entry = START_COLUMNS
+            .iter()
+            .find(|(key, _)| key == id)
+            .ok_or_else(|| invalid(format!("Tuntematon lähtöluettelon kenttä: {id}")))?;
+        if result.contains(entry) {
+            return Err(invalid(format!("Lähtöluettelon kenttä toistuu: {id}")));
+        }
+        result.push(*entry);
+    }
+    Ok(result)
+}
+pub fn column_value(driver: &crate::native::Driver, id: &str) -> String {
+    match id {
+        "numero" => driver.numero.to_string(),
+        "luokka" => driver.luokka.clone(),
+        "emit" => driver
+            .emit_number()
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
+        "lahtoaika" => driver.lahtoaika.clone(),
+        "kuljettaja" => driver.kuljettaja.clone(),
+        "kuljettajan_seura" => driver.kuljettajan_seura.clone(),
+        "kartturi" => driver.kartanlukija.clone(),
+        "kartturin_seura" => driver.kartanlukijan_seura.clone(),
+        "auto" => driver.auto.clone(),
+        _ => String::new(),
+    }
+}
 pub fn start_list_html(project: &Project) -> Result<String, CoreError> {
     let rows = sorted_drivers(project)?;
+    let columns = columns(project)?;
     let mut html = format!(
-        "<!doctype html><html lang=\"fi\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Lähtöluettelo — {}</title><style>body{{font:16px system-ui,sans-serif;margin:2rem;color:#242424;background:#fff}}table{{border-collapse:collapse;width:100%}}th,td{{text-align:left;padding:.65rem;border-bottom:1px solid #d1d1d1}}th{{background:#f5f5f5}}@media print{{body{{margin:0}}thead{{display:table-header-group}}tr{{break-inside:avoid}}}}</style><h1>{}</h1><h2>Lähtöluettelo</h2><table><thead><tr><th>Lähtöaika</th><th>Nro</th><th>Luokka</th><th>Kuljettaja</th><th>Kartanlukija</th><th>Auto</th><th>Emit</th><th>Tila</th></tr></thead><tbody>",
+        "<!doctype html><html lang=\"fi\"><meta charset=\"utf-8\"><title>Lähtöluettelo — {}</title><style>body{{font:16px system-ui;margin:2rem}}table{{border-collapse:collapse;width:100%}}th,td{{text-align:left;padding:.65rem;border-bottom:1px solid #ddd}}@media print{{thead{{display:table-header-group}}tr{{break-inside:avoid}}}}</style><h1>{}</h1><h2>Lähtöluettelo</h2><table><thead><tr>",
         escape(&project.kilpailu.nimi),
         escape(&project.kilpailu.nimi)
     );
+    for (_, label) in &columns {
+        html.push_str(&format!("<th>{}</th>", escape(label)));
+    }
+    html.push_str("</tr></thead><tbody>");
     for driver in rows {
-        html.push_str(&format!(
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            driver.start_clock()?.map(clock_text).unwrap_or_else(|| "—".into()),
-            driver.numero,
-            escape(&driver.luokka),
-            escape(&driver.kuljettaja),
-            escape(&driver.kartanlukija),
-            escape(&driver.auto),
-            driver.emit_number().map(|n| n.to_string()).unwrap_or_default(),
-            driver.tila.as_ref().map_or("ILM", |status| status.tunnus.as_str()),
-        ));
+        html.push_str("<tr>");
+        for (id, _) in &columns {
+            html.push_str(&format!("<td>{}</td>", escape(&column_value(driver, id))));
+        }
+        html.push_str("</tr>");
     }
     html.push_str("</tbody></table></html>\n");
     Ok(html)
@@ -239,29 +279,18 @@ fn csv_cell(value: &str) -> String {
 }
 
 pub fn start_list_csv(project: &Project) -> Result<String, CoreError> {
-    let mut csv = "\"Lähtöaika\";\"Nro\";\"Luokka\";\"Kuljettaja\";\"Kartanlukija\";\"Auto\";\"Emit\";\"Tila\"\r\n".to_owned();
+    let columns = columns(project)?;
+    let mut csv = columns
+        .iter()
+        .map(|(_, label)| csv_cell(label))
+        .collect::<Vec<_>>()
+        .join(";");
+    csv.push_str("\r\n");
     for driver in sorted_drivers(project)? {
-        let cells = [
-            driver.start_clock()?.map(clock_text).unwrap_or_default(),
-            driver.numero.to_string(),
-            driver.luokka.clone(),
-            driver.kuljettaja.clone(),
-            driver.kartanlukija.clone(),
-            driver.auto.clone(),
-            driver
-                .emit_number()
-                .map(|n| n.to_string())
-                .unwrap_or_default(),
-            driver
-                .tila
-                .as_ref()
-                .map_or("ILM", |status| status.tunnus.as_str())
-                .to_owned(),
-        ];
         csv.push_str(
-            &cells
+            &columns
                 .iter()
-                .map(|cell| csv_cell(cell))
+                .map(|(id, _)| csv_cell(&column_value(driver, id)))
                 .collect::<Vec<_>>()
                 .join(";"),
         );

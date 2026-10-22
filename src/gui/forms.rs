@@ -68,7 +68,7 @@ fn text(key: i32, label: &str, value: impl ToString, hint: &str) -> EditorField 
         | "Myöhästymisraja (min)"
         | "Jakson pituus (min)"
         | "Jakson raja (min)" => 60,
-        "Emit-korjaus (s)" | "Vapaa-aika (s)" => 1,
+        "Vapaa-aika (s)" => 1,
         _ => return field,
     };
     field.duration = true;
@@ -442,15 +442,15 @@ pub(super) fn emit_correction_fields(
             sources,
         ),
         text(2, "Leimakoodi", code, "1–255, ei lukijakoodia 250"),
+        text(3, "Aika (s)", elapsed, "Korttiaika nollauksesta sekunteina"),
         clock_field(
-            3,
-            "Korttiaika nollauksesta (h : min : s)",
-            &format!(
-                "{:02}:{:02}:{:02}",
-                elapsed / 3600,
-                elapsed % 3600 / 60,
-                elapsed % 60
-            ),
+            5,
+            "Aika (hh:mm:ss)",
+            &as2026::emit_corrections::clock_text(as2026::emit_corrections::punch_clock(
+                project,
+                number,
+                i64::from(elapsed),
+            )?),
         ),
         text(
             4,
@@ -480,7 +480,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         card_number: driver.emit_number().map(|n| n.to_string()).unwrap_or_default(),
                         car: driver.auto.clone(),
                         start_time: driver.lahtoaika.clone(),
-                        correction_seconds: driver.emit_korjaus_sekuntia.to_string(),
+                        correction_seconds: driver.effective_emit_correction().to_string(),
                     },
                 );
                 fields.extend([
@@ -545,7 +545,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     class_code: class.map_or_else(String::new, |class| class.tunnus.clone()),
                     start_time: class
                         .map_or_else(|| "15:00:00".into(), |class| class.lahtoaika.clone()),
-                    correction_seconds: "0".into(),
+                    correction_seconds: project.virhepisteet.oletus_emit_korjaus_sekuntia.unwrap_or(120).to_string(),
                     ..Default::default()
                 },
             )
@@ -659,12 +659,15 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     &project.kilpailu.nimi,
                     "Nimi näkyy tulosluetteloissa",
                 ),
-                text(
-                    1,
-                    "Kilpailun numero",
-                    project.kilpailu.numero,
-                    "Kilpailun yksilöivä numero",
-                ),
+                text(4, "Maksimi kokonaismyöhästymisraja (min)",
+                    project.virhepisteet.kokonaismyohastymisraja_minuutteina.map_or_else(String::new, |v| v.to_string()),
+                    "Tyhjä kenttä käyttää oletusta 60 min; raja koskee kaikkia luokkia"),
+                text(5, "Oletus Emit-korjaus (s)",
+                    project.virhepisteet.oletus_emit_korjaus_sekuntia.map_or_else(String::new, |v| v.to_string()),
+                    "Tyhjä = 120 s. Uusien kilpailijoiden nollaus on tämän verran ennen lähtöä."),
+                text(6, "Lähtöluettelon kentät ja järjestys",
+                    project.virhepisteet.lahtoluettelon_kentat.join(", "),
+                    "Pilkuilla eroteltu järjestys: numero, luokka, emit, lahtoaika, kuljettaja, kuljettajan_seura, kartturi, kartturin_seura, auto. Tyhjä = oletus; jätä piilotettavat kentät pois."),
                 choice(
                     2,
                     "Ajanottotapa",
@@ -699,7 +702,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                 defaults.extra_rt,
             ];
             for (index, (label, value)) in [
-                ("Vapaa-aika (s)", settings.vapaa_aika_sekunteina),
+                ("Aikavirheen toleranssi (s)", settings.vapaa_aika_sekunteina),
                 ("Ennakon pisteet / s", settings.ennakon_pisteet_sekunnilta),
                 (
                     "Myöhästymisen pisteet / s",
@@ -708,7 +711,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                 ("Puuttuvan AT:n pisteet", settings.puuttuva_at),
                 ("Ylimääräisen AT:n pisteet", settings.ylimaarainen_at),
                 ("Puuttuvan JAT:n pisteet", settings.puuttuva_jat),
-                ("Jakson raja (min)", settings.jakson_raja_minuutteina),
+                ("Maksimi jaksomyöhästymisraja (min)", settings.jakson_raja_minuutteina),
                 ("AT:n enimmäispisteet", settings.at_enimmaispisteet),
                 ("JAT:n enimmäispisteet", settings.jat_enimmaispisteet),
                 ("Puuttuvan RT:n pisteet", settings.puuttuva_rt),
@@ -717,6 +720,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
             .into_iter()
             .enumerate()
             {
+                if matches!(index, 5 | 8) { continue; }
                 fields.push(text(
                     10 + index as i32,
                     label,
@@ -941,7 +945,9 @@ pub fn apply_field(
         Selection::Settings => {
             match key {
                 0 => ws.edit_competition(CompetitionField::Name, value)?,
-                1 => ws.edit_competition(CompetitionField::Number, value)?,
+                4 => ws.edit_competition(CompetitionField::TotalLateness, value)?,
+                5 => ws.edit_competition(CompetitionField::DefaultEmitCorrection, value)?,
+                6 => ws.edit_competition(CompetitionField::StartColumns, value)?,
                 2 => ws.edit_competition(CompetitionField::Timing, value)?,
                 3 => ws.edit_competition(CompetitionField::CustomSeries, value)?,
                 30..=33 => ws.edit_combined_class((key - 30) as usize, value)?,
@@ -1064,8 +1070,8 @@ mod target_duration_tests {
             "0"
         );
         let field = text(7, "Emit-korjaus (s)", "-12", "");
-        assert_eq!(field.hours.as_str(), "-00");
-        assert_eq!(field.seconds.as_str(), "12");
+        assert!(!field.duration);
+        assert_eq!(field.value.as_str(), "-12");
     }
 
     #[test]

@@ -68,6 +68,12 @@ fn default_method() -> u32 {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Overrides {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kokonaismyohastymisraja_minuutteina: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oletus_emit_korjaus_sekuntia: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lahtoluettelon_kentat: Vec<String>,
     pub vapaa_aika_sekunteina: Option<i64>,
     pub ennakon_pisteet_sekunnilta: Option<i64>,
     pub myohastymisen_pisteet_sekunnilta: Option<i64>,
@@ -194,6 +200,9 @@ pub struct Driver {
     pub lahtoaika: String,
     #[serde(default)]
     pub emit_korjaus_sekuntia: i64,
+    /// Vanhoissa tiedostoissa 0 tarkoitti oletusta 120 s. Uusi eksplisiittinen 0 tarkoittaa lähtöhetken nollausta.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub emit_korjaus_annettu: bool,
     /// Erilliset kilpailijakohtaiset virhepisteet, eivät asemarivien pisteitä.
     #[serde(default, skip_serializing_if = "AdditionalPenalties::is_zero")]
     pub lisavirheet: AdditionalPenalties,
@@ -234,6 +243,14 @@ pub fn validate_interruption_reason(reason: &str) -> Result<&str, CoreError> {
     Ok(reason)
 }
 impl Driver {
+    pub fn effective_emit_correction(&self) -> i64 {
+        if self.emit_korjaus_sekuntia == 0 && !self.emit_korjaus_annettu {
+            120
+        } else {
+            self.emit_korjaus_sekuntia
+        }
+    }
+
     pub fn emit_number(&self) -> Option<u32> {
         (self.emit != 0).then_some(self.emit)
     }
@@ -522,6 +539,13 @@ impl Project {
                 stations,
             });
         }
+        for class in &mut classes {
+            class.fields[7] = self
+                .virhepisteet
+                .kokonaismyohastymisraja_minuutteina
+                .unwrap_or(60)
+                .to_string();
+        }
         let mut competitors = Vec::new();
         let mut numbers = HashSet::new();
         let mut emit_cards = HashSet::new();
@@ -596,7 +620,7 @@ impl Project {
                 header_fields: fields,
                 total_penalties: 0,
                 declared_row_count: 0,
-                correction_seconds: driver.emit_korjaus_sekuntia,
+                correction_seconds: driver.effective_emit_correction(),
                 results: Vec::new(),
             });
         }
@@ -649,6 +673,16 @@ impl Project {
                 .map_err(|e| invalid(e.to_string()))?;
             documents.insert("emit.txt".to_owned(), doc);
         }
+        if self
+            .virhepisteet
+            .kokonaismyohastymisraja_minuutteina
+            .is_some_and(|v| !(0..=100_000).contains(&v))
+        {
+            return Err(invalid(
+                "Kokonaismyöhästymisrajan pitää olla 0–100000 minuuttia",
+            ));
+        }
+        crate::starts::columns(self)?;
         let params = self.virhepisteet.as_legacy();
         let basic = BasicSettings {
             identity: vec![

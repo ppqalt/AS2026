@@ -377,7 +377,7 @@ pub(crate) fn invalidate_input_changes(
         let timing_changed = global_timing_changed
             || class_timing_changed
             || old.lahtoaika != driver.lahtoaika
-            || old.emit_korjaus_sekuntia != driver.emit_korjaus_sekuntia;
+            || old.effective_emit_correction() != driver.effective_emit_correction();
         if let Some(result) = &mut driver.tallennettu_tulos {
             if timing_changed {
                 result.hyvaksytty = false;

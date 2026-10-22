@@ -241,7 +241,7 @@ fn start_lists_are_finnish_escaped_and_in_clock_order() {
     assert!(!html.contains("<script>"));
     assert!(html.find("12:00:00").unwrap() < html.find("13:00:00").unwrap());
     let csv = starts::start_list_csv(&project).unwrap();
-    assert!(csv.starts_with("\"Lähtöaika\""));
+    assert!(csv.starts_with("\"Nro\";\"Luokka\";\"Emit\";\"Lähtöaika\""));
     assert!(csv.contains("\"'=SUM(1;2)<script>\""));
     assert!(csv.contains("Ääkkönen"));
     assert!(csv.find("12:00:00").unwrap() < csv.find("13:00:00").unwrap());

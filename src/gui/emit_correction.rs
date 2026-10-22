@@ -23,10 +23,41 @@ pub(super) fn open(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     if !can_leave(state, app) {
         return Ok(());
     }
-    let Selection::ResultStation { number, row } = state.selection else {
+    let (number, row) = if state.page == 2 {
+        let project = state
+            .workspace
+            .as_ref()
+            .and_then(Workspace::project)
+            .ok_or_else(|| invalid("Avaa kilpailu"))?;
+        let read = usize::try_from(state.selected)
+            .ok()
+            .and_then(|i| project.leimaluvut.get(i))
+            .ok_or_else(|| invalid("Valitse lukutapahtuma"))?;
+        let driver = project
+            .kilpailijat
+            .iter()
+            .find(|d| d.emit == read.emit)
+            .ok_or_else(|| invalid("Kortin kilpailija puuttuu"))?;
+        if project
+            .active_readout(read.emit)
+            .is_none_or(|r| r.content().ok() != read.content().ok())
+        {
+            return Err(invalid("Valitse kortin aktiivinen lukutapahtuma"));
+        }
+        (
+            driver.numero,
+            u32::try_from(state.detail).map_err(|_| invalid("Valitse korjattava leima"))?,
+        )
+    } else if let Selection::ResultStation { number, row } = state.selection {
+        (number, row)
+    } else {
         return Err(invalid("Valitse ensin korjattava asemarivi"));
     };
+    let on_emit_page = state.page == 2;
     let ws = current_workspace(state)?;
+    if on_emit_page {
+        ws.ensure_readout_result(number)?;
+    }
     if ws.bc_view() {
         return Err(invalid(
             "Korjaa yhteinen leima NAC / perusluokat -näkymässä",
@@ -134,6 +165,28 @@ pub(super) fn edit(state: &mut State, app: &AppWindow, key: i32, value: &str) ->
         .map(|f| f.value.to_string());
     set_field(app, key, value);
     app.set_emit_edit_error("".into());
+    if matches!(key, 3 | 5) {
+        let basis = state
+            .emit_edit_basis
+            .as_ref()
+            .ok_or_else(|| invalid("Avaa korjaus uudelleen"))?;
+        let project = state
+            .workspace
+            .as_ref()
+            .and_then(Workspace::project)
+            .ok_or_else(|| invalid("Kilpailu puuttuu"))?;
+        if key == 3 {
+            if let Ok(elapsed) = value.parse::<u32>() {
+                let clock =
+                    emit_corrections::punch_clock(project, basis.number, i64::from(elapsed))?;
+                set_field(app, 5, &emit_corrections::clock_text(clock));
+            }
+        } else if let Ok(clock) = as2026::terminal::parse_clock(value) {
+            let origin = emit_corrections::punch_clock(project, basis.number, 0)?;
+            let elapsed = (clock.seconds_since_midnight()? - origin).rem_euclid(86_400);
+            set_field(app, 3, &elapsed.to_string());
+        }
+    }
     if key == 0 && previous_mode.as_deref() != Some(value) {
         let basis = state
             .emit_edit_basis
@@ -176,16 +229,10 @@ pub(super) fn edit(state: &mut State, app: &AppWindow, key: i32, value: &str) ->
             .find(|r| r.index == source)
         {
             // Kohdistus käyttää valitun lisäleiman aikaa; koodin toimitsija vahvistaa.
-            set_field(
-                app,
-                3,
-                &format!(
-                    "{:02}:{:02}:{:02}",
-                    row.elapsed_seconds / 3600,
-                    row.elapsed_seconds % 3600 / 60,
-                    row.elapsed_seconds % 60
-                ),
-            );
+            let elapsed = row.elapsed_seconds;
+            set_field(app, 3, &elapsed.to_string());
+            let clock = emit_corrections::punch_clock(project, basis.number, i64::from(elapsed))?;
+            set_field(app, 5, &emit_corrections::clock_text(clock));
         }
     }
     Ok(())
@@ -233,21 +280,7 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
             .map_err(|_| invalid("Anna kelvollinen kokonaisluku"))
     };
     let (code, elapsed_seconds, source_row) = if action == Action::Edit {
-        let parts = value(3)
-            .split(':')
-            .map(parse)
-            .collect::<Result<Vec<_>, _>>()?;
-        let [h, m, s] = parts.as_slice() else {
-            return Err(invalid("Anna korttiaika muodossa hh:mm:ss"));
-        };
-        if *m >= 60 || *s >= 60 {
-            return Err(invalid("Minuuttien ja sekuntien on oltava 0–59"));
-        }
-        let elapsed = h
-            .checked_mul(3600)
-            .and_then(|n| n.checked_add(m * 60))
-            .and_then(|n| n.checked_add(*s))
-            .ok_or_else(|| invalid("Korttiaika on liian suuri"))?;
+        let elapsed = parse(value(3))?;
         (
             parse(value(2))?,
             elapsed,
@@ -335,7 +368,7 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
             }
             3 => {
                 save_view(&app, &directory.join("02-perustelu-pakollinen.png")).unwrap();
-                app.invoke_emit_edit_edited(3, "00:07:00".into());
+                app.invoke_emit_edit_edited(3, "420".into());
                 app.invoke_emit_edit_edited(4, "Synteettinen varakello vahvistaa AT31-leiman".into());
                 app.invoke_emit_edit_close(true);
                 assert!(!app.get_emit_edit_open(), "{}", app.get_emit_edit_error());

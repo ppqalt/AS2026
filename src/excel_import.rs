@@ -776,6 +776,7 @@ pub fn preview_sheets(
                 kartanlukijan_lisenssi: String::new(),
                 auto: text(&field(row, car_col))?,
                 lahtoaika: time,
+                emit_korjaus_annettu: false,
                 emit_korjaus_sekuntia: 0,
                 lisavirheet: native::AdditionalPenalties::default(),
                 tila: None,

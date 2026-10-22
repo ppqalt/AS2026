@@ -87,6 +87,7 @@ struct State {
     route_draft: BTreeMap<i32, String>,
     invalid_route_fields: BTreeMap<i32, String>,
     filter: String,
+    result_class: String,
     worker: Option<ReaderWorker>,
     receiver: Option<Receiver<ReaderEvent>>,
     unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
@@ -98,6 +99,53 @@ struct State {
     lan_host: Option<as2026::lan::Host>,
     lan_last_notice: String,
     lan_pending: Option<Receiver<GuiResult<lan::Joined>>>,
+}
+
+fn preview_draw(s: &mut State, a: &AppWindow) -> GuiResult<()> {
+    if !can_leave(s, &a) {
+        return Ok(());
+    }
+    let project = current_workspace(s)?
+        .project()
+        .ok_or_else(|| invalid("Aineisto on vain katseltavissa"))?;
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64;
+    let draw = as2026::starts::draw(project, seed)?;
+    let selected_classes = project
+        .luokat
+        .iter()
+        .filter(|class| class.osallistuu_lahtoarvontaan)
+        .map(|class| class.tunnus.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let preview = draw
+        .assignments
+        .iter()
+        .map(|entry| {
+            let class = project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == entry.number)
+                .map_or("", |d| d.luokka.as_str());
+            format!(
+                "{class}   {}   {:02}:{:02}:{:02}",
+                entry.number, entry.time.hour, entry.time.minute, entry.time.second
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    confirmation(
+        s,
+        &a,
+        PendingAction::Draw(Box::new(draw)),
+        "Lähtöaikojen arvonta",
+        format!(
+            "Valitut luokat: {selected_classes}\n\nLähtöajat arvotaan luokkien lähtöajoista ja lähtöväleistä. Jo luetut kortit ja tallennetut tulokset ohitetaan. Hyväksy korvaa vain alla olevien kilpailijoiden lähtöajat.\n\nLuokka   Nro   Lähtö\n{preview}"
+        ),
+    );
+    Ok(())
 }
 
 fn invalid(message: &str) -> CoreError {
@@ -436,7 +484,28 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     let Some(ws) = &state.workspace else {
         return Ok(());
     };
-    let view = tables::data(ws, state.page, state.selected, &state.filter)?;
+    let mut view = tables::data(ws, state.page, state.selected, &state.filter)?;
+    let mut result_classes = vec!["Luokka".to_owned()];
+    result_classes.extend(ws.archive()?.basic.classes.iter().map(|c| c.code.clone()));
+    if ws.project().is_some_and(|p| p.beginners_cup.is_some()) {
+        result_classes.push("Beginners Cup".into());
+    }
+    app.set_result_class_index(
+        result_classes
+            .iter()
+            .position(|c| c == &state.result_class)
+            .unwrap_or(0) as i32,
+    );
+    app.set_result_classes(model(
+        result_classes.into_iter().map(SharedString::from).collect(),
+    ));
+    if state.page == 3 && !state.result_class.is_empty() && state.result_class != "Beginners Cup" {
+        view.rows.retain(|row| {
+            row.cells
+                .row_data(2)
+                .is_some_and(|c| c.as_str() == state.result_class)
+        });
+    }
     app.set_rows(model(view.rows));
     app.set_headers(model(view.headers));
     app.set_weights(model(view.weights));
@@ -646,6 +715,7 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
     }
     state.filter.clear();
     state.draft.clear();
+    state.result_class.clear();
     app.set_page(page);
     app.set_filter("".into());
     choose_row(state, -1)?;
@@ -1604,6 +1674,22 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         Ok(())
     });
+    action!(on_result_class_changed, |s, a, index| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        let label = a
+            .get_result_classes()
+            .row_data(index as usize)
+            .unwrap_or_default()
+            .to_string();
+        current_workspace(s)?.set_bc_view(label == "Beginners Cup")?;
+        s.result_class = if index == 0 { String::new() } else { label };
+        choose_row(s, -1)?;
+        update_tables(s, &a)?;
+        update_form(s, &a);
+        Ok(())
+    });
     action!(on_filter_changed, |s, a, text| {
         s.filter = text.to_string();
         update_tables(s, &a)
@@ -1627,7 +1713,10 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             return Ok(());
         }
         s.draft.clear();
-        if s.page == 3 && current_workspace(s)?.is_editable() {
+        if s.page == 2 && current_workspace(s)?.is_editable() {
+            s.detail = key;
+            a.set_detail_key(key);
+        } else if s.page == 3 && current_workspace(s)?.is_editable() {
             let number = selected_number(s)?;
             let archive = current_workspace(s)?.results()?;
             if let Some(row) = archive
@@ -2144,61 +2233,15 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             current_workspace(s)?.set_draw_classes(&selected)?;
             update_tables(s, &a)?;
             update_form(s, &a);
-            status(
-                &a,
-                "Arvonnan luokkavalinnat tallennettu. Valitse Arvo lähtöajat nähdäksesi esikatselun.",
-                false,
-            );
+            status(&a, "Arvonnan luokkavalinnat tallennettu.", false);
         }
         a.set_draw_classes_open(false);
+        if accepted {
+            return preview_draw(s, &a);
+        }
         follow_pending_result(s, &a)
     });
-    action!(on_draw_starts, |s, a| {
-        if !can_leave(s, &a) {
-            return Ok(());
-        }
-        let project = current_workspace(s)?
-            .project()
-            .ok_or_else(|| invalid("Aineisto on vain katseltavissa"))?;
-        let seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64;
-        let draw = as2026::starts::draw(project, seed)?;
-        let selected_classes = project
-            .luokat
-            .iter()
-            .filter(|class| class.osallistuu_lahtoarvontaan)
-            .map(|class| class.tunnus.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let preview = draw
-            .assignments
-            .iter()
-            .map(|entry| {
-                let class = project
-                    .kilpailijat
-                    .iter()
-                    .find(|d| d.numero == entry.number)
-                    .map_or("", |d| d.luokka.as_str());
-                format!(
-                    "{class}   {}   {:02}:{:02}:{:02}",
-                    entry.number, entry.time.hour, entry.time.minute, entry.time.second
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        confirmation(
-            s,
-            &a,
-            PendingAction::Draw(Box::new(draw)),
-            "Lähtöaikojen arvonta",
-            format!(
-                "Valitut luokat: {selected_classes}\n\nLähtöajat arvotaan luokkien lähtöajoista ja lähtöväleistä. Jo luetut kortit ja tallennetut tulokset ohitetaan. Hyväksy korvaa vain alla olevien kilpailijoiden lähtöajat.\n\nLuokka   Nro   Lähtö\n{preview}"
-            ),
-        );
-        Ok(())
-    });
+    action!(on_draw_starts, |s, a| preview_draw(s, &a));
     action!(on_confirm_action, |s, a, accepted| {
         if accepted && a.get_import_open() && a.get_import_name().trim().is_empty() {
             a.set_import_error("Anna kilpailun nimi.".into());

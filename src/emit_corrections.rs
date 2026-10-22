@@ -149,6 +149,32 @@ pub struct Row {
     shared: bool,
 }
 
+pub fn punch_clock(project: &Project, number: u32, elapsed: i64) -> Result<i64, CoreError> {
+    let driver = project
+        .kilpailijat
+        .iter()
+        .find(|d| d.numero == number)
+        .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+    let start = driver
+        .start_clock()?
+        .ok_or_else(|| invalid("Kilpailijan lähtöaika puuttuu"))?
+        .seconds_since_midnight()?;
+    let correction = driver.effective_emit_correction();
+    start
+        .checked_add(elapsed)
+        .and_then(|v| v.checked_sub(correction))
+        .ok_or_else(|| invalid("Leimauksen kellonaika on liian suuri"))
+}
+pub fn clock_text(seconds: i64) -> String {
+    let seconds = seconds.rem_euclid(86_400);
+    format!(
+        "{:02}:{:02}:{:02}",
+        seconds / 3600,
+        seconds % 3600 / 60,
+        seconds % 60
+    )
+}
+
 pub fn rows(project: &Project, number: u32) -> Result<Vec<Row>, CoreError> {
     let driver = project
         .kilpailijat

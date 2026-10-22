@@ -436,7 +436,7 @@ pub(crate) fn invalidate_input_changes(before: &Project, after: &mut Project) {
             || before.kilpailu.ajanottotapa != after.kilpailu.ajanottotapa
             || before.virhepisteet != after.virhepisteet
             || driver.lahtoaika != old_driver.lahtoaika
-            || driver.emit_korjaus_sekuntia != old_driver.emit_korjaus_sekuntia;
+            || driver.effective_emit_correction() != old_driver.effective_emit_correction();
         if let Some(result) = &mut entry.tallennettu_tulos {
             if timing_changed {
                 result.hyvaksytty = false;

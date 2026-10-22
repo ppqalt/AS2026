@@ -529,7 +529,15 @@ impl Workspace {
 
     pub fn add_driver(&mut self, edit: DriverEdit) -> Result<(), CoreError> {
         self.update(|project| {
-            project.kilpailijat.push(edit.parse()?);
+            let mut driver = edit.parse()?;
+            if edit.correction_seconds.trim().is_empty() {
+                driver.emit_korjaus_sekuntia = project
+                    .virhepisteet
+                    .oletus_emit_korjaus_sekuntia
+                    .unwrap_or(120);
+            }
+            driver.emit_korjaus_annettu = true;
+            project.kilpailijat.push(driver);
             Ok(())
         })
     }
@@ -578,7 +586,8 @@ impl Workspace {
                 DriverField::Car => driver.auto = value.trim().into(),
                 DriverField::Start => driver.lahtoaika = value.trim().into(),
                 DriverField::Correction => {
-                    driver.emit_korjaus_sekuntia = number(value, "Emit-korjaus")?
+                    driver.emit_korjaus_sekuntia = number(value, "Emit-korjaus")?;
+                    driver.emit_korjaus_annettu = true;
                 }
                 DriverField::MissingRtCount => {
                     let count: u32 = number(value, "Puuttuvien RT-asemien määrä")?;
@@ -1086,6 +1095,23 @@ impl Workspace {
                     }
                     project.kilpailu.ajanottotapa = method;
                 }
+                CompetitionField::TotalLateness => {
+                    project.virhepisteet.kokonaismyohastymisraja_minuutteina =
+                        optional_number(value, "Kokonaismyöhästymisraja")?;
+                }
+                CompetitionField::DefaultEmitCorrection => {
+                    project.virhepisteet.oletus_emit_korjaus_sekuntia =
+                        optional_number(value, "Oletus Emit-korjaus")?;
+                }
+                CompetitionField::StartColumns => {
+                    project.virhepisteet.lahtoluettelon_kentat = value
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_owned)
+                        .collect();
+                    crate::starts::columns(project)?;
+                }
                 CompetitionField::CustomSeries => {
                     project.sarjapisteet = if value.trim().is_empty() {
                         Vec::new()
@@ -1197,6 +1223,9 @@ pub enum StationField {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompetitionField {
+    TotalLateness,
+    DefaultEmitCorrection,
+    StartColumns,
     Number,
     Name,
     Timing,
@@ -1240,6 +1269,7 @@ impl DriverEdit {
             emit: card_number(&self.card_number)?,
             auto: self.car.trim().into(),
             lahtoaika: self.start_time.trim().into(),
+            emit_korjaus_annettu: false,
             emit_korjaus_sekuntia: optional_number(&self.correction_seconds, "Emit-korjaus")?
                 .unwrap_or(0),
             lisavirheet: Default::default(),

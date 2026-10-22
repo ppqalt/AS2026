@@ -217,68 +217,41 @@ fn summarize_notices(notes: &[String], publish_points: bool) -> String {
 }
 
 fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
-    view.headers = headers(&[
-        "Nro",
-        "Luokka",
-        "Kuljettaja",
-        "Kartanlukija",
-        "Emit",
-        "Auto",
-        "Lähtö",
-        if ws.is_editable() {
-            "Valmistelu / korttiluku"
-        } else {
-            "Tila"
-        },
-    ]);
-    view.weights = vec![0.06, 0.07, 0.20, 0.18, 0.10, 0.13, 0.10, 0.16];
+    let columns = ws
+        .project()
+        .and_then(|p| as2026::starts::columns(p).ok())
+        .unwrap_or_else(|| as2026::starts::START_COLUMNS.to_vec());
+    view.headers = headers(&columns.iter().map(|(_, label)| *label).collect::<Vec<_>>());
+    view.weights = columns
+        .iter()
+        .map(|(id, _)| match *id {
+            "numero" | "luokka" => 0.06,
+            "emit" | "lahtoaika" => 0.10,
+            _ => 0.17,
+        })
+        .collect();
     view.rows = archive
         .competitors
         .iter()
         .enumerate()
         .map(|(index, driver)| {
-            let state = match ws.project() {
-                Some(project) => {
-                    let card = driver.emit_card.parse::<u32>().ok();
-                    let read = if card.is_none() && start(driver) == "-" {
-                        "Täydennä Emit ja lähtö"
-                    } else if card.is_none() {
-                        "Täydennä Emit"
-                    } else if start(driver) == "-" {
-                        "Täydennä lähtö"
-                    } else if card.is_some_and(|card| project.active_readout(card).is_some()) {
-                        "Luettu"
-                    } else {
-                        "Ei luettu"
-                    };
-                    let manual = project
-                        .kilpailijat
-                        .iter()
-                        .find(|d| d.numero == driver.number)
-                        .and_then(|d| d.tila.as_ref());
-                    manual.map_or_else(
-                        || read.into(),
-                        |state| format!("{} · {read}", status(&state.tunnus)),
-                    )
-                }
-                None => status(&driver.status),
-            };
             row(
                 index,
-                vec![
-                    driver.number.to_string(),
-                    driver.class_code.clone(),
-                    driver.driver.clone(),
-                    driver.navigator.clone(),
-                    if driver.emit_card == "0" {
-                        "-".into()
-                    } else {
-                        driver.emit_card.clone()
-                    },
-                    field(&driver.header_fields, 9),
-                    start(driver),
-                    state,
-                ],
+                columns
+                    .iter()
+                    .map(|(id, _)| match *id {
+                        "numero" => driver.number.to_string(),
+                        "luokka" => driver.class_code.clone(),
+                        "emit" => driver.emit_card.clone(),
+                        "lahtoaika" => start(driver),
+                        "kuljettaja" => driver.driver.clone(),
+                        "kuljettajan_seura" => field(&driver.header_fields, 7),
+                        "kartturi" => driver.navigator.clone(),
+                        "kartturin_seura" => field(&driver.header_fields, 8),
+                        "auto" => field(&driver.header_fields, 9),
+                        _ => String::new(),
+                    })
+                    .collect(),
             )
         })
         .collect();
@@ -963,6 +936,50 @@ fn history(
                 })
                 .collect();
             punches_detail(view, read.emit, &read.lukukello, &punches);
+            if let Some(driver) = project.kilpailijat.iter().find(|d| d.emit == read.emit) {
+                // Only the active card content can be edited. Older distinct reads stay raw.
+                let active = project
+                    .active_readout(read.emit)
+                    .is_some_and(|r| r.content().ok() == read.content().ok());
+                if active && let Ok(rows) = as2026::emit_corrections::rows(project, driver.numero) {
+                    use as2026::emit_corrections::{clock_text, punch_clock};
+                    view.detail_title = format!(
+                        "Emit {} · {} · luettu sisältö",
+                        read.emit, driver.kuljettaja
+                    );
+                    view.detail_headers =
+                        headers(&["Asema", "Koodi", "Aika (s)", "Aika (hh:mm:ss)"]);
+                    view.detail_weights = vec![0.38, 0.14, 0.20, 0.28];
+                    view.detail_rows = vec![row(
+                        usize::MAX,
+                        vec![
+                            "0 · Lähtö".into(),
+                            "0".into(),
+                            "0".into(),
+                            driver.lahtoaika.clone(),
+                        ],
+                    )];
+                    view.detail_rows
+                        .extend(rows.into_iter().filter(|r| r.sequence != 1).map(|r| {
+                            let clock = if r.code == 0 {
+                                String::new()
+                            } else {
+                                punch_clock(project, driver.numero, i64::from(r.elapsed_seconds))
+                                    .map(clock_text)
+                                    .unwrap_or_default()
+                            };
+                            row(
+                                r.index as usize,
+                                vec![
+                                    r.name,
+                                    r.code.to_string(),
+                                    r.elapsed_seconds.to_string(),
+                                    clock,
+                                ],
+                            )
+                        }));
+                }
+            }
         }
         if groups.len() > 50 {
             notes.push(format!(
