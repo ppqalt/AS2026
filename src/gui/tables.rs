@@ -964,7 +964,7 @@ fn history(
                         ],
                     )];
                     view.detail_rows
-                        .extend(rows.into_iter().filter(|r| r.sequence != 1).map(|r| {
+                        .extend(rows.into_iter().filter(|r| r.expected_code != 0).map(|r| {
                             let clock = if r.code == 0 {
                                 String::new()
                             } else {
