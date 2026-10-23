@@ -98,6 +98,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                         "kehys" => Some(None),
                         _ => None,
                     };
+                    if matches!(expected, "luokkatuloste" | "asematuloste") { shared.borrow_mut().last_print = None; }
                     app.invoke_navigate(page);
                     assert_eq!(app.get_page(), page, "Sivun vaihto: {expected}");
                 }
@@ -137,7 +138,9 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                         "arvonta" => { assert!(app.get_draw_classes_open()); app.invoke_draw_classes_close(false); }
                         "bc" => { assert!(app.get_bc_open(), "{}", app.get_status_text()); app.invoke_bc_close(false); }
                         "luokkatuloste" | "asematuloste" => { assert!(app.get_print_classes_open(), "{expected}: {}", app.get_status_text()); app.invoke_print_classes_all(true); app.invoke_print_classes_close(true);
-                            assert!(shared.borrow().last_print.as_ref().is_some_and(|d| !d.pages.is_empty()), "Tuloste muodostui: {expected}"); }
+                            assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
+                            assert!(shared.borrow().last_print.as_ref().is_some_and(|d| !d.pages.is_empty()), "Tuloste muodostui: {expected}");
+                            assert_eq!(shared.borrow().last_print.as_ref().unwrap().landscape, expected == "asematuloste"); }
                         "uusi" => { assert!(app.get_dialog_open()); smoke::key(&app, slint::platform::Key::Escape); }
                         "vienti" | "vienti-csv" | "vienti-html" => {
                             let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, _ => 0 };
@@ -296,6 +299,12 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
             } else if step == 91 {
                 smoke::key(&app, slint::platform::Key::Tab); smoke::key(&app, slint::platform::Key::Return);
                 assert_eq!(shared.borrow().workspace.as_ref().unwrap().project().unwrap().leimaluvut.len(), read_count + 1, "Oikea Emit-kehystiedosto tallentui valikon kautta");
+            } else if step == 92 {
+                assert_eq!(app.get_page(), 3, "Kehystiedosto avaa kilpailijan tulokset");
+                assert!(app.get_result_entry_open(), "Kehystiedosto avaa tuloksen syöttöikkunan");
+                save_view(&app, &directory.join("kehystiedoston-jalkeen.png")).unwrap();
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_result_entry_open(), "Esc kohdistuu tuloksen syöttöikkunaan eikä vanhaan valikkoon");
             } else {
                 println!("Valikkokoe valmis: 50 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
