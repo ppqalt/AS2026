@@ -1,7 +1,30 @@
-# AS2026:n käyttöliittymän yhteiset säännöt
+# AS2026:n käyttöliittymän kehitysohje
 
 Fluent 2 / Dark Spruce, suomenkielinen työpöytäsovellus. Toteutus säilyy Rustissa
 ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytimen kautta.
+
+## Arkkitehtuuri
+
+`ui/app.slint` kokoaa sivupalkin, seitsemän pääsivua, Toiminnot-valikot ja
+valintaikkunat. `ui/components.slint` sisältää yhteiset taulukot, editorit ja
+paneelit. `ui/theme.slint` omistaa Fluent 2 / Dark Spruce -mitat ja värit.
+Paikallinen Fluent-sovitus ja sen lisenssit ovat `ui/fluent`-hakemistossa.
+
+`src/gui` sitoo Slintin tapahtumat yhteiseen Rustin Workspace-, tallennus- ja
+laskentakoodiin. Slint ei toteuta rinnakkaista pistelaskentaa tai LAN-protokollaa.
+Säilytä Mikky100:n kilpailusäännöt ja tietomallit; tarkista ajantasainen main
+ennen muutosta. Näyttöasetusten muutos ei saa poistaa hyväksyntöjä.
+
+## Tallennus ja editorit
+
+Uusi tietue tallentuu pakollisten kenttien valmistuttua. Virheellinen luonnos
+säilyy korjattavana; tallennusvirhettä ei esitetä onnistumisena.
+Kilpailijan muokkaus on Tulokset-sivulla keskitetty modaali. Valmis, Esc ja
+sama muokkauskutsu sulkevat sen vain validoinnin salliessa. Uudet Emit-luvut
+tallentuvat, mutta eivät vaihda aktiivisen editorin kilpailijaa kesken muokkauksen.
+Koko kortin leimat korjataan Emit-sivun **Muokkaa leimauksia** -toiminnolla.
+
+## Yhteiset säännöt
 
 1. **Säätimet:** korkeus 36 px, nimetty painike vähintään 76 px, painikkeiden väli
    8 px. Tavallinen ja ensisijainen painike käyttävät samaa Fluent-komponenttia,
@@ -101,3 +124,15 @@ painikkeen vanhempiviittausta ei saa käyttää. Kokeile aina oikeaa valikkoketj
 Komponentit, nykyinen sivurakenne ja tarkistuskuvat:
 [Käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md). Nykyinen opas
 on historiallisten beta- ja versio-ohjeiden edellä.
+
+## Tarkistukset ja lisenssit
+
+[Käännös- ja GUI-testikomennot](BUILDING.md). CI ajaa natiivin Linux- ja
+Windows-GUI:n 100/150 %:n skaalauksilla. Käytä `--demo`-kilpailua, erillisiä
+asetuksia ja virtuaalinäyttöä. Kuvakaappaus yksin ei todista toimintoa:
+varmista myös tallennus, uudelleenavaus ja tiedostojen sisältö.
+Automaattikokeissa ei käytetä oikeita kilpailutietoja tai fyysistä Emit-lukijaa.
+
+Paikallisen Fluent-sovituksen lisenssit ja alkuperäinen AboutSlint-maininta
+säilytetään. Katso [kolmannen osapuolen tiedot](../THIRD_PARTY.md) ja
+[sovituksen ylläpito-ohje](../ui/fluent/README.md).

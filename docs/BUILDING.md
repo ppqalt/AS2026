@@ -4,6 +4,7 @@ Valmiin [julkaisupaketin](https://github.com/ppqalt/AS2026/releases/latest)
 käyttäjä ei tarvitse käännöstyökaluja. Kehitys tarvitsee vakaan Rustin
 (Cargo.toml ilmoittaa vähimmäisversion), C/C++-linkittäjän ja alustan kehityskirjastot.
 Käytä ajantasaista stable-työkaluketjua ja versionhallittua Cargo.lock-tiedostoa.
+Suorita tämän ohjeen komennot repositorion juuressa, jossa Cargo.toml sijaitsee.
 
 ## Linux
 
@@ -83,7 +84,7 @@ AS2026_MENU_GUI_TEST=1 SLINT_SCALE_FACTOR=1 xvfb-run -a --server-args='-screen 0
 
 Windowsissa aseta ympäristömuuttuja PowerShellissä ennen samaa ohjelma-ajoa.
 CI käyttää .NETin prosessikahvaa ja tarkistaa päättymiskoodin. Katso täsmälliset
-Linux/Windows-komennot [.github/workflows/ci.yml](.github/workflows/ci.yml).
+Linux/Windows-komennot [.github/workflows/ci.yml](../.github/workflows/ci.yml).
 
 CI **avaa natiivin GUI:n**, lähettää hiiri- ja näppäintapahtumia, suorittaa
 kilpailun työnkulut ja tallentaa kuvat 100/150 %:n skaalauksilla. Valikkokoe
@@ -101,5 +102,5 @@ ovat historiallista aineistoa, eivät tämän version hyväksyntätesti.
 
 Pidä oikeat kilpailut, asetukset ja yksityiset avaimet repositorion ulkopuolella.
 `fixtures` sisältää synteettisiä esimerkkejä. Paikallinen tiedostolukko suojaa
-saman koneen tallennusta; usean koneen käyttö tehdään [LAN-toiminnolla](docs/LAHIVERKKO.md).
+saman koneen tallennusta; usean koneen käyttö tehdään [LAN-toiminnolla](LAHIVERKKO.md).
 Julkaisuautomaatio, allekirjoitukset ja paketit: [RELEASES.md](RELEASES.md).

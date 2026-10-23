@@ -2,7 +2,7 @@
 
 ## Komentorivin käynnistäminen
 
-Tarvitset kääntämiseen Rustin version 1.89 tai uudemman. Tarkemmat alustakohtaiset ohjeet ovat tiedostossa [BUILDING.md](BUILDING.md).
+Valmis komentoriviohjelma tulee julkaisupaketissa. Kehityskäännöksessä käytä ajantasaista vakaata Rustia ja lukittuja riippuvuuksia; Cargo.toml ilmoittaa paketin vähimmäisversion. Komennot suoritetaan repositorion juuressa. [Kääntäminen ja testaus](BUILDING.md).
 
 ```sh
 cargo run
@@ -26,7 +26,7 @@ cargo run -- tarkista oma-kilpailu
 
 Kilpailulla on yksi yhteinen `native::Project`-malli. Kilpailija viittaa luokan tunnukseen, luokka radan numeroon ja rata sisältää asemansa. Kortti yhdistetään kilpailijaan Emit-numeron perusteella. Kortinlukuhistoria ja tallennettu tarkastustulos ovat erillisiä: uusintaluku säilyttää käsikorjaukset, kunnes ne korvataan erikseen Tarkista-toiminnolla. Muuttunut rata vaatii uuden tarkastuksen. Ristiriitaiset kilpailija- tai Emit-numerot hylätään.
 
-Tiedostomuoto säilyy versiona `versio = 1`. Aiemmat tiedostot avautuvat edelleen. Kilpailijan auto, lisenssit, seurat, käsin valittu tila ja tallennettu asematulos ovat valinnaisia tietoja. Luokan `osallistuu_lahtoarvontaan` on vanhoissa tiedostoissa oletuksena tosi; Excel-tuonnissa se on aluksi epätosi. Lukutapahtuman valinnainen `luettu_unix_ms` kertoo tallennusajan Unix-ajan millisekunteina. Esimerkki on [fixtures/native-demo/kilpailu.toml](fixtures/native-demo/kilpailu.toml).
+Tiedostomuoto säilyy versiona `versio = 1`. Aiemmat tiedostot avautuvat edelleen. Kilpailijan auto, lisenssit, seurat, käsin valittu tila ja tallennettu asematulos ovat valinnaisia tietoja. Luokan `osallistuu_lahtoarvontaan` on vanhoissa tiedostoissa oletuksena tosi; Excel-tuonnissa se on aluksi epätosi. Lukutapahtuman valinnainen `luettu_unix_ms` kertoo tallennusajan Unix-ajan millisekunteina. Esimerkki on [fixtures/native-demo/kilpailu.toml](../fixtures/native-demo/kilpailu.toml).
 
 ## Kilpailijan, luokan, radan ja aseman muuttaminen
 
@@ -171,22 +171,17 @@ Käyttöliittymän **Tulokset** täydentää Emit-numerolla 0 merkityt asemat mu
 
 Tunnetun kilpailijaparin korttiluku avaa käyttöliittymässä automaattisesti Tulokset-näkymän. Keskeneräinen muokkaus saa valmistua ensin. Uusintaluku säilyttää tallennetun tarkastuksen; **Tarkista…** korvaa sen vasta vahvistuksen jälkeen.
 
-**Tuo Excel…** lukee `.xls`- tai `.xlsx`-pohjan RATA- ja KILP-välilehdet esikatseluun. Hyväksyntä luo uuden kilpailun valittuun kansioon. Seuratiedot säilyvät, eikä puuttuvia luokkia tai ratoja arvata. Tuonti ja sen vahvistus ovat käyttöliittymässä. Katso [Excel-kenttäkartta](docs/EXCEL_TUONTI.md).
+**Tuo Excel…** lukee `.xls`- tai `.xlsx`-pohjan RATA- ja KILP-välilehdet esikatseluun. Hyväksyntä luo uuden kilpailun valittuun kansioon. Seuratiedot säilyvät, eikä puuttuvia luokkia tai ratoja arvata. Tuonti ja sen vahvistus ovat käyttöliittymässä. Katso [Excel-kenttäkartta](EXCEL_TUONTI.md).
 
-**Arvonnan luokat…** avaa arvontapainikkeen vierestä kaikkien luokkien valintaruudut. Valintojen tallennus muuttaa vain luokkien **Osallistuu lähtöarvontaan** -asetusta; peruuttaminen ei muuta tietoja. **Arvo lähtöajat…** näyttää erikseen arvottujen kellonaikojen esikatselun. Ulkopuoliset luokat sekä jo luetut tai asematuloksen saaneet kilpailijat ohitetaan ja säilyttävät aikansa. Muut valitut lukemattomat arvotaan normaalisti. Lähtöluettelon voi tallentaa HTML:nä tai CSV:nä.
+**Kilpailijat → Toiminnot → Arvo lähtöajat** avaa kaikkien luokkien valintaruudut. Ikkunan **Arvo lähtöajat** tallentaa luokkien **Osallistuu lähtöarvontaan** -valinnat ja siirtyy kellonaikojen esikatseluun. Luokkavalinnan peruuttaminen ei muuta tietoja; lähtöajat tallentuvat vasta esikatselun hyväksymisestä. Ulkopuoliset luokat sekä jo luetut tai asematuloksen saaneet kilpailijat ohitetaan ja säilyttävät aikansa. Muut valitut lukemattomat arvotaan normaalisti. Lähtöluettelon voi tallentaa HTML:nä tai CSV:nä.
 
 Vanhan AS2015A-aineiston staattinen laskentapolku on erillään uuden kilpailun toimitsijalaskennasta. Kaikkia vanhan ohjelman epäselviä poikkeustapauksia tai historiallisten tulosten täydellistä vastaavuutta ei ole varmennettu.
 
 ## Tarkistukset
 
-```sh
-cargo fmt --all -- --check
-cargo test --all-targets
-cargo clippy --all-targets -- -D warnings
-cargo build --release
-cargo test --all-targets --features gui
-cargo clippy --all-targets --features gui -- -D warnings
-cargo build --release --features gui --bin as2026-gui
-```
-
-Testit kattavat vanhojen tiedostojen ja Excel-välilehtien lukua, TOML-yhteensopivuutta, käsikelloja, tilasiirtymiä, uusintalukuja, hyväksynnän esteitä sekä tallennuksen epäonnistumista ja paikallisia ristiriitoja. Synteettinen aineisto ei korvaa oikeaa vertailukilpailua tai fyysisiä Linux- ja Windows-lukijakokeita. Paikallisen alkuperäisen Excel-mallipohjan erillinen koe on kuvattu [Excel-tuonnin ohjeessa](docs/EXCEL_TUONTI.md).
+Yhteiset Rust-, Slint- ja GUI-tarkistukset on koottu
+[kääntämis- ja testausohjeeseen](BUILDING.md#rust--slint--ja-paketointitarkistukset).
+Ne kattavat vanhat tiedostot ja Excel-tuonnin, TOML-yhteensopivuuden,
+käsikellot, tilasiirtymät, uusintaluvut, hyväksynnän esteet sekä tallennuksen
+virheet ja ristiriidat. Paikallisen alkuperäisen Excel-mallipohjan erillinen
+koe on kuvattu [Excel-tuonnin ohjeessa](EXCEL_TUONTI.md).

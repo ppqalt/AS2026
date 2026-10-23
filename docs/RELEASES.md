@@ -1,13 +1,13 @@
 # AS2026:n julkaisujen tekeminen
 
-Nykyinen lisenssi on **BSD-2-Clause**. Repositorio on julkinen. Pelkkä dev-push tai tagi ei silti julkaise GitHub Releaseä: julkaisutyönkulku käynnistetään erikseen ja sen julkaisuvaihe pitää valita nimenomaisesti. Oletuksena syntyvät vain Actions-testipaketit.
+Nykyinen lisenssi on **BSD-2-Clause**. Repositorio on julkinen. Pelkkä main-päivitys tai tagin lähettäminen ei julkaise GitHub Releaseä: julkaisutyönkulku käynnistetään erikseen ja sen julkaisuvaihe pitää valita nimenomaisesti. Oletuksena syntyvät vain Actions-testipaketit.
 
 Paketointi tarkistaa projektin LICENSE-tiedoston koko standarditekstin, Cargo-lisenssitiedon sekä paketin lisenssimetadatan. Väärä oma lisenssi estää paketoinnin ja allekirjoituksen. Riippuvuuksien omat lisenssit säilytetään muuttamatta niitä.
 
 Git-historia ja vanhat tagit säilytetään muuttumattomina.
 
 
-AS2026 0.6.0:sta alkaen jatkuva kehitys ja hyväksytyt julkaisut kootaan `main`-haaraan. Vanhat kehitys- ja beta-haarat poistetaan vasta hyväksytyn julkaisun jälkeen. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.7.0`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.
+Hyväksytyt muutokset kootaan `main`-haaraan. Tarpeettomat kehityshaarat poistetaan vasta, kun niiden muutokset on yhdistetty tai erillinen työ on säilytetty palautettavana. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.7.0`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.
 
 ## Paketit
 
@@ -75,18 +75,53 @@ cargo run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-un
 
 Allekirjoitus tehdään vasta molempien alustojen tarkistetuista hyötytiedostoista. Paikallinen yksittäisen alustan kehityskäännös ei ole allekirjoitettu ohjelmapäivitys. Älä lisää paikallisia kilpailuja, asetuksia, yksityisiä avaimia tai GitHub-tunnuksia julkaisupakettiin.
 
-## Version 0.7.0 julkaiseminen
+## Uuden version julkaiseminen
 
-Yhdistä hyväksytyt muutokset mainiin, varmista molempien alustojen vihreä CI
-ja luo uusi `v0.7.0`-tagi juuri tarkistettuun commitiin. Aikaisempia tageja ei siirretä.
-Käynnistä sen jälkeen varsinainen julkaisu:
+Versio [0.7.0](https://github.com/ppqalt/AS2026/releases/tag/v0.7.0) on jo julkaistu.
+Sen tagia tai paketteja ei luoda uudelleen. Seuraavat vaiheet koskevat aina
+**uutta, vielä käyttämätöntä versionumeroa**. Suorita komennot repositorion juuressa.
+
+1. Yhdistä tarkistetut muutokset mainiin ja päivitä Cargo.toml, Cargo.lock sekä
+   julkaisutiedot. Varmista Linuxin ja Windowsin vihreä CI sekä GUI-työnkulut.
+2. Varmista Gitin allekirjoitusasetukset ennen tagin luomista. SSH-allekirjoituksessa
+   Gitin `gpg.format` on `ssh` ja `user.signingkey` osoittaa käytettävään avaimeen.
+   Lisää sen **julkinen avain** GitHub-tilille **Signing key** -tyyppisenä.
+   GPG-allekirjoitus käy myös. Tagin tekijän sähköpostin pitää olla GitHub-tilillä
+   varmennettu tai tilin oma GitHubin noreply-osoite. Yksityistä avainta ei
+   lisätä repositorioon tai lähetetä GitHubiin.
+3. Luo **allekirjoitettu annotated-tagi** juuri testattuun commitiin. Alla `vX.Y.Z`
+   on paikkamerkki: korvaa se uudella versiolla ennen komentojen suorittamista.
 
 ```sh
-gh workflow run release.yml --ref main -f release_tag=v0.7.0 -f publish_release=true
+release_tag=vX.Y.Z
+git tag -s "$release_tag" -m "AS2026 ${release_tag#v}"
+git verify-tag "$release_tag"
+git push origin "refs/tags/$release_tag"
 ```
 
-Käynnistäminen ei vielä tarkoita, että lataukset ovat saatavilla. Release syntyy
-vasta molempien pakettien, testien ja allekirjoituksen valmistuttua.
-Valmiilla julkaisusivulla on oltava kaksi käyttöjärjestelmäpakettia,
-`release.json` ja `release.sig`. Puuttuva allekirjoitusavain tai epäonnistunut
-rakennus pysäyttää julkaisun; sitä ei kierretä käsin allekirjoittamattomilla paketeilla.
+SSH:n paikallinen `verify-tag` tarvitsee luotetun julkisen avaimen
+`gpg.ssh.allowedSignersFile`-asetuksen osoittamaan tiedostoon. Tämä paikallinen
+varmennus ja GitHubin varmennus ovat erillisiä tarkistuksia.
+
+4. Avaa GitHubin [Tags-sivu](https://github.com/ppqalt/AS2026/tags). Varmista tagin
+   vihreä **Verified**-merkintä ja avaa sen tiedot: merkinnän pitää koskea tagin
+   allekirjoitusta. Pelkkä Verified-commit, `release.sig` tai vihreä CI ei korvaa
+   tagin varmennusta. Käytä allekirjoitusta mahdollisuuksien mukaan myös
+   julkaisucommitissa. Jos avain puuttuu GitHubista, rekisteröi julkinen avain ja
+   tarkista tila uudelleen; olemassa olevaa julkaisutagia ei siirretä.
+5. Käynnistä varsinainen julkaisu vasta varmennusten jälkeen:
+
+```sh
+gh workflow run release.yml --ref main -f release_tag="$release_tag" -f publish_release=true
+```
+
+6. Odota julkaisutyönkulun valmistumista. Tarkista, että vakaa julkaisusivu on
+   julkinen ja sisältää Linux- ja Windows-arkistot sekä `release.json`- ja
+   `release.sig`-tiedostot. Lataa paketit julkisista osoitteista, varmista
+   allekirjoitus ja manifestin tiedostot sekä kokeile ladattua sovellusta
+   erillisellä esimerkkikilpailulla. Säilytä fyysisen kaluston testauksen rajat
+   raportissa.
+
+Käynnistäminen ei vielä tarkoita, että lataukset ovat saatavilla. Puuttuva
+allekirjoitusavain tai epäonnistunut rakennus pysäyttää julkaisun; sitä ei kierretä
+allekirjoittamattomilla paketeilla tai ohitetuilla testeillä.

@@ -6,7 +6,11 @@ WordPress-lisäosaa tai AS2026:lle avattavaa saapuvaa internet-yhteyttä ei tarv
 
 ## Ennen aloittamista
 
-Pyydä palvelimen ylläpitäjältä yhteystapa, palvelin, portti, käyttäjätunnus,
+**Paikallinen live** kirjoittaa valittujen luokkien tulossivut oman koneen kansioon
+ilman palvelinyhteyttä. Valitse luokat, tiedostonimi ja paikallisten tulossivujen
+kansio. Palvelintunnuksia tai yhteystestiä ei tarvita.
+
+Palvelinjulkaisua varten pyydä ylläpitäjältä yhteystapa, palvelin, portti, käyttäjätunnus,
 kohdehakemisto ja julkinen osoite. Varmista oikeus korvata valittu tulostiedosto.
 SFTP tarvitsee lisäksi palvelimen SHA256-heksasormenjäljen. WordPress-linkin
 lisäämisestä ja mahdollisen CDN:n asetuksista sovitaan sivuston ylläpitäjän kanssa.
@@ -108,7 +112,6 @@ yhteyskenttien yläpuolella. Kentät vierivät, mutta tilatieto ja toimintopaini
 pysyvät näkyvissä.
 
 ![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/070-live-900x600.png)
-
 
 ## Luokkakohtaiset kiertävät sivut
 

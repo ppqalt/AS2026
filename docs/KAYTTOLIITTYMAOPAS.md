@@ -2,7 +2,7 @@
 
 Tämä opas kuvaa AS2026 0.7.0:n, jonka pohjana on Mikky100:n 0.6.11-toteutus. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
 Emit-editorin toiminta tulevat Mikky100:n toteutuksesta. Opas ei määrittele niitä
-uudelleen. Katso myös [kilpailun työvaiheet](../KILPAILUTOIMINNOT.md) ja
+uudelleen. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja
 [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot

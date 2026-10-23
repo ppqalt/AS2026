@@ -1,4 +1,6 @@
-# Version 0.6.10 muutosten ominaisuuskohtainen vertailu
+# Historia: version 0.6.10 muutosten ominaisuuskohtainen vertailu
+
+> Historiallinen PR #11:n vertailu- ja tarkastusraportti. Päätökset ja testitulokset kuvaavat version 0.6.10 valmistelua. Nykyinen [käyttöliittymäopas](../KAYTTOLIITTYMAOPAS.md).
 
 Pohja: `ac686bf079342bd6980ae497b4899f0b75cc3f0a`, Mikky100:n
 uusin main ja julkaistu v0.6.9 tarkistettaessa 23.10.2026. Haara:
@@ -64,5 +66,5 @@ Ajantasainen alustatulos näkyy tämän haaran pull requestin tarkistuksissa.
 Käännös tai callback-tarkkailija yksin ei ole väite fyysisestä laitekokeesta.
 Natiivi tiedostovalitsin ja paperitulostus on rajattu automaattikokeen ulkopuolelle.
 
-[Kuvallinen komponenttiopas](KAYTTOLIITTYMAOPAS.md) ·
-[Palomuuriohje](PALOMUURI.md) · [Mikky100:n 0.6.9-työnkulut](KAYTTOLIITTYMA_069.md)
+[Kuvallinen komponenttiopas](../KAYTTOLIITTYMAOPAS.md) ·
+[Palomuuriohje](../PALOMUURI.md) · [Mikky100:n 0.6.9-työnkulut](KAYTTOLIITTYMA_068_069.md#käyttöliittymän-korjaukset-069)

@@ -1,10 +1,10 @@
-## Palomuuri: Windows ja UFW
+# Palomuuri: Windows ja UFW
 
 Avaa portit vain **isäntäkoneessa** ja luotetulle kilpailuverkolle. TCP **42165**
 on kilpailuyhteys; UDP **42166** on automaattinen haku. Reitittimen porttiohjausta
 internetiin ei tarvita. Jos haku ei toimi, kokeile isännän IP-osoitetta käsin.
 
-### Windows
+## Windows
 
 Varmista Windowsin **Asetukset → Verkko ja Internet → yhteyden ominaisuudet**, että
 luotetun kilpailuverkon profiili on **Yksityinen**. Avaa **Windowsin suojaus →
@@ -26,7 +26,7 @@ Säännöt poistetaan tarvittaessa:
 Remove-NetFirewallRule -Name "AS2026-LAN-TCP", "AS2026-LAN-UDP"
 ```
 
-### Linux / UFW
+## Linux / UFW
 
 Tarkista tila komennolla `sudo ufw status`. Seuraava esimerkki sallii oman
 **192.168.1.0/24**-aliverkon; korvaa se kilpailuverkon todellisella aliverkolla.

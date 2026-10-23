@@ -45,14 +45,14 @@ kilpailuun. Isäntäkoneen automaattista vaihtoa ei ole.
   sekä RT- ja muut virheet. Aloitettu lomake säilyy uuden kortin saapuessa.
 - Tarkasta asemarivit ja automaattinen tila. Puuttuva JAT tai myöhästymisrajan
   ylitys voi aiheuttaa KESK-tilan; puuttuva käsikello jätetään tyhjäksi.
-- Korjaa tarvittaessa aktiivisen Emit-luvun leimaukset Emit-sivulla ja anna perustelu.
+- Korjaa tarvittaessa aktiivisen Emit-luvun leimaukset Emit-sivulla.
   Alkuperäinen lukema säilyy. Korjauksen jälkeen tarkista laskenta ja hyväksy tulos uudelleen.
 - BC-osallistujan NAC-tallennusta seuraa BC:n oma syöttö. Syötä sen RT:t ja muut
   virhepisteet erikseen; NAC:n pisteet eivät korvaa BC:n arvoja.
 - **Tutki** laskee asemarivit uudelleen. **Tarkista** muodostaa ne aktiivisesta
   kortista uudelleen. Lue vahvistus ennen käsin korjattujen tietojen korvaamista.
 
-Tarkat työvaiheet: [tuloslaskenta](../KILPAILUTOIMINNOT.md),
+Tarkat työvaiheet: [tuloslaskenta](KILPAILUTOIMINNOT.md),
 [Emit-korjaus](EMIT_RIVIN_KORJAUS.md), [Beginners Cup](LUOKAT_JA_BEGINNERS_CUP.md).
 
 ## Live ja kilpailun päättäminen

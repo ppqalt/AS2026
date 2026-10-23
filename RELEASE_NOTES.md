@@ -35,7 +35,7 @@ sarakevalinta, hyväksyntöjen käsittely ja LAN-tilaviestit säilyvät mukana.
 
 - BC:n aikojen ja virhepisteiden erillinen syöttö NAC-tuloksen tallentamisen jälkeen.
 - Julkaistavien luokkien valinta, tiiviit luokkakohtaiset tulossivut ja paikallinen live.
-- Alkuperäiset Emit-luvut, perustellut leimakorjaukset ja hyväksyntöjen tarkistukset.
+- Alkuperäiset Emit-luvut, jäljitettävät leimakorjaukset ja hyväksyntöjen tarkistukset.
 - Lähiverkon samanaikainen käyttö, muokkausristiriitojen suojaus ja katkon lähetysjono.
 - Sisäänrakennettu SFTP/FTP-siirto sekä Windowsin rajattu tiedostolukitusten uudelleenyritys.
 

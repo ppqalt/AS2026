@@ -1,16 +1,19 @@
 # Emit-kortin leimausten korjaus
 
 1. Valitse Emit-sivulta aktiivinen korttiluku ja **Muokkaa leimauksia**.
-2. Muokkaa koko kortin listasta koodia, korttiaikaa tai hh:mm:ss-kellonaikaa.
-   Kellonaika ja korttiaika lasketaan toistensa perusteella käyttäen kilpailijan
-   lähtöaikaa ja Emit-korjausta.
-3. Lisää puuttuva leima tai poista ylimääräinen leima editorin toiminnoilla.
-4. Tallenna. Virheellinen syöte jää korjattavaksi. Peruuta tai Esc hylkää luonnoksen.
+2. Muokkaa leiman Emit-koodia tai hh:mm:ss-kellonaikaa. Korttiaika lasketaan
+   automaattisesti kilpailijan lähtöajan ja Emit-korjauksen perusteella.
+   Alkuperäinen nollaleima säilyy eikä sille ole muokkauskenttää.
+3. Lisää puuttuva leima painikkeesta **+ Lisää leima**. Poista leima valitsemalla
+   sen **Leiman käyttö** -kentästä **Poista leima**.
+4. Paina **Tallenna korjaus**. Virheellinen syöte jää korjattavaksi.
+   **Peruuta** tai Esc hylkää luonnoksen.
 
-Perustelu ei ole pakollinen Mikky100:n nykyisessä editorissa. Alkuperäisiä
-lukemia ei korvata. **Palauta alkuperäiset** palauttaa alkuperäisen korttisisällön
-uutena korjauksena. Käsikellot ja muut virhepisteet täydennetään tuloksen
-syöttöikkunassa; ne eivät ole Emit-kortin alkuperäisiä leimoja.
+Editori ei kysy erillistä perustelua. Alkuperäisiä lukemia ei korvata.
+**Palauta alkuperäiset leimat** palauttaa korttisisällön muokkausluonnokseen;
+palautus tallentuu uutena korjauksena vasta painikkeesta **Tallenna korjaus**.
+Aikaisempia korjauksia ei poisteta. Käsikellot ja muut virhepisteet täydennetään
+tuloksen syöttöikkunassa; ne eivät ole Emit-kortin alkuperäisiä leimoja.
 
 ## Seuraukset ja jäljitettävyys
 
@@ -23,8 +26,6 @@ syöttöikkunassa; ne eivät ole Emit-kortin alkuperäisiä leimoja.
 - `leimaluvut` ei muutu. `emit_korjaukset` sisältää alkuperäisen lukeman
   viittauksen, kilpailijan, aseman, perustelun, ajan sekä ennen/jälkeen-leimat.
   Koko korjaushistoria säilyy kilpailutiedostossa.
-- **Palauta alkuperäiset leimat** kumoaa kaikki saman korttisisällön korjaukset
-  uutena tapahtumana. Aikaisempia korjauksia ei poisteta.
 - Saman korttisisällön uusintaluku säilyttää korjauksen. Eri korttisisältö ei
   peri vanhan lukeman korjauksia. Aiemmat tallennetut tulokset säilyvät kuten
   ennenkin, kunnes toimitsija käyttää Tarkista-toimintoa.

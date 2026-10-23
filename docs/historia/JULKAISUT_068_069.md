@@ -13,7 +13,7 @@ Tämä on versiohistoriaa. Nykyiset julkaisutiedot: [0.7.0](../../RELEASE_NOTES.
 - Luokan poistaminen sen tiedoista. Luokkien ja ratojen muokkaaminen laskennan jälkeen sekä ratakohtainen uudelleenlaskentakysely.
 - Radoista näytetään nimi sisäisen numeron sijaan.
 
-[Käyttöohje](../KAYTTOLIITTYMA_069.md).
+[Version 0.6.9 käyttöohje](KAYTTOLIITTYMA_068_069.md#käyttöliittymän-korjaukset-069).
 
 # AS2026 0.6.8
 

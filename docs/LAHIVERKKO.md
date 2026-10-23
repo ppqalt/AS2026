@@ -4,8 +4,10 @@ Saatavilla versiosta 0.6.7 alkaen. Käyttöliittymä ja yhteysvirheet ovat suome
 
 ## Käyttö
 
-1. Pysäytä Emit-lukija yhteyden perustamisen ajaksi. Avaa kilpailu isäntäkoneessa. Paina sivupalkin yhteystilaa ja **Jaa tämä kilpailu**.
-2. Muilla koneilla avaa **Lähiverkko**. Haku täydentää löytyneen isännän osoitteen.
+1. Pysäytä Emit-lukija yhteyden perustamisen ajaksi. Avaa kilpailu isäntäkoneessa.
+   Paina sivupalkin **Yhteys**-painiketta ja **Jaa tämä kilpailu**.
+2. Avaa muillakin koneilla sivupalkin **Yhteys**-painike. Automaattinen haku
+   täydentää löytyneen isännän osoitteen; haun voi uusia painikkeesta **Etsi lähiverkosta**.
    Anna isäntäkoneessa näkyvä 12 merkin parituskoodi ja paina **Enter** tai **Yhdistä kilpailuun**.
 3. Jos haku ei löydä isäntää, kirjoita sen IP-osoite käsin. Isännän yhteysikkuna näyttää
    osoitteen. Tarvittaessa osoitteeseen voi liittää portin, esimerkiksi `192.168.1.20:42165`.
@@ -21,8 +23,8 @@ Katso [Windowsin ja UFW:n rajatut palomuurisäännöt](PALOMUURI.md).
 Vieraat WLAN-verkot voivat estää laitteiden välisen liikenteen. Sovellus ei muuta palomuuria.
 Internet-yhteyttä, verkkolevyä tai yhteistä kansiota ei käytetä.
 
-Yläpalkki näyttää ajan tasalla olevan yhteyden, jonottavat tapahtumat, katkon tai
-huomautuksen. Yhteysikkunasta näkee tarkemman virheen. Isäntäkone pitää jättää käyntiin.
+Sivupalkin yhteyspainike näyttää ajan tasalla olevan yhteyden, jonottavat tapahtumat,
+katkon tai huomautuksen. Yhteysikkunasta näkee tarkemman virheen. Isäntäkone pitää jättää käyntiin.
 Kilpailun vaihtaminen edellyttää yhteyden sulkemista. Palvelinroolin siirtämistä toiselle
 koneelle kesken katkon ei tehdä automaattisesti.
 
@@ -66,9 +68,9 @@ Isäntä vertaa hyväksyttävien asemarivien leimakoodeja ja aikoja myös nykyis
 Emit-syötteeseen. Vanhaa pohjaa ei voi hyväksyä uudelleen vain kuittaamalla lomaketta.
 Tietokoneiden seinäkelloja ei käytetä ristiriitojen automaattiseen ratkaisemiseen.
 
-Emit-rivin korjaus käyttää samaa olemassa olevaa perusteltua korjaushistoriaa myös
-verkossa. Alkuperäiset leimat säilyvät. Korjaus, pisteet ja hyväksynnän poistuminen
-välittyvät kaikille koneille.
+Emit-leimausten korjaus käyttää samaa korjaushistoriaa myös verkossa.
+Nykyinen editori ei vaadi erillistä perustelua. Alkuperäiset leimat säilyvät.
+Korjaus, pisteet ja hyväksynnän poistuminen välittyvät kaikille koneille.
 
 ## Tallennus ja palautuminen
 

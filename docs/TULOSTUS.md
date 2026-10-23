@@ -11,7 +11,10 @@ kilpailijan tiedoista. Kellon voi antaa muodossa `18:03:25`, `18.03.25` tai
 
 **Tab** siirtyy aikakentästä seuraavaan, viimeisestä ajasta puuttuvien RT-asemien
 määrään, siitä muihin virhepisteisiin ja lopuksi **Tallenna**- ja **Tallenna ja tulosta** -painikkeisiin.
-**Tallenna** hyväksyy kelvollisen tuloksen ilman tulostamista. **Tallenna ja tulosta** lähettää lisäksi tulosteen; painikkeen voi aktivoida Enterillä. Aiemmin syötetyt ylimääräisten RT-asemien
+**Tallenna** hyväksyy kelvollisen tuloksen ilman tulostamista. **Tallenna ja tulosta** lähettää lisäksi tulosteen.
+Enter syöttökentässä käynnistää **Tallenna ja tulosta** -toiminnon. Kun kohdistus on
+**Tallenna**- tai **Peruuta**-painikkeessa, Enter suorittaa kyseisen painikkeen toiminnon.
+Aiemmin syötetyt ylimääräisten RT-asemien
 pisteet säilyvät; niitä voi muuttaa kilpailijan tiedoista.
 
 **Tallenna ja tulosta** tallentaa ajat ja lisävirheet sekä laskee aikavirheet. Tulos tulee
@@ -28,7 +31,7 @@ käyttävät BC:n omia virhepisteitä ja asemavalintaa. Raaka Emit-aineisto säi
 
 ## Luokka- ja asematulokset
 
-Tulokset-sivun yläreunassa ovat **Tulosta luokkatulokset** ja
+Avaa **Tulokset → Toiminnot → Tulosta luokkatulokset** tai
 **Tulosta asematulokset**. Valitse yksi tai useampi perusluokka, yhdistetty
 luokka tai määritetty Beginners Cup. Muiden luokkien tuloksia ei lisätä tulosteeseen.
 Jokainen valittu luokka alkaa omalta sivultaan. Oletuksena kukin luokka sovitetaan
@@ -41,7 +44,7 @@ Luokkatuloste sisältää sijan, numeron, nimet, seurat, auton, tuloksen, mahdol
 nousu- ja sarjapisteet sekä tilan syyn. Asematulosteessa näkyvät asemakohtaiset
 aikavirheet ja pistesummat. Keskeneräiselle tulokselle ei tulosteta sijoitusta
 tai esikatselun pisteitä. Luokkien sijoitukset tulevat samasta laskennasta kuin
-ohjelman muissa tulosviennissä.
+ohjelman muissa tulosvienneissä.
 
 ## Tulostin
 

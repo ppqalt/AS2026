@@ -15,4 +15,4 @@ Tämä kuvaa aiempaa julkaisua; ohjeiden linkit on suhteutettu arkistokansioon. 
 
 Pohjana on julkaistu 0.6.10. Sen valikko-, Emit-, LAN-, tulostus- ja SFTP-korjaukset säilyvät mukana.
 
-[Käyttöopas](../KAYTTOLIITTYMAOPAS.md) · [Livejulkaisun ohje](../LIVE_JULKAISU.md) · [Beginners Cup](../LUOKAT_JA_BEGINNERS_CUP.md)
+[Nykyinen käyttöliittymäopas](../KAYTTOLIITTYMAOPAS.md) · [Livejulkaisun ohje](../LIVE_JULKAISU.md) · [Beginners Cup](../LUOKAT_JA_BEGINNERS_CUP.md)

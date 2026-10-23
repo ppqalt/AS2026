@@ -46,7 +46,7 @@ Valitse Yleiskatsaus → **Toiminnot → Tuo kilpailu Excelistä**, avaa `.xls`-
 
 Tuonti lukee vain tunnistetun **RATA**- ja **KILP**-pohjan: radat ja asemat asetuksineen sekä kilpailijaparit, Emit-numerot, lähtöajat, molempien seurat ja autot. Kelvottomat rivit selitetään; epäselviä luokkia tai ratoja ei arvata. Toistuvat kilpailija- tai Emit-numerot estävät vahvistuksen. Makroja tai kaavoja ei suoriteta eikä lähdetyökirjaa muuteta.
 
-Tuodut luokat eivät aluksi osallistu lähtöarvontaan. Näin KILP-välilehden lähtöajat säilyvät, kunnes toimitsija valitsee luokat arvontaan. Kenttäkartta ja tarkemmat rajat ovat [Excel-tuonnin kuvauksessa](docs/EXCEL_TUONTI.md).
+Tuodut luokat eivät aluksi osallistu lähtöarvontaan. Näin KILP-välilehden lähtöajat säilyvät, kunnes toimitsija valitsee luokat arvontaan. Kenttäkartta ja tarkemmat rajat ovat [Excel-tuonnin kuvauksessa](EXCEL_TUONTI.md).
 
 ## Lähtöajat ja lähtöluettelo
 

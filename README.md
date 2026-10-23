@@ -40,7 +40,7 @@ varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 
 - Kilpailijat, luokat, yhdistetyt luokat, radat ja asemat sekä lähtöluettelon sarakevalinta.
 - RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla ja erillisillä tuontivalinnoilla.
-- Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten perusteltu korjaus.
+- Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten korjaus.
   Alkuperäiset leimat säilyvät jäljitettävinä.
 - Käsikellot, kilpailijan tilat, AT/JAT, NAC ja Beginners Cup sekä erilliset hyväksynnät.
 - Luokka-, asema- ja kilpailijatulosteet sekä HTML-, CSV- ja XLSX-tulosvienti.
@@ -64,15 +64,13 @@ Paikallinen live päivittää sivut omalle koneelle. Palvelinjulkaisu siirtää 
 luokkakohtaisesti kiertävät sivut SFTP:llä tai FTP:llä. Valitse vain yksi julkaiseva
 kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULKAISU.md).
 
-## Ohjeet ja kehitys
+## Ohjeet
 
+- [Kaikki käyttö- ja kehitysohjeet](docs/README.md)
 - [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md)
-- [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md)
-- [Excel-tuonti](docs/EXCEL_TUONTI.md), [Emit-korjaus](docs/EMIT_RIVIN_KORJAUS.md),
-  [luokat ja Beginners Cup](docs/LUOKAT_JA_BEGINNERS_CUP.md), [tulostus](docs/TULOSTUS.md)
+- [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
-- [Kääntäminen ja testaus](BUILDING.md), [komentorivi](CLI.md),
-  [UI-kehitys](UI.md), [julkaisuautomaatio](RELEASES.md)
+- [Version 0.7.0 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja

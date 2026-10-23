@@ -41,6 +41,11 @@ Tulokset-sivun **Beginners Cup** -painike avaa BC-näkymän ja uusi painallus
 palauttaa perusluokkiin. Näkymän voi valita myös luokkavalikosta. Kortti luetaan kerran, ja ensimmäinen lukema voi muodostaa molemmat
 asematulokset. Alkuperäinen Emit-historia säilyy muuttamattomana.
 
+BC-osallistujan NAC-tuloksen tallentaminen avaa automaattisesti Beginners Cupin
+oman aikojen ja virhepisteiden syötön. Täytä BC:n puuttuvat RT:t ja muut
+virhepisteet erikseen ja tallenna. Tallennetut BC-arvot näytetään
+uusintakäsittelyssä; NAC-arvoja ei kopioida niiden tilalle.
+
 BC-näkymän kilpailijapaneelista avataan **Muokkaa kilpailijaa**. Puuttuvat
 ja ylimääräiset RT:t, muut virhepisteet, tila ja tilan syy tallennetaan vain
 BC-tulokseen. Myös asemakorjaukset, käsikellot, **Tutki**, **Tarkista** ja
@@ -69,7 +74,8 @@ Hyväksymätön BC-esikatselu ei saa NAC:n hyväksyntää eikä päinvastoin.
 Versiossa 0.7.0 BC:n maali päättää ajanoton ilman
 ennakko- tai myöhästymisrangaistusta. Tämä koskee myös NAC-radan JAT-asemaa,
 johon lyhennetty BC päättyy. Maaliaika säilyy ajanoton päättymiseen ja tuloksen
-tarkastamiseen; NAC:n saman aseman sääntöä tai pisteitä ei muuteta. Muut BC:n
+tarkastamiseen; NAC:n saman aseman sääntöä tai pisteitä ei muuteta.
+Valmiiksi mitätöidyn maaliaseman mitätöinti säilyy. Muut BC:n
 asemat, puuttuvat leimat ja kilpailun keskeytysehdot käsitellään edelleen
 nykyisen laskennan mukaan.
 
@@ -96,12 +102,6 @@ molempien tulosten viennin. GUI:n työnkulkukokeet käsittelevät uudet valintai
 BC:n käsimaalin, pisteet ja hyväksynnän sekä näppäimistön ja vierityksen.
 
 CI tarkistaa Rust-testit, Clippyn ja GUI-käännöksen Linuxissa ja Windowsissa.
-Linuxissa GUI-työnkulkukoe suoritetaan myös 100 ja 150 prosentin skaalauksella
+Molemmilla alustoilla GUI-työnkulkukoe suoritetaan myös 100 ja 150 prosentin skaalauksella
 ja tarkistuskuvat tallennetaan Actions-artifactiksi. Synteettinen koe ei korvaa
 fyysisen Emit-lukijan koetta tai oikeaan kilpailuaineistoon vertaamista.
-
-
-Versiosta 0.6.11 alkaen BC-osallistujan NAC-tuloksen tallentaminen avaa automaattisesti
-Beginners Cupin oman aikojen ja virhepisteiden syötön. Täytä BC:n puuttuvat RT:t ja
-muut virhepisteet erikseen ja tallenna. Tallennetut BC-arvot näytetään uusintakäsittelyssä;
-NAC-arvoja ei kopioida niiden tilalle.

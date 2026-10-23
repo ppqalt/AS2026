@@ -1,6 +1,7 @@
-# Käyttöliittymän beta
+# Historia: käyttöliittymän beta
 
-> Historiallinen kuvaus aikaisemmasta työvaiheesta tai versiosta. Nykyinen 0.7.0: [käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md).
+> Historiallinen kuvaus beta-haaran työvaiheesta. Haaran nimi, mitat ja beta-tunnisteet eivät kuvaa nykyversiota. Nykyinen [käyttöliittymäopas](../KAYTTOLIITTYMAOPAS.md).
+
 Haara: `beta/kayttoliittyma`. Pohjana nykyisen toimivan version commit
 `00a9fdb`. Muutokset arvioidaan tässä haarassa ennen mahdollista yhdistämistä.
 Rust, Slint, kilpailumalli ja Fluent 2 / Dark Spruce säilyvät.
