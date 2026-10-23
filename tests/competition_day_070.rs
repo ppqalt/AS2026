@@ -71,7 +71,7 @@ fn frame(card: u32, manual: bool) -> emit::EmitFrame {
     emit::parse_frame(&decoded.map(|byte| byte ^ emit::XOR_MASK)).unwrap()
 }
 fn expected(number: u32) -> i64 {
-    i64::from(number) * 2 + if number % 6 == 0 { 600 } else { 0 }
+    i64::from(number) * 2 + if number.is_multiple_of(6) { 600 } else { 0 }
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn seventy_two_pairs_finish_a_synthetic_competition_day() {
         ws.complete_result_entry(
             number,
             &clocks,
-            u32::from(number % 6 == 0),
+            u32::from(number.is_multiple_of(6)),
             i64::from(number) * 2,
         )
         .unwrap();
@@ -284,7 +284,7 @@ fn seventy_two_pairs_finish_a_synthetic_competition_day() {
     assert_eq!(bc.competitors.len(), 12);
     for driver in &bc.competitors {
         assert_eq!(driver.total_penalties, i64::from(driver.number) * 3);
-        assert!(bc.has_approved_result(driver.number as u32));
+        assert!(bc.has_approved_result(driver.number));
     }
     let saved = ws.project().unwrap().clone();
     let reopened = Workspace::open(&directory.path).unwrap();
