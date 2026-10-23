@@ -1,24 +1,16 @@
-# Emit-rivin korjaus
+# Emit-kortin leimausten korjaus
 
-Versiossa 0.6.8 korjaus avataan Emit-sivulta. [Uusien toimintojen käyttöohje](KAYTTOLIITTYMA_068.md).
+1. Valitse Emit-sivulta aktiivinen korttiluku ja **Muokkaa leimauksia**.
+2. Muokkaa koko kortin listasta koodia, korttiaikaa tai hh:mm:ss-kellonaikaa.
+   Kellonaika ja korttiaika lasketaan toistensa perusteella käyttäen kilpailijan
+   lähtöaikaa ja Emit-korjausta.
+3. Lisää puuttuva leima tai poista ylimääräinen leima editorin toiminnoilla.
+4. Tallenna. Virheellinen syöte jää korjattavaksi. Peruuta tai Esc hylkää luonnoksen.
 
-## Käyttö
-
-1. Valitse **Emit**, aktiivinen lukutapahtuma ja korjattava asemarivi.
-2. Valitse luetun sisällön otsikon vierestä **Muokkaa**.
-3. **Muokkaa / lisää leima** korjaa valitun leiman koodin ja korttiajan.
-   Sekuntiaika on aika Emit-kortin nollauksesta. Rinnalla oleva hh:mm:ss-kellonaika lasketaan kilpailijan lähtöajasta ja Emit-korjauksesta; kentät päivittyvät toistensa mukana. Puuttuvan aseman
-   kohdalla lisätään leima. **Kohdistettava leima** voi siirtää olemassa olevan
-   ylimääräisen leiman puuttuvalle asemalle: valitse leima ja tarkista koodi ja aika.
-4. **Poista leima laskennasta** jättää kyseisen leiman pois laskennan syötteestä.
-   Alkuperäinen leima säilyy lukuhistoriassa.
-5. Anna perustelu ja valitse **Tallenna korjaus**. Virheellinen syöte jää
-   valintaikkunaan korjattavaksi. Peruuta tai Esc ei tallenna luonnosta.
-
-Käsikello korjataan entiseen tapaan asematuloksen kellokentästä. Jaetun ULA:n
-aikaviite korjataan sitä edeltävän saman leiman aseman kautta. Leimojen on
-oltava aikajärjestyksessä; mahdotonta tai toistuvan koodin väärään asemakohtaan
-kohdistuvaa muutosta ei tallenneta.
+Perustelu ei ole pakollinen Mikky100:n nykyisessä editorissa. Alkuperäisiä
+lukemia ei korvata. **Palauta alkuperäiset** palauttaa alkuperäisen korttisisällön
+uutena korjauksena. Käsikellot ja muut virhepisteet täydennetään tuloksen
+syöttöikkunassa; ne eivät ole Emit-kortin alkuperäisiä leimoja.
 
 ## Seuraukset ja jäljitettävyys
 
@@ -30,9 +22,9 @@ kohdistuvaa muutosta ei tallenneta.
   säilyvät. Asemariveille käsin kirjoitetut pisteet korvataan uudella laskennalla.
 - `leimaluvut` ei muutu. `emit_korjaukset` sisältää alkuperäisen lukeman
   viittauksen, kilpailijan, aseman, perustelun, ajan sekä ennen/jälkeen-leimat.
-  Viimeiset korjaukset näkyvät myös korjausikkunassa; koko historia on tiedostossa.
+  Koko korjaushistoria säilyy kilpailutiedostossa.
 - **Palauta alkuperäiset leimat** kumoaa kaikki saman korttisisällön korjaukset
-  uutena perusteltuna tapahtumana. Aikaisempia korjauksia ei poisteta.
+  uutena tapahtumana. Aikaisempia korjauksia ei poisteta.
 - Saman korttisisällön uusintaluku säilyttää korjauksen. Eri korttisisältö ei
   peri vanhan lukeman korjauksia. Aiemmat tallennetut tulokset säilyvät kuten
   ennenkin, kunnes toimitsija käyttää Tarkista-toimintoa.
@@ -55,8 +47,7 @@ Todellinen ikkunallinen GUI-koe käynnistyy vain erillisessä esimerkkikilpailus
 AS2026_EMIT_CORRECTION_TEST=1 target/debug/as2026-gui --demo --capture-dir KUVAKANSIO
 ```
 
-Koe odottaa lopuksi, että oma testi-ikkuna asetetaan 900 × 600 loogiseen
-kokoon. Paikallinen raporttihakemiston `emit-korjaus-gui.sh` hoitaa koonvaihdon
-Nirissä ja toistaa kokeen 100 %:n ja 150 %:n skaalalla. Kuvakaappaukset ovat
-käynnissä olevan Slint-ikkunan kuvia. Ne eivät ole Windowsin GUI- tai
-fyysisen Emit-lukijan kokeita.
+Koe säätää oman ikkunansa myös 900 × 600 loogiseen kokoon. CI ajaa sen
+natiivisti Linuxissa ja Windowsissa; fyysistä lukijaa ei avata. Käytä uutta
+kuvakansiota. Yleiset GUI-työnkulut tarkistetaan lisäksi 100/150 %:n
+skaalauksilla. Kuvat syntyvät oikeasta Slint-ikkunasta, eivät mallikuvista.

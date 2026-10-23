@@ -1,6 +1,6 @@
 # Aikojen täydentäminen ja tulostus
 
-Tunnetun Emit-kortin lukeminen avaa Tulokset-sivun ja **Täydennä ajat ja tulosta**
+Tunnetun Emit-kortin lukeminen avaa Tulokset-sivun ja **Täydennä tulos**
 -ikkunan. Jos toinen syöttö on kesken, lukema tallentuu ja seuraavan kilpailijan
 ikkuna avautuu nykyisen syötön valmistuttua tai peruutuksen jälkeen.
 
@@ -10,11 +10,11 @@ kilpailijan tiedoista. Kellon voi antaa muodossa `18:03:25`, `18.03.25` tai
 `180325`. Tyhjä kenttä on puuttuva aika; `00:00:00` on annettu keskiyön aika.
 
 **Tab** siirtyy aikakentästä seuraavaan, viimeisestä ajasta puuttuvien RT-asemien
-määrään, siitä muihin virhepisteisiin ja lopuksi **Tulosta**-painikkeeseen.
-Enter painikkeella lähettää tulosteen. Aiemmin syötetyt ylimääräisten RT-asemien
+määrään, siitä muihin virhepisteisiin ja lopuksi **Tallenna**- ja **Tallenna ja tulosta** -painikkeisiin.
+**Tallenna** hyväksyy kelvollisen tuloksen ilman tulostamista. **Tallenna ja tulosta** lähettää lisäksi tulosteen; painikkeen voi aktivoida Enterillä. Aiemmin syötetyt ylimääräisten RT-asemien
 pisteet säilyvät; niitä voi muuttaa kilpailijan tiedoista.
 
-Tulosta tallentaa ajat ja lisävirheet sekä laskee aikavirheet. Tulos tulee
+**Tallenna ja tulosta** tallentaa ajat ja lisävirheet sekä laskee aikavirheet. Tulos tulee
 tulosluetteloon ilman erillistä hyväksymispainiketta. Tulostinvirhe ei peru
 tietojen tallennusta; tulostamisen voi uusia. Saman kilpailijan **Tulosta tulos**
 avaa ikkunan myös myöhemmin. Peruuta tai Esc sulkee syöttämättä uusia arvoja.

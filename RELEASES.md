@@ -7,7 +7,7 @@ Paketointi tarkistaa projektin LICENSE-tiedoston koko standarditekstin, Cargo-li
 Git-historia ja vanhat tagit säilytetään muuttumattomina.
 
 
-AS2026 0.6.0:sta alkaen jatkuva kehitys ja hyväksytyt julkaisut kootaan `main`-haaraan. Vanhat kehitys- ja beta-haarat poistetaan vasta hyväksytyn julkaisun jälkeen. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.5.0`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.
+AS2026 0.6.0:sta alkaen jatkuva kehitys ja hyväksytyt julkaisut kootaan `main`-haaraan. Vanhat kehitys- ja beta-haarat poistetaan vasta hyväksytyn julkaisun jälkeen. Julkaisut tehdään `vMAJOR.MINOR.PATCH`-tageista; esimerkiksi `v0.6.10`. Cargo.toml:n version on vastattava tagia ja tagin commitin on kuuluttava `main`-haaran historiaan. Kehityshaaran push ei julkaise ohjelmapäivitystä. Olemassa olevaa julkaisutagia tai jakelupakettia ei ylikirjoiteta.
 
 ## Paketit
 
@@ -39,16 +39,16 @@ Rust-julkaisutyökalun `sign`-komento varmistaa, että yksityisen avaimen julkin
 {
   "schema": 1,
   "license": "BSD-2-Clause",
-  "version": "0.5.0",
+  "version": "0.6.10",
   "targets": {
     "x86_64-unknown-linux-gnu": {
-      "asset": "AS2026-0.5.0-linux-x86_64.tar.gz",
+      "asset": "AS2026-0.6.10-linux-x86_64.tar.gz",
       "files": [
         {"name": "as2026-gui", "size": 12345, "sha256": "..."}
       ]
     },
     "x86_64-pc-windows-msvc": {
-      "asset": "AS2026-0.5.0-windows-x86_64.zip",
+      "asset": "AS2026-0.6.10-windows-x86_64.zip",
       "files": [
         {"name": "as2026-gui.exe", "size": 12345, "sha256": "..."}
       ]
@@ -74,3 +74,19 @@ cargo run --manifest-path tools/release/Cargo.toml -- prepare --target x86_64-un
 ```
 
 Allekirjoitus tehdään vasta molempien alustojen tarkistetuista hyötytiedostoista. Paikallinen yksittäisen alustan kehityskäännös ei ole allekirjoitettu ohjelmapäivitys. Älä lisää paikallisia kilpailuja, asetuksia, yksityisiä avaimia tai GitHub-tunnuksia julkaisupakettiin.
+
+## Version 0.6.10 julkaiseminen
+
+Yhdistä hyväksytyt muutokset mainiin, varmista molempien alustojen vihreä CI
+ja luo uusi `v0.6.10`-tagi juuri tarkistettuun commitiin. Aikaisempia tageja ei siirretä.
+Käynnistä sen jälkeen varsinainen julkaisu:
+
+```sh
+gh workflow run release.yml --ref main -f release_tag=v0.6.10 -f publish_release=true
+```
+
+Käynnistäminen ei vielä tarkoita, että lataukset ovat saatavilla. Release syntyy
+vasta molempien pakettien, testien ja allekirjoituksen valmistuttua.
+Valmiilla julkaisusivulla on oltava kaksi käyttöjärjestelmäpakettia,
+`release.json` ja `release.sig`. Puuttuva allekirjoitusavain tai epäonnistunut
+rakennus pysäyttää julkaisun; sitä ei kierretä käsin allekirjoittamattomilla paketeilla.

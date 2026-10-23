@@ -1,6 +1,6 @@
 # Kilpailun tarkastus ja lähtöjärjestelyt
 
-Ohje koskee paikallista AS2026-kehitysversiota. Tässä kuvatuista uusista muutoksista ei ole tehty GitHub-julkaisua.
+Ohje koskee AS2026 0.6.10:tä ja Mikky100:n nykyisiä kilpailusääntöjä.
 
 ## Emit-kortista tulokseen
 
@@ -42,7 +42,7 @@ Kuljettajan ja kartanlukijan lisenssit sekä seuratiedot tallentuvat erikseen. L
 
 ## Excel-kilpailun tuonti
 
-Valitse **Tuo Excel…**, avaa `.xls`- tai `.xlsx`-tiedosto ja valitse uuden kilpailun kansio. Tarkasta esikatselun määrät, huomautukset ja tallennuspaikka ennen **Hyväksy**-valintaa. Olemassa olevaa kilpailutiedostoa ei korvata. Kilpailun nimi tulee työkirjan nimestä, ja sen voi vaihtaa asetuksissa.
+Valitse Yleiskatsaus → **Toiminnot → Tuo kilpailu Excelistä**, avaa `.xls`- tai `.xlsx`-tiedosto ja valitse uuden kilpailun kansio. Tarkasta esikatselun määrät, huomautukset ja tallennuspaikka ennen tuonnin vahvistamista. Olemassa olevaa kilpailutiedostoa ei korvata. Kilpailun nimi tulee työkirjan nimestä, ja sen voi vaihtaa asetuksissa.
 
 Tuonti lukee vain tunnistetun **RATA**- ja **KILP**-pohjan: radat ja asemat asetuksineen sekä kilpailijaparit, Emit-numerot, lähtöajat, molempien seurat ja autot. Kelvottomat rivit selitetään; epäselviä luokkia tai ratoja ei arvata. Toistuvat kilpailija- tai Emit-numerot estävät vahvistuksen. Makroja tai kaavoja ei suoriteta eikä lähdetyökirjaa muuteta.
 
@@ -56,10 +56,10 @@ Aseta luokan lähtöaika ja lähtöväli. Avaa **Kilpailijat → Toiminnot → A
 
 Valituista luokista arvotaan automaattiset/ILM-kilpailijat, joiden korttia ei ole luettu eikä asematulosta tallennettu. Jo luetut, asematuloksen saaneet ja muut käsin valitut tilat ohitetaan: heidän lähtöaikansa ja tuloksensa säilyvät, mutta muiden arvonta jatkuu. Jos yhtään arvottavaa ei jää, ohjelma ilmoittaa asiasta. Kilpailun muuttuminen mitätöi vanhan esikatselun.
 
-**Lähtöluettelo…** tallentaa HTML:n selaimella tulostettavaksi tai CSV:n jatkokäsittelyyn. Lista on luokkajärjestyksessä ja luokan sisällä lähtöjärjestyksessä myös keskiyön yli.
+**Kilpailijat → Toiminnot → Tallenna html-lähtöluettelo** tallentaa selaimella tulostettavan lähtöluettelon. Lähtöluettelon sarakkeet ja järjestys valitaan Asetuksista. HTML on kaikkien luokkien yhteisessä lähtöaikajärjestyksessä; CSV-lähtöluettelo on käytettävissä komentoriviltä.
 
 ## Yhteensopivuus ja tarkistusten rajat
 
 Uudet kentät ovat valinnaisia: aiemmat `kilpailu.toml`-tiedostot avautuvat ilman muunnosta. Vanhojen muutostiedostojen pois jättämät lisenssit, seurat, tila, lisävirheet, tallennettu tulos ja luokan arvontavalinta säilyvät. Vanhaa sovellusversiota ei pidä käyttää uuden version lisäkenttien muokkaamiseen. Tavallinen tallennus säilyttää edellisen version varmuuskopiona.
 
-Työnkulkuja testataan synteettisillä tiedostoilla ja käyttöliittymäkokeilla. Oikean kilpailun täydellistä AS2015A-tulosvastaavuutta sekä fyysisen lukijan ja Windowsin käytännön työnkulkuja varten tarvitaan erilliset vertailukokeet.
+Työnkulkuja testataan synteettisillä tiedostoilla ja käyttöliittymäkokeilla. Oikean kilpailun täydellistä AS2015A-tulosvastaavuutta sekä fyysisen lukijan ja paperitulostuksen varmistamiseen tarvitaan erilliset vertailukokeet. Windowsin automaattiset GUI-työnkulut ajetaan CI:ssä.

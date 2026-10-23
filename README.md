@@ -1,63 +1,77 @@
 # AS2026
 
-Versio 0.6.9 korjaa toimintovalikot, lähtöluettelon järjestyksen, tulosteet ja yhdistettyjen luokkien tulosvalinnan sekä avaa koko Emit-kortin leimaukset muokattaviksi. Luokkia ja ratoja voi muokata laskennan jälkeen; ratamuutos tarjoaa tulosten uudelleenlaskentaa. [Muutosten käyttöohje](docs/KAYTTOLIITTYMA_069.md).
+**AS2026 0.6.10** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
+tuloslaskentasovellus Linuxille ja Windowsille. Rust ja Slint, Fluent 2 / Dark Spruce.
 
-Versio 0.6.8 sisältää kilpailun kokonaismyöhästymisrajan, valittavat lähtöluettelon kentät, Emit-korjauksen Emit-sivulla sekä selkeytetyt toimintovalikot. Pohjana ovat uusimmat 0.6.7:n lähiverkko- ja tulostuskorjaukset. [Muutosten käyttöohje](docs/KAYTTOLIITTYMA_068.md).
+## Lataa ja asenna
 
-Versio 0.6.7 lisää kilpailun yhteiskäytön lähiverkossa, yksittäisten Emit-asemarivien korjauksen sekä vientien ja huomautusten käytettävyysparannukset.
-Esimerkkikilpailun voi avata komennolla `cargo run --features gui --bin as2026-gui -- --demo`.
+Lataa oma pakettisi [version 0.6.10 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.6.10):
 
+- Linux x86-64: `AS2026-0.6.10-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.6.10-windows-x86_64.zip`
 
-Autosuunnistuskilpailujen hallinta ja tuloslaskenta Linuxille ja Windowsille.
+Pura koko paketti omaan kansioon. Avaa `as2026-gui` tai Windowsissa
+`as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
+olla suoritusoikeus. Valmis ohjelma ei tarvitse Rustia eikä erillistä Slint-asennusta.
+Pakettien mukana ovat allekirjoitettu manifesti, käynnistin ja riippuvuuksien lisenssit.
+Päivitykset tarkistetaan sivupalkin **Päivitykset**-painikkeesta.
 
-- Kilpailijat, luokat, radat ja asemat samassa sovelluksessa.
-- Kilpailun salattu lähiverkkoyhteys parituskoodilla, samat muokkausoikeudet kaikilla koneilla ja katkon aikana tallentuva Emit-lähetysjono; [käyttö- ja palautumisohje](docs/LAHIVERKKO.md).
-- Fluent 2 / Dark Spruce koko käyttöliittymän suunnittelukielenä, ilman animaatioita ja koriste-efektejä.
-- Kilpailijan tilat ja perustelut sekä molempien lisenssi- ja seuratiedot.
-- Lähtöarvonnan luokkavalinnat Kilpailijat-sivun Toiminnot-valikossa, kellonaikojen esikatselu sekä HTML- ja CSV-lähtöluettelo.
-- Kortinluvun jälkeinen käsiaikojen ja virhepisteiden syöttö Tab-näppäimellä sekä kilpailijaparin tulostus ilman erillistä hyväksymistä.
-- Luokka- ja asematulosteet monivalinnalla ja käyttäjäkohtainen tulostinvalinta; [käyttöohje](docs/TULOSTUS.md).
-- Pysyvät radan ja aseman muokkauspaneelit sekä tavoiteajan erilliset h/min/s-syöttökentät.
-- Jatkuva Emit-kortinluku, automaattinen tallennus ja siirtyminen luetun kilpailijaparin tulokseen.
-- RATA- ja KILP-Excel-tuonti (.xls/.xlsx) esikatselulla ja vahvistuksella.
-- Tulosluettelot, asemakohtainen tarkastelu ja HTML-, CSV- sekä XLSX-viennit.
-- Paikallinen live-HTML-tulosnäkymä ja yhdistettyjen luokkien hallinta.
-- NAC Beginners Cup samasta Emit-lukemasta: oma asemavalinta, virhepisteet ja tuloksen hyväksyntä.
-- Vanhojen AS2015A-kilpailutiedostojen luku.
-- Suomenkielinen, tumma käyttöliittymä ja päivitykset sovelluksen asetuksista.
+## Aloita kilpailu
 
-## Asennus
+1. Avaa Yleiskatsauksen **Toiminnot**: avaa kilpailu, luo uusi tai tuo Excelistä.
+2. Tarkista kilpailijat, luokat, radat ja asemat. Excel-tuonnissa voit valita
+   kilpailijat ja radat erikseen.
+3. Valitse Kilpailijat → **Toiminnot → Arvo lähtöajat** ja tarkista lähtöluettelo.
+4. Lue kortit Emit-sivulla. Täydennä käsikellot ja virhepisteet sekä tarkasta tulokset.
+5. Tulosta tai vie hyväksytyt tulokset Tulokset → **Toiminnot** -valikosta.
 
-Julkaisupaketit ovat [Releases-sivulla](https://github.com/ppqalt/AS2026/releases): Linuxille `.tar.gz`, Windowsille `.zip`. Molemmat ovat 64-bittisille x86-tietokoneille. Paikalliset kehitysmuutokset tulevat paketteihin vasta erillisessä julkaisussa.
+Kelvolliset muokkaukset tallentuvat automaattisesti. Kilpailut luodaan normaalisti
+Asiakirjat-kansion `AS2026/Kilpailut`-hakemistoon; oletuspaikan voi vaihtaa
+Asetuksissa. Ohjelmapäivitys ei siirrä kilpailuja. Kokeile esimerkkiä ennen oikeaa
+kilpailua ja pidä kilpailukansiosta erillinen varmuuskopio.
 
-Pura paketti, avaa `as2026-gui` (Windowsissa `as2026-gui.exe`) ja valitse **Asenna ja käynnistä**. AS2026 tulee sovellusvalikkoon. Päivitykset löytyvät kohdasta **sivupalkin Tarkista päivitykset -painike**.
+## Mitä sovellus tekee?
 
-Uusi kilpailu luodaan antamalla sen nimi. Kilpailut tallennetaan normaalisti Asiakirjat-kansion `AS2026/Kilpailut`-kansioon. Tallennuspaikan voi vaihtaa asetuksista. Ohjelmapäivitykset säilyttävät kilpailutiedot ja asetukset.
+- Kilpailijat, luokat, yhdistetyt luokat, radat ja asemat sekä lähtöluettelon sarakevalinta.
+- RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla.
+- Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten manuaalinen korjaus.
+  Alkuperäiset leimat säilyvät jäljitettävinä.
+- Käsikellot, kilpailijan tilat, AT/JAT-laskenta, NAC ja Beginners Cup sekä hyväksynnät.
+- Luokka-, asema- ja kilpailijatulosteet sekä HTML-, CSV- ja XLSX-tulosvienti.
+- Paikallinen offline-käyttö ja kilpailun yhteiskäyttö lähiverkossa.
 
-## Kehitys
+0.6.10 korjaa koko Toiminnot-valikon, mukaan lukien luokkien lisäämisen ja
+vientialavalikon. Mukana ovat keskitetty kilpailijaeditori, neutraalit modaalitaustat,
+BC-valinnan päälle/pois-kytkentä sekä asetusten ja rinnakkaispaneelien asettelukorjaukset.
+Mikky100:n uusimmat kilpailusäännöt ja laskenta säilyvät. [Julkaisutiedot](RELEASE_NOTES.md).
 
-```sh
-cargo run --features gui --bin as2026-gui
-cargo test --all-targets --features gui
-cargo clippy --all-targets --features gui -- -D warnings
-cargo build --release --features gui
-cargo test --manifest-path tools/release/Cargo.toml
-```
+## Sama kilpailu lähiverkossa
 
-Rust 1.89 tai uudempi. Komentoriviohjelman voi kääntää ilman GUI-riippuvuuksia: `cargo build --release`.
+Avaa kilpailu yhdellä koneella ja valitse sivupalkin yhteystila → **Jaa tämä kilpailu**.
+Muut koneet liittyvät saman lähiverkon kautta 12-merkkisellä parituskoodilla.
+Automaattisen haun vaihtoehtona on isännän IP-osoite. Kaikilla on samat muokkausoikeudet;
+muutokset välittyvät automaattisesti ja katkon Emit-luvut säilyvät paikallisessa jonossa.
+Internet, pilvipalvelu tai jaettu kansio ei ole tarpeen.
 
-[Kilpailun tarkastus, Excel-tuonti ja lähtöjärjestelyt](KILPAILUTOIMINNOT.md) · [Kääntäminen](BUILDING.md) · [Komentorivi ja tiedostot](CLI.md) · [Käyttöliittymän muokkaaminen](UI.md) · [Julkaisujen tekeminen](RELEASES.md)
+[Yhdistäminen, ristiriidat ja palautuminen](docs/LAHIVERKKO.md) ·
+[Windowsin ja UFW:n palomuuri](docs/PALOMUURI.md)
 
-[Yhdistettyjen luokkien ja Beginners Cupin käyttö](docs/LUOKAT_JA_BEGINNERS_CUP.md).
+## Ohjeet ja kehitys
 
-Puuttuva käsikello estää tuloksen hyväksymisen. Käsimaalia ei päätellä viimeisestä leimasta, ja uusintaluku säilyttää aiemmat tallennetut korjaukset. Tarkemmat työnkulut ja rajat ovat kilpailutoimintojen ohjeessa.
+- [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md)
+- [Excel-tuonti](docs/EXCEL_TUONTI.md), [Emit-korjaus](docs/EMIT_RIVIN_KORJAUS.md),
+  [luokat ja Beginners Cup](docs/LUOKAT_JA_BEGINNERS_CUP.md), [tulostus](docs/TULOSTUS.md)
+- [Kuvallinen käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
+- [Kääntäminen ja testaus](BUILDING.md), [komentorivi](CLI.md),
+  [UI-kehitys](UI.md), [julkaisuautomaatio](RELEASES.md)
 
-Linux- ja Windows-yhteensopivuuden lisäksi käytännön varmennus vaatii fyysisen lukijan kokeet ja oikean vertailukilpailun; historiallisten AS2015A-tulosten täydellistä vastaavuutta ei väitetä.
+Linux- ja Windows-CI ajavat Rust-/Slint-tarkistukset, GUI-työnkulut 100/150 %:n
+skaalauksella sekä valikko- ja Emit-editorikokeet. Fyysisen Emit-lukijan,
+paperitulostuksen ja historiallisten AS2015A-tulosten täydellinen vastaavuus
+vaatii erillisen laite- ja vertailukokeen; automaattinen koe ei todista niitä.
 
 ## Lisenssi
 
-AS2026:n oma koodi, dokumentaatio ja synteettiset esimerkit: [BSD-2-Clause](LICENSE). Riippuvuuksilla on omat lisenssinsä. Slint-maininta on ohjelman Tietoja-ikkunassa; lisätiedot ovat tiedostossa [THIRD_PARTY.md](THIRD_PARTY.md).
-
-Käyttöliittymän komponentit, toimintatavat ja todelliset tarkistuskuvat:
-[Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md).
-Lähiverkon käyttöönotto: [Windowsin ja UFW:n palomuuriohje](docs/PALOMUURI.md).
+Oma koodi, dokumentaatio ja synteettiset esimerkit: [BSD-2-Clause](LICENSE).
+Riippuvuuksilla on omat lisenssinsä: [THIRD_PARTY.md](THIRD_PARTY.md).
+Slint-maininta säilyy ohjelman Tietoja-ikkunassa.

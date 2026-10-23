@@ -1,8 +1,8 @@
-# Mikky100:n 0.6.9:n kohdennetut käyttöliittymätäydennykset
+# Version 0.6.10 muutosten ominaisuuskohtainen vertailu
 
 Pohja: `ac686bf079342bd6980ae497b4899f0b75cc3f0a`, Mikky100:n
 uusin main ja julkaistu v0.6.9 tarkistettaessa 23.10.2026. Haara:
-`fix/v069-ui-taydennykset`. Versionumeroa, tageja tai julkaisuja ei muuteta.
+`fix/v069-ui-taydennykset`. PR #11 on yhdistetty mainiin. Täydennykset toimitetaan version 0.6.10 mukana. Aikaisemmat tagit säilyvät.
 Vanhaa kehityshaaraa ei yhdistetä mainiin.
 
 ## Ominaisuuskohtainen vertailu

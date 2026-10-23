@@ -1,7 +1,6 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa Mikky100:n nykyisen 0.6.9-toteutuksen ja sitä täydentävän
-kehityshaaran. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
+Tämä opas kuvaa AS2026 0.6.10:n, joka täydentää Mikky100:n 0.6.9-toteutusta. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
 Emit-editorin toiminta tulevat Mikky100:n toteutuksesta. Opas ei määrittele niitä
 uudelleen. Katso myös [0.6.9:n työnkulut](KAYTTOLIITTYMA_069.md) ja
 [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
