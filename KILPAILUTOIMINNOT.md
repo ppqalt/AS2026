@@ -42,7 +42,7 @@ Kuljettajan ja kartanlukijan lisenssit sekä seuratiedot tallentuvat erikseen. L
 
 ## Excel-kilpailun tuonti
 
-Valitse Yleiskatsaus → **Toiminnot → Tuo kilpailu Excelistä**, avaa `.xls`- tai `.xlsx`-tiedosto ja valitse uuden kilpailun kansio. Tarkasta esikatselun määrät, huomautukset ja tallennuspaikka ennen **Hyväksy**-valintaa. Olemassa olevaa kilpailutiedostoa ei korvata. Kilpailun nimi tulee työkirjan nimestä, ja sen voi vaihtaa asetuksissa.
+Valitse Yleiskatsaus → **Toiminnot → Tuo kilpailu Excelistä**, avaa `.xls`- tai `.xlsx`-tiedosto ja valitse uuden kilpailun kansio. Tarkasta esikatselun määrät, huomautukset ja tallennuspaikka ennen tuonnin vahvistamista. Olemassa olevaa kilpailutiedostoa ei korvata. Kilpailun nimi tulee työkirjan nimestä, ja sen voi vaihtaa asetuksissa.
 
 Tuonti lukee vain tunnistetun **RATA**- ja **KILP**-pohjan: radat ja asemat asetuksineen sekä kilpailijaparit, Emit-numerot, lähtöajat, molempien seurat ja autot. Kelvottomat rivit selitetään; epäselviä luokkia tai ratoja ei arvata. Toistuvat kilpailija- tai Emit-numerot estävät vahvistuksen. Makroja tai kaavoja ei suoriteta eikä lähdetyökirjaa muuteta.
 

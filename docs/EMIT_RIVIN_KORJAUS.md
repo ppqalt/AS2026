@@ -22,7 +22,7 @@ syöttöikkunassa; ne eivät ole Emit-kortin alkuperäisiä leimoja.
   säilyvät. Asemariveille käsin kirjoitetut pisteet korvataan uudella laskennalla.
 - `leimaluvut` ei muutu. `emit_korjaukset` sisältää alkuperäisen lukeman
   viittauksen, kilpailijan, aseman, perustelun, ajan sekä ennen/jälkeen-leimat.
-  Viimeiset korjaukset näkyvät myös korjausikkunassa; koko historia on tiedostossa.
+  Koko korjaushistoria säilyy kilpailutiedostossa.
 - **Palauta alkuperäiset leimat** kumoaa kaikki saman korttisisällön korjaukset
   uutena tapahtumana. Aikaisempia korjauksia ei poisteta.
 - Saman korttisisällön uusintaluku säilyttää korjauksen. Eri korttisisältö ei
@@ -47,8 +47,7 @@ Todellinen ikkunallinen GUI-koe käynnistyy vain erillisessä esimerkkikilpailus
 AS2026_EMIT_CORRECTION_TEST=1 target/debug/as2026-gui --demo --capture-dir KUVAKANSIO
 ```
 
-Koe odottaa lopuksi, että oma testi-ikkuna asetetaan 900 × 600 loogiseen
-kokoon. Paikallinen raporttihakemiston `emit-korjaus-gui.sh` hoitaa koonvaihdon
-Nirissä ja toistaa kokeen 100 %:n ja 150 %:n skaalalla. Kuvakaappaukset ovat
-käynnissä olevan Slint-ikkunan kuvia. Ne eivät ole Windowsin GUI- tai
-fyysisen Emit-lukijan kokeita.
+Koe säätää oman ikkunansa myös 900 × 600 loogiseen kokoon. CI ajaa sen
+natiivisti Linuxissa ja Windowsissa; fyysistä lukijaa ei avata. Käytä uutta
+kuvakansiota. Yleiset GUI-työnkulut tarkistetaan lisäksi 100/150 %:n
+skaalauksilla. Kuvat syntyvät oikeasta Slint-ikkunasta, eivät mallikuvista.
