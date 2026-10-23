@@ -1,0 +1,59 @@
+import { Button, LineEdit, ComboBox, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { ResultEntryInput } from "types.slint";
+export component LivePublishDialog inherits Rectangle {
+    in property <[ResultEntryInput]> fields;
+    in property <string> status;
+    in property <bool> running;
+    in property <bool> busy;
+    in-out property <int> protocol;
+    callback edited(int, string);
+    callback test();
+    callback toggle();
+    callback finish();
+    callback close();
+    background: Theme.modal-backdrop;
+    TouchArea {}
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(); return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-height: 760px;
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; text: "Live-tulosten julkaisu"; }
+            Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 40px;
+                text: "Julkaisu koskee tätä kilpailua tällä koneella. Vain yksi kone julkaisee samaan osoitteeseen. Salasana säilyy vain muistissa."; }
+            ScrollView {
+                x: Theme.dialog-padding; y: 108px; width: parent.width - 2 * Theme.dialog-padding;
+                height: parent.height - 108px - 150px;
+                VerticalLayout {
+                    spacing: Theme.space-2; padding-right: 12px;
+                    ComboBox { model: ["SFTP (salattu)", "FTP (salaamaton)"]; current-index <=> root.protocol; enabled: !root.running && !root.busy; }
+                    if root.protocol == 1: Note { text: "FTP lähettää salasanan ja tulokset salaamatta. Käytä vain harkitusti."; }
+                    for field in root.fields: VerticalLayout {
+                        spacing: 4px;
+                        Note { text: field.label; }
+                        LineEdit { text: field.value; enabled: !root.running && !root.busy;
+                            input-type: field.key == 3 ? InputType.password : InputType.text;
+                            edited => { root.edited(field.key, self.text); }
+                        }
+                    }
+                }
+            }
+            Note { x: Theme.dialog-padding; y: parent.height - 140px; width: parent.width - 2 * Theme.dialog-padding; height: 78px; text: root.status; }
+            DialogActions {
+                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
+                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
+                cancel := Button { text: "Sulje"; clicked => { root.close(); } }
+                if !root.running: Button { text: root.busy ? "Testataan…" : "Testaa yhteys"; enabled: !root.busy && !root.running; clicked => { root.test(); } }
+                if root.running: Button { text: "Julkaise lopullisina"; enabled: !root.busy; clicked => { root.finish(); } }
+                AccentButton { text: root.running ? "Lopeta julkaiseminen" : "Aloita julkaiseminen"; enabled: !root.busy; clicked => { root.toggle(); } }
+            }
+        }
+    }
+}

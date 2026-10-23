@@ -62,6 +62,31 @@ fn signed(seconds: i64) -> String {
     )
 }
 
+fn row_clock_known(
+    result: &crate::corrections::StoredResult,
+    row: &crate::corrections::StoredRow,
+) -> bool {
+    row.sequence != 0
+        && (row.station_type == "L"
+            || if row.expected_code == 0 {
+                result.kasin_annetut_kellot.contains(&row.output_index)
+            } else {
+                row.received_code == row.expected_code
+            })
+}
+
+// Sama jaksoajan tulkinta kuin toimitsijalaskennassa; tyhjä jakso käyttää tavoiteaikaa.
+fn section_delay(row: &crate::corrections::StoredRow) -> i64 {
+    crate::timing::section_difference(
+        &row.section_text,
+        row.actual_seconds,
+        crate::timing::CalculationPolicy::As2026OperationalV1,
+    )
+    .ok()
+    .flatten()
+    .unwrap_or(row.target_seconds - row.actual_seconds)
+}
+
 pub fn class_label(code: &str) -> &str {
     code.split_once(": ")
         .filter(|(prefix, _)| {
@@ -241,14 +266,10 @@ pub fn competitor(
                 signed(
                     r.rivit
                         .iter()
-                        .filter(|s| matches!(s.station_type.as_str(), "JAT" | "M"))
-                        .filter_map(|s| {
-                            s.section_text
-                                .trim()
-                                .parse::<i64>()
-                                .ok()
-                                .map(|m| m * 60 - s.actual_seconds)
+                        .filter(|s| {
+                            matches!(s.station_type.as_str(), "JAT" | "M") && row_clock_known(r, s)
                         })
+                        .map(section_delay)
                         .sum(),
                 )
             }),
@@ -293,8 +314,10 @@ pub fn competitor(
         "L-aika",
         "Ihanne",
         "Käytetty",
+        "klo",
         "AT",
-        "ATp (AT pisteet)",
+        "ATp",
+        "ATy",
         "Myöhä",
     ]
     .map(String::from);
@@ -305,13 +328,7 @@ pub fn competitor(
             if extra && matches!(r.received_code, 99 | 999) {
                 continue;
             }
-            let known = !extra
-                && (r.station_type == "L"
-                    || if r.expected_code == 0 {
-                        result.kasin_annetut_kellot.contains(&r.output_index)
-                    } else {
-                        r.received_code == r.expected_code
-                    });
+            let known = row_clock_known(result, r);
             if r.station_type != "ULA" {
                 rows.push(vec![
                     if extra {
@@ -343,17 +360,27 @@ pub fn competitor(
                         String::new()
                     },
                     if known {
-                        signed(r.target_seconds - r.actual_seconds)
+                        duration(r.clock[0] * 3600 + r.clock[1] * 60 + r.clock[2])
                     } else {
                         String::new()
                     },
-                    (r.signed_time_penalty.abs() + r.other_penalty).to_string(),
+                    if known {
+                        format!("{:+}", r.signed_time_penalty)
+                    } else {
+                        String::new()
+                    },
+                    if !extra {
+                        r.other_penalty.to_string()
+                    } else {
+                        String::new()
+                    },
+                    if extra {
+                        r.other_penalty.to_string()
+                    } else {
+                        String::new()
+                    },
                     if known && matches!(r.station_type.as_str(), "JAT" | "M") {
-                        r.section_text
-                            .trim()
-                            .parse::<i64>()
-                            .map(|m| signed(m * 60 - r.actual_seconds))
-                            .unwrap_or_default()
+                        signed(section_delay(r))
                     } else {
                         String::new()
                     },
@@ -367,7 +394,7 @@ pub fn competitor(
         190.,
         280.,
         &headers,
-        &[1.4, 0.7, 1.2, 1.1, 1.1, 1.0, 0.9, 1.2],
+        &[1.4, 0.6, 1.0, 1.0, 1.0, 1.0, 0.7, 0.6, 0.6, 1.0],
         &rows,
         true,
     );

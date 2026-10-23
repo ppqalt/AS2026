@@ -173,6 +173,17 @@ fn missing_jat_confirms_interruption_even_while_finish_clock_is_pending() {
     assert!(r.syy.contains("JAT-asema 2 AT31 puuttuu"));
     assert!(!r.can_approve());
     assert_eq!(r.pending_manual_clocks().len(), 1);
+    p.kilpailijat[0].tallennettu_tulos = Some(r);
+    let view = application::calculated_project(&p).unwrap();
+    assert_eq!(view.competitors[0].status, "KESK");
+    let reopened = native::Project::from_toml(&p.to_toml().unwrap()).unwrap();
+    assert_eq!(
+        application::calculated_project(&reopened)
+            .unwrap()
+            .competitors[0]
+            .status,
+        "KESK"
+    );
 }
 #[test]
 fn section_and_cumulative_limits_preserve_all_reasons_at_exact_seconds() {

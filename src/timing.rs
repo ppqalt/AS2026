@@ -1192,7 +1192,7 @@ fn synthesize_void_row(result: &mut LiveCalculation, index: usize) -> Result<(),
     Ok(())
 }
 
-fn section_difference(
+pub(crate) fn section_difference(
     text: &str,
     actual_seconds: i64,
     policy: CalculationPolicy,

@@ -7,6 +7,7 @@ import { StartColumnsDialog } from "start-columns.slint";
 import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
 import { BeginnersCupDialog } from "beginners-cup.slint";
+import { LivePublishDialog } from "live-publish.slint";
 import { ResultEntryDialog } from "result-entry.slint";
 import { EmitCorrectionDialog } from "emit-correction.slint";
 import { PrintClassesDialog } from "print-classes.slint";
@@ -106,8 +107,20 @@ export component AppWindow inherits Window {
     callback refresh-printers();
     callback select-printer(int);
     in-out property <bool> print-busy;
+    in-out property <bool> publish-open;
+    in-out property <bool> publish-running;
+    in-out property <bool> publish-busy;
+    in-out property <string> publish-status;
+    in-out property <int> publish-protocol;
+    in-out property <[ResultEntryInput]> publish-fields;
+    callback open-publish();
+    callback publish-edited(int, string);
+    callback publish-test();
+    callback publish-toggle();
+    callback publish-finish();
     in-out property <bool> result-entry-open;
     in-out property <string> result-entry-identity;
+    in-out property <string> result-entry-queue;
     in-out property <[ResultEntryInput]> result-entry-fields;
     in-out property <string> result-entry-error;
     in-out property <int> result-entry-focus;
@@ -327,6 +340,7 @@ export component AppWindow inherits Window {
             if root.emit-edit-open { root.emit-edit-close(false); return accept; }
             if root.lan-open { root.lan-open = false; return accept; }
             if root.export-open { root.export-open = false; return accept; }
+            if root.publish-open { root.publish-open = false; return accept; }
             if root.result-entry-open { root.result-entry-close(false); return accept; }
             if root.print-classes-open { root.print-classes-close(false); return accept; }
             if root.notes-open { root.notes-open = false; return accept; }
@@ -359,7 +373,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.publish-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -456,7 +470,7 @@ export component AppWindow inherits Window {
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
-                            width: 280px; height: root.page == 1 ? 232px : root.page == 0 || root.page == 3 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
+                            width: 280px; height: root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
                                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                                 VerticalLayout {
@@ -477,6 +491,7 @@ export component AppWindow inherits Window {
                                     if root.page == 3: Button { text: "Tulosta luokkatulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(false); extras-menu.close(); } }
                                     if root.page == 3: Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); extras-menu.close(); } }
                                     if root.page == 2: Button { text: "Lue kehystiedosto"; enabled: root.editable; clicked => { root.focus-page(); root.import-frame(); extras-menu.close(); } }
+                                    if root.page == 3: Button { text: "Live-tulosten julkaisu"; enabled: root.editable; clicked => { root.open-publish(); extras-menu.close(); } }
                                 }
                                 FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                             }
@@ -1455,8 +1470,20 @@ export component AppWindow inherits Window {
         add(restore) => { root.emit-edit-add(restore); }
         close(save) => { root.emit-edit-close(save); }
     }
+    if root.publish-open: LivePublishDialog {
+        width: root.width; height: root.height;
+        fields: root.publish-fields; status: root.publish-status;
+        running: root.publish-running; busy: root.publish-busy;
+        protocol <=> root.publish-protocol;
+        edited(key, value) => { root.publish-edited(key, value); }
+        test => { root.publish-test(); }
+        toggle => { root.publish-toggle(); }
+        finish => { root.publish-finish(); }
+        close => { root.publish-open = false; }
+    }
     if root.result-entry-open: ResultEntryDialog {
         width: root.width; height: root.height;
+        queued: root.result-entry-queue;
         identity: root.result-entry-identity; fields: root.result-entry-fields;
         error: root.result-entry-error; focus-index <=> root.result-entry-focus;
         edited(key, value) => { root.result-entry-edited(key, value); }

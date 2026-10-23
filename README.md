@@ -75,3 +75,5 @@ vaatii erillisen laite- ja vertailukokeen; automaattinen koe ei todista niitä.
 Oma koodi, dokumentaatio ja synteettiset esimerkit: [BSD-2-Clause](LICENSE).
 Riippuvuuksilla on omat lisenssinsä: [THIRD_PARTY.md](THIRD_PARTY.md).
 Slint-maininta säilyy ohjelman Tietoja-ikkunassa.
+
+Live-tulokset palvelimelle: [SFTP/FTP-julkaisun käyttöönotto](docs/LIVE_JULKAISU.md).

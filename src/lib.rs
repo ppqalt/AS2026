@@ -15,6 +15,8 @@ pub mod installation;
 #[cfg(feature = "desktop")]
 pub mod lan;
 pub mod legacy;
+#[cfg(feature = "desktop")]
+pub mod live_publish;
 pub mod live_reader;
 pub mod matching;
 #[cfg(feature = "desktop")]

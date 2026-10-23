@@ -7,6 +7,7 @@ mod lan;
 mod lan_smoke;
 mod menu_smoke;
 mod printing;
+mod publish;
 mod smoke;
 mod tables;
 
@@ -96,6 +97,9 @@ struct State {
     unsaved: Vec<(Box<emit::EmitFrame>, ClockTime)>,
     read_notice_timer: Timer,
     entry_number: Option<u32>,
+    entry_dirty: bool,
+    publisher: Option<as2026::live_publish::Publisher>,
+    publish_test: Option<Receiver<Result<(), String>>>,
     print_test: bool,
     // Vain synteettinen GUI-koe syöttää valitsimen vastauksen; tuotannossa None.
     test_file_choice: Option<Option<PathBuf>>,
@@ -1089,6 +1093,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         .as_ref()
         .and_then(Workspace::lan_client)
         .is_none_or(|client| client.ready())
+        && !app.get_publish_open()
         && !app.get_lan_open()
         && !app.get_competitor_edit_open()
         && !app.get_emit_edit_open()
@@ -1223,12 +1228,19 @@ fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool 
                                 "Lukema tallennettiin. Asematuloksen muodostaminen ei onnistunut: {error}"
                             );
                         }
+                        // Koskematon automaattinen lomake seuraa uutta korttia. Toimitsijan
+                        // aloittama syöttö säilyy ja uusi kortti jää odottamaan.
+                        if app.get_result_entry_open() && !state.entry_dirty {
+                            app.set_result_entry_open(false);
+                            state.entry_number = None;
+                        }
                         state.pending_result = Some(PendingResult {
                             number,
                             card: outcome.card_number,
                             notice,
                         });
                         if !can_follow_readout(state, app) {
+                            app.set_result_entry_queue(format!("Uusi kortti: {identity}. Viimeistele nykyinen syöttö; seuraava kilpailija avataan sen jälkeen.").into());
                             status(
                                 app,
                                 "Uusi korttiluku tallennettu. Tulokset avataan, kun keskeneräinen muutos on hyväksytty tai peruutettu.",
@@ -3322,6 +3334,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let lan_timer = Timer::default();
     lan::bind(&app, &state, &lan_timer);
     printing::bind(&state, &app);
+    let publish_timer = Timer::default();
+    publish::bind(&state, &app, &publish_timer);
     printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
@@ -3393,6 +3407,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     slint::run_event_loop()?;
     lan_timer.stop();
+    publish_timer.stop();
     if let Some(client) = state
         .borrow()
         .workspace

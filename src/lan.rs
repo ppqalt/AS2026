@@ -1699,8 +1699,8 @@ mod workflow_tests {
             .find(|r| r.station_type == "M")
             .unwrap()
             .output_index;
-        wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25)
-            .unwrap();
+        let completed = wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25);
+        await_edit(&mut wa, &a, completed);
         assert!(wa.result_snapshot(7).unwrap().unwrap().hyvaksytty);
         let until = Instant::now() + Duration::from_secs(4);
         while wb.project() != wa.project() {
@@ -1712,13 +1712,13 @@ mod workflow_tests {
         wb.pin_lan_basis();
         let reviewed = wb.review_results(7);
         await_edit(&mut wb, &b, reviewed);
-        wb.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 30)
-            .unwrap();
+        let completed = wb.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 30);
+        await_edit(&mut wb, &b, completed);
         assert!(wb.result_snapshot(7).unwrap().unwrap().hyvaksytty);
         wb.set_bc_view(false).unwrap();
         wb.pin_lan_basis();
         let raw = wb.project().unwrap().leimaluvut.clone();
-        wb.correct_emit_row(
+        let corrected = wb.correct_emit_row(
             7,
             &Request {
                 row: 2,
@@ -1728,8 +1728,8 @@ mod workflow_tests {
                 elapsed_seconds: 420,
                 reason: "LAN-kokeen synteettinen varakello".into(),
             },
-        )
-        .unwrap();
+        );
+        await_edit(&mut wb, &b, corrected);
         let until = Instant::now() + Duration::from_secs(4);
         while wa.project() != wb.project() {
             assert!(Instant::now() < until);
@@ -1745,8 +1745,8 @@ mod workflow_tests {
         wa.set_bc_view(false).unwrap();
         assert!(crate::printing::competitor(wa.project().unwrap(), 7, None).is_err());
         wa.pin_lan_basis();
-        wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25)
-            .unwrap();
+        let completed = wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25);
+        await_edit(&mut wa, &a, completed);
         let until = Instant::now() + Duration::from_secs(4);
         while wb.project() != wa.project() {
             assert!(Instant::now() < until);

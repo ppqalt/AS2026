@@ -19,6 +19,13 @@ lähtöluettelon sarakkeet sekä LAN-tilaviestit säilyvät.
 - Fluent-valikot avautuvat kentän alapuolelle ja lyhyet listat ilman turhaa vieritystä.
 - LAN-ikkunan parituskoodi ja osoite on erotettu selkeästi. Liittyminen onnistuu Enterillä.
 
+- Kilpailijatulosteessa näkyvät leimauskello, etumerkilliset AT-pisteet sekä erilliset ATp/ATy-sarakkeet.
+- Jaksojen ja kokonaismyöhän esitys käyttää tavoiteaikaa myös ilman erillistä Jakso-arvoa.
+- LAN-työnkulkukoe odottaa palvelimen kuittauksen myös hitaammalla Windows-levyllä.
+
+- Uusi kortti vaihtaa koskemattoman tuloslomakkeen oikeaan kilpailijaan. Aloitettu syöttö säilyy ja seuraava kortti odottaa nimettynä.
+- Live-tulosten taustajulkaisu SFTP:llä tai salaamattomalla FTP:llä: yhteyskoe, 60 s selainpäivitys, katkon jälkeinen uusintayritys ja lopullisen julkaisun erillinen toiminto. Salasanat eivät tallennu kilpailuun tai asetustiedostoon. Katso [käyttöönotto](https://github.com/ppqalt/AS2026/blob/v0.6.10/docs/LIVE_JULKAISU.md).
+
 ## Ohjeet ja varmennus
 
 README ja käännös-/UI-ohjeet on ajantasaistettu. Mukana ovat

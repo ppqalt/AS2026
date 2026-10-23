@@ -63,13 +63,50 @@ fn pair_layout_and_raw_time_differences() {
     for label in ["AT", "ATp/ATy", "RT", "Muut"] {
         assert!(texts.iter().any(|t| t.value == label && t.size == 18.));
     }
-    assert!(texts.iter().any(|t| t.value == "-00:07"));
+    let result = f.ws.result_snapshot(7).unwrap().unwrap();
+    let penalty = result
+        .rivit
+        .iter()
+        .find(|r| r.sequence == 2)
+        .unwrap()
+        .signed_time_penalty;
+    assert!(texts.iter().any(|t| t.value == format!("{penalty:+}")));
+    assert!(texts.iter().any(|t| t.value == "12:05:07"));
+    for label in ["klo", "ATp", "ATy"] {
+        assert!(texts.iter().any(|t| t.value == label));
+    }
     assert!(
         texts
             .iter()
             .filter(|t| t.value == "Nimi")
             .all(|t| (80. ..85.).contains(&t.y))
     );
+}
+
+#[test]
+fn total_delay_sums_sections_without_an_explicit_section_value() {
+    let mut f = Fixture::new();
+    f.ws.complete_result_entry(7, &f.clocks(), 0, 0).unwrap();
+    for (actual, expected) in [(vec![607, 63], "-00:10"), (vec![600, 60], "+00:00")] {
+        let mut project = f.ws.project().unwrap().clone();
+        let result = project.kilpailijat[0].tallennettu_tulos.as_mut().unwrap();
+        for (row, seconds) in result
+            .rivit
+            .iter_mut()
+            .filter(|r| matches!(r.station_type.as_str(), "JAT" | "M"))
+            .zip(actual)
+        {
+            row.section_text.clear();
+            row.actual_seconds = seconds;
+        }
+        let doc = printing::competitor(&project, 7, None).unwrap();
+        let texts = &doc.pages[0].texts;
+        let index = texts
+            .iter()
+            .position(|t| t.value == "Kokonaismyöhä")
+            .unwrap();
+        assert_eq!(texts[index + 1].value, expected);
+    }
 }
 
 #[test]
