@@ -52,6 +52,8 @@ export component AppWindow inherits Window {
     in-out property <string> detail-title;
     in-out property <bool> editor-visible;
     in-out property <bool> competitor-details-open;
+    in-out property <bool> competitor-edit-open;
+    changed competitor-edit-open => { if !root.competitor-edit-open { root.focus-page(); } }
     in-out property <bool> new-record;
     in-out property <bool> form-blocked;
     in-out property <string> editor-title;
@@ -81,6 +83,7 @@ export component AppWindow inherits Window {
     in-out property <string> lan-address;
     in-out property <string> lan-code;
     in-out property <string> lan-info;
+    in-out property <string> lan-host-address;
     in-out property <string> lan-error;
     callback lan-host();
     callback lan-join();
@@ -208,10 +211,15 @@ export component AppWindow inherits Window {
     in-out property <bool> status-details-open;
     callback show-export-menu();
     show-export-menu => { export-menu.show(); }
+    function export-from-extras() {
+        // Kutsu elää pääikkunassa: ensimmäisen popupin sulkeminen ei katkaise sitä.
+        extras-menu.close();
+        export-menu.show();
+    }
     export-menu := PopupWindow {
         close-policy: close-on-click-outside;
         x: root.width - Theme.gutter - self.width;
-        y: Theme.header-height + Theme.gutter + 2 * Theme.control-height + Theme.space-4 + Theme.space-2;
+        y: Theme.gutter + Theme.control-height + Theme.space-2;
         width: 180px; height: 3 * Theme.control-height + 4 * Theme.space-2;
         Rectangle {
             background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
@@ -309,6 +317,7 @@ export component AppWindow inherits Window {
 
     // Pikanäppäimet toimivat myös kentän tai taulukon ollessa kohdistettuna.
     keyboard := FocusScope {
+    enabled: !root.competitor-edit-open;
     focus-on-click: false;
     focus-on-tab-navigation: false;
     capture-key-pressed(event) => {
@@ -452,22 +461,22 @@ export component AppWindow inherits Window {
                                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                                 VerticalLayout {
                                     padding: Theme.space-2; spacing: Theme.space-2;
-                                    refresh-menu := Button { text: "Päivitä tiedot"; enabled: true; clicked => { extras-menu.close(); root.focus-page(); root.reload(); } }
-                                    if root.page == 0: Button { text: "Avaa"; clicked => { extras-menu.close(); root.open-file(); } }
-                                    if root.page == 0: Button { text: "+ Uusi"; clicked => { extras-menu.close(); root.begin-new(); } }
-                                    if root.page == 0: Button { text: "Tuo kilpailu Excelistä"; clicked => { extras-menu.close(); root.import-excel(); } }
-                                    if root.page == 1 || root.page == 5: Button { text: "Tuo Excel"; clicked => { extras-menu.close(); root.import-excel(); } }
-                                    if root.page == 1: Button { text: "Tallenna html-lähtöluettelo"; enabled: root.editable; clicked => { extras-menu.close(); root.export-starts(); } }
-                                    if root.page == 5: Button { text: "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { extras-menu.close(); root.add-record(); root.details-open = true; } }
-                                    if root.page == 1: Button { text: "Lisää kilpailija"; enabled: root.editable && !root.new-record; clicked => { extras-menu.close(); root.add-record(); root.details-open = true; } }
-                                    if root.page == 1: Button { text: "Arvo lähtöajat"; enabled: root.editable; clicked => { extras-menu.close(); root.configure-draw-classes(); } }
-                                    if root.page == 4: Button { text: "Lisää luokka"; enabled: root.editable && !root.new-record; clicked => { extras-menu.close(); root.add-record(); root.details-open = true; } }
-                                    if root.page == 4: Button { text: "Lisää yhdistetty luokka"; enabled: root.editable; clicked => { extras-menu.close(); root.add-combined-class(); } }
-                                    if root.page == 4: Button { text: "Beginners Cup"; enabled: root.editable; clicked => { extras-menu.close(); root.configure-bc(); } }
-                                    if root.page == 3: Button { text: "Vie tulokset"; clicked => { extras-menu.close(); root.show-export-menu(); } }
-                                    if root.page == 3: Button { text: "Tulosta luokkatulokset"; enabled: !root.print-busy; clicked => { extras-menu.close(); root.open-print-classes(false); } }
-                                    if root.page == 3: Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { extras-menu.close(); root.open-print-classes(true); } }
-                                    if root.page == 2: Button { text: "Lue kehystiedosto"; enabled: root.editable; clicked => { extras-menu.close(); root.focus-page(); root.import-frame(); } }
+                                    refresh-menu := Button { text: "Päivitä tiedot"; enabled: true; clicked => { root.focus-page(); root.reload(); extras-menu.close(); } }
+                                    if root.page == 0: Button { text: "Avaa"; clicked => { root.open-file(); extras-menu.close(); } }
+                                    if root.page == 0: Button { text: "+ Uusi"; clicked => { root.begin-new(); extras-menu.close(); } }
+                                    if root.page == 0: Button { text: "Tuo kilpailu Excelistä"; clicked => { root.import-excel(); extras-menu.close(); } }
+                                    if root.page == 1 || root.page == 5: Button { text: "Tuo Excel"; clicked => { root.import-excel(); extras-menu.close(); } }
+                                    if root.page == 1: Button { text: "Tallenna html-lähtöluettelo"; enabled: root.editable; clicked => { root.export-starts(); extras-menu.close(); } }
+                                    if root.page == 5: Button { text: "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); root.details-open = true; extras-menu.close(); } }
+                                    if root.page == 1: Button { text: "Lisää kilpailija"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); root.details-open = true; extras-menu.close(); } }
+                                    if root.page == 1: Button { text: "Arvo lähtöajat"; enabled: root.editable; clicked => { root.configure-draw-classes(); extras-menu.close(); } }
+                                    if root.page == 4: Button { text: "Lisää luokka"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); root.details-open = true; extras-menu.close(); } }
+                                    if root.page == 4: Button { text: "Lisää yhdistetty luokka"; enabled: root.editable; clicked => { root.add-combined-class(); extras-menu.close(); } }
+                                    if root.page == 4: Button { text: "Beginners Cup"; enabled: root.editable; clicked => { root.configure-bc(); extras-menu.close(); } }
+                                    if root.page == 3: Button { text: "Vie tulokset"; clicked => { root.export-from-extras(); } }
+                                    if root.page == 3: Button { text: "Tulosta luokkatulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(false); extras-menu.close(); } }
+                                    if root.page == 3: Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); extras-menu.close(); } }
+                                    if root.page == 2: Button { text: "Lue kehystiedosto"; enabled: root.editable; clicked => { root.focus-page(); root.import-frame(); extras-menu.close(); } }
                                 }
                                 FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                             }
@@ -485,6 +494,7 @@ export component AppWindow inherits Window {
                     spacing: Theme.space-4;
                     if !root.opened: Rectangle {
                         height: welcome-content.min-height; vertical-stretch: 0;
+                        max-width: 760px;
                         horizontal-stretch: 1;
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         welcome-content := VerticalLayout {
@@ -579,10 +589,21 @@ export component AppWindow inherits Window {
                         Text { text: root.unsaved-count + " lukemaa odottaa tallennusta"; color: Theme.danger; vertical-alignment: center; }
                         Button { height: Theme.control-height; text: "Päivitä ja yritä tallentaa"; enabled: !root.reader-running; clicked => { root.retry-readouts(); } }
                     }
-                    HorizontalLayout {
-                        spacing: Theme.space-3;
-                        Text { text: "Lukuhistoria"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; vertical-alignment: center; }
-                        Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.success; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; }
+                    Rectangle {
+                        height: Theme.control-height; vertical-stretch: 0;
+                        HorizontalLayout {
+                            x: 0px; y: 0px; alignment: start;
+                            width: reader-workspace.list-width; height: parent.height;
+                            spacing: Theme.space-3;
+                            Text { text: "Lukuhistoria"; horizontal-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; vertical-alignment: center; }
+                            Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.success; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; }
+                        }
+                        if !reader-workspace.compact && reader-workspace.details-visible: HorizontalLayout {
+                            x: reader-workspace.details-x; width: reader-workspace.details-width; height: parent.height;
+                            spacing: Theme.space-2;
+                            Text { text: root.detail-title; min-width: 0px; overflow: elide; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                            Button { text: "Muokkaa leimauksia"; enabled: root.editable && root.selected-key >= 0; clicked => { root.open-emit-edit(); } }
+                        }
                     }
                     reader-workspace := Workspace {
                         horizontal-stretch: 1; vertical-stretch: 1;
@@ -603,7 +624,7 @@ export component AppWindow inherits Window {
                             visible: reader-workspace.details-visible;
                             VerticalLayout {
                                 spacing: Theme.space-2;
-                                HorizontalLayout {
+                                if reader-workspace.compact: HorizontalLayout {
                                     Text { text: root.detail-title; min-width: 0px; wrap: word-wrap; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; horizontal-stretch: 1; }
                                     Button { text: "Muokkaa leimauksia"; enabled: root.editable && root.selected-key >= 0; clicked => { root.open-emit-edit(); } }
                                 }
@@ -622,6 +643,7 @@ export component AppWindow inherits Window {
                     if root.page == 3: HorizontalLayout {
                         alignment: start; vertical-stretch: 0;
                         spacing: Theme.space-2;
+                        if root.bc-configured: Button { text: "Beginners Cup"; checkable: true; checked: root.bc-results; clicked => { root.result-scope(!root.bc-results); } }
                         AccentButton { text: "Tarkista"; enabled: root.editable && root.selected-key >= 0; clicked => { root.review-results(); } }
                         Button { text: "Tutki"; enabled: root.editable && root.result-stored && root.examine-supported; clicked => { root.examine-results(); } }
                         if root.calculation-notes != "": Button { text: "Huomautukset (" + root.calculation-note-count + ")"; clicked => { root.notes-open = true; } }
@@ -695,7 +717,7 @@ export component AppWindow inherits Window {
                                     edit-competitor => { root.edit-result-competitor(); }
                                     approve => { root.approve-results(); }
                                 }
-                                if root.editor-visible: Editor {
+                                if root.editor-visible && root.editor-title == "Asematuloksen korjaus": Editor {
                                     details-open <=> root.competitor-details-open;
                                     driver-layout: root.editor-title == "Kilpailijan tiedot";
                                     horizontal-stretch: 1;
@@ -827,8 +849,10 @@ export component AppWindow inherits Window {
                         }
                         }
                         route-details := ScrollView {
-                            x: route-workspace.details-x; y: route-workspace.content-y;
-                            width: route-workspace.details-width; height: route-workspace.content-height;
+                            x: route-workspace.details-x;
+                            y: route-workspace.content-y + (route-workspace.compact ? 0px : 22px + Theme.space-2);
+                            width: route-workspace.details-width;
+                            height: route-workspace.content-height - (route-workspace.compact ? 0px : 22px + Theme.space-2);
                             visible: route-workspace.details-visible;
                             horizontal-scrollbar-policy: always-off;
                             viewport-width: self.visible-width; viewport-height: route-content.min-height;
@@ -886,23 +910,24 @@ export component AppWindow inherits Window {
                     settings-content := Rectangle {
                         x: 0px; y: 0px;
                         width: min(Theme.settings-max-width, settings-scroll.visible-width);
-                        property <bool> compact: self.width < 880px;
+                        property <bool> compact: self.width < 1100px;
                         height: self.compact && root.opened ? settings-editor.min-height + Theme.space-4 + storage-content.min-height : max(root.opened ? settings-editor.min-height : 0px, storage-content.min-height);
                         settings-editor := Editor {
                             x: 0px; y: 0px;
                             visible: root.opened;
                             // Constrained by the parent layout; no window-size feedback.
-                            width: settings-content.compact ? settings-content.width : settings-content.width * 0.52;
+                            width: settings-content.compact ? settings-content.width : settings-content.width - 360px - Theme.space-4;
                             height: self.min-height;
                             heading: "Kilpailun asetukset"; description: "";
                             fit-content: true;
+                            columns: self.width >= 980px ? 3 : self.width >= 620px ? 2 : 1;
                             fields: root.fields; error: root.editor-error; writable: root.editable && !root.install-busy; blocked: root.form-blocked;
                             field-commit(key, value) => { root.field-commit(key, value) }
                             field-draft(key, value) => { root.field-draft(key, value); }
                             cancel => { root.cancel-edit(); }
                         }
                             Rectangle {
-                                x: settings-content.compact ? 0px : settings-editor.width + Theme.space-4;
+                                x: settings-content.compact || !root.opened ? 0px : settings-editor.width + Theme.space-4;
                                 y: settings-content.compact && root.opened ? settings-editor.height + Theme.space-4 : 0px;
                                 width: settings-content.compact || !root.opened ? settings-content.width : settings-content.width - settings-editor.width - Theme.space-4;
                                 height: storage-content.min-height; background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
@@ -932,10 +957,45 @@ export component AppWindow inherits Window {
                 height: Theme.control-height + Theme.space-2;
                 background: root.status-error ? Theme.danger-soft : Theme.surface;
                 HorizontalLayout {
-                    padding-left: Theme.gutter; padding-right: Theme.gutter; spacing: Theme.space-3;
+                    padding-left: Theme.gutter; padding-right: Theme.gutter; padding-top: Theme.space-1; padding-bottom: Theme.space-1; spacing: Theme.space-3;
                     Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.accent; font-weight: 700; width: 14px; vertical-alignment: center; }
                     Text { text: root.status-summary; color: root.status-error ? Theme.danger : Theme.muted; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
-                    if root.status-error: Button { text: "Lisätiedot"; clicked => { root.status-details-open = true; } }
+                    if root.status-error: Button { text: "Näytä virhe"; clicked => { root.status-details-open = true; } }
+                }
+            }
+        }
+    }
+    if root.competitor-edit-open: Rectangle {
+        background: Theme.modal-backdrop;
+        TouchArea { }
+        FocusScope {
+            width: parent.width; height: parent.height;
+            init => { competitor-close.focus(); }
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { root.edit-result-competitor(); return accept; }
+                reject
+            }
+            DialogSurface {
+                available-width: root.width; available-height: root.height;
+                preferred-dialog-width: 960px; preferred-dialog-height: 820px;
+                VerticalLayout {
+                    padding: Theme.dialog-padding; spacing: Theme.space-3;
+                    Heading { text: "Muokkaa kilpailijaa"; }
+                    competitor-scroll := ScrollView {
+                        horizontal-scrollbar-policy: always-off;
+                        viewport-width: self.visible-width; viewport-height: competitor-editor.min-height;
+                        competitor-editor := Editor {
+                            width: competitor-scroll.visible-width;
+                            fit-content: true;
+                            columns: self.width >= 720px ? 2 : 1;
+                            heading: root.editor-title; fields: root.fields;
+                            error: root.editor-error; writable: root.editable;
+                            blocked: root.form-blocked;
+                            field-commit(key, value) => { root.field-commit(key, value) }
+                            field-draft(key, value) => { root.field-draft(key, value); }
+                        }
+                    }
+                    DialogActions { competitor-close := Button { text: "Valmis"; clicked => { root.edit-result-competitor(); } } }
                 }
             }
         }
@@ -970,7 +1030,7 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 640px; preferred-dialog-height: root.lan-active ? 340px : 480px;
+                preferred-dialog-width: 560px; preferred-dialog-height: root.lan-active ? 360px : 420px;
                 VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-3;
                     Heading { text: "Kilpailu lähiverkossa"; }
@@ -982,19 +1042,29 @@ export component AppWindow inherits Window {
                             width: lan-dialog-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3; alignment: start;
                             Note { text: root.lan-active ? root.lan-status : "Avaa kilpailu isäntäkoneessa. Muut koneet liittyvät sen parituskoodilla."; }
+                            if root.lan-hosting: Rectangle {
+                                height: 112px; vertical-stretch: 0;
+                                background: Theme.surface-raised; border-radius: Theme.radius;
+                                VerticalLayout {
+                                    padding: Theme.panel-padding; spacing: Theme.space-2;
+                                    Text { text: "Parituskoodi"; color: Theme.muted; font-size: Theme.label-font-size; }
+                                    Text { text: root.lan-code; color: Theme.ink; font-size: 26px; font-weight: 700; letter-spacing: 2px; }
+                                    Text { text: "Isäntäosoite  " + root.lan-host-address; color: Theme.muted; font-size: Theme.body-font-size; }
+                                }
+                            }
                             Rectangle {
                                 visible: !root.lan-active; min-height: root.lan-active ? 0px : Theme.control-height; max-height: root.lan-active ? 0px : Theme.control-height; vertical-stretch: 0; clip: true;
                                 HorizontalLayout {
                                     spacing: Theme.space-2;
-                                    lan-share := Button { text: "Jaa tämä kilpailu"; enabled: root.editable && !root.lan-busy; clicked => { root.lan-host(); } }
+                                    lan-share := AccentButton { text: "Jaa tämä kilpailu"; enabled: root.editable && !root.lan-busy; clicked => { root.lan-host(); } }
                                     lan-find := Button { text: "Etsi lähiverkosta"; enabled: !root.lan-busy; clicked => { root.lan-discover(); } }
                                     Rectangle { horizontal-stretch: 1; }
                                 }
                             }
                             if !root.lan-active: Text { text: "Isäntäkoneen IP-osoite"; color: Theme.muted; font-size: Theme.label-font-size; }
-                            if !root.lan-active: LineEdit { text <=> root.lan-address; placeholder-text: "192.168.1.20"; enabled: !root.lan-busy; }
+                            if !root.lan-active: LineEdit { text <=> root.lan-address; placeholder-text: "192.168.1.20"; enabled: !root.lan-busy; accepted => { if lan-connect.enabled { root.lan-join(); } } }
                             if !root.lan-active: Text { text: "Parituskoodi"; color: Theme.muted; font-size: Theme.label-font-size; }
-                            if !root.lan-active: LineEdit { text <=> root.lan-code; enabled: !root.lan-busy; }
+                            if !root.lan-active: LineEdit { text <=> root.lan-code; enabled: !root.lan-busy; accepted => { if lan-connect.enabled { root.lan-join(); } } }
                             if root.lan-info != "": Text { text: root.lan-info; color: Theme.ink; wrap: word-wrap; min-height: 40px; }
                             if root.lan-error != "": Text { text: root.lan-error; color: Theme.danger; wrap: word-wrap; }
                         }

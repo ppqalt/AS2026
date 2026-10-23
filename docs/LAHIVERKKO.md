@@ -4,9 +4,9 @@ Saatavilla versiosta 0.6.7 alkaen. Käyttöliittymä ja yhteysvirheet ovat suome
 
 ## Käyttö
 
-1. Pysäytä Emit-lukija yhteyden perustamisen ajaksi. Avaa kilpailu isäntäkoneessa. Paina yläpalkin keskellä **Lähiverkko** ja **Jaa tämä kilpailu**.
+1. Pysäytä Emit-lukija yhteyden perustamisen ajaksi. Avaa kilpailu isäntäkoneessa. Paina sivupalkin yhteystilaa ja **Jaa tämä kilpailu**.
 2. Muilla koneilla avaa **Lähiverkko**. Haku täydentää löytyneen isännän osoitteen.
-   Anna isäntäkoneessa näkyvä 12 merkin parituskoodi ja valitse **Yhdistä kilpailuun**.
+   Anna isäntäkoneessa näkyvä 12 merkin parituskoodi ja paina **Enter** tai **Yhdistä kilpailuun**.
 3. Jos haku ei löydä isäntää, kirjoita sen IP-osoite käsin. Isännän yhteysikkuna näyttää
    osoitteen. Tarvittaessa osoitteeseen voi liittää portin, esimerkiksi `192.168.1.20:42165`.
 4. Kaikki muokkaavat samaa kilpailua samoilla oikeuksilla. Jokaisella on oma lukija ja
@@ -17,6 +17,7 @@ Vienti ja tulostus pyytävät isännältä tuoreen tilannekuvan. Niitä jatketaa
 lähetysjono on kuitattu ja isäntäkoneeseen saadaan yhteys.
 
 Isännän palomuurin pitää sallia TCP 42165 lähiverkosta. Automaattinen haku käyttää UDP 42166:ta.
+Katso [Windowsin ja UFW:n rajatut palomuurisäännöt](PALOMUURI.md).
 Vieraat WLAN-verkot voivat estää laitteiden välisen liikenteen. Sovellus ei muuta palomuuria.
 Internet-yhteyttä, verkkolevyä tai yhteistä kansiota ei käytetä.
 

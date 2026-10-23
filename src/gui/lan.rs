@@ -183,12 +183,10 @@ fn accept_join(s: &mut State, app: &AppWindow, joined: Joined) -> GuiResult<()> 
             || format!("portti {}", host.address.port()),
             |a| a.to_string(),
         );
+        app.set_lan_host_address(address.into());
         app.set_lan_info(
-            format!(
-                "Parituskoodi: {}\nIsäntäosoite {}. Kaikilla koneilla on samat muokkausoikeudet.",
-                host.code, address
-            )
-            .into(),
+            "Liity toiselta koneelta tällä koodilla. Kaikilla koneilla on samat muokkausoikeudet."
+                .into(),
         );
     } else {
         app.set_lan_info("Kilpailu on yhdistetty. Emit-luvut säilyvät paikallisessa jonossa myös yhteyskatkon aikana.".into());

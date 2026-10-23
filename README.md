@@ -57,3 +57,7 @@ Linux- ja Windows-yhteensopivuuden lisäksi käytännön varmennus vaatii fyysis
 ## Lisenssi
 
 AS2026:n oma koodi, dokumentaatio ja synteettiset esimerkit: [BSD-2-Clause](LICENSE). Riippuvuuksilla on omat lisenssinsä. Slint-maininta on ohjelman Tietoja-ikkunassa; lisätiedot ovat tiedostossa [THIRD_PARTY.md](THIRD_PARTY.md).
+
+Käyttöliittymän komponentit, toimintatavat ja todelliset tarkistuskuvat:
+[Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md).
+Lähiverkon käyttöönotto: [Windowsin ja UFW:n palomuuriohje](docs/PALOMUURI.md).
