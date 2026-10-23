@@ -32,6 +32,8 @@ pub struct Preferences {
     pub last_competition: Option<PathBuf>,
     /// Tyhjä arvo käyttää käyttöjärjestelmän oletustulostinta.
     pub tulostin: String,
+    /// Paikalliset yhteysasetukset; salasanaa ei koskaan tallenneta.
+    pub live_julkaisut: std::collections::BTreeMap<PathBuf, crate::live_publish::Config>,
 }
 
 pub struct PreferencesStore {
@@ -98,6 +100,17 @@ impl PreferencesStore {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    pub fn save_publish(
+        &mut self,
+        path: PathBuf,
+        mut config: crate::live_publish::Config,
+    ) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        config.password.clear();
+        candidate.live_julkaisut.insert(path, config);
+        self.save(candidate)
     }
 
     pub fn save_printer(&mut self, printer: &str) -> Result<(), String> {

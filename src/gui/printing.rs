@@ -68,6 +68,8 @@ pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .into(),
     );
     state.entry_number = Some(number);
+    state.entry_dirty = false;
+    app.set_result_entry_queue("".into());
     app.set_result_entry_fields(model(fields));
     app.set_result_entry_error("".into());
     app.set_result_entry_focus(0);
@@ -316,9 +318,11 @@ pub(super) fn initialize_printer(state: &State, app: &AppWindow) {
 }
 pub(super) fn bind(state: &SharedState, app: &AppWindow) {
     let state2 = state.clone();
+    let edit_state = state.clone();
     let weak = app.as_weak();
     app.on_result_entry_edited(move |key, value| {
         if let Some(app) = weak.upgrade() {
+            edit_state.borrow_mut().entry_dirty = true;
             let fields = app.get_result_entry_fields();
             if let Some(index) = fields.iter().position(|f| f.key == key) {
                 let mut field = fields.row_data(index).unwrap();

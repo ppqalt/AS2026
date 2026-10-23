@@ -57,7 +57,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libfontconfig1-dev libxkbcommon-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev
+          sudo apt-get install -y pkg-config libssl-dev libfontconfig1-dev libxkbcommon-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev
       - name: Tarkista muotoilu
         run: cargo +stable fmt --all -- --check
       - name: Suorita kaikki testit

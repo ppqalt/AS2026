@@ -10,7 +10,7 @@ Käytä ajantasaista stable-työkaluketjua ja versionhallittua Cargo.lock-tiedos
 Ubuntu-pohjaisessa kehitys- ja CI-ympäristössä:
 
 ```sh
-sudo apt-get install pkg-config libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev xvfb
+sudo apt-get install pkg-config libssl-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-dev libxcb-shape0-dev libxcb-xfixes0-dev libegl1-mesa-dev xvfb
 cargo build --locked --release --features gui
 ./target/release/as2026-gui
 ```

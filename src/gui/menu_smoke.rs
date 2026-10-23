@@ -79,6 +79,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
     let shared = state.clone();
     let timer = Timer::default();
     let mut phase = 0usize;
+    let mut pending_attempts = 0u32;
     let mut read_count = 0usize;
     let mut unmodal_pixel = [0u8; 3];
     timer.start(TimerMode::Repeated, Duration::from_millis(180), move || {
@@ -320,8 +321,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 assert!(app.get_result_entry_identity().starts_with("#7 "));
             } else if step == 94 {
                 // Näppäimistökohdistus asetetaan Slintin init-ajastimessa piirron jälkeen.
-                smoke::key(&app, slint::platform::Key::Escape);
-                assert!(!app.get_result_entry_open());
+                assert!(app.get_result_entry_open(), "Koskematon edellinen lomake saa jäädä auki ennen uutta korttia");
             } else if step == 95 {
                 let mut raw = *include_bytes!("../../fixtures/synthetic/emit-frame.raw");
                 for (offset, byte) in 123457u32.to_le_bytes()[..3].iter().enumerate() {
@@ -336,7 +336,39 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
             } else if step == 96 {
                 assert!(app.get_result_entry_identity().starts_with("#8 · Toinen lukija"));
                 save_view(&app, &directory.join("toisen-kortin-tulos.png")).unwrap();
+                app.invoke_result_entry_edited(-1, "3".into());
+                let frame = emit::parse_frame(include_bytes!("../../fixtures/synthetic/emit-frame.raw")).unwrap();
+                handle_event(&mut shared.borrow_mut(), &app, ReaderEvent::Frame {
+                    frame: Box::new(frame), read_clock: ClockTime::new(12, 17, 0).unwrap()
+                });
+                assert_eq!(shared.borrow().entry_number, Some(8), "Aloitettua syöttöä ei korvata uudella kortilla");
+                assert_eq!(shared.borrow().pending_result.as_ref().map(|r| r.number), Some(7));
+                assert!(app.get_result_entry_fields().iter().any(|f| f.key == -1 && f.value == "3"));
                 smoke::key(&app, slint::platform::Key::Escape);
+            } else if step == 97 {
+                // Slint voi käsitellä tämän toistuvan ajastimen ennen sulkemisessa
+                // lisättyä kertalaukaisua samassa erääntyneiden ajastimien erässä.
+                if shared.borrow().entry_number.is_none() {
+                    pending_attempts += 1;
+                    assert!(pending_attempts < 8, "Odottava kortti ei avautunut sulkemisen jälkeen");
+                    assert_eq!(shared.borrow().pending_result.as_ref().map(|r|r.number), Some(7));
+                    return;
+                }
+                assert_eq!(shared.borrow().entry_number, Some(7));
+                assert!(app.get_result_entry_identity().starts_with("#7 "));
+                smoke::key(&app, slint::platform::Key::Escape);
+            } else if step == 98 {
+                app.invoke_open_publish();
+                assert!(app.get_publish_open());
+                assert_eq!(app.get_publish_fields().row_count(), 9);
+                app.invoke_publish_edited(1, "0".into());
+                app.invoke_publish_test();
+                assert!(!app.get_publish_busy());
+                assert!(app.get_publish_status().contains("Anna"));
+            } else if step == 99 {
+                save_view(&app, &directory.join("live-julkaisun-asetukset.png")).unwrap();
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_publish_open());
             } else {
                 println!("Valikkokoe valmis: 50 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
