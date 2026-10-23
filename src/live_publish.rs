@@ -100,7 +100,7 @@ fn ssh(config: &Config) -> Result<ssh2::Session, String> {
     session.set_timeout(12000);
     session
         .handshake()
-        .map_err(|_| "SFTP-kättely epäonnistui.")?;
+        .map_err(|e| format!("SFTP-kättely epäonnistui: {e}"))?;
     let (key, _) = session.host_key().ok_or("Palvelimen avain puuttuu.")?;
     let fingerprint = format!(
         "SHA256:{}",
@@ -230,7 +230,15 @@ impl Ftp {
         self.response(&[226, 250])?;
         check_cancelled(cancelled)?;
         self.command(&format!("RNFR {temporary}"), &[350])?;
-        self.command(&format!("RNTO {}", c.filename), &[250])?;
+        let renamed = self.command(&format!("RNTO {}", c.filename), &[250, 550, 553])?;
+        if !renamed.starts_with("250") {
+            // Some FTP servers cannot replace an existing destination with RNTO.
+            // Remove it only after the complete replacement has been uploaded.
+            self.command(&format!("DELE {}", c.filename), &[250])?;
+            check_cancelled(cancelled)?;
+            self.command(&format!("RNFR {temporary}"), &[350])?;
+            self.command(&format!("RNTO {}", c.filename), &[250])?;
+        }
         Ok(())
     }
 }

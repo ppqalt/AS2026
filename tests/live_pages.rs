@@ -90,3 +90,38 @@ fn blank_section_uses_operational_target_and_sums_multiple_sections() {
     result.rivit.push(jat);
     assert_eq!(result.cumulative_schedule_difference(), -90);
 }
+
+#[cfg(feature = "desktop")]
+#[test]
+#[ignore = "requires an isolated loopback FTP/SFTP server"]
+fn native_transport_replaces_three_class_pages_after_a_saved_correction() {
+    use as2026::live_publish::{Config, Publisher};
+    use std::{
+        fs, thread,
+        time::{Duration, Instant},
+    };
+    let path = std::env::var_os("AS2026_NATIVE_TRANSFER_CONFIG").unwrap();
+    let mut config: Config = toml::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    assert_eq!(config.host, "127.0.0.1");
+    config.password = "test".into();
+    config.filename = "omat.html".into();
+    let remote = PathBuf::from(std::env::var_os("AS2026_NATIVE_TRANSFER_REMOTE").unwrap());
+    as2026::live_publish::transfer(&config, None).unwrap();
+    let publisher = Publisher::start(config, "synthetic.toml".into()).unwrap();
+    let mut p = project();
+    for name in ["Ensimmäinen julkaisu", "Tallennettu korjaus"] {
+        p.kilpailu.nimi = name.into();
+        publisher.offer(&p);
+        let deadline = Instant::now() + Duration::from_secs(25);
+        loop {
+            if ["omat.html", "omat1.html", "omat2.html"]
+                .iter()
+                .all(|f| fs::read_to_string(remote.join(f)).is_ok_and(|s| s.contains(name)))
+            {
+                break;
+            }
+            assert!(Instant::now() < deadline, "{}", publisher.status());
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+}

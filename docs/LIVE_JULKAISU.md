@@ -55,9 +55,10 @@ ja laskentaa. Julkaisuikkunassa näkyvät viimeinen onnistunut lähetys ja virhe
 Siirto kirjoittaa ensin `<tiedostonimi>.as2026-upload`-väliaikaistiedoston.
 Vasta valmistunut tiedosto nimetään varsinaiseksi tulossivuksi. SFTP-palvelimen
 on tuettava OpenSSH:n `posix-rename`-laajennusta; tavalliset OpenSSH-palvelimet
-tukevat sitä. FTP-palvelimen täytyy sallia RNFR/RNTO ja olemassa olevan tiedoston
-korvaaminen. Jos palvelin hylkää vaihdon, vanhaa tulossivua ei poisteta sen
-kiertämiseksi. Yhteys- tai kirjoitusvirheen jälkeen uutta kokonaista tilannetta
+tukevat sitä. FTP-palvelimen täytyy sallia RNFR/RNTO. Jos palvelin ei salli
+olemassa olevan nimen korvaamista, kokonaan siirretyn uuden sivun tieltä poistetaan
+vanha kohdetiedosto ja uudelleennimeämistä yritetään uudelleen. Tällaisella
+FTP-palvelimella vaihdossa voi olla lyhyt katko, mutta osittaista HTML:ää ei näytetä. Yhteys- tai kirjoitusvirheen jälkeen uutta kokonaista tilannetta
 yritetään uudelleen kymmenen sekunnin välein.
 
 Tulossivu on itsenäinen mobiilissa toimiva HTML-sivu. Siinä näkyvät kilpailu,
