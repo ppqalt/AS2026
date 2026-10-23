@@ -270,7 +270,7 @@ impl PreferencesStore {
         } else {
             // Ensimmäistä asetustiedostoa ei korvata, vaikka muu ohjelma olisi
             // luonut sellaisen viimeisen sisältötarkistuksen jälkeen.
-            fs::hard_link(&temp.path, &self.path)
+            crate::storage::file_operation(|| fs::hard_link(&temp.path, &self.path))
                 .map_err(|error| file_error(&self.path, &error))?;
         }
         sync_parent(&self.path).map_err(|_| "Asetukset kirjoitettiin, mutta tallennuksen pysyvyyttä ei voitu varmistaa. Avaa sovellus uudelleen ja tarkista asetukset".to_owned())?;
@@ -329,7 +329,7 @@ fn resolve_existing_ancestors(path: &Path) -> Result<PathBuf, String> {
 }
 
 fn read_optional(path: &Path) -> Result<Option<Vec<u8>>, String> {
-    match fs::read(path) {
+    match crate::storage::file_operation(|| fs::read(path)) {
         Ok(content) => Ok(Some(content)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(file_error(path, &error)),
@@ -442,7 +442,8 @@ impl Temporary {
     }
 
     fn replace(&self, destination: &Path) -> Result<(), String> {
-        fs::rename(&self.path, destination).map_err(|error| file_error(destination, &error))
+        crate::storage::file_operation(|| fs::rename(&self.path, destination))
+            .map_err(|error| file_error(destination, &error))
     }
 }
 

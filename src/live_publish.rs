@@ -27,6 +27,10 @@ pub struct Config {
     pub public_url: String,
     pub key_file: String,
     pub fingerprint: String,
+    pub classes: Vec<String>,
+    pub local_directory: String,
+    #[serde(skip)]
+    pub local_only: bool,
     #[serde(skip)]
     pub password: String,
 }
@@ -38,8 +42,13 @@ impl std::fmt::Debug for Config {
 static TRANSFER: Mutex<()> = Mutex::new(());
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
-        if self.host.trim().is_empty() || self.user.trim().is_empty() || self.port == 0 {
+        if !self.local_only
+            && (self.host.trim().is_empty() || self.user.trim().is_empty() || self.port == 0)
+        {
             return Err("Anna palvelin, portti ja käyttäjätunnus.".into());
+        }
+        if self.local_only && self.local_directory.is_empty() {
+            return Err("Anna paikallisten tulossivujen kansio.".into());
         }
         if self.filename.is_empty()
             || self.filename.starts_with('.')
@@ -393,10 +402,18 @@ impl Publisher {
                             continue;
                         }
                         // Odotukset yhdistetään: vain viimeisin tilanne lasketaan taustalla.
-                        let outcome = html(&project).and_then(|body| {
-                            let body = if final_result { body.replace("Epäviralliset tulokset", "Lopulliset tulokset") } else { body };
-                            transfer_with_cancel(&config, Some(body.as_bytes()), Some(&cancelled))
-                        });
+                        let outcome = (|| {
+                            let classes = if config.classes.is_empty() { crate::live_pages::class_choices(&project).map_err(|e|e.to_string())? } else { config.classes.clone() };
+                            let base=if config.local_directory.is_empty() {PathBuf::from(&config.filename)} else {PathBuf::from(&config.local_directory).join(&config.filename)};
+                            let mut pages=crate::live_pages::pages(&project,&crate::live_pages::Settings{base,classes}).map_err(|e|e.to_string())?;
+                            if final_result { for (_,body) in &mut pages {*body=body.replace("Epäviralliset tulokset","Lopulliset tulokset");} }
+                            if !config.local_directory.is_empty() {crate::live_pages::write_pages(&pages).map_err(|e|e.to_string())?;}
+                            if !config.local_only { for (name,body) in pages.iter().rev() {
+                                let mut target=config.clone();target.filename=name.file_name().unwrap().to_string_lossy().into_owned();
+                                transfer_with_cancel(&target,Some(body.as_bytes()),Some(&cancelled))?;
+                            }}
+                            Ok::<_,String>(())
+                        })();
                         match outcome {
                             Ok(()) => {
                                 if final_result {

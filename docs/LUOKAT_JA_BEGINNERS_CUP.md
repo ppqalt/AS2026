@@ -90,3 +90,9 @@ CI tarkistaa Rust-testit, Clippyn ja GUI-käännöksen Linuxissa ja Windowsissa.
 Linuxissa GUI-työnkulkukoe suoritetaan myös 100 ja 150 prosentin skaalauksella
 ja tarkistuskuvat tallennetaan Actions-artifactiksi. Synteettinen koe ei korvaa
 fyysisen Emit-lukijan koetta tai oikeaan kilpailuaineistoon vertaamista.
+
+
+Versiosta 0.6.11 alkaen BC-osallistujan NAC-tuloksen tallentaminen avaa automaattisesti
+Beginners Cupin oman aikojen ja virhepisteiden syötön. Täytä BC:n puuttuvat RT:t ja
+muut virhepisteet erikseen ja tallenna. Tallennetut BC-arvot näytetään uusintakäsittelyssä;
+NAC-arvoja ei kopioida niiden tilalle.

@@ -99,3 +99,18 @@ Todellinen 900 × 600 -virtuaali-ikkuna. Yhteyskentät vierivät, mutta tilatiet
 toimintopainikkeet pysyvät näkyvissä.
 
 ![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/live-julkaisu-900x600.png)
+
+
+## Luokkakohtaiset kiertävät sivut (0.6.11)
+
+Valitse julkaisuikkunan alusta julkaistavat luokat. Kukin valittu luokka saa oman
+sivun. Annettu nimi, esimerkiksi `tulokset.html`, on ensimmäinen sivu. Seuraavat
+ovat `tulokset1.html`, `tulokset2.html` jne. Sivun 60 sekunnin refresh avaa seuraavan
+luokan ja viimeinen sivu palauttaa pääsivulle. Perusnimen voi vaihtaa julkaistaessa.
+
+Sivut ovat pystysuunnassa tiiviitä. Niillä ei julkaista ohjelman virheilmoituksia,
+nousupisteitä tai sarjapisteitä. Paikallisten tulossivujen kansio määritetään samassa
+ikkunassa. **Paikallinen live** aloittaa päivityksen siihen ilman palvelinyhteyttä;
+avaa kansion pääsivu selaimeen. Samat sivut lähetetään FTP/SFTP-julkaisussa.
+
+SFTP-toteutus on sisäänrakennettu; ulkoista WinSCP-asennusta ei tarvita.

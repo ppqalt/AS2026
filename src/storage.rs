@@ -15,6 +15,26 @@ use std::{
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(1);
 
+/// A scanner or sync client may briefly hold a newly written Windows file.
+/// Retry only sharing/access failures; keep the atomic operation and its original error.
+pub(crate) fn file_operation<T>(
+    mut operation: impl FnMut() -> std::io::Result<T>,
+) -> std::io::Result<T> {
+    #[cfg(windows)]
+    {
+        for delay in [10, 20, 40, 80, 160, 320, 640] {
+            match operation() {
+                Ok(value) => return Ok(value),
+                Err(error) if matches!(error.raw_os_error(), Some(5 | 32 | 33)) => {
+                    std::thread::sleep(std::time::Duration::from_millis(delay));
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+    operation()
+}
+
 #[cfg(feature = "desktop")]
 pub(crate) fn durable_write(path: &Path, content: &[u8]) -> Result<(), CoreError> {
     #[cfg(not(unix))]
@@ -104,7 +124,8 @@ impl Temporary {
     }
 
     fn replace(&self, destination: &Path) -> Result<(), CoreError> {
-        fs::rename(&self.path, destination).map_err(|e| file_error(destination, &e))
+        file_operation(|| fs::rename(&self.path, destination))
+            .map_err(|e| file_error(destination, &e))
     }
 }
 
@@ -149,7 +170,7 @@ impl ProjectStore {
         let canonical = fs::canonicalize(path).map_err(|e| file_error(path, &e))?;
         let path = canonical.as_path();
         let _lock = lock(path)?;
-        let expected = fs::read(path).map_err(|e| file_error(path, &e))?;
+        let expected = file_operation(|| fs::read(path)).map_err(|e| file_error(path, &e))?;
         let source = std::str::from_utf8(&expected)
             .map_err(|_| invalid("Kilpailutiedoston pitää käyttää UTF-8-merkistöä"))?;
         let project = Project::from_toml(source)?;
@@ -192,7 +213,7 @@ impl ProjectStore {
         let temp = Temporary::write(path, &expected, None)?;
         // hard_link julkaisee valmiin tiedoston atomisesti ja kieltäytyy korvaamasta
         // kohdetta, vaikka toinen ohjelma olisi luonut sen tarkistuksen jälkeen.
-        fs::hard_link(&temp.path, path).map_err(|e| file_error(path, &e))?;
+        file_operation(|| fs::hard_link(&temp.path, path)).map_err(|e| file_error(path, &e))?;
         sync_parent(path)?;
         Ok(Self {
             path: path.to_owned(),
@@ -219,7 +240,8 @@ impl ProjectStore {
     }
 
     fn check_unchanged(&self) -> Result<(), CoreError> {
-        let actual = fs::read(&self.path).map_err(|e| file_error(&self.path, &e))?;
+        let actual =
+            file_operation(|| fs::read(&self.path)).map_err(|e| file_error(&self.path, &e))?;
         if actual != self.expected {
             return Err(invalid(
                 "Kilpailutiedostoa on muutettu toisessa ohjelmassa tai ikkunassa. Avaa kilpailu uudelleen ennen muuttamista",

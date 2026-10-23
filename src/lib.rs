@@ -246,3 +246,5 @@ pub mod live_report;
 pub mod report;
 
 pub mod timing;
+
+pub mod live_pages;

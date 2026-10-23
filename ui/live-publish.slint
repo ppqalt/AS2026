@@ -1,13 +1,16 @@
-import { Button, LineEdit, ComboBox, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ComboBox, ScrollView, CheckBox } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
-import { ResultEntryInput } from "types.slint";
+import { ResultEntryInput, DrawClassOption } from "types.slint";
 export component LivePublishDialog inherits Rectangle {
     in property <[ResultEntryInput]> fields;
     in property <string> status;
     in property <bool> running;
     in property <bool> busy;
     in-out property <int> protocol;
+    in property <[DrawClassOption]> classes;
+    callback class-toggled(int, bool);
+    callback local();
     callback edited(int, string);
     callback test();
     callback toggle();
@@ -24,7 +27,7 @@ export component LivePublishDialog inherits Rectangle {
         }
         DialogSurface {
             available-width: root.width; available-height: root.height;
-            preferred-dialog-height: 760px;
+            preferred-dialog-height: 760px; preferred-dialog-width: 840px;
             Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; text: "Live-tulosten julkaisu"; }
             Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 40px;
                 text: "Julkaisu koskee tätä kilpailua tällä koneella. Vain yksi kone julkaisee samaan osoitteeseen. Salasana säilyy vain muistissa."; }
@@ -33,6 +36,8 @@ export component LivePublishDialog inherits Rectangle {
                 height: parent.height - 108px - 150px;
                 VerticalLayout {
                     spacing: Theme.space-2; padding-right: 12px;
+                    Note { text: "Julkaistavat luokat – jokainen omalla kiertävällä sivullaan"; }
+                    for item[i] in root.classes: CheckBox { text:item.label; checked:item.selected; enabled:!root.running && !root.busy; toggled => {root.class-toggled(i,self.checked);} }
                     ComboBox { model: ["SFTP (salattu)", "FTP (salaamaton)"]; current-index <=> root.protocol; enabled: !root.running && !root.busy; }
                     if root.protocol == 1: Note { text: "FTP lähettää salasanan ja tulokset salaamatta. Käytä vain harkitusti."; }
                     for field in root.fields: VerticalLayout {
@@ -50,6 +55,7 @@ export component LivePublishDialog inherits Rectangle {
                 x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
                 width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
                 cancel := Button { text: "Sulje"; clicked => { root.close(); } }
+                if !root.running: Button { text:"Paikallinen live"; enabled:!root.busy; clicked => {root.local();} }
                 if !root.running: Button { text: root.busy ? "Testataan…" : "Testaa yhteys"; enabled: !root.busy && !root.running; clicked => { root.test(); } }
                 if root.running: Button { text: "Julkaise lopullisina"; enabled: !root.busy; clicked => { root.finish(); } }
                 AccentButton { text: root.running ? "Lopeta julkaiseminen" : "Aloita julkaiseminen"; enabled: !root.busy; clicked => { root.toggle(); } }

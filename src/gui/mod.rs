@@ -606,6 +606,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
                 })
             })
     };
+    let interrupted = interrupted || snapshot.as_ref().is_some_and(|r| r.tila == "KESK");
     app.set_result_interrupted(interrupted);
     app.set_result_approvable(approvable);
     app.set_result_stored(stored.is_some());
@@ -1137,6 +1138,8 @@ fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         })?;
     state.page = 3;
     state.filter.clear();
+    state.result_class.clear();
+    app.set_result_class_index(0);
     app.set_page(3);
     app.set_filter("".into());
     choose_row(state, index as i32)?;
@@ -3238,6 +3241,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let emit_correction_test = std::env::var_os("AS2026_EMIT_CORRECTION_TEST").is_some();
     let mut initial_path = None;
     let mut demo = false;
+    let mut portable = false;
     let mut smoke_test = false;
     let mut captures = None;
     let mut health_check = None;
@@ -3246,6 +3250,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--demo") => demo = true,
+            Some("--portable") => portable = true,
             Some("--install") => install_requested = true,
             Some("--health-check") => {
                 health_check = Some(
@@ -3293,6 +3298,15 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     app.set_managed(installation::is_managed());
     let preferences = if demo {
         let root = demo_path()?.parent().unwrap().to_owned();
+        PreferencesStore::open_at(
+            &root.join("sovellusasetukset.toml"),
+            &root.join("Kilpailut"),
+        )
+    } else if portable {
+        let root = std::env::current_exe()?
+            .parent()
+            .ok_or("Ohjelmakansio puuttuu")?
+            .to_owned();
         PreferencesStore::open_at(
             &root.join("sovellusasetukset.toml"),
             &root.join("Kilpailut"),
