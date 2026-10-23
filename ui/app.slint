@@ -173,6 +173,21 @@ export component AppWindow inherits Window {
     }
     in-out property <bool> dialog-open;
     in-out property <bool> about-open;
+    property <string> tung-keys;
+    in-out property <bool> tung-active;
+    in-out property <[int]> tung-speeds;
+    property <int> tung-frame;
+    callback tung-start();
+    Timer {
+        interval: 5s;
+        running: root.tung-active;
+        triggered => { root.tung-active = false; }
+    }
+    Timer {
+        interval: 16ms;
+        running: root.tung-active;
+        triggered => { root.tung-frame += 1; }
+    }
     in-out property <string> new-name;
     in-out property <string> new-error;
     in-out property <string> new-path;
@@ -186,7 +201,7 @@ export component AppWindow inherits Window {
     }
     changed notes-open => { root.note-details-open = false; if !root.notes-open { root.focus-page(); } }
     changed dialog-open => { if !root.dialog-open { root.focus-page(); } }
-    changed about-open => { if !root.about-open { root.focus-page(); } }
+    changed about-open => { root.tung-keys = ""; if !root.about-open { root.tung-active = false; root.focus-page(); } }
     changed confirm-open => { if !root.confirm-open { root.focus-page(); } }
     changed draw-classes-open => { if !root.draw-classes-open { root.focus-page(); } }
     changed bc-open => { if !root.bc-open { root.focus-page(); } }
@@ -395,17 +410,30 @@ export component AppWindow inherits Window {
             VerticalLayout {
                 padding: Theme.space-3; spacing: Theme.space-1;
                 Rectangle {
-                    height: 100px;
-                    VerticalLayout {
-                        padding-left: Theme.space-2; padding-top: Theme.space-2; spacing: Theme.space-1;
-                        Text { text: root.competition-name; min-width: 0px; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; overflow: elide; }
-                        Rectangle {
-                            height: Theme.control-height;
-                            Button { width: 100%; height: 100%; text: ""; accessible-label: root.lan-status; clicked => { root.lan-open = true; if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); } } }
-                            Text { x: 0px; width: parent.width; height: parent.height; text: root.lan-busy ? "Yhdistetään…" : root.lan-active ? root.lan-status : "Yhteys: paikallinen"; overflow: elide; color: Theme.muted; font-size: Theme.caption-font-size; vertical-alignment: center; }
-                        }
+                    height: 52px; vertical-stretch: 0;
+                    Text {
+                        x: Theme.space-2; y: Theme.space-2;
+                        width: parent.width - 2 * Theme.space-2;
+                        text: root.competition-name;
+                        color: Theme.ink; font-size: Theme.section-font-size;
+                        font-weight: 700; overflow: elide;
                     }
                 }
+                Rectangle {
+                    height: 40px; vertical-stretch: 0;
+                    Button {
+                    x: Theme.space-2; y: -Theme.space-1;
+                    width: nav-scroll.visible-width;
+                    height: 40px;
+                    text: root.lan-busy ? "Yhdistetään…" : root.lan-active ? root.lan-status : "Yhteys: paikallinen";
+                    accessible-label: root.lan-status;
+                    clicked => {
+                        root.lan-open = true;
+                        if !root.lan-active && !root.lan-busy && root.lan-address == "" { root.lan-discover(); }
+                    }
+                }
+                }
+                Rectangle { height: Theme.space-2; vertical-stretch: 0; }
                 nav-scroll := ScrollView {
                     vertical-stretch: 1;
                     horizontal-stretch: 1;
@@ -786,6 +814,7 @@ export component AppWindow inherits Window {
 
                     }
                     route-workspace := Workspace {
+                        property <length> route-panel-height: min(210px, max(160px, min(194px, Theme.control-height + root.rows.length * Theme.row-height) + Theme.scrollbar-width + 2px));
                         horizontal-stretch: 1; vertical-stretch: 1;
                         show-details <=> root.details-open;
                         has-details: root.route-editor-visible || root.editor-visible;
@@ -819,7 +848,7 @@ export component AppWindow inherits Window {
                                 vertical-stretch: 0;
                                 table-min-height: 84px;
                                 // Taulukko varaa myös vaakavierityspalkin kaistan ja reunukset.
-                                preferred-height: min(194px, max(84px, Theme.control-height + root.rows.length * Theme.row-height)) + Theme.scrollbar-width + 2px;
+                                preferred-height: route-workspace.route-panel-height;
                                 max-height: 210px;
                                 rows: root.rows; headers: root.headers; weights: root.weights;
                                 selected-key: root.selected-key;
@@ -887,6 +916,7 @@ export component AppWindow inherits Window {
                                 horizontal-stretch: 1;
                                 vertical-stretch: 0;
                                 fit-content: true;
+                                min-height: route-workspace.compact ? self.preferred-height : max(self.preferred-height, route-workspace.route-panel-height);
                                 heading: "Radan tiedot";
                                 description: "";
                                 fields: root.route-fields; writable: root.editable;
@@ -980,7 +1010,6 @@ export component AppWindow inherits Window {
                     padding-left: Theme.gutter; padding-right: Theme.gutter; padding-top: Theme.space-1; padding-bottom: Theme.space-1; spacing: Theme.space-3;
                     Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.accent; font-weight: 700; width: 14px; vertical-alignment: center; }
                     Text { text: root.status-summary; color: root.status-error ? Theme.danger : Theme.muted; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
-                    if root.status-error: Button { text: "Näytä virhe"; clicked => { root.status-details-open = true; } }
                 }
             }
         }
@@ -1251,6 +1280,16 @@ export component AppWindow inherits Window {
             focus-on-tab-navigation: false;
             init => { about-close.focus(); }
             capture-key-pressed(event) => {
+                if !event.modifiers.control && !event.modifiers.alt && !root.tung-active {
+                    if event.text == "t" { root.tung-keys = "t"; }
+                    else if event.text == "u" && root.tung-keys == "t" { root.tung-keys = "tu"; }
+                    else if event.text == "n" && root.tung-keys == "tu" { root.tung-keys = "tun"; }
+                    else if event.text == "g" && root.tung-keys == "tun" {
+                        root.tung-keys = "";
+                        root.tung-frame = 0;
+                        root.tung-start();
+                    } else { root.tung-keys = ""; }
+                }
                 if event.text == Key.Tab { about-close.focus(); return accept; }
                 reject
             }
@@ -1506,4 +1545,19 @@ export component AppWindow inherits Window {
         select-all(selected) => { root.print-classes-all(selected); }
         close(accepted) => { root.print-classes-close(accepted); }
     }
+    // Paikallinen yllätys: sama kuva 16 kertaa, kukin omalla pyörimisnopeudella.
+    if root.tung-active: Rectangle {
+        width: root.width; height: root.height;
+        background: transparent;
+        for speed[index] in root.tung-speeds: Image {
+            width: min(root.width, root.height) * (0.045 + Math.pow(Math.mod(index * 7, 16) / 15, 2) * 0.905);
+            height: self.width;
+            x: (Math.mod(index, 4) + 0.5) * root.width / 4 - self.width / 2;
+            y: (Math.floor(index / 4) + 0.5) * root.height / 4 - self.height / 2;
+            source: @image-url("assets/tung.png");
+            image-fit: contain;
+            transform-rotation: root.tung-frame * speed * 0.048deg;
+        }
+    }
+
 }

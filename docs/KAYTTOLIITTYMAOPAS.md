@@ -1,8 +1,8 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa AS2026 0.6.10:n, joka täydentää Mikky100:n 0.6.9-toteutusta. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
+Tämä opas kuvaa AS2026 0.7.0:n, jonka pohjana on Mikky100:n 0.6.11-toteutus. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
 Emit-editorin toiminta tulevat Mikky100:n toteutuksesta. Opas ei määrittele niitä
-uudelleen. Katso myös [0.6.9:n työnkulut](KAYTTOLIITTYMA_069.md) ja
+uudelleen. Katso myös [kilpailun työvaiheet](../KILPAILUTOIMINNOT.md) ja
 [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
@@ -46,7 +46,7 @@ Lähde: [ui/components.slint](../ui/components.slint).
 | `DialogSurface` | Keskitetty tumma kortti, ohut reunus, pyöristetyt kulmat | Ikkunan reunoille vähintään 12 px, sisään 24 px; sisältö rajoitetaan ikkunaan |
 | `DialogActions` | Oikealle tasattu painikeryhmä | Peruuta vasemmalla, vahvistus oikealla; ryhmä pysyy vierityksen ulkopuolella |
 | `NavItem` | Vasemman reunan navigaatiorivi ja vihreä valintapalkki | Hiiri, Enter ja Space avaavat sivun |
-| `FormField` | Nimi ylhäällä; tekstikenttä, valikko tai h:min:s-kentät | Kelvollinen muutos tallentuu Enterillä tai kentästä poistuttaessa; virhe kentän yhteydessä |
+| `FormField` | Nimi ylhäällä; tekstikenttä, valikko tai h:min:s-kentät | Kelvollinen muutos tallentuu Enterillä tai kentästä poistuttaessa; Enter poistaa kohdistuskorostuksen, virhe jää korjattavaksi |
 | `DataTable` | Tumma otsikkorivi, tasakorkuiset tietorivit, vihreä valinta | Pystyvieritys oikealla; leveän taulukon vaakavieritys kuljettaa otsikot ja rivit yhdessä |
 | `EditorEntry` | Yksi `FormField`-kenttä mallista | Välittää olemassa olevat kenttätunnukset ja tallennuskutsut |
 | `EditorFields` | Kenttäryhmä yhdessä tai useammassa palstassa | Sama kenttämalli; asemien ja kilpailijan omat ryhmittelyt säilyvät |
@@ -58,7 +58,7 @@ Lähde: [ui/components.slint](../ui/components.slint).
 
 | Lähde ja komponentti | Näkyvä sisältö | Olennainen toiminta |
 |---|---|---|
-| [app.slint](../ui/app.slint): `AppWindow` | Sivupalkki, sivun työalue, tilapalkki ja sisäiset valintaikkunat | Navigaatio, tiedoston avaus/uusi, LAN, tuonti, vienti, huomautukset, virheen lisätiedot, asennus ja vahvistukset |
+| [app.slint](../ui/app.slint): `AppWindow` | Sivupalkki, sivun työalue, tilapalkki ja sisäiset valintaikkunat | Navigaatio, tiedoston avaus/uusi, LAN, tuonti, vienti, huomautukset, asennus ja vahvistukset |
 | [results.slint](../ui/results.slint): `ResultSummary` | Kilpailijan tila, ajat, virhepisteet, yhteensä ja toimintopainikkeet | Tulostus ja kilpailijan muokkaus; ei omaa rinnakkaista pistelaskentaa |
 | `ResultPoint` samassa tiedostossa | Selite vasemmalla, arvo oikealla | Yhden tulossumman esitys |
 | [live-publish.slint](../ui/live-publish.slint): `LivePublishDialog` | Keskitetty tumma ikkuna, yhteystapa, nimetyt palvelinkentät ja lähetyksen tila | Vieritys pienessä ikkunassa, salasanan peittäminen, erilliset testaus/aloitus/lopetus/lopullinen julkaisu; [käyttöohje](LIVE_JULKAISU.md) |
@@ -126,7 +126,11 @@ näytöllä asetukset hyödyntävät useampaa palstaa, mutta lukuleveys pysyy ra
 Tarkista jokaiselta sivulta hiiri, Tab, Shift+Tab, Enter, Space, Esc,
 pysty-/vaakavieritys, kenttävirhe ja palautuminen. Valintojen ja dialogien
 kuvat ovat todellisia synteettisen kilpailun kuvakaappauksia, eivät mallikuvia.
-Kuvagalleria on alla. Kuvat on otettu Linuxin virtuaalinäytössä natiivisti käännetystä sovelluksesta synteettisellä kilpailulla. LAN-kuvan kertakäyttöinen testijako on suljettu.
+Alla olevat kuusi kuvaa on otettu 0.7.0:n natiivista Slint-sovelluksesta
+Linux-virtuaalinäytössä synteettisellä kilpailulla. Valikkokoe suoritti 52
+hiiri- ja näppäimistövalintaa, mukaan lukien luokkien lisäykset ja tulosviennit.
+Kuvat todistavat nämä näkymät ja kokeessa suoritetut polut; ne eivät yksin
+todista koko testimatriisin, fyysisen Emit-lukijan tai paperitulostimen toimintaa.
 
 LAN-ohje: [yhteiskäyttö ja palautuminen](LAHIVERKKO.md),
 [Windowsin ja UFW:n palomuuri](PALOMUURI.md).
@@ -139,14 +143,13 @@ Toiminnot → Lisää luokka avaa olemassa olevan editorin. Tunnus ja nimi
 viimeistelevät automaattisesti tallentuvan uuden luokan. Yhdistetyn luokan
 oma ikkuna säilyy Mikky100:n toteutuksena.
 
-![Lisää luokka oikean valikon kautta](kuvat/kayttoliittyma/lisaa-luokka.png)
-
 ### Rataluettelo ja radan tiedot
 
-Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta. Otsikko
-kuuluu luettelon yläpuolelle; asemien oma toimintorivi säilyy erillisenä.
+Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta. Versiossa
+0.7.0 myös tietokortin ja luettelon alareunat ovat rinnakkaisnäkymässä samalla
+korkeudella. Otsikko kuuluu luettelon yläpuolelle; asemien oma toimintorivi säilyy erillisenä.
 
-![Radat ja asemat 1920 × 1080](kuvat/kayttoliittyma/radat.png)
+![AS2026 0.7.0: Radat ja asemat, samankorkuiset rinnakkaispaneelit 1920 × 1080](kuvat/070-radat-1920x1080.png)
 
 ### Emit-historia ja luettu sisältö
 
@@ -154,7 +157,7 @@ Yhteinen otsikkorivi pitää molemmat taulukot samalla korkeudella.
 Muokkaa leimauksia avaa Mikky100:n koko kortin editorin. Alkuperäiset
 lukemat ja korjaukset säilyvät hänen tietomallissaan.
 
-![Emit-sivu 1366 × 768](kuvat/kayttoliittyma/emit.png)
+![AS2026 0.7.0: Emit-historia ja leimat 1366 × 768](kuvat/070-emit-1366x768.png)
 
 ### Kilpailijan muokkaus
 
@@ -163,7 +166,7 @@ pysyvä Valmis-painike ja vierivä sisältö. Valmis, Esc ja sama muokkauskutsu
 sulkevat ikkunan vain, kun nykyinen validointi sallii sen. Tausta on näkyvissä
 neutraalisti tummennettuna. Mikky100:n Emit-korjauksen sekuntiyksikkö säilyy.
 
-![Kilpailijan muokkaus ja neutraali taustapeite](kuvat/kayttoliittyma/kilpailijan-muokkaus.png)
+![AS2026 0.7.0: Kilpailijan muokkaus ja neutraali taustapeite](kuvat/070-kilpailijan-muokkaus.png)
 
 ### Asetukset leveässä ja pienessä ikkunassa
 
@@ -172,16 +175,14 @@ sovellusasetukset. Pienessä ikkunassa sivu vierii; kaikkia asetuksia ei
 puristeta yhdelle ruudulle. Tab-järjestys etenee palstan alusta loppuun
 ja seuraavan palstan alkuun.
 
-![Asetukset 2560 × 1440](kuvat/kayttoliittyma/asetukset.png)
+![AS2026 0.7.0: Asetukset leveässä 2560 × 1440 -ikkunassa](kuvat/070-asetukset-2560x1440.png)
 
-![Asetukset 900 × 600](kuvat/kayttoliittyma/asetukset-pieni.png)
+![AS2026 0.7.0: Asetukset vierivät 900 × 600 -ikkunassa](kuvat/070-asetukset-900x600.png)
 
 ### Aloitus ilman kilpailua
 
 Rajattu aloituskortti ja Mikky100:n Toiminnot-valikko. Avointa kilpailua
 edellyttäviä taulukoita ei näytetä tyhjinä työalueina.
-
-![Yleiskatsaus ilman kilpailua](kuvat/kayttoliittyma/aloitus.png)
 
 ### Lähiverkon isäntänäkymä
 
@@ -190,7 +191,13 @@ lopettaminen ovat erillisiä. Koodin 12 merkin suojaus säilyy; ulkoasu ei
 lyhennä yhteyden salaisuutta. Liittymiskenttien Enter tekee saman kuin
 Yhdistä kilpailuun.
 
-![LAN-isäntänäkymä kahden GUI-prosessin kokeesta](kuvat/kayttoliittyma/lahiverkko.png)
+### Livejulkaisu pienessä ikkunassa
+
+Luokkavalinnat ja palvelinkentät vierivät, mutta julkaisutila ja alapainikkeet
+pysyvät näkyvissä. Paikallinen live ja palvelinjulkaisu ovat erillisiä toimintoja.
+Yhteyskoe ei kirjoita tuloksia palvelimelle.
+
+![AS2026 0.7.0: Livejulkaisu ja luokkavalinnat 900 × 600 -ikkunassa](kuvat/070-live-900x600.png)
 
 ## Kokeiden toistaminen
 
@@ -212,20 +219,12 @@ vanhat 100 % / 150 % GUI-työnkulut ja Emit-editorin kokeen. Fyysinen Emit-lukij
 käyttöjärjestelmän tiedostovalitsimen ulkoasu ja paperituloste vaativat
 edelleen erillisen laitekokeen.
 
-## Muiden pääsivujen kuvat
+## Muut pääsivut
 
 Yleiskatsaus käyttää tunnuslukuja (`Metric`) ja työvaihepainikkeita.
 Kilpailijat ja Luokat käyttävät samaa `DataTable` + `Editor` -työaluetta.
 Tulokset lisää `ResultSummary`-kortin ja asematulostaulukon; haku ja
 luokkarajaus säilyvät Mikky100:n otsikkorivillä.
-
-![Avoimen kilpailun yleiskatsaus](kuvat/kayttoliittyma/yleiskatsaus.png)
-
-![Kilpailijat ja tietopaneeli](kuvat/kayttoliittyma/kilpailijat.png)
-
-![Tulokset ja asematulokset](kuvat/kayttoliittyma/tulokset.png)
-
-![Luokat ja yhteinen editori](kuvat/kayttoliittyma/luokat.png)
 
 ## Peräkkäiset Emit-kortit
 
@@ -233,3 +232,16 @@ Koskematon Täydennä tulos -ikkuna seuraa uutta korttia suoraan. Jo aloitettu
 syöttö säilyy; ikkunan ohjeteksti nimeää odottavan kilpailijan. Tallentaminen tai
 peruuttaminen avaa seuraavan kortin tuloksen. Raakaleimat säilyvät nykyisessä
 Emit-historiassa.
+
+## Kentän vahvistaminen ja yhteyspainike
+
+Tavalliseen muokkauskenttään kirjoitetun kelvollisen arvon Enter tallentaa
+ja siirtää kohdistuksen pois kentästä. Kentän aktiivinen alareuna häviää,
+mutta dialogi pysyy avoinna. Virheellinen arvo jää korjattavaksi. LAN-liittyminen,
+vientitiedoston tallentaminen ja tulosdialogin painikkeet säilyttävät omat
+Enter-toimintonsa; yleinen lomakekäytös ei korvaa niitä.
+
+Sivupalkin yhteystila on tavallinen Fluent-painike. Sen leveys ja korkeus
+seuraavat navigoinnin mittoja. Pitkä tila lyhenee painikkeessa, ja koko tila
+on luettavissa yhteysikkunasta. Alareunan virhetekstillä ei ole erillistä
+Näytä virhe -painiketta.

@@ -64,6 +64,15 @@ HTML-, CSV- ja XLSX-tulosviennit sekä paikallinen live-HTML sisältävät molem
 laskennat. Hyväksynnät tarkistetaan erikseen, vaikka kilpailijanumero on sama.
 Hyväksymätön BC-esikatselu ei saa NAC:n hyväksyntää eikä päinvastoin.
 
+## BC:n maalin aikarangaistus
+
+Versiossa 0.7.0 BC:n maali päättää ajanoton ilman
+ennakko- tai myöhästymisrangaistusta. Tämä koskee myös NAC-radan JAT-asemaa,
+johon lyhennetty BC päättyy. Maaliaika säilyy ajanoton päättymiseen ja tuloksen
+tarkastamiseen; NAC:n saman aseman sääntöä tai pisteitä ei muuteta. Muut BC:n
+asemat, puuttuvat leimat ja kilpailun keskeytysehdot käsitellään edelleen
+nykyisen laskennan mukaan.
+
 ## Leimojen kohdistus ja tiedostot
 
 BC-ohitukset perustuvat NAC-radan asemakohtiin, eivät pelkkään Emit-koodiin.

@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc,
     },
     thread,
@@ -40,6 +40,7 @@ impl std::fmt::Debug for Config {
     }
 }
 static TRANSFER: Mutex<()> = Mutex::new(());
+static NEXT_BACKUP: AtomicU64 = AtomicU64::new(1);
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
         if !self.local_only
@@ -232,13 +233,50 @@ impl Ftp {
         self.command(&format!("RNFR {temporary}"), &[350])?;
         let renamed = self.command(&format!("RNTO {}", c.filename), &[250, 550, 553])?;
         if !renamed.starts_with("250") {
-            // Some FTP servers cannot replace an existing destination with RNTO.
-            // Remove it only after the complete replacement has been uploaded.
-            self.command(&format!("DELE {}", c.filename), &[250])?;
+            // Osa palvelimista ei korvaa olemassa olevaa tiedostoa RNTO:lla.
+            // Siirretään aiempi sivu talteen: sitä ei poisteta ennen onnistumista.
             check_cancelled(cancelled)?;
-            self.command(&format!("RNFR {temporary}"), &[350])?;
-            self.command(&format!("RNTO {}", c.filename), &[250])?;
+            let backup = format!(
+                "{}.as2026-backup-{}-{}",
+                c.filename,
+                std::process::id(),
+                NEXT_BACKUP.fetch_add(1, Ordering::Relaxed)
+            );
+            self.command(&format!("RNFR {}", c.filename), &[350])?;
+            let replacement = (|| {
+                // Myös tämän vastauksen katoaminen voi tarkoittaa, että
+                // varakopio valmistui palvelimella: palautusta on yritettävä.
+                self.command(&format!("RNTO {backup}"), &[250])?;
+                check_cancelled(cancelled)?;
+                self.command(&format!("RNFR {temporary}"), &[350])?;
+                check_cancelled(cancelled)?;
+                self.command(&format!("RNTO {}", c.filename), &[250])?;
+                Ok::<_, String>(())
+            })();
+            if let Err(error) = replacement {
+                // Palautusta ei peruuteta. Katkennut ohjausyhteys avataan uudelleen,
+                // jotta aiempi sivu saadaan takaisin myös siirtokatkon jälkeen.
+                let restore = self.rename(&backup, &c.filename).or_else(|_| {
+                    let mut recovery = Self::login(c)?;
+                    let restored = recovery.rename(&backup, &c.filename);
+                    let _ = recovery.command("QUIT", &[221]);
+                    restored
+                });
+                return match restore {
+                    Ok(()) => Err(format!("{error} Aiempi tulossivu palautettiin.")),
+                    Err(_) => Err(format!(
+                        "{error} Automaattinen palautus ei onnistunut. Tarkista palvelimelta aiempi sivu ja varakopio {backup}."
+                    )),
+                };
+            }
+            let _ = self.command(&format!("DELE {backup}"), &[250]);
         }
+        Ok(())
+    }
+
+    fn rename(&mut self, source: &str, destination: &str) -> Result<(), String> {
+        self.command(&format!("RNFR {source}"), &[350])?;
+        self.command(&format!("RNTO {destination}"), &[250])?;
         Ok(())
     }
 }
@@ -404,7 +442,13 @@ impl Publisher {
                     if Instant::now() < next {
                         continue;
                     }
-                    let (job, final_result) = { let latest = shared.lock().unwrap(); (latest.value.clone(), latest.final_result) };
+                    let (job, final_result) = {
+                        let latest = shared.lock().unwrap();
+                        if latest.generation == sent {
+                            continue;
+                        }
+                        (latest.value.clone(), latest.final_result)
+                    };
                     if let Some((generation, project)) = job {
                         if generation == sent {
                             continue;
@@ -415,7 +459,7 @@ impl Publisher {
                             let base=if config.local_directory.is_empty() {PathBuf::from(&config.filename)} else {PathBuf::from(&config.local_directory).join(&config.filename)};
                             let mut pages=crate::live_pages::pages(&project,&crate::live_pages::Settings{base,classes}).map_err(|e|e.to_string())?;
                             if final_result { for (_,body) in &mut pages {*body=body.replace("Epäviralliset tulokset","Lopulliset tulokset");} }
-                            if !config.local_directory.is_empty() {crate::live_pages::write_pages(&pages).map_err(|e|e.to_string())?;}
+                            if !config.local_directory.is_empty() {crate::live_pages::write_pages_with_cancel(&pages, Some(&cancelled)).map_err(|e|e.to_string())?;}
                             if !config.local_only { for (name,body) in pages.iter().rev() {
                                 let mut target=config.clone();target.filename=name.file_name().unwrap().to_string_lossy().into_owned();
                                 transfer_with_cancel(&target,Some(body.as_bytes()),Some(&cancelled))?;

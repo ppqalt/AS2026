@@ -1,83 +1,93 @@
 # AS2026
 
-**AS2026 0.6.11** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
-tuloslaskentasovellus Linuxille ja Windowsille. Rust ja Slint, Fluent 2 / Dark Spruce.
+**AS2026 0.7.0** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
+tuloslaskentasovellus Linuxille ja Windowsille. Se toimii yhdellä koneella ilman
+internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
-Versio 0.6.11 lisää erillisen Beginners Cupin syöttövaiheen, julkaistavien luokkien
-valinnan, tiiviit automaattisesti kiertävät tulossivut ja paikallisen live-esikatselun.
-Mukana ovat myös tulosnäkymän ja asetuspaneelien käytettävyyskorjaukset.
+Versio pohjautuu Mikky100:n 0.6.11-toteutukseen. Kilpailuasetukset, Emit-luku,
+AT/JAT-laskenta, hyväksynnät ja luokkakohtaiset livetulokset säilyvät mukana.
+0.7.0 korjaa Beginners Cupin maalin aikarangaistuksen ja viimeistelee
+lomakkeiden sekä rinnakkaispaneelien käytettävyyttä. [Julkaisutiedot](RELEASE_NOTES.md).
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.6.11 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.6.11):
+Lataa oma pakettisi [version 0.7.0 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.0):
 
-- Linux x86-64: `AS2026-0.6.11-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.6.11-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.0-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.0-windows-x86_64.zip`
 
-Pura koko paketti omaan kansioon. Avaa `as2026-gui` tai Windowsissa
+Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
-olla suoritusoikeus. Valmis ohjelma ei tarvitse Rustia eikä erillistä Slint-asennusta.
-Pakettien mukana ovat allekirjoitettu manifesti, käynnistin ja riippuvuuksien lisenssit.
-Päivitykset tarkistetaan sivupalkin **Päivitykset**-painikkeesta.
+olla suoritusoikeus. Valmis sovellus ei tarvitse Rustia eikä erillistä Slint-asennusta.
+Paketit sisältävät allekirjoitetun tiedostoluettelon, käynnistimen ja riippuvuuksien
+lisenssit. Päivitykset tarkistetaan sivupalkin **Päivitykset**-painikkeesta.
 
-## Aloita kilpailu
+Pidä kaikilla saman kilpailun LAN-koneilla sama versio. Päivitä ja kokeile laitteet
+ennen kilpailua; ohjelmapäivitys ei siirrä tai poista kilpailutiedostoja.
+
+## Kilpailu alusta tuloksiin
 
 1. Avaa Yleiskatsauksen **Toiminnot**: avaa kilpailu, luo uusi tai tuo Excelistä.
-2. Tarkista kilpailijat, luokat, radat ja asemat. Excel-tuonnissa voit valita
-   kilpailijat ja radat erikseen.
+2. Tarkista kilpailijat, luokkien radat, asemat, Emit-kortit ja kilpailuasetukset.
+   Excel-tuonnissa kilpailijat ja radat voi valita erikseen.
 3. Valitse Kilpailijat → **Toiminnot → Arvo lähtöajat** ja tarkista lähtöluettelo.
-4. Lue kortit Emit-sivulla. Täydennä käsikellot ja virhepisteet sekä tarkasta tulokset.
-5. Tulosta tai vie hyväksytyt tulokset Tulokset → **Toiminnot** -valikosta.
+4. Lue kortit Emit-sivulla. Täydennä käsikellot ja virhepisteet, tarkasta ja hyväksy
+   tulokset. BC-osallistujan NAC-tallennusta seuraa erillinen Beginners Cupin syöttö.
+5. Tulosta tai vie luokka- ja asematulokset Tulokset-sivun toiminnoista. Tarkista
+   lopullinen luettelo ja julkaise livetulokset lopullisina vasta kilpailun valmistuttua.
 
-Kelvolliset muokkaukset tallentuvat automaattisesti. Kilpailut luodaan normaalisti
+Kelvolliset muutokset tallentuvat automaattisesti. Kilpailut luodaan normaalisti
 Asiakirjat-kansion `AS2026/Kilpailut`-hakemistoon; oletuspaikan voi vaihtaa
-Asetuksissa. Ohjelmapäivitys ei siirrä kilpailuja. Kokeile esimerkkiä ennen oikeaa
-kilpailua ja pidä kilpailukansiosta erillinen varmuuskopio.
+Asetuksissa. [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md) auttaa varmistamaan
+varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 
-## Mitä sovellus tekee?
+## Toiminnot
 
 - Kilpailijat, luokat, yhdistetyt luokat, radat ja asemat sekä lähtöluettelon sarakevalinta.
-- RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla.
-- Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten manuaalinen korjaus.
+- RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla ja erillisillä tuontivalinnoilla.
+- Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten perusteltu korjaus.
   Alkuperäiset leimat säilyvät jäljitettävinä.
-- Käsikellot, kilpailijan tilat, AT/JAT-laskenta, NAC ja Beginners Cup sekä hyväksynnät.
+- Käsikellot, kilpailijan tilat, AT/JAT, NAC ja Beginners Cup sekä erilliset hyväksynnät.
 - Luokka-, asema- ja kilpailijatulosteet sekä HTML-, CSV- ja XLSX-tulosvienti.
-- Paikallinen offline-käyttö ja kilpailun yhteiskäyttö lähiverkossa.
+- Lähiverkon yhteiskäyttö, paikallinen live-esikatselu ja SFTP/FTP-livetulokset.
 
-0.6.11 korjaa koko Toiminnot-valikon, mukaan lukien luokkien lisäämisen ja
-vientialavalikon. Mukana ovat keskitetty kilpailijaeditori, neutraalit modaalitaustat,
-BC-valinnan päälle/pois-kytkentä sekä asetusten ja rinnakkaispaneelien asettelukorjaukset.
-Mikky100:n uusimmat kilpailusäännöt ja laskenta säilyvät. [Julkaisutiedot](RELEASE_NOTES.md).
+## Yhteiskäyttö lähiverkossa
 
-## Sama kilpailu lähiverkossa
-
-Avaa kilpailu yhdellä koneella ja valitse sivupalkin yhteystila → **Jaa tämä kilpailu**.
+Avaa kilpailu isäntäkoneella ja valitse sivupalkin yhteystila → **Jaa tämä kilpailu**.
 Muut koneet liittyvät saman lähiverkon kautta 12-merkkisellä parituskoodilla.
-Automaattisen haun vaihtoehtona on isännän IP-osoite. Kaikilla on samat muokkausoikeudet;
-muutokset välittyvät automaattisesti ja katkon Emit-luvut säilyvät paikallisessa jonossa.
-Internet, pilvipalvelu tai jaettu kansio ei ole tarpeen.
+Automaattisen haun vaihtoehtona on isännän IP-osoite. Kaikilla on samat muokkausoikeudet.
+Muutokset välittyvät automaattisesti, ja yhteyskatkon Emit-luvut säilyvät paikallisessa
+jonossa. Internetiä, pilvipalvelua tai jaettua kansiota ei tarvita.
 
 [Yhdistäminen, ristiriidat ja palautuminen](docs/LAHIVERKKO.md) ·
 [Windowsin ja UFW:n palomuuri](docs/PALOMUURI.md)
 
+## Livetulokset
+
+Tulokset → **Toiminnot → Live-tulosten julkaisu** antaa valita julkaistavat luokat.
+Paikallinen live päivittää sivut omalle koneelle. Palvelinjulkaisu siirtää samat
+luokkakohtaisesti kiertävät sivut SFTP:llä tai FTP:llä. Valitse vain yksi julkaiseva
+kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULKAISU.md).
+
 ## Ohjeet ja kehitys
 
+- [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md)
 - [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md)
 - [Excel-tuonti](docs/EXCEL_TUONTI.md), [Emit-korjaus](docs/EMIT_RIVIN_KORJAUS.md),
   [luokat ja Beginners Cup](docs/LUOKAT_JA_BEGINNERS_CUP.md), [tulostus](docs/TULOSTUS.md)
-- [Kuvallinen käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
+- [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
 - [Kääntäminen ja testaus](BUILDING.md), [komentorivi](CLI.md),
   [UI-kehitys](UI.md), [julkaisuautomaatio](RELEASES.md)
 
-Linux- ja Windows-CI ajavat Rust-/Slint-tarkistukset, GUI-työnkulut 100/150 %:n
-skaalauksella sekä valikko- ja Emit-editorikokeet. Fyysisen Emit-lukijan,
-paperitulostuksen ja historiallisten AS2015A-tulosten täydellinen vastaavuus
-vaatii erillisen laite- ja vertailukokeen; automaattinen koe ei todista niitä.
+Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
+synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja
+paperitulostimen toiminta tarkistetaan aina käytettävällä kilpailukalustolla.
+Automaattikokeet eivät todista laitteiston toimintaa tai täydellistä vastaavuutta
+historiallisiin AS2015A-tuloksiin.
 
 ## Lisenssi
 
 Oma koodi, dokumentaatio ja synteettiset esimerkit: [BSD-2-Clause](LICENSE).
 Riippuvuuksilla on omat lisenssinsä: [THIRD_PARTY.md](THIRD_PARTY.md).
+Sovellus on toteutettu Rustilla ja Slintillä, Fluent 2 / Dark Spruce -ulkoasulla.
 Slint-maininta säilyy ohjelman Tietoja-ikkunassa.
-
-Live-tulokset palvelimelle: [SFTP/FTP-julkaisun käyttöönotto](docs/LIVE_JULKAISU.md).

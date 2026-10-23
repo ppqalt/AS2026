@@ -1,7 +1,25 @@
 //! Compact class pages shared by local preview and authenticated live publication.
 use crate::{CoreError, application, native::Project, ranking::TiePolicy};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::PathBuf,
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+};
+
+static LOCAL_WRITE: Mutex<()> = Mutex::new(());
+static NEXT_TEMP: AtomicU64 = AtomicU64::new(1);
+
+struct TemporaryPage(PathBuf);
+impl Drop for TemporaryPage {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
 
 fn invalid(s: &str) -> CoreError {
     CoreError::InvalidInput(s.into())
@@ -118,15 +136,108 @@ pub fn pages(project: &Project, settings: &Settings) -> Result<Vec<(PathBuf, Str
 }
 
 pub fn write_pages(pages: &[(PathBuf, String)]) -> Result<(), CoreError> {
+    write_pages_with_cancel(pages, None)
+}
+
+pub(crate) fn write_pages_with_cancel(
+    pages: &[(PathBuf, String)],
+    cancelled: Option<&AtomicBool>,
+) -> Result<(), CoreError> {
+    // Koko sivusarja kirjoitetaan peräkkäin. Pysäytetty vanha julkaisija ei
+    // voi palata korvaamaan uuden julkaisijan sivuja lukon vapautumisen jälkeen.
+    let _serial = LOCAL_WRITE
+        .lock()
+        .map_err(|_| invalid("Edellinen livetulosten tallennus keskeytyi odottamattomasti"))?;
+    let check_cancelled = || {
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+            Err(invalid("Julkaisu pysäytettiin."))
+        } else {
+            Ok(())
+        }
+    };
+    check_cancelled()?;
     for (path, html) in pages.iter().rev() {
-        if let Some(parent) = path.parent() {
+        check_cancelled()?;
+        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent)
                 .map_err(|_| invalid("Livetulosten kansiota ei voitu luoda"))?;
         }
-        let temporary = path.with_extension("html.as2026-tmp");
-        std::fs::write(&temporary, html)
-            .and_then(|_| crate::storage::file_operation(|| std::fs::rename(&temporary, path)))
-            .map_err(|_| invalid("Livetulossivun tallennus epäonnistui"))?;
+        let mut file_and_temp = None;
+        for _ in 0..100 {
+            let mut name = path.as_os_str().to_owned();
+            name.push(format!(
+                ".as2026-{}-{}.tmp",
+                std::process::id(),
+                NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+            ));
+            let temporary = PathBuf::from(name);
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temporary)
+            {
+                Ok(file) => {
+                    file_and_temp = Some((file, TemporaryPage(temporary)));
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(_) => return Err(invalid("Livetulossivun väliaikaistiedostoa ei voitu luoda")),
+            }
+        }
+        let (mut file, temporary) = file_and_temp
+            .ok_or_else(|| invalid("Livetulossivun väliaikaistiedostoa ei voitu luoda"))?;
+        let written = file.write_all(html.as_bytes());
+        drop(file);
+        written.map_err(|_| invalid("Livetulossivun tallennus epäonnistui"))?;
+        check_cancelled()?;
+        crate::storage::file_operation(|| {
+            // Windowsin jakovirheen uusintayrityskin kunnioittaa pysäytystä.
+            if cancelled.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "Julkaisu pysäytettiin.",
+                ));
+            }
+            std::fs::rename(&temporary.0, path)
+        })
+        .map_err(|_| invalid("Livetulossivun tallennus epäonnistui"))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stopped_local_writer_waiting_for_lock_cannot_replace_restarted_publication() {
+        let directory = std::env::temp_dir().join(format!(
+            "as2026-live-peruutus-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let old = vec![(directory.join("tulos.html"), "vanha tilanne".into())];
+        let new = vec![(directory.join("tulos.html"), "uusi tilanne".into())];
+        let stopped = AtomicBool::new(false);
+        let serial = LOCAL_WRITE.lock().unwrap();
+        std::thread::scope(|scope| {
+            let (ready, waiting) = std::sync::mpsc::channel();
+            let old_pages = &old;
+            let stop = &stopped;
+            let old_writer = scope.spawn(move || {
+                ready.send(()).unwrap();
+                write_pages_with_cancel(old_pages, Some(stop))
+            });
+            waiting.recv().unwrap();
+            stopped.store(true, Ordering::Relaxed);
+            let new_writer = scope.spawn(|| write_pages(&new));
+            drop(serial);
+            assert!(old_writer.join().unwrap().is_err());
+            new_writer.join().unwrap().unwrap();
+        });
+        assert_eq!(std::fs::read_to_string(&new[0].0).unwrap(), "uusi tilanne");
+        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }

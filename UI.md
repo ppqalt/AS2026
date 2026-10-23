@@ -1,6 +1,6 @@
 # AS2026:n käyttöliittymän kehittäminen
 
-Nykyisen 0.6.10-käyttöliittymän komponentit ja todelliset tarkistuskuvat ovat
+Nykyisen 0.7.0-käyttöliittymän komponentit ja todelliset tarkistuskuvat ovat
 [Slint-oppaassa](docs/KAYTTOLIITTYMAOPAS.md). Sitovat mitoitus-, väri- ja
 vuorovaikutussäännöt: [UI_PERIAATTEET.md](docs/UI_PERIAATTEET.md).
 
@@ -18,7 +18,9 @@ ennen muutosta. Erityisesti näyttöasetusten muutos ei saa poistaa hyväksyntö
 
 ## Toiminta ja tallennus
 
-Kelvolliset kentät tallentuvat Enterillä tai kohdistuksen poistuessa.
+Kelvolliset kentät tallentuvat Enterillä tai kohdistuksen poistuessa. Tavallisen
+muokkauskentän Enter siirtää kohdistuksen pois kentästä. Virheellinen arvo
+säilyy korjattavana; erillisten dialogien omat Enter-toiminnot säilyvät.
 Uusi tietue tallentuu pakollisten kenttien valmistuttua. Virheellinen luonnos
 säilyy korjattavana; tallennusvirhettä ei esitetä onnistumisena.
 

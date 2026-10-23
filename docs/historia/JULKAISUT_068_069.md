@@ -1,6 +1,6 @@
 # Historialliset julkaisutiedot 0.6.8–0.6.9
 
-Tämä on versiohistoriaa. Nykyiset julkaisutiedot: [0.6.10](../../RELEASE_NOTES.md).
+Tämä on versiohistoriaa. Nykyiset julkaisutiedot: [0.7.0](../../RELEASE_NOTES.md).
 
 # AS2026 0.6.9
 

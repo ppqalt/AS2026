@@ -19,7 +19,10 @@ ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytim
    sisämarginaali. Tavallinen leveys enintään 560 px, Excel-esikatselu 1100 px.
    Otsikko ja toimintorivi pysyvät näkyvissä; pitkä sisältö vierii niiden välissä.
 5. **Lomakkeet:** nimi kentän yläpuolella, samat kellokentät ja valinnat kaikkialla.
-   Enter tai poistuminen kentästä tallentaa kelvollisen arvon. Tarkka syötevirhe
+   Enter tai poistuminen kentästä tallentaa kelvollisen arvon. Tavallisen
+   muokkauskentän Enter poistaa kentän kohdistuskorostuksen vasta kelvollisen
+   tallennuksen jälkeen. Erillisten toimintojen, kuten LAN-liittymisen, omat
+   Enter-kutsut säilyvät. Tarkka syötevirhe
    näkyy kentän alla; syötettä tai viimeksi tallennettua tietoa ei hukata.
    Uusi valmis tietue tallentuu automaattisesti nykyisen toimintatavan mukaan.
 6. **Typografia ja pinnat:** Theme määrää värit, tekstikoot ja 4 px:n väliasteikon.
@@ -35,13 +38,13 @@ ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytim
    lisätoiminnot omissa nimetyissä valikoissaan. Navigaatio pysyy näkyvissä ja
    vierii lyhyessä ikkunassa. Tuettu vähimmäiskoko on 900 × 600 loogista pikseliä.
 
-Beta-haaran tarkennus: `Workspace` erottaa luettelon ja tiedot, kun molemmille
+Työalueen asettelu: `Workspace` erottaa luettelon ja tiedot, kun molemmille
 ei riitä tilaa. Pääalueen rinnakkaisleveys on vähintään 540 px ja tietopaneeli
 368–420 px. Päätaulukot saavat vähintään 180 px korkeutta. Alle 440 px korkeassa
 työalueessa käytetään yhtä pääsisältöä kerrallaan. Tulosten kahta taulukkoa
 ja Emit-historian leimaustietoja ei puristeta pieniksi alataulukoiksi.
-Yleiskatsaus käyttää sivun leveyden. Asetusten lukuleveys rajataan 1680 pikseliin; leveässä ikkunassa kentät jakautuvat tasalevyisiin palstoihin. Betan tarkemmat
-sivukohtaiset ratkaisut: `KAYTTOLIITTYMA_BETA.md`.
+Yleiskatsaus käyttää sivun leveyden. Asetusten lukuleveys rajataan 1680 pikseliin; leveässä ikkunassa kentät jakautuvat tasalevyisiin palstoihin. Nykyiset sivukohtaiset
+ratkaisut ja komponentit: [käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md).
 
 Muutos tarkistetaan koko kilpailun synteettisellä GUI-kokeella, näppäimistöllä,
 vierityksellä ja ikkunoiden koon vaihtamisella myös 150 %:n skaalauksella.
@@ -96,5 +99,5 @@ sulkee ensin vanhan valikon ja avaa sitten uuden. Sulkemisen jälkeen tuhoutuvan
 painikkeen vanhempiviittausta ei saa käyttää. Kokeile aina oikeaa valikkoketjua.
 
 Komponentit, nykyinen sivurakenne ja tarkistuskuvat:
-[Käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md). Uudempi
-[0.6.9:n työnkulkuohje](KAYTTOLIITTYMA_069.md) on vanhojen beta-asettelujen edellä.
+[Käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md). Nykyinen opas
+on historiallisten beta- ja versio-ohjeiden edellä.

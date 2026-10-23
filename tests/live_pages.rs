@@ -60,6 +60,62 @@ fn selected_single_class_refreshes_itself_and_empty_selection_is_rejected() {
     config.classes.clear();
     assert!(live_pages::pages(&p, &config).is_err());
 }
+
+#[test]
+fn local_pages_replace_contents_without_touching_a_previous_fixed_temporary_name() {
+    let directory = std::env::temp_dir().join(format!(
+        "as2026-live-sivut-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&directory).unwrap();
+    let legacy_temp = directory.join("omat.html.as2026-tmp");
+    std::fs::write(&legacy_temp, "säilytettävä vieras tiedosto").unwrap();
+    let paths = [directory.join("omat.html"), directory.join("omat1.html")];
+    for value in ["ensimmäinen tilanne", "korjattu tilanne"] {
+        live_pages::write_pages(
+            &paths
+                .iter()
+                .map(|path| (path.clone(), value.into()))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        for path in &paths {
+            assert_eq!(std::fs::read_to_string(path).unwrap(), value);
+        }
+    }
+    assert_eq!(
+        std::fs::read_to_string(legacy_temp).unwrap(),
+        "säilytettävä vieras tiedosto"
+    );
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 3);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn failed_local_page_replace_removes_only_its_own_temporary_file() {
+    let directory = std::env::temp_dir().join(format!(
+        "as2026-live-virhe-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let destination = directory.join("omat.html");
+    std::fs::create_dir_all(&destination).unwrap();
+    std::fs::write(destination.join("säilytä.txt"), "aiempi sisältö").unwrap();
+    assert!(live_pages::write_pages(&[(destination.clone(), "uusi tilanne".into())]).is_err());
+    assert_eq!(
+        std::fs::read_to_string(destination.join("säilytä.txt")).unwrap(),
+        "aiempi sisältö"
+    );
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+    std::fs::remove_dir_all(directory).unwrap();
+}
 #[test]
 fn blank_section_uses_operational_target_and_sums_multiple_sections() {
     let p = project();

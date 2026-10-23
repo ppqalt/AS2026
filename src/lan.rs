@@ -12,7 +12,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
-    net::{SocketAddr, TcpListener, TcpStream, UdpSocket},
+    net::{Shutdown, SocketAddr, TcpListener, TcpStream, UdpSocket},
     path::{Path, PathBuf},
     sync::{
         Arc, Condvar, Mutex,
@@ -655,6 +655,7 @@ pub struct Host {
     _lock: Arc<File>,
     threads: Mutex<Vec<thread::JoinHandle<()>>>,
     connections: Arc<Mutex<Vec<thread::JoinHandle<()>>>>,
+    sockets: Arc<Mutex<BTreeMap<u64, TcpStream>>>,
 }
 impl Host {
     pub fn start(path: &Path, bind: SocketAddr) -> Result<Self, CoreError> {
@@ -685,26 +686,40 @@ impl Host {
         let s = stop.clone();
         let connections = Arc::new(Mutex::new(Vec::<thread::JoinHandle<()>>::new()));
         let accepted = connections.clone();
+        let sockets = Arc::new(Mutex::new(BTreeMap::<u64, TcpStream>::new()));
+        let accepted_sockets = sockets.clone();
         let mut threads = vec![
             thread::Builder::new()
                 .name("as2026-lan-isanta".into())
                 .spawn(move || {
                     // Rajattu määrä kättelyjä; huono asiakas ei saa luoda rajattomasti säikeitä.
                     let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                    let mut next_connection = 0u64;
                     while !s.load(Ordering::Relaxed) {
                         match listener.accept() {
                             Ok((stream, _)) => {
                                 if active.load(Ordering::Relaxed) >= 16 {
                                     continue;
                                 }
+                                let Ok(socket) = stream.try_clone() else {
+                                    continue;
+                                };
+                                let connection_id = next_connection;
+                                next_connection = next_connection.wrapping_add(1);
+                                accepted_sockets
+                                    .lock()
+                                    .unwrap()
+                                    .insert(connection_id, socket);
                                 active.fetch_add(1, Ordering::Relaxed);
                                 let active = active.clone();
+                                let sockets = accepted_sockets.clone();
                                 let connection_lock = listener_lock.clone();
                                 let a = a.clone();
                                 let c = c.clone();
                                 let connection = thread::spawn(move || {
                                     let _lock = connection_lock;
                                     let _ = serve(stream, &c, &a);
+                                    sockets.lock().unwrap().remove(&connection_id);
                                     active.fetch_sub(1, Ordering::Relaxed);
                                 });
                                 let mut handles = accepted.lock().unwrap();
@@ -750,6 +765,7 @@ impl Host {
             _lock: lock,
             threads: Mutex::new(threads),
             connections,
+            sockets,
         })
     }
     pub fn connection_address(&self) -> Option<SocketAddr> {
@@ -772,6 +788,11 @@ impl Host {
         // Paluu takaa, ettei vanha säie pidä porttia tai kilpailulukkoa elossa.
         for handle in self.threads.lock().unwrap().drain(..) {
             let _ = handle.join();
+        }
+        // Pelkkä read_timeout ei rajaa hitaasti tavuja lähettävää asiakasta.
+        // Shutdown herättää myös keskeneräisen kättelyn ennen säikeiden odotusta.
+        for socket in self.sockets.lock().unwrap().values() {
+            let _ = socket.shutdown(Shutdown::Both);
         }
         for handle in self.connections.lock().unwrap().drain(..) {
             let _ = handle.join();
@@ -870,6 +891,8 @@ struct Shared {
     connected: bool,
     notice: String,
     outbox: Outbox,
+    outbox_dirty: bool,
+    outbox_error: Option<String>,
 }
 #[derive(Clone)]
 pub struct Client {
@@ -965,6 +988,8 @@ impl Client {
                 connected: true,
                 notice: String::new(),
                 outbox,
+                outbox_dirty: false,
+                outbox_error: None,
             })),
             endpoint,
             code: code.into(),
@@ -1011,7 +1036,7 @@ impl Client {
     }
     pub fn ready(&self) -> bool {
         let s = self.shared.lock().unwrap();
-        s.connected && s.outbox.pending.is_empty()
+        s.connected && s.outbox.pending.is_empty() && !s.outbox_dirty
     }
     pub fn pending(&self) -> usize {
         self.shared.lock().unwrap().outbox.pending.len()
@@ -1026,7 +1051,12 @@ impl Client {
         self.shared.lock().unwrap().notice.clear();
     }
     pub fn notice(&self) -> String {
-        self.shared.lock().unwrap().notice.clone()
+        let s = self.shared.lock().unwrap();
+        match &s.outbox_error {
+            Some(error) if !s.notice.is_empty() => format!("{}\n{error}", s.notice),
+            Some(error) => error.clone(),
+            None => s.notice.clone(),
+        }
     }
     pub fn status(&self) -> String {
         let s = self.shared.lock().unwrap();
@@ -1040,7 +1070,7 @@ impl Client {
         let state = if self.host { "Isäntä" } else { "Yhdistetty" };
         if !s.outbox.pending.is_empty() {
             format!("{state} · {} jonossa", s.outbox.pending.len())
-        } else if !s.notice.is_empty() {
+        } else if !s.notice.is_empty() || s.outbox_error.is_some() {
             format!("{state} · tarkistettavaa")
         } else {
             format!("{state} · ajan tasalla")
@@ -1140,6 +1170,18 @@ impl Client {
                     return;
                 }
                 s.connected = true;
+                if let Some(p) = r.project {
+                    if r.revision < s.revision {
+                        return;
+                    }
+                    if p.validate().is_err() {
+                        s.connected = false;
+                        s.notice = "Isännän aineisto ei läpäissyt tarkistusta".into();
+                        return;
+                    }
+                    s.project = p;
+                    s.revision = r.revision;
+                }
                 if let Some(e) = r.error {
                     s.notice = e;
                     if !r.retry
@@ -1159,26 +1201,30 @@ impl Client {
                 } else if let Some(op) = request.operation {
                     s.outbox.pending.retain(|p| p.id != op.id);
                 }
-                if let Some(p) = r.project {
-                    if r.revision < s.revision {
-                        return;
-                    }
-                    if p.validate().is_err() {
-                        s.connected = false;
-                        s.notice = "Isännän aineisto ei läpäissyt tarkistusta".into();
-                        return;
-                    }
-                    s.project = p;
-                    s.revision = r.revision;
-                }
                 // Tilakysely ei muuta lähetysjonoa. Turha sync_all jokaisella
                 // kierroksella hidasti Windowsissa myös seuraavan muutoksen kuittausta.
                 if s.outbox.pending.len() != pending_before {
-                    let _ = durable_write(&self.path, &json(&s.outbox).unwrap_or_default());
+                    s.outbox_dirty = true;
                 }
             }
             Err(_) => {
                 s.connected = false;
+            }
+        }
+        // Kuittaus ei saa kadottaa paikallisen jonon tallennusvirhettä.
+        // Uusi yritys tehdään myös muuttumattomalla tilakyselyllä/yhteyskatkossa.
+        if s.outbox_dirty {
+            match json(&s.outbox).and_then(|bytes| durable_write(&self.path, &bytes)) {
+                Ok(()) => {
+                    s.outbox_dirty = false;
+                    s.outbox_error = None;
+                }
+                Err(error) => {
+                    s.outbox_error = Some(format!(
+                        "Paikallista lähetysjonoa ei voitu päivittää. Tallennusta yritetään uudelleen: {}",
+                        message(&error)
+                    ));
+                }
             }
         }
     }
@@ -1211,6 +1257,8 @@ impl Client {
                 s.outbox.pending.pop();
                 return Err(e);
             }
+            s.outbox_dirty = false;
+            s.outbox_error = None;
         }
         if reads && !self.shared.lock().unwrap().connected {
             return self.snapshot();
@@ -1318,6 +1366,100 @@ mod tests {
             modified,
             "Muuttumaton tilakysely ei tee turhaa pysyvää levykirjoitusta"
         );
+    }
+    #[test]
+    fn acknowledged_outbox_save_failure_retries_even_while_disconnected() {
+        let root = folder();
+        let path = root.join("kilpailu.toml");
+        let project = sample();
+        ProjectStore::create(&path, project.clone()).unwrap();
+        let host = Host::start(&path, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let address = host.address;
+        let code = host.code.clone();
+        let queue = root.join("jono.json");
+        let client = Client::join(address, &code, &queue, false).unwrap();
+        client.stop();
+        let mut candidate = project.clone();
+        let mut read = project.leimaluvut[0].clone();
+        read.emit = 345678;
+        candidate.record_readout(read).unwrap();
+        let operation = Operation::create(&project, &candidate, None).unwrap();
+        client.shared.lock().unwrap().outbox.pending.push(operation);
+        client.persist().unwrap();
+        let original_queue = fs::read(&queue).unwrap();
+        // Hakemisto tiedoston paikalla estää atomisen korvauksen myös pääkäyttäjänä.
+        fs::remove_file(&queue).unwrap();
+        fs::create_dir(&queue).unwrap();
+        client.tick();
+        assert_eq!(client.pending(), 0, "Isäntä on jo kuitannut lukeman");
+        assert!(
+            !client.ready(),
+            "Levylle kuittaamaton jono ei ole ajan tasalla"
+        );
+        assert!(client.notice().contains("lähetysjonoa ei voitu päivittää"));
+        assert_eq!(
+            client.snapshot().unwrap().leimaluvut.len(),
+            candidate.leimaluvut.len()
+        );
+        assert_eq!(host.authority.lock().unwrap().journal.revision, 1);
+        host.stop();
+        drop(host);
+        fs::remove_dir(&queue).unwrap();
+        fs::write(&queue, original_queue).unwrap();
+        // Uudelleenyritys ei tarvitse uutta muutosta tai toimivaa verkkoyhteyttä.
+        client.tick();
+        assert!(!client.shared.lock().unwrap().outbox_dirty);
+        assert!(client.notice().is_empty());
+        let stored: Outbox = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
+        assert!(stored.pending.is_empty());
+        let host = Host::start(&path, address).unwrap();
+        assert_eq!(host.code, code);
+        client.tick();
+        assert!(client.ready());
+        assert_eq!(host.authority.lock().unwrap().journal.revision, 1);
+        assert_eq!(
+            client.snapshot().unwrap().leimaluvut.len(),
+            candidate.leimaluvut.len()
+        );
+        drop(client);
+        host.stop();
+        drop(host);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn host_stop_interrupts_a_slow_unpaired_handshake() {
+        let root = folder();
+        let path = root.join("kilpailu.toml");
+        ProjectStore::create(&path, sample()).unwrap();
+        let host = Host::start(&path, "127.0.0.1:0".parse().unwrap()).unwrap();
+        let mut stream = TcpStream::connect(host.address).unwrap();
+        // Keskeneräinen Noise-kehys: tavua/50 ms ei ylitä socketin 2 s aikakatkaisua.
+        stream.write_all(&65535u32.to_be_bytes()).unwrap();
+        wait(|| !host.sockets.lock().unwrap().is_empty());
+        let finish = Arc::new(AtomicBool::new(false));
+        let sender_finish = finish.clone();
+        let sender = thread::spawn(move || {
+            while !sender_finish.load(Ordering::Relaxed) {
+                if stream.write_all(&[0]).is_err() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let (sent, received) = std::sync::mpsc::channel();
+        let shutdown = thread::spawn(move || {
+            host.stop();
+            sent.send(()).unwrap();
+        });
+        let stopped = received.recv_timeout(Duration::from_millis(1500)).is_ok();
+        finish.store(true, Ordering::Relaxed);
+        sender.join().unwrap();
+        shutdown.join().unwrap();
+        assert!(
+            stopped,
+            "Isännän pysäytys ei saa odottaa hitaasti valuvaa kättelyä"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn stop_waits_for_inflight_rpc_and_releases_queue_and_host_locks() {

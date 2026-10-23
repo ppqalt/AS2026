@@ -1,6 +1,6 @@
 # Kilpailun valmistelu ja Emit-korjaukset 0.6.8:ssa
 
-> Historiallinen kuvaus aikaisemmasta työvaiheesta tai versiosta. Nykyinen 0.6.10: [käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md).
+> Historiallinen kuvaus aikaisemmasta työvaiheesta tai versiosta. Nykyinen 0.7.0: [käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md).
 ## Asetukset
 
 Maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja annetaan kokonaisina minuutteina. Tyhjä käyttää 60 minuuttia. Kokonaisraja koskee kaikkia luokkia ja korvaa vanhan luokkakohtaisen kokonaisrajan. Täsmälleen rajalla oleva myöhästyminen ei keskeytä, mutta yhden sekunnin ylitys keskeyttää. Puuttuva JAT aiheuttaa keskeytyksen. Aikavirheen toleranssi (oletus 10 s) on näistä erillinen pisteytysasetus.
