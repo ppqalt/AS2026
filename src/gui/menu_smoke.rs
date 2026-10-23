@@ -57,6 +57,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
         (5, 2, "rata"),
         (3, 2, "luokkatuloste"),
         (3, 3, "asematuloste"),
+        (3, 4, "live"),
         (0, 2, "uusi"),
         (0, 1, "avaa"),
         (0, 3, "excel"),
@@ -143,6 +144,12 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                             assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
                             assert!(shared.borrow().last_print.as_ref().is_some_and(|d| !d.pages.is_empty()), "Tuloste muodostui: {expected}");
                             assert_eq!(shared.borrow().last_print.as_ref().unwrap().landscape, expected == "asematuloste"); }
+                        "live" => {
+                            assert!(app.get_publish_open(), "Live-julkaisu avautuu Toiminnot-valikosta ({method})");
+                            save_view(&app, &directory.join(format!("{stem}.png"))).unwrap();
+                            smoke::key(&app, slint::platform::Key::Escape);
+                            assert!(!app.get_publish_open());
+                        }
                         "uusi" => { assert!(app.get_dialog_open()); smoke::key(&app, slint::platform::Key::Escape); }
                         "vienti" | "vienti-csv" | "vienti-html" => {
                             let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, _ => 0 };
@@ -389,7 +396,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
             } else {
-                println!("Valikkokoe valmis: 50 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
+                println!("Valikkokoe valmis: 52 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
             }
         }

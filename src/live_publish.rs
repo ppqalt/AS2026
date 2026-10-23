@@ -100,7 +100,7 @@ fn ssh(config: &Config) -> Result<ssh2::Session, String> {
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     );
-    if config.fingerprint.trim() != fingerprint {
+    if !config.fingerprint.trim().eq_ignore_ascii_case(&fingerprint) {
         return Err(format!(
             "Palvelimen avainta ei ole vahvistettu. Vertaa ylläpitäjän antamaan SHA256-heksasormenjälkeen ja täytä kenttä: {fingerprint}"
         ));

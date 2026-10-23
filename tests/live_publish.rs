@@ -185,7 +185,9 @@ fn sftp_real_isolated_server_when_configured() {
             .unwrap_err()
             .contains("avainta ei ole vahvistettu")
     );
-    live_publish::transfer(&config, None).unwrap();
+    let mut uppercase = config.clone();
+    uppercase.fingerprint = uppercase.fingerprint.to_ascii_uppercase();
+    live_publish::transfer(&uppercase, None).unwrap();
     live_publish::transfer(&config, Some(b"ensimmainen")).unwrap();
     live_publish::transfer(&config, Some(b"korjattu")).unwrap();
     assert_eq!(

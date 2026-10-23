@@ -470,7 +470,7 @@ export component AppWindow inherits Window {
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
-                            width: 280px; height: root.page == 1 ? 232px : root.page == 0 || root.page == 3 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
+                            width: 280px; height: root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
                                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                                 VerticalLayout {
