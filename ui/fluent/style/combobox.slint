@@ -104,9 +104,8 @@ export component ComboBox {
 
     popup := PopupWindow {
         x: 0;
-        // Position the popup so that the first element is over the popup.
-        // Ideally it should be so that the current element is over the popup.
-        y: -4px;
+        // Valikko avautuu kentän alapuolelle, ei valitun arvon päälle.
+        y: root.height + Theme.space-1;
         width: root.width;
         height: root.visible-items * FluentSizeSettings.item-height + 2 * root.popup-padding;
         close-policy: close-on-click-outside;
@@ -123,6 +122,10 @@ export component ComboBox {
 
             MenuBorder {
                 ScrollView {
+                    horizontal-scrollbar-policy: always-off;
+                    vertical-scrollbar-policy: root.model.length > root.visible-items ? as-needed : always-off;
+                    viewport-width: self.visible-width;
+                    viewport-height: root.model.length * FluentSizeSettings.item-height + 2 * root.popup-padding;
                     viewport-y: root.popup-scroll-y;
 
                     VerticalLayout {
@@ -130,6 +133,7 @@ export component ComboBox {
                         padding: root.popup-padding;
 
                         for value[index] in root.model : ListItem {
+                            height: FluentSizeSettings.item-height;
                             item: { text: value };
                             is-selected: index == root.current-index;
                             has-hover: touch-area.has-hover;

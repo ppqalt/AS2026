@@ -28,6 +28,9 @@ teemakansiota ei tarvita käyttäjän koneella.
   korkeutta, tekstikokoa, kulmasädettä ja sisennyksiä. Korostettu toiminto
   on saman Fluent-painikkeen `primary`-tila: myös sen näppäimistökohdistus,
   käytöstä poistaminen ja esteettömyystiedot säilyvät samoina.
+- ComboBoxin valikko avautuu kentän alapuolelle. Näkyvissä on enintään kuusi
+  tasakorkuista vaihtoehtoa; pidempi lista vierii pystysuunnassa. Vaakasuuntaa
+  ei käytetä, ja sisällön leveys seuraa valikon leveyttä.
 - Vierityspalkin nuolten piilotus käyttää välitöntä `visible`-tilaa.
   Käytöstä poistetun valikkorivin teksti saa peittävän vaimennetun värin.
 - ScrollView varaa vierityspalkeille oman `Theme.scrollbar-width`-kaistan

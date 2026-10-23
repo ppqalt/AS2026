@@ -5,6 +5,7 @@ mod emit_correction;
 mod forms;
 mod lan;
 mod lan_smoke;
+mod menu_smoke;
 mod printing;
 mod smoke;
 mod tables;
@@ -96,6 +97,8 @@ struct State {
     read_notice_timer: Timer,
     entry_number: Option<u32>,
     print_test: bool,
+    // Vain synteettinen GUI-koe syöttää valitsimen vastauksen; tuotannossa None.
+    test_file_choice: Option<Option<PathBuf>>,
     last_print: Option<as2026::printing::Document>,
     emit_edit_basis: Option<emit_correction::Basis>,
     lan_host: Option<as2026::lan::Host>,
@@ -743,6 +746,7 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
         return Ok(());
     }
     state.page = page;
+    app.set_competitor_edit_open(false);
     if page != 3
         && let Some(ws) = &mut state.workspace
     {
@@ -1086,6 +1090,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         .and_then(Workspace::lan_client)
         .is_none_or(|client| client.ready())
         && !app.get_lan_open()
+        && !app.get_competitor_edit_open()
         && !app.get_emit_edit_open()
         && !app.get_lan_busy()
         && !state.invalid_field
@@ -1644,6 +1649,12 @@ fn export_bytes(ws: &Workspace, kind: i32) -> GuiResult<Vec<u8>> {
     })
 }
 
+// Tiedostovalinta erotetaan vain käyttöjärjestelmän dialogista. Varsinainen
+// tuonti, avaus ja tallennus kulkevat GUI-kokeessakin tuotannon callbacksien läpi.
+fn choose_file(state: &mut State, native: impl FnOnce() -> Option<PathBuf>) -> Option<PathBuf> {
+    state.test_file_choice.take().unwrap_or_else(native)
+}
+
 fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     {
         let state = state.clone();
@@ -1681,10 +1692,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     });
     action!(on_open_file, |s, a| {
         if can_switch(s, &a)
-            && let Some(path) = rfd::FileDialog::new()
-                .set_title("Avaa AS2026-kilpailutiedosto")
-                .add_filter("Kilpailutiedosto", &["toml"])
-                .pick_file()
+            && let Some(path) = choose_file(s, || {
+                rfd::FileDialog::new()
+                    .set_title("Avaa AS2026-kilpailutiedosto")
+                    .add_filter("Kilpailutiedosto", &["toml"])
+                    .pick_file()
+            })
         {
             open_workspace(s, &a, &path, false)?;
         }
@@ -2003,15 +2016,18 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             return Ok(());
         }
         let number = selected_number(s)?;
-        s.selection = if current_workspace(s)?.bc_view() {
+        s.selection = if a.get_competitor_edit_open() {
+            Selection::None
+        } else if current_workspace(s)?.bc_view() {
             Selection::ResultDriver(number)
         } else {
             Selection::Driver(number)
         };
         s.detail = -1;
         a.set_detail_key(-1);
+        a.set_competitor_edit_open(!matches!(s.selection, Selection::None));
         update_form(s, &a);
-        Ok(())
+        follow_pending_result(s, &a)
     });
     action!(on_approve_results, |s, a| {
         if !can_leave(s, &a) {
@@ -2023,11 +2039,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if !can_leave(s, &a) {
             return Ok(());
         }
-        if let Some(path) = rfd::FileDialog::new()
-            .set_title("Tuo RATA- ja KILP-välilehdet")
-            .add_filter("Excel-kilpailupohja", &["xls", "xlsx"])
-            .pick_file()
-        {
+        if let Some(path) = choose_file(s, || {
+            rfd::FileDialog::new()
+                .set_title("Tuo RATA- ja KILP-välilehdet")
+                .add_filter("Excel-kilpailupohja", &["xls", "xlsx"])
+                .pick_file()
+        }) {
             let preview = as2026::excel_import::read(&path)?;
             offer_excel_import(s, &a, &path, &preview, None)?;
         }
@@ -2525,12 +2542,13 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .project()
             .ok_or_else(|| invalid("Lähtöluettelo edellyttää AS2026-kilpailua"))?;
         let html = as2026::starts::start_list_html(project)?;
-        if let Some(path) = rfd::FileDialog::new()
-            .set_title("Tallenna lähtöluettelo")
-            .add_filter("HTML-lähtöluettelo", &["html"])
-            .set_file_name("lahtoluettelo.html")
-            .save_file()
-        {
+        if let Some(path) = choose_file(s, || {
+            rfd::FileDialog::new()
+                .set_title("Tallenna lähtöluettelo")
+                .add_filter("HTML-lähtöluettelo", &["html"])
+                .set_file_name("lahtoluettelo.html")
+                .save_file()
+        }) {
             report::save_new(&path, &html)?;
             status(
                 &a,
@@ -2600,11 +2618,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if s.worker.is_some() || !can_leave(s, &a) {
             return Ok(());
         }
-        if let Some(path) = rfd::FileDialog::new()
-            .set_title("Lue Emit-kehystiedosto")
-            .add_filter("217 tavun Emit-kehys", &["raw", "bin"])
-            .pick_file()
-        {
+        if let Some(path) = choose_file(s, || {
+            rfd::FileDialog::new()
+                .set_title("Lue Emit-kehystiedosto")
+                .add_filter("217 tavun Emit-kehys", &["raw", "bin"])
+                .pick_file()
+        }) {
             let bytes = std::fs::read(path).map_err(|e| invalid(&io_message(&e)))?;
             let frame = emit::parse_frame(&bytes)?;
             let now = chrono::Local::now();
@@ -3203,6 +3222,7 @@ fn capture_views(
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let menu_test = std::env::var_os("AS2026_MENU_GUI_TEST").is_some();
     let emit_correction_test = std::env::var_os("AS2026_EMIT_CORRECTION_TEST").is_some();
     let mut initial_path = None;
     let mut demo = false;
@@ -3350,7 +3370,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    if let Some(directory) = captures {
+    let _menu_timer = if menu_test {
+        if !demo {
+            return Err("Valikkokoe vaatii --demo-valinnan".into());
+        }
+        Some(menu_smoke::start(
+            &app,
+            &state,
+            captures
+                .clone()
+                .ok_or("Valikkokoe vaatii --capture-dir-valinnan")?,
+        )?)
+    } else {
+        None
+    };
+    if let Some(directory) = captures.filter(|_| !menu_test) {
         if emit_correction_test {
             emit_correction::capture(&app, state.clone(), directory)?;
         } else {

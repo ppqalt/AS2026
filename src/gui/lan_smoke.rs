@@ -110,8 +110,8 @@ else if pair_path.exists(){
 let pair:Pair=serde_json::from_slice(&std::fs::read(&pair_path).map_err(|e|invalid(&io_message(&e)))?).map_err(|_|invalid("Koekoodin luku epäonnistui"))?;
 app.set_lan_address(pair.address.into());
 app.set_lan_code(pair.code.into());
-app.invoke_lan_join();
-phase=1;
+app.set_lan_open(true);
+phase=10;
 }
 }
 ,
@@ -125,8 +125,23 @@ address:format!("127.0.0.1:{}",host.address.port()),code:host.code.clone()}
 ).unwrap()).map_err(|e|invalid(&io_message(&e)))?;
 }
 std::fs::write(dir.join(format!("{role}-valmis")),b"valmis").map_err(|e|invalid(&io_message(&e)))?;
+app.set_lan_open(true);
+save_view(&app,&dir.join(format!("{role}-lahiverkko.png"))).map_err(|e|invalid(&e))?;
+app.set_lan_open(false);
 phase=2;
 }
+}
+,
+            10=>{
+app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() });
+smoke::key(&app, slint::platform::Key::Tab);
+app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() });
+smoke::key(&app, slint::platform::Key::End);
+smoke::key(&app, " ");
+assert!(app.get_lan_code().ends_with(' '), "Kohdistus siirtyi parituskoodiin");
+smoke::key(&app, slint::platform::Key::Return);
+assert!(app.get_lan_busy(), "Enter parituskoodikentässä aloittaa liittymisen: koodi {:?}, osoite {:?}, virhe {:?}", app.get_lan_code(), app.get_lan_address(), app.get_lan_error());
+phase=1;
 }
 ,
             2=>{

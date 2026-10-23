@@ -23,7 +23,7 @@ export global Theme {
     out property <length> workspace-min-main-width: 540px;
     out property <length> workspace-min-split-height: 440px;
     out property <length> table-min-height: 180px;
-    out property <length> settings-max-width: 1120px;
+    out property <length> settings-max-width: 1680px;
     out property <length> scrollbar-width: 14px;
     out property <length> sidebar-width: 200px;
     out property <length> gutter: 20px;
@@ -60,6 +60,7 @@ export global Theme {
     out property <color> danger-soft: #352221;
     out property <color> warning: #ceab71;
     out property <color> success: #82b99a;
-    // Intentionally opaque: dialogs never use translucency, blur, or acrylic.
-    out property <color> modal-backdrop: #080d0a;
+    // Neutraali tumma peite säilyttää näkymän asiayhteyden ilman tilannekuvaa.
+    // Slint käyttää järjestystä RRGGBBAA, alfa on viimeisenä.
+    out property <color> modal-backdrop: #00000080;
 }

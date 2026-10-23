@@ -374,6 +374,7 @@ component EditorFields inherits VerticalLayout {
     in property <bool> blocked;
     in property <bool> driver-layout;
     in property <bool> station-layout;
+    in property <int> columns: 1;
     callback field-commit(int, string) -> bool;
     callback field-draft(int, string);
     height: self.min-height;
@@ -420,12 +421,27 @@ component EditorFields inherits VerticalLayout {
             }
         }
     }
-    if !root.station-grid: VerticalLayout {
+    if !root.station-grid && root.columns == 1: VerticalLayout {
         spacing: Theme.space-3;
         for field in root.basic-fields: EditorEntry {
             data: field; writable: root.writable;
             field-commit(key, value) => { root.field-commit(key, value) }
             field-draft(key, value) => { root.field-draft(key, value); }
+        }
+    }
+    if root.columns > 1: HorizontalLayout {
+        spacing: Theme.space-5;
+        for column in root.columns: VerticalLayout {
+            alignment: start; spacing: Theme.space-3; horizontal-stretch: 1;
+            min-width: 0px; preferred-width: 0px;
+            for position in Math.ceil(root.basic-fields.length / root.columns): VerticalLayout {
+                property <int> field-index: column * Math.ceil(root.basic-fields.length / root.columns) + position;
+                if self.field-index < root.basic-fields.length: EditorEntry {
+                    data: root.basic-fields[parent.field-index]; writable: root.writable;
+                    field-commit(key, value) => { root.field-commit(key, value) }
+                    field-draft(key, value) => { root.field-draft(key, value); }
+                }
+            }
         }
     }
     if root.grouped && root.fields.length == 18: EditorEntry {
@@ -460,6 +476,7 @@ export component Editor inherits Rectangle {
     in property <bool> blocked;
     in property <bool> station-layout: false;
     in property <bool> driver-layout: false;
+    in property <int> columns: 1;
     in-out property <bool> details-open;
     // Ulompi ScrollView vastaa koko paneelista: tämän editorin kenttiä ei rajata.
     in property <bool> fit-content: false;
@@ -479,6 +496,7 @@ export component Editor inherits Rectangle {
         if root.fit-content: EditorFields {
             fields: root.fields; writable: root.writable; blocked: root.blocked;
             driver-layout: root.driver-layout;
+            columns: root.columns;
             station-layout: root.station-layout;
             details-open <=> root.details-open;
             field-commit(key, value) => { root.field-commit(key, value) }
@@ -493,6 +511,7 @@ export component Editor inherits Rectangle {
                 width: fields-scroll.visible-width;
                 fields: root.fields; writable: root.writable; blocked: root.blocked;
                 driver-layout: root.driver-layout;
+                columns: root.columns;
                 station-layout: root.station-layout;
                 details-open <=> root.details-open;
                 field-commit(key, value) => { root.field-commit(key, value) }
