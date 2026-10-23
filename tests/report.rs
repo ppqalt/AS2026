@@ -96,7 +96,7 @@ fn safe_html(html: &str) {
 }
 
 #[test]
-fn ranking_html_escapes_imported_identity_names_route_and_diagnostics() {
+fn ranking_html_escapes_imported_identity_names_and_route_without_publishing_diagnostics() {
     let archive = archive();
     let report = ranked(&archive);
     let html = ranking_html(&archive, &report);
@@ -115,11 +115,158 @@ fn ranking_html_escapes_imported_identity_names_route_and_diagnostics() {
     ] {
         assert!(html.contains(heading), "{heading}");
     }
-    assert!(html.contains("tallennettuihin tuloksiin"));
+    assert!(!html.contains("tallennettuihin tuloksiin"));
     assert!(html.contains("23 p"));
-    assert!(html.contains("Tuntematon tarkastustulos"));
+    assert!(!html.contains("Tuntematon tarkastustulos"));
     assert!(!html.contains("UnknownStatus"));
     assert!(!html.contains("Classified"));
+}
+
+fn public_results_only(html: &str) {
+    for forbidden in [
+        "class=\"notice",
+        "class=\"warning",
+        "Huomautukset",
+        "Tulosten huomautukset",
+        "Vain hyväksytyt asematulokset sijoitetaan",
+        "Vahvistettu keskeytys julkaistaan",
+        "Sijoitukset ja pisteet perustuvat tuodun kilpailun",
+        "Tasapisteissä kilpailijoilla on jaettu sija",
+        "Osallistumistilastoa:",
+        "Tuloslaskennan lähtijämäärä:",
+        "Tulosluettelon ulkopuolelle jäi",
+        "käsikelloa on muutettu",
+        "HYVÄKSYMÄTÖN",
+        "Tuntematon tarkastustulos",
+        "Nousu- ja sarjapisteitä ei julkaista",
+        "lähdetietue",
+    ] {
+        assert!(
+            !html.contains(forbidden),
+            "Julkisessa tuloksessa: {forbidden}"
+        );
+    }
+}
+
+#[test]
+fn public_class_combined_route_and_print_results_omit_all_official_diagnostics() {
+    let mut archive = archive();
+    let template = archive.competitors[0].clone();
+    archive.competitors = (1..=57)
+        .map(|number| {
+            let mut c = template.clone();
+            c.number = number;
+            c.class_code = if number <= 28 { "A" } else { "B" }.into();
+            c.driver = format!("Pari {number}");
+            c.status = if number <= 13 {
+                "TRK"
+            } else {
+                "HYVÄKSYMÄTÖN"
+            }
+            .into();
+            c
+        })
+        .collect();
+    archive.warnings = (29..=41).map(|n| format!("Kilpailija {n}: käsikelloa on muutettu. Pisteet säilyvät ennallaan, kunnes valitaan Tutki.")).collect();
+    let report = ranking::rank(&RankingInput {
+        classes: ["A", "B"]
+            .into_iter()
+            .map(|code| ClassDefinition {
+                code: code.into(),
+                np_enabled: true,
+                series_method: 1,
+            })
+            .collect(),
+        combined_classes: vec![ranking::CombinedClassDefinition {
+            code: "A+B".into(),
+            class_codes: vec!["A".into(), "B".into()],
+            np_enabled: true,
+            series_method: 1,
+        }],
+        competitors: archive
+            .competitors
+            .iter()
+            .enumerate()
+            .map(|(index, c)| CompetitorInput {
+                source_index: index + 1,
+                number: i64::from(c.number),
+                class_code: c.class_code.clone(),
+                route_code: "R1".into(),
+                status: Status::from_legacy(&c.status),
+                total_penalty: c.total_penalties,
+                start_hour: Some(12),
+                driver_licence: String::new(),
+                navigator_licence: String::new(),
+                tie_rows: None,
+                route_errors: None,
+            })
+            .collect(),
+        ..Default::default()
+    })
+    .unwrap();
+    assert_eq!(report.omitted_source_indices.len(), 44);
+    assert!(!report.diagnostics.is_empty());
+    let original_report = report.clone();
+    let original_archive = archive.clone();
+    for html in [
+        ranking_html(&archive, &report),
+        as2026::report::project_ranking_html(&archive, &report),
+    ] {
+        public_results_only(&html);
+        assert!(html.contains("@media print"));
+        assert!(html.contains("@media(max-width:600px)"));
+        assert!(html.contains("<main>\n<section><h2>Luokka: A</h2>"));
+        assert!(html.contains("Yhdistetty luokka: A+B"));
+        assert!(html.contains("Luokka: B</h2><p class=\"muted\">Alustavat tulokset.</p>"));
+        assert!(html.contains("Rata: R1"));
+        assert!(html.contains("Pari 13</td>"));
+        assert!(!html.contains("Pari 14</td>"));
+        assert!(html.contains("<td class=\"numeric\">—</td><td class=\"numeric\">—</td>"));
+        if let Ok(folder) = std::env::var("AS2026_PUBLIC_REPORT_CAPTURE") {
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(PathBuf::from(folder).join("julkiset-tulokset.html"), &html).unwrap();
+        }
+    }
+    assert_eq!(report, original_report);
+    assert_eq!(archive.warnings, original_archive.warnings);
+    assert_eq!(archive.competitors.len(), 57);
+    let internal = calculation_html(&CalculationReport {
+        competition_name: "Sisäinen tarkastus".into(),
+        competitors: Vec::new(),
+        warnings: archive.warnings.clone(),
+    });
+    assert!(internal.contains("Huomautukset"));
+    assert!(internal.contains("käsikelloa on muutettu"));
+}
+
+#[test]
+fn public_bc_results_and_empty_pending_classes_have_no_explanatory_boxes() {
+    let mut project =
+        as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+            .unwrap();
+    project.beginners_cup = Some(Box::new(as2026::beginners::BeginnersCup {
+        nimi: "Beginners Cup".into(),
+        tunnus: "BC".into(),
+        lahderata: 1,
+        lahdeasemat: project.radat[0].asemat.clone(),
+        mukana_asemat: vec![1, 2, 3, 4],
+    }));
+    project.bc_osallistujat = vec![as2026::beginners::Entry {
+        numero: 7,
+        osallistuu: true,
+        ..Default::default()
+    }];
+    let html =
+        as2026::report::competition_ranking_html(&project, ranking::TiePolicy::default()).unwrap();
+    public_results_only(&html);
+    for class in ["A", "BC"] {
+        assert!(html.contains(&format!(
+            "Luokka: {class}</h2><p class=\"muted\">Alustavat tulokset.</p>"
+        )));
+    }
+    assert!(!html.contains("Esimerkkikuljettaja</td>"));
+    let internal = as2026::report::project_results_html(&project).unwrap();
+    assert!(internal.contains("Tulos odottaa tarkastusta"));
 }
 
 #[test]
@@ -289,6 +436,14 @@ fn native_reports_present_results_without_development_banners() {
     let archive = as2026::application::calculated_project(&project).unwrap();
     let ranking =
         as2026::application::rank_stored(&archive, ranking::TiePolicy::KeepSharedAndFlag).unwrap();
+    assert!(
+        as2026::report::project_results_html(&project)
+            .unwrap()
+            .contains("käsikello puuttuu")
+    );
+    let public = as2026::report::project_ranking_html(&archive, &ranking);
+    public_results_only(&public);
+    assert!(!public.contains("käsikello puuttuu"));
     for html in [
         as2026::report::project_results_html(&project).unwrap(),
         as2026::report::project_ranking_html(&archive, &ranking),
@@ -297,7 +452,6 @@ fn native_reports_present_results_without_development_banners() {
         assert!(!html.contains("varmistamatta"));
         assert!(!html.contains("Vanhan ohjelman"));
         assert!(!html.contains("vastaavuus"));
-        assert!(html.contains("käsikello puuttuu"));
         assert!(!html.contains("Maalikello perustuu viimeiseen leimaan"));
         assert!(html.contains("Virhepisteet") || html.contains("Tulos"));
     }

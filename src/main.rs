@@ -486,11 +486,10 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
     );
     for group in &result.groups {
         println!(
-            "\nLuokka {} | Lähteneitä {}{}",
+            "\nLuokka {}{}",
             group.code,
-            group.statistics.starter_count(),
             if group.provisional {
-                " | Keskeneräinen: pisteitä ei vahvistettu"
+                " | Alustavat tulokset"
             } else {
                 ""
             }
@@ -554,13 +553,13 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
         }
     }
     for warning in &a.warnings {
-        println!("Huomio: {warning}");
+        eprintln!("Huomio: {warning}");
     }
     for d in &result.diagnostics {
-        println!("Huomio: {d}");
+        eprintln!("Huomio: {d}");
     }
     if !result.omitted_source_indices.is_empty() {
-        println!(
+        eprintln!(
             "Tulosluettelon ulkopuolelle jäi {} kilpailijaa tilan vuoksi.",
             result.omitted_source_indices.len()
         );

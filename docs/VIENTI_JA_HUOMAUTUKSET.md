@@ -23,3 +23,16 @@ Tiedostonimen voi kirjoittaa ilman päätettä: valitun vientimuodon pääte lis
 automaattisesti. Pelkkä nimi ja suhteellinen polku tulkitaan kilpailun kansion
 suhteen. Väärän tiedostopäätteen virhe näytetään tallennusikkunassa, eikä tiedostoa
 luoda väärällä muodolla.
+
+## Julkinen tulosluettelo
+
+Versiosta 0.7.1 alkaen HTML-tulosvienti ja sen tulostusasu sisältävät kilpailun,
+luokkien ja ratojen tulokset ilman toimitsijan huomautuksia tai teknisiä
+hyväksyntäselostuksia. Sama koskee yhdistettyjä luokkia ja Beginners Cupia.
+Keskeneräisen luokan yhteydessä näkyy lyhyt **Alustavat tulokset**; hyväksyntää
+odottavia kilpailijoita ei julkaista hyväksyttyinä eikä puuttuvia pisteitä täytetä.
+Toimitsijan yllä kuvatut huomautukset ja täydelliset lisätiedot säilyvät saatavilla.
+
+Komentorivin `tulokset` tulostaa luettelon stdout-virtaan ja toimitsijan
+huomautukset stderr-virtaan. Tiedostoon ohjattu tulosluettelo (`> tulokset.md`)
+ei siten sisällä raakadiagnostiikkaa.
