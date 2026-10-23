@@ -474,3 +474,38 @@ fn skipped_jat_extends_the_next_section_without_changing_finish() {
     assert_eq!(stations[2].tavoiteaika_sekuntia, 900);
     assert_eq!(stations[2].jakso_minuutteina, Some(15));
 }
+
+
+#[test]
+fn bc_finish_has_no_time_penalty_and_preserves_nac_rules() {
+    for shortened in [false, true] {
+        for actual in [480, 1200] {
+            let mut p = project();
+            p.radat[0].asemat[2].tyyppi = "JAT".into();
+            p.radat[0].asemat[2].saanto = 0;
+            p.radat[0].asemat[3].saanto = 0;
+            let finish_punch = if shortened { 3 } else { 4 };
+            p.leimaluvut[0].leimat[finish_punch].aika_sekuntia = actual;
+            if shortened && actual > 900 {
+                p.leimaluvut[0].leimat[4].aika_sekuntia = actual + 300;
+                p.leimaluvut[0].leimat[5].aika_sekuntia = actual + 300;
+            }
+            let mut c = config(&p);
+            if shortened {
+                c.mukana_asemat = vec![1, 3];
+            }
+            let mut f = Fixture::new(p);
+            f.workspace.save_beginners_cup(c, &[7]).unwrap();
+            let source = f.workspace.project().unwrap().clone();
+            let nac_before = application::calculated_project(&source).unwrap();
+            f.workspace.set_bc_view(true).unwrap();
+            let bc = f.workspace.result_snapshot(7).unwrap().unwrap();
+            let finish = bc.rivit.iter().find(|r| r.station_type == "M").unwrap();
+            assert_eq!(finish.rule, as2026::Rule::NoTiming as i64);
+            assert_eq!(finish.signed_time_penalty, 0);
+            assert_eq!(f.workspace.project().unwrap().radat, source.radat);
+            let nac_after = application::calculated_project(f.workspace.project().unwrap()).unwrap();
+            assert_eq!(nac_before.competitors[0].header_fields, nac_after.competitors[0].header_fields);
+        }
+    }
+}

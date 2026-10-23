@@ -3293,6 +3293,25 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             .select()?;
     }
     let app = AppWindow::new()?;
+    let tung_weak = app.as_weak();
+    app.on_tung_start(move || {
+        let Some(app) = tung_weak.upgrade() else {
+            return;
+        };
+        let mut random = [0u8; 16];
+        if getrandom::fill(&mut random).is_err() {
+            return;
+        }
+        let speeds: Vec<i32> = random
+            .iter()
+            .map(|byte| {
+                let magnitude = 45 + i32::from(byte / 2) % 76;
+                if byte & 1 == 0 { magnitude } else { -magnitude }
+            })
+            .collect();
+        app.set_tung_speeds(std::rc::Rc::new(slint::VecModel::from(speeds)).into());
+        app.set_tung_active(true);
+    });
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
     app.set_app_version(env!("CARGO_PKG_VERSION").into());
     app.set_managed(installation::is_managed());
