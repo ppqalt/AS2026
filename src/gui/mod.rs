@@ -3382,7 +3382,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         status(&app, error.to_string(), true);
     }
-    if let Some(error) = installation::take_startup_error()? {
+    // Eristetty esimerkkiajo ei saa kuitata käyttäjän oikean asennuksen päivitysvirhettä.
+    if !demo && let Some(error) = installation::take_startup_error()? {
         status(&app, error, true);
     }
     app.show()?;

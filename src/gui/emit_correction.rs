@@ -282,7 +282,7 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
                 println!("0.6.9 Emit-editori: kaikki leimat, kellosta laskettu korttiaika, lisäys, poisto, 99, virheellinen koodi, NAC/BC, peruutus ja uudelleenavaus hyväksytty.");
             }
             5 => { app.invoke_open_emit_edit(); assert!(app.get_emit_edit_open()); }
-            6 | 7 => { /* Odota mallin ja ensimmäisen kentän kohdistuksen asettumista. */ }
+            6 | 7 => { smoke::key(&app, slint::platform::Key::Tab); }
             8 => {
                 app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
                 smoke::key(&app, "a");

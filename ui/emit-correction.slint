@@ -15,7 +15,7 @@ component CorrectionField inherits FocusScope {
     changed focus-index => { if root.index == root.focus-index { focus-timer.running = true; } }
     focus-timer := Timer {
         interval: 1ms;
-        triggered => { self.running = false; if root.focus-last { field.focus-last(); } else { field.focus-first(); } }
+        triggered => { self.running = false; if root.index == root.focus-index { if root.focus-last { field.focus-last(); } else { field.focus-first(); } } }
     }
     capture-key-pressed(event) => {
         if event.text == Key.Tab {
@@ -49,6 +49,8 @@ export component EmitCorrectionDialog inherits Rectangle {
     FocusScope {
         width: root.width; height: root.height;
         init => { cancel.focus(); }
+        // Kenttien ja vieritysalueen valmistuttua sama turvallinen alkukohdistus kaikilla skaalauksilla.
+        Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
             if event.text == Key.Tab && !event.modifiers.shift && save.has-focus { root.focus-last = false; root.focus-index = 0; return accept; }
