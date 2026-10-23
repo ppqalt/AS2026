@@ -40,7 +40,7 @@ ei riitä tilaa. Pääalueen rinnakkaisleveys on vähintään 540 px ja tietopan
 368–420 px. Päätaulukot saavat vähintään 180 px korkeutta. Alle 440 px korkeassa
 työalueessa käytetään yhtä pääsisältöä kerrallaan. Tulosten kahta taulukkoa
 ja Emit-historian leimaustietoja ei puristeta pieniksi alataulukoiksi.
-Yleiskatsaus käyttää sivun leveyden. Asetusten lukuleveys rajataan 1120 pikseliin. Betan tarkemmat
+Yleiskatsaus käyttää sivun leveyden. Asetusten lukuleveys rajataan 1680 pikseliin; leveässä ikkunassa kentät jakautuvat tasalevyisiin palstoihin. Betan tarkemmat
 sivukohtaiset ratkaisut: `KAYTTOLIITTYMA_BETA.md`.
 
 Muutos tarkistetaan koko kilpailun synteettisellä GUI-kokeella, näppäimistöllä,
@@ -82,7 +82,20 @@ on oma vieritysalue ja sama valintarivi kuin luokkavalinnoissa. Nopean
 Tab-siirtymisen tavoite pidetään erillään viiveellä saapuvasta kohdistuspalautteesta,
 jotta vanha kohdistus ei palauta listaa aiemmalle riville.
 
-Lähiverkkoyhteys avataan yläpalkin keskeltä. Tila kertoo yhteyden ja jonon ilman
+Lähiverkkoyhteys avataan Mikky100:n sijoittelun mukaisesti sivupalkin yhteystilasta. Tila kertoo yhteyden ja jonon ilman
 pysyviä ohjetekstejä sivuilla. Etäpäivitys ei korvaa avoimen lomakkeen syötettä,
 kohdistusta tai muokkauspohjaa. Muokkausristiriita näkyy kyseisessä lomakkeessa;
 yhteysvirhe yhteysikkunassa. Yhteyskatkoa ei koskaan merkitä ajan tasalla olevaksi.
+
+Valintaikkunan tausta on neutraali läpinäkyvä musta (`#00000080`, Slintin
+RRGGBBAA-muoto). Taustaa ei sumenneta eikä kuvata. Kilpailijan muokkaus
+avataan keskitettyyn ikkunaan; sama painike ja Esc sulkevat sen.
+
+Ehdollisen popup-painikkeen toiminto suoritetaan ennen popupin sulkemista.
+Toisen popupin avaaminen välitetään pääikkunan pysyvään käsittelijään, joka
+sulkee ensin vanhan valikon ja avaa sitten uuden. Sulkemisen jälkeen tuhoutuvan
+painikkeen vanhempiviittausta ei saa käyttää. Kokeile aina oikeaa valikkoketjua.
+
+Komponentit, nykyinen sivurakenne ja tarkistuskuvat:
+[Käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md). Uudempi
+[0.6.9:n työnkulkuohje](KAYTTOLIITTYMA_069.md) on vanhojen beta-asettelujen edellä.
