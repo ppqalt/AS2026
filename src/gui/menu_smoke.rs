@@ -316,9 +316,13 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 handle_event(&mut shared.borrow_mut(), &app, ReaderEvent::Frame {
                     frame: Box::new(frame), read_clock: ClockTime::new(12, 15, 0).unwrap()
                 });
+                assert!(app.get_result_entry_open());
                 assert!(app.get_result_entry_identity().starts_with("#7 "));
-                smoke::key(&app, slint::platform::Key::Escape);
             } else if step == 94 {
+                // Näppäimistökohdistus asetetaan Slintin init-ajastimessa piirron jälkeen.
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_result_entry_open());
+            } else if step == 95 {
                 let mut raw = *include_bytes!("../../fixtures/synthetic/emit-frame.raw");
                 for (offset, byte) in 123457u32.to_le_bytes()[..3].iter().enumerate() {
                     raw[2 + offset] = byte ^ emit::XOR_MASK;
@@ -327,9 +331,9 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                     frame: Box::new(emit::parse_frame(&raw).unwrap()), read_clock: ClockTime::new(12, 16, 0).unwrap()
                 });
                 assert!(app.get_result_entry_open());
-                assert!(app.get_result_entry_identity().starts_with("#8 · Toinen lukija"), "Uusi kortti ei saa avata edellistä kilpailijaa");
+                assert!(app.get_result_entry_identity().starts_with("#8 · Toinen lukija"), "Uusi kortti ei saa avata edellistä kilpailijaa: {} / {:?}", app.get_result_entry_identity(), shared.borrow().entry_number);
                 assert_eq!(shared.borrow().entry_number, Some(8));
-            } else if step == 95 {
+            } else if step == 96 {
                 assert!(app.get_result_entry_identity().starts_with("#8 · Toinen lukija"));
                 save_view(&app, &directory.join("toisen-kortin-tulos.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
