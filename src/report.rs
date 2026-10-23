@@ -298,12 +298,12 @@ fn ranking_row(
 /// Luokka- ja ratatulokset perustuvat tallennettuihin tuloksiin. Raportti ei
 /// korvaa niitä korttilaskennan esikatselulla eikä muuta lähdetiedostoja.
 pub fn ranking_html(archive: &Archive, report: &RankingReport) -> String {
-    ranking_html_with_source(archive, report, false)
+    ranking_document(archive, report)
 }
 
 /// AS2026-kilpailun nykyisestä mallista johdetut asematulokset.
 pub fn project_ranking_html(archive: &Archive, report: &RankingReport) -> String {
-    ranking_html_with_source(archive, report, true)
+    ranking_document(archive, report)
 }
 
 /// Molemmat laskennat julkaistaan erillisistä arkistoista, jotta saman kilpailijan
@@ -315,11 +315,11 @@ pub fn competition_ranking_html(
     let archive = crate::application::calculated_project(project)?;
     let ranked = crate::application::rank_stored(&archive, policy)?;
     let mut html = document("Luokkakohtaiset tulokset", &project.kilpailu.nimi);
-    html.push_str(&ranking_body(&archive, &ranked, true));
+    html.push_str(&ranking_body(&archive, &ranked));
     if project.beginners_cup.is_some() {
         let bc = crate::beginners::results(project)?;
         let ranked = crate::application::rank_stored(&bc, policy)?;
-        html.push_str(&ranking_body(&bc, &ranked, true));
+        html.push_str(&ranking_body(&bc, &ranked));
     }
     Ok(finish(html))
 }
@@ -342,13 +342,13 @@ pub fn competition_ranking_csv(
     Ok(csv)
 }
 
-fn ranking_html_with_source(archive: &Archive, report: &RankingReport, calculated: bool) -> String {
+fn ranking_document(archive: &Archive, report: &RankingReport) -> String {
     let mut html = document("Luokkakohtaiset tulokset", competition_name(archive));
-    html.push_str(&ranking_body(archive, report, calculated));
+    html.push_str(&ranking_body(archive, report));
     finish(html)
 }
 
-fn ranking_body(archive: &Archive, report: &RankingReport, calculated: bool) -> String {
+fn ranking_body(archive: &Archive, report: &RankingReport) -> String {
     let mut html = String::new();
     let report = match publication_ranking(archive, report) {
         Ok(report) => report,
@@ -360,22 +360,6 @@ fn ranking_body(archive: &Archive, report: &RankingReport, calculated: bool) -> 
             return html;
         }
     };
-    if calculated {
-        html.push_str("<section class=\"notice\"><p>Vain hyväksytyt asematulokset sijoitetaan. Vahvistettu keskeytys julkaistaan ilman sijoitusta, maaliaikaa ja pisteitä. Hyväksymättömät esikatselut jäävät tulosluettelon ulkopuolelle. Tasapisteissä kilpailijoilla on jaettu sija.</p></section>\n");
-    } else {
-        html.push_str("<section class=\"notice\"><p>Sijoitukset ja pisteet perustuvat tuodun kilpailun tallennettuihin tuloksiin. Tasapisteissä kilpailijoilla on jaettu sija.</p></section>\n");
-    }
-    warnings(&mut html, &archive.warnings);
-    if !report.diagnostics.is_empty() {
-        html.push_str("<section class=\"notice warning\"><h2>Tulosten huomautukset</h2><ul>");
-        for diagnostic in &report.diagnostics {
-            html.push_str(&format!("<li>{}</li>", escape(&diagnostic.to_string())));
-        }
-        html.push_str("</ul></section>\n");
-    }
-    if !report.omitted_source_indices.is_empty() {
-        html.push_str(&format!("<section class=\"notice\"><p>Tulosluettelon ulkopuolelle jäi {} tietuetta tarkastustuloksen perusteella. Tietueet säilyvät alkuperäisessä aineistossa.</p></section>", report.omitted_source_indices.len()));
-    }
     if report.groups.is_empty() {
         html.push_str("<section><p>Ei luokkakohtaisia tuloksia.</p></section>");
     }
@@ -385,9 +369,12 @@ fn ranking_body(archive: &Archive, report: &RankingReport, calculated: bool) -> 
         } else {
             "Luokka"
         };
-        html.push_str(&format!("<section><h2>{label}: {}</h2><p>Osallistumistilastoa: {} kpl. Tuloslaskennan lähtijämäärä: {}.</p>", escape(&group.code), group.statistics.all_entries, group.statistics.starter_count()));
+        html.push_str(&format!(
+            "<section><h2>{label}: {}</h2>",
+            escape(&group.code)
+        ));
         if group.provisional {
-            html.push_str("<p class=\"notice warning\"><strong>Alustavat tulokset.</strong> Nousu- ja sarjapisteitä ei julkaista ennen avoimien tarkastustulosten selvittämistä.</p>");
+            html.push_str("<p class=\"muted\">Alustavat tulokset.</p>");
         }
         ranking_heading(&mut html, true);
         for entry in &group.entries {

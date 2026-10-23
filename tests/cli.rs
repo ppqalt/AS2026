@@ -42,7 +42,12 @@ fn successful_text(output: Output) -> String {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(output.stderr.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .all(|line| line.starts_with("Huomio:")
+                || line.starts_with("Tulosluettelon ulkopuolelle jäi"))
+    );
     String::from_utf8(output.stdout).expect("Tuloste on UTF-8-muodossa")
 }
 
@@ -317,21 +322,40 @@ fn native_updates_autosave_and_current_results_follow_names_classes_and_station_
     assert_eq!(current.competitors[0].total_penalties, 600);
     assert_eq!(current.competitors[0].status, "ILM");
     let html_path = temporary.0.join("ajantasaiset.html");
-    let text = successful_text(run([
+    let output = run([
         OsStr::new("tulokset"),
         directory.as_os_str(),
         OsStr::new("--raportti"),
         html_path.as_os_str(),
-    ]));
+    ]);
+    let diagnostics = String::from_utf8_lossy(&output.stderr);
+    assert!(diagnostics.contains("HYVÄKSYMÄTÖN"));
+    assert!(diagnostics.contains("Tulosluettelon ulkopuolelle jäi"));
+    let text = successful_text(output);
     assert!(text.contains("ajantasainen asemalaskenta"));
     // Hyväksymätöntä kilpailijaa tai alustavaa pistemäärää ei julkaista
     // CLI:n virallisessa tulosluettelossa.
     assert!(!text.contains("Korjattu kuljettaja"), "{text}");
     assert!(!text.contains(" | 600 | ILM |"), "{text}");
-    assert!(text.contains("Tulosluettelon ulkopuolelle jäi"), "{text}");
+    assert!(!text.contains("Tulosluettelon ulkopuolelle jäi"), "{text}");
     let html = std::fs::read_to_string(html_path).unwrap();
+    for public in [&text, &html] {
+        for forbidden in [
+            "Huomio:",
+            "HYVÄKSYMÄTÖN",
+            "Vain hyväksytyt asematulokset sijoitetaan",
+            "Vahvistettu keskeytys julkaistaan",
+            "Sijoitukset ja pisteet perustuvat tuodun kilpailun",
+            "Tasapisteissä kilpailijoilla on jaettu sija",
+            "Osallistumistilastoa:",
+            "Tuloslaskennan lähtijämäärä:",
+            "Tulosluettelon ulkopuolelle jäi",
+        ] {
+            assert!(!public.contains(forbidden), "{forbidden}: {public}");
+        }
+    }
     assert!(
-        html.contains("Vain hyväksytyt asematulokset sijoitetaan."),
+        !html.contains("Vain hyväksytyt asematulokset sijoitetaan."),
         "{html}"
     );
     assert!(!html.contains("Korjattu kuljettaja"), "{html}");
