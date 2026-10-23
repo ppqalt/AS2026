@@ -15,6 +15,7 @@ export component LivePublishDialog inherits Rectangle {
     callback close();
     background: Theme.modal-backdrop;
     TouchArea {}
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
     FocusScope {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {
@@ -46,8 +47,10 @@ export component LivePublishDialog inherits Rectangle {
             }
             Note { x: Theme.dialog-padding; y: parent.height - 140px; width: parent.width - 2 * Theme.dialog-padding; height: 78px; text: root.status; }
             DialogActions {
-                Button { text: "Sulje"; clicked => { root.close(); } }
-                Button { text: root.busy ? "Testataan…" : "Testaa yhteys"; enabled: !root.busy && !root.running; clicked => { root.test(); } }
+                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
+                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
+                cancel := Button { text: "Sulje"; clicked => { root.close(); } }
+                if !root.running: Button { text: root.busy ? "Testataan…" : "Testaa yhteys"; enabled: !root.busy && !root.running; clicked => { root.test(); } }
                 if root.running: Button { text: "Julkaise lopullisina"; enabled: !root.busy; clicked => { root.finish(); } }
                 AccentButton { text: root.running ? "Lopeta julkaiseminen" : "Aloita julkaiseminen"; enabled: !root.busy; clicked => { root.toggle(); } }
             }

@@ -369,6 +369,13 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 save_view(&app, &directory.join("live-julkaisun-asetukset.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
+            } else if step == 100 {
+                app.window().set_size(slint::PhysicalSize::new(900, 600));
+                app.invoke_open_publish();
+            } else if step == 101 {
+                save_view(&app, &directory.join("live-julkaisu-900x600.png")).unwrap();
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_publish_open());
             } else {
                 println!("Valikkokoe valmis: 50 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
