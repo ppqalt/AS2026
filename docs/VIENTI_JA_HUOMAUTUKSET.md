@@ -1,6 +1,6 @@
 # Tulosvienti ja huomautukset
 
-**Tulokset → Vie tulokset** avaa Excel-, CSV- ja HTML-valinnat sekä hiirellä
+**Tulokset → Toiminnot → Vie tulokset** avaa Excel-, CSV- ja HTML-valinnat sekä hiirellä
 että näppäimistöllä. Valinta avaa sovelluksen oman tallennusikkunan. Oletuksena
 tiedosto tallentuu kilpailun kansioon. Sijaintia voi muuttaa kentässä tai
 Selaa-painikkeesta. Jos nimi on jo käytössä, oletukseen lisätään numero.

@@ -2,7 +2,7 @@
 
 ## Yhdistetyn luokan luonti
 
-Luokat-sivun **Lisää yhdistetty luokka** avaa valintaikkunan, jossa annetaan
+Luokat-sivun **Toiminnot → Lisää yhdistetty luokka** avaa valintaikkunan, jossa annetaan
 nimi ja valitaan jäsenluokat valintaruuduilla. Nousupisteet ja sarjapistemenetelmä
 voidaan valita samassa ikkunassa. **Lisää luokka** tallentaa määritelmän kerralla;
 **Peruuta** tai Esc sulkee tallentamatta. Virheellinen syöte tai tallennusvirhe
@@ -17,7 +17,7 @@ valmiita tuloksia ja sijoituslaskentaa, eikä laske virhepisteitä toisella rada
 ## Beginners Cupin määrittäminen
 
 1. Lisää kilpailijat kerran heidän NAC-luokkiinsa ja määritä NAC-rata normaalisti.
-2. Avaa **Luokat → Beginners Cup**. Anna BC:n nimi ja erillinen tunnus,
+2. Avaa **Luokat → Toiminnot → Beginners Cup**. Anna BC:n nimi ja erillinen tunnus,
    oletuksena `BC`, ja valitse NAC-lähderata.
 3. Valitse BC-tulokseen kuuluvat asemat. Pois valitut asemat jätetään BC:ssä
    huomioimatta. Lähtö, maali ja ULA-aikaviitteet säilyvät mukana yhteisten aikojen
@@ -37,11 +37,11 @@ Kilpailija lasketaan ilmoittautuneiden määrään ja lähtöarvontaan kerran.
 
 ## Tulosten käsittely
 
-Tulokset-sivulla vaihdetaan **NAC / perusluokat**- ja **Beginners Cup** -näkymien
-välillä. Kortti luetaan kerran, ja ensimmäinen lukema voi muodostaa molemmat
+Tulokset-sivun **Beginners Cup** -painike avaa BC-näkymän ja uusi painallus
+palauttaa perusluokkiin. Näkymän voi valita myös luokkavalikosta. Kortti luetaan kerran, ja ensimmäinen lukema voi muodostaa molemmat
 asematulokset. Alkuperäinen Emit-historia säilyy muuttamattomana.
 
-BC-näkymän kilpailijapaneelista avataan **BC:n virhepisteet ja tila**. Puuttuvat
+BC-näkymän kilpailijapaneelista avataan **Muokkaa kilpailijaa**. Puuttuvat
 ja ylimääräiset RT:t, muut virhepisteet, tila ja tilan syy tallennetaan vain
 BC-tulokseen. Myös asemakorjaukset, käsikellot, **Tutki**, **Tarkista** ja
 **Tulosta tulos** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.

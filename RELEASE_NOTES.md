@@ -1,28 +1,46 @@
-# AS2026 0.6.9
+# AS2026 0.6.10
 
-- Kilpailun nimi ja Automaattinen tallennus -teksti pois sivujen yläreunasta.
-- Kilpailun avaus, luonti ja Excel-tuonti Yleiskatsauksen Toiminnot-valikkoon; kilpailijoiden Excel-tuonti ja HTML-lähtöluettelo sekä ratojen lisäys ja tuonti sivujensa Toiminnot-valikkoihin.
-- HTML-lähtöluettelo lähtöaikajärjestykseen kaikkien luokkien kesken.
-- Kilpailijaparin ATp-sarake sisältää aseman kaikki AT-virhepisteet.
-- Tulostaulukkoon Emit-numero, luokkavalintaan yhdistetyt luokat. Luokka- ja asematulostus käyttää valittua luokkaa ja sisältää myös laskemattomat kilpailijat.
-- Koko Emit-kortin editori: kellonajan syöttö hh:mm:ss, puuttuvan leiman lisäys, minkä tahansa leiman poisto sekä korttiajan automaattinen laskenta. Perustelua ei vaadita. Akun häiriöleimat 99/999 sivuutetaan laskennassa.
-- Luokan poistaminen sen tiedoista. Luokkien ja ratojen muokkaaminen laskennan jälkeen sekä ratakohtainen uudelleenlaskentakysely.
-- Radoista näytetään nimi sisäisen numeron sijaan.
+Julkaisu täydentää Mikky100:n 0.6.9-toteutusta. Kilpailusäännöt, AT/JAT-laskenta,
+Emit-korjauksen oletus ja kilpailijakohtainen poikkeus, hyväksyntöjen säilyttäminen,
+lähtöluettelon sarakkeet sekä LAN-tilaviestit säilyvät.
 
-[Käyttöohje](docs/KAYTTOLIITTYMA_069.md).
+## Korjaukset
 
-# AS2026 0.6.8
+- Koko Toiminnot-valikko toimii: kilpailun avaaminen, luonti, Excel-tuonti,
+  luokkien ja yhdistettyjen luokkien lisääminen, kilpailijat, radat, lähtöarvonta,
+  kehystiedoston luku, tulostus ja tulosvienti. Korjaa Mikky100:n ilmoituksen #10.
+- Vie tulokset avaa alavalikon ja XLSX-, CSV- sekä HTML-tallennuksen oikein.
+- Muokkaa kilpailijaa avaa keskitetyn ikkunan. Valmis ja Esc sulkevat sen
+  nykyisten tallennus- ja validointisääntöjen mukaisesti.
+- Modaalien tausta on neutraali läpinäkyvä musta ilman snapshot-kuvaa tai sumennusta.
+- Beginners Cup -painikkeen uusi painallus palauttaa perusnäkymään.
+- Asetusten kentät jakautuvat leveässä ikkunassa tasaisiin palstoihin; pieni ikkuna vierii.
+- Radan tietokortti ja Emit-sivun rinnakkaistaulukot on tasattu.
+- Fluent-valikot avautuvat kentän alapuolelle ja lyhyet listat ilman turhaa vieritystä.
+- LAN-ikkunan parituskoodi ja osoite on erotettu selkeästi. Liittyminen onnistuu Enterillä.
 
-Kilpailun valmistelun ja Emit-korjausten työnkulut on selkeytetty uusimman 0.6.7-päähaaran pohjalta. Lähiverkon ja Windows-tulostuksen korjaukset säilyvät mukana.
+## Ohjeet ja varmennus
 
-- Sivupalkin otsikkona kilpailun nimi, sen alla yhteyden tila. Avaa ja Uusi ovat yleiskatsauksessa.
-- Asetuksissa kilpailun maksimi kokonaismyöhästymisraja ja maksimi jaksomyöhästymisraja minuutteina, molempien oletus 60 min. Aikavirheen 10 sekunnin toleranssi on nimetty erikseen.
-- Kilpailun numero, puuttuvan JAT:n pisteasetus ja JAT:n pistekatto on poistettu asetuslomakkeesta. Puuttuva JAT ja myöhästymisrajan ylitys aiheuttavat keskeytyksen. JAT:n ja maalin aikavirhettä ei katkaista pistekattoon toimitsijalaskennassa.
-- Lähtöluettelon kentät valitaan Asetuksissa valintaruuduilla ja järjestetään nuolilla. Sama järjestys koskee kilpailijataulukkoa, HTML:ää ja CSV:tä. Tila-sarake on poistettu lähtöluettelosta.
-- Oletus Emit-korjaus on 120 s. Uuden kilpailijan lomake käyttää kilpailun oletusta, ja kilpailijakohtainen korjaus voidaan vaihtaa. Erillinen 0 s tarkoittaa nollausta lähtöhetkellä; vanhan tiedoston 0 säilyttää vanhan 120 s oletuksen.
-- Kilpailijoiden Toiminnot-valikossa Lisää kilpailija ja Arvo lähtöajat. Arvonta avaa luokkavalinnan ja sen jälkeen lähtöaikojen esikatselun.
-- Emit-sivulla Muokkaa avaa valitun leiman korjauksen. Sekuntiaika ja lähtöaikaan sidottu hh:mm:ss-kellonaika päivittyvät toistensa mukana. Alkuperäiset leimat ja korjaushistoria säilyvät.
-- Tulosten otsikon vieressä kilpailijahaku ja Luokka-valinta, jossa myös kilpailuun määritelty Beginners Cup. Vienti ja luokka- sekä asematulosteet ovat Toiminnot-valikossa.
-- Luokkien lisääminen, yhdistetty luokka ja Beginners Cup ovat Luokat-sivun Toiminnot-valikossa.
+README ja käännös-/UI-ohjeet on ajantasaistettu. Mukana ovat
+[kuvallinen Slint-opas](https://github.com/ppqalt/AS2026/blob/v0.6.10/docs/KAYTTOLIITTYMAOPAS.md),
+[LAN-ohje](https://github.com/ppqalt/AS2026/blob/v0.6.10/docs/LAHIVERKKO.md) ja [Windows/UFW-palomuuri](https://github.com/ppqalt/AS2026/blob/v0.6.10/docs/PALOMUURI.md).
 
-Vanhoja kilpailutiedostoja voi edelleen avata. Uusien asetusten tallennuksen jälkeen kilpailutiedoston avaaminen vanhalla ohjelmaversiolla ei ole tuettu.
+Linux- ja Windows-tarkistukset kattavat Rustin, Slintin, Clippyn, GUI-työnkulut
+100/150 %:n skaalauksilla, kaikki päävalikkovalinnat hiirellä ja näppäimistöllä,
+luokkien tallennuksen/uudelleenavauksen, kolme vientimuotoa ja Emit-editorin.
+Kahden synteettisen GUI-prosessin LAN-kokeessa tarkistettiin korttiluvut,
+käsikellot, hyväksynnät ja katkon jälkeinen lähetysjonon palautuminen.
+Fyysistä Emit-lukijaa tai paperitulostusta ei tämän julkaisun varmennuksessa käytetty.
+
+## Lataaminen ja yhteensopivuus
+
+Linux x86-64: `AS2026-0.6.10-linux-x86_64.tar.gz`.
+Windows x86-64: `AS2026-0.6.10-windows-x86_64.zip`.
+Molemmat toimitetaan allekirjoitetun `release.json`-manifestin ja `release.sig`-allekirjoituksen kanssa.
+Pura koko paketti ja avaa asennusta varten as2026-gui tai as2026-gui.exe.
+
+Kilpailumalliin ei lisätä uutta formaattia tässä versiossa. Varmuuskopioi
+kilpailukansio ennen päivitystä; uusia asetuksia sisältävien tiedostojen
+avaamista vanhemmalla ohjelmaversiolla ei luvata.
+
+[Aikaisempien versioiden julkaisutiedot](https://github.com/ppqalt/AS2026/blob/v0.6.10/docs/historia/JULKAISUT_068_069.md).

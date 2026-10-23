@@ -48,8 +48,7 @@ vierityksellä ja ikkunoiden koon vaihtamisella myös 150 %:n skaalauksella.
 Kenttävirheen, tallennusvirheen ja keskeneräisen luonnoksen toiminta erotetaan
 toisistaan. Windows-käännös ei yksin todista Windowsin fyysistä käyttökoetta.
 
-Lähtöarvonta sijoitetaan toimintorivin oikeaan reunaan; luokkavalinnan
-rataskuvake on välittömästi arvontapainikkeen vieressä. Muokattavat kellot
+Lähtöarvonta ja sen luokkavalinta avataan Kilpailijat-sivun Toiminnot-valikosta. Muokattavat kellot
 ja kestot käyttävät yhteistä h : min : s -kenttää. Mallin kokonaisminuutteihin
 perustuvissa kestoissa sekuntien on oltava 00. Pistekertoimet säilyvät numeroina.
 
