@@ -84,6 +84,38 @@ ja `ListView` huolehtivat vierityksestä. `MenuBorder`, `ListItem` ja
 `FocusBorder` ovat valikoiden pinta, rivi ja kohdistuskehys. Näitä ei korvata
 sivukohtaisilla kopioilla. `AboutSlint` säilyttää kirjaston tunnisteen.
 
+### Fluentin sisäiset osat
+
+Näitä osia ei tarvitse käyttää suoraan sovelluksen sivuilla. Ne selittävät,
+mistä perussäätimien näkyvät osat ja käytös muodostuvat.
+
+| Komponentti | Ulkoasu / tehtävä |
+|---|---|
+| `ScrollViewButton`, `ScrollBar` | Vierityspalkin nuolen hiirialue ja palkki; oma kaista estää sisällön peittymisen |
+| `MenuBarItem`, `MenuBar` | Valikkopalkin teksti ja vaakasuuntainen valikkoryhmä |
+| `MenuFrame`, `MenuItem` | Ponnahdusvalikon tumma reunustettu kehys ja yksittäinen valittava rivi |
+| `PopupMenuImpl`, `MenuBarImpl` | Slintin sisäinen valikkoikkuna ja sen välitys; eivät sivukohtaisia uusia kortteja |
+| `MenuBarItemBase`, `MenuBarBase`, `MenuFrameBase`, `MenuItemBase` | Valikoiden pohjatoiminta; lopulliset värit ja reunat tulevat style-tiedostoista |
+| `StandardListViewBase`, `StandardListView` | Yksinkertainen vakiorivilista vieritysalueessa; AS2026:n kilpailutaulukot käyttävät omaa `DataTable`-komponenttia |
+| `LineEditBase` | Tekstin syöttö, kohdistus, valinta ja tekstin kontekstivalikko; näkyvä pinta tulee `LineEdit`-sovituksesta |
+| `LineEditClearIcon`, `LineEditPasswordIcon` | Tekstin tyhjennyksen ja salasanan näyttämisen pienet kirjastokuvakkeet silloin, kun säädin käyttää niitä |
+| `ComboBoxBase` | Valinnan ja näppäinten pohjatoiminta; sovitus piirtää kentän, nuolen ja popupin |
+
+### Slintin rakennuspalikat
+
+| Elementti | Näkyvä tehtävä sovelluksessa |
+|---|---|
+| `Window`, `PopupWindow` | Pääikkuna ja hetkellinen valikko; popup ei ole kilpailutiedon omistaja |
+| `Rectangle` | Tausta, paneeli, reunus, erotin tai tilanvaraus Theme-väreillä |
+| `Text`, `TextInput` | Otsikko/selite/arvo ja muokattava teksti; varsinaiset kentät käyttävät yhteisiä säätimiä |
+| `Image`, `Path` | Kirjaston kuvake tai Slint-tunnus; eivät snapshot-taustoja |
+| `HorizontalLayout`, `VerticalLayout`, `GridLayout` | Rivin, palstan ja ruudukon mitoitus; eivät itse piirrä pintaa |
+| `FocusScope` | Näppäimistön kohdistuksen omistaja, ei näkyvä laatikko |
+| `TouchArea` | Hiirialue tai modaalin taustan painallusten esto, ei itsenäistä ulkoasua |
+| `Flickable` | Vierivän sisällön perusta; käyttöliittymässä sen päällä yhteinen vierityspinta |
+| `if`, `for` | Ehdollinen tai mallista toistuva sisältö. Ehdollinen valikkopainike voi tuhoutua heti popupin sulkeutuessa |
+| `Theme`, `Palette`, `FluentPalette` | Väri- ja mitta-arvot; eivät näkyviä käyttöliittymäelementtejä |
+
 ## Koonvaihto ja tarkistus
 
 Tuettu vähimmäiskoko on 900 × 600 loogista pikseliä. Fyysinen 150 prosentin
@@ -179,3 +211,18 @@ ilman kilpailua sekä käytöstäpoistotilat. Molempien alustojen CI ajaa lisäk
 vanhat 100 % / 150 % GUI-työnkulut ja Emit-editorin kokeen. Fyysinen Emit-lukija,
 käyttöjärjestelmän tiedostovalitsimen ulkoasu ja paperituloste vaativat
 edelleen erillisen laitekokeen.
+
+## Muiden pääsivujen kuvat
+
+Yleiskatsaus käyttää tunnuslukuja (`Metric`) ja työvaihepainikkeita.
+Kilpailijat ja Luokat käyttävät samaa `DataTable` + `Editor` -työaluetta.
+Tulokset lisää `ResultSummary`-kortin ja asematulostaulukon; haku ja
+luokkarajaus säilyvät Mikky100:n otsikkorivillä.
+
+![Avoimen kilpailun yleiskatsaus](kuvat/kayttoliittyma/yleiskatsaus.png)
+
+![Kilpailijat ja tietopaneeli](kuvat/kayttoliittyma/kilpailijat.png)
+
+![Tulokset ja asematulokset](kuvat/kayttoliittyma/tulokset.png)
+
+![Luokat ja yhteinen editori](kuvat/kayttoliittyma/luokat.png)

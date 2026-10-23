@@ -35,6 +35,15 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
             },
             &[7],
         )?;
+        ws.review_results(7)?;
+        let finish = ws
+            .result_snapshot(7)?
+            .unwrap()
+            .rivit
+            .last()
+            .unwrap()
+            .output_index;
+        ws.complete_result_entry(7, &[(finish, [12, 11, 0])], 0, 0)?;
         ws.path().to_owned()
     };
     let original = ProjectStore::open(&path)?.project().clone();
@@ -143,8 +152,14 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                             assert!(!app.get_export_open(), "{}", app.get_export_error());
                             let bytes = std::fs::read(&destination).unwrap();
                             assert!(!bytes.is_empty());
-                            if kind == 0 { assert!(bytes.starts_with(b"PK")); }
-                            else { let text = String::from_utf8(bytes).unwrap(); assert!(text.contains(if kind == 2 { "<table" } else { ";" })); }
+                            if kind == 0 {
+                                use std::io::Read;
+                                let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
+                                let mut xml = String::new();
+                                zip.by_name("xl/worksheets/sheet1.xml").unwrap().read_to_string(&mut xml).unwrap();
+                                assert!(xml.contains("Esimerkkikuljettaja"), "Hyväksytty kilpailija XLSX:ssä");
+                            }
+                            else { let text = String::from_utf8(bytes).unwrap(); assert!(text.contains("Esimerkkikuljettaja"), "Hyväksytty kilpailija viennissä"); assert!(text.contains(if kind == 2 { "<table" } else { ";" })); }
                         }
                         "paivitys" => assert!(!app.get_status_error(), "{}", app.get_status_text()),
                         "avaa" => assert!(app.get_opened(), "Kilpailu avautui oikeasta tiedostosta"),
