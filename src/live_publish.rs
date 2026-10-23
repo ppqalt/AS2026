@@ -297,6 +297,8 @@ pub fn transfer(config: &Config, content: Option<&[u8]>) -> Result<(), String> {
                 .map_err(|_| "SFTP-tiedostoa ei voitu sulkea.")?;
             let remote =
                 |name: &str| format!("{}/{}", config.directory.trim_end_matches('/'), name);
+            drop(file);
+            drop(sftp);
             let remote = |name: &str| {
                 if config.directory.is_empty() {
                     name.to_owned()

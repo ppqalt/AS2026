@@ -92,3 +92,10 @@ atomisen SFTP-korvaamisen, väärän palvelinavaimen, FTP-siirron, katkon jälke
 uusimman tilanteen sekä lopullisen julkaisun. Automaattisesti ei kirjaututa
 autosuunnistus.net-palvelimeen. Sen tunnukset, julkinen osoite, siirto-oikeudet,
 WordPress-linkki ja välimuistikäytäntö varmistetaan palvelimen ylläpitäjän kanssa.
+
+## Näkymä pienessä ikkunassa
+
+Todellinen 900 × 600 -virtuaali-ikkuna. Yhteyskentät vierivät, mutta tilatieto ja
+toimintopainikkeet pysyvät näkyvissä.
+
+![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/live-julkaisu-900x600.png)

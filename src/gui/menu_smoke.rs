@@ -80,6 +80,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
     let timer = Timer::default();
     let mut phase = 0usize;
     let mut pending_attempts = 0u32;
+    let mut live_resize_attempts = 0u32;
     let mut read_count = 0usize;
     let mut unmodal_pixel = [0u8; 3];
     timer.start(TimerMode::Repeated, Duration::from_millis(180), move || {
@@ -370,9 +371,20 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
             } else if step == 100 {
-                app.window().set_size(slint::PhysicalSize::new(900, 600));
-                app.invoke_open_publish();
+                let scale = app.window().scale_factor();
+                app.window().set_size(slint::PhysicalSize::new((900. * scale) as u32, (600. * scale) as u32));
             } else if step == 101 {
+                let size = app.window().size(); let scale = app.window().scale_factor();
+                if (size.width as f32 / scale - 900.).abs() > 2. || (size.height as f32 / scale - 600.).abs() > 2. {
+                    live_resize_attempts += 1;
+                    assert!(live_resize_attempts < 30, "Live-ikkunan todellinen koko ei muuttunut: {size:?}");
+                    return;
+                }
+                app.invoke_open_publish();
+            } else if step == 102 {
+                let pixels = app.window().take_snapshot().unwrap();
+                assert_eq!(pixels.width(), app.window().size().width);
+                assert_eq!(pixels.height(), app.window().size().height);
                 save_view(&app, &directory.join("live-julkaisu-900x600.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
