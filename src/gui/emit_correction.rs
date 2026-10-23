@@ -280,6 +280,41 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
                 let state=state.borrow();let ws=state.workspace.as_ref().unwrap();
                 let reopened=Workspace::open(ws.path()).unwrap();assert_eq!(reopened.project().unwrap().leimaluvut,raw);
                 println!("0.6.9 Emit-editori: kaikki leimat, kellosta laskettu korttiaika, lisäys, poisto, 99, virheellinen koodi, NAC/BC, peruutus ja uudelleenavaus hyväksytty.");
+            }
+            5 => { app.invoke_open_emit_edit(); assert!(app.get_emit_edit_open()); }
+            6 | 7 => { /* Odota mallin ja ensimmäisen kentän kohdistuksen asettumista. */ }
+            8 => {
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
+                smoke::key(&app, "a");
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
+                smoke::key(&app, "42");
+                assert_eq!(app.get_emit_edit_fields().row_data(0).unwrap().value, "42", "Koe kirjoittaa ensin Emit-koodikenttään: {:?}", app.get_emit_edit_fields().iter().map(|f| f.value.to_string()).collect::<Vec<_>>());
+            }
+            9 | 12 => { smoke::key(&app, slint::platform::Key::Return); }
+            10 => {
+                save_view(&app, &directory.join("04-enterin-jalkeen.png")).unwrap();
+                smoke::key(&app, slint::platform::Key::Tab);
+            }
+            11 => {
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
+                smoke::key(&app, "a");
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
+                smoke::key(&app, "13");
+                assert!(app.get_emit_edit_fields().row_data(1).unwrap().value.starts_with("13:"), "Enter ja Tab siirtyvät seuraavalle kelloriville: {:?}", app.get_emit_edit_fields().iter().map(|f| f.value.to_string()).collect::<Vec<_>>());
+            }
+            13 => {
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() });
+                smoke::key(&app, slint::platform::Key::Tab);
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() });
+            }
+            14 => {
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
+                smoke::key(&app, "a");
+                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
+                smoke::key(&app, "43");
+                assert_eq!(app.get_emit_edit_fields().row_data(0).unwrap().value, "43", "Enter ja Shift+Tab palaavat edelliselle kentälle");
+                app.invoke_emit_edit_close(false);
+                println!("Enterin jälkeinen Tab/Shift+Tab hyväksytty oikealla näppäinsyötteellä.");
                 if let Some(timer)=tick_timer.upgrade(){timer.stop();} owner.borrow_mut().take();let _=slint::quit_event_loop();
             }
             _ => unreachable!(),

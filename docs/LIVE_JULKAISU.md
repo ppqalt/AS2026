@@ -103,11 +103,11 @@ WordPress-linkki ja välimuistikäytäntö varmistetaan palvelimen ylläpitäjä
 
 ## Näkymä pienessä ikkunassa
 
-Version 0.6.10 todellinen 900 × 600 -virtuaali-ikkuna havainnollistaa yhteisiä
-pintoja. Uudemmassa versiossa luokkavalinnat ovat kenttien yläpuolella.
-Yhteyskentät vierivät, mutta tilatieto ja toimintopainikkeet pysyvät näkyvissä.
+Version 0.7.0 todellinen 900 × 600 -virtuaali-ikkuna. Luokkavalinnat ovat
+yhteyskenttien yläpuolella. Kentät vierivät, mutta tilatieto ja toimintopainikkeet
+pysyvät näkyvissä.
 
-![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/live-julkaisu-900x600.png)
+![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/070-live-900x600.png)
 
 
 ## Luokkakohtaiset kiertävät sivut

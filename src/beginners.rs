@@ -209,7 +209,10 @@ pub fn derived_stations(config: &BeginnersCup) -> Result<Vec<Station>, CoreError
             station.tyyppi = "M".into();
             // BC:n maali päättää ajanoton, mutta ei rankaise ennakosta tai myöhästä.
             // Muutos koskee vain johdettua BC-rataa, ei NAC-lähderataa.
-            station.saanto = crate::Rule::NoTiming as i64;
+            // Mitätöinti ohittaa myös puuttuvan maalileiman käsittelyn.
+            if station.saanto != crate::Rule::Void as i64 {
+                station.saanto = crate::Rule::NoTiming as i64;
+            }
         }
         stations.push(station);
     }
