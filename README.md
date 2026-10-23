@@ -4,11 +4,6 @@
 tuloslaskentasovellus Linuxille ja Windowsille. Se toimii yhdellä koneella ilman
 internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
-Versio pohjautuu Mikky100:n 0.6.11-toteutukseen. Kilpailuasetukset, Emit-luku,
-AT/JAT-laskenta, hyväksynnät ja luokkakohtaiset livetulokset säilyvät mukana.
-0.7.0 korjaa Beginners Cupin maalin aikarangaistuksen ja viimeistelee
-lomakkeiden sekä rinnakkaispaneelien käytettävyyttä. [Julkaisutiedot](RELEASE_NOTES.md).
-
 ## Lataa ja asenna
 
 Lataa oma pakettisi [version 0.7.0 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.0):
