@@ -182,7 +182,12 @@ impl Ftp {
         }
         Ok(ftp)
     }
-    fn put(&mut self, c: &Config, bytes: &[u8]) -> Result<(), String> {
+    fn put(
+        &mut self,
+        c: &Config,
+        bytes: &[u8],
+        cancelled: Option<&AtomicBool>,
+    ) -> Result<(), String> {
         let response = self.command("PASV", &[227])?;
         let parts = response
             .split_once('(')
@@ -214,6 +219,7 @@ impl Ftp {
             .map_err(|_| "FTP-tiedostosiirto katkesi.")?;
         drop(data);
         self.response(&[226, 250])?;
+        check_cancelled(cancelled)?;
         self.command(&format!("RNFR {temporary}"), &[350])?;
         self.command(&format!("RNTO {}", c.filename), &[250])?;
         Ok(())
@@ -263,15 +269,29 @@ fn posix_rename(session: &ssh2::Session, source: &str, destination: &str) -> Res
     Ok(())
 }
 
+fn check_cancelled(cancelled: Option<&AtomicBool>) -> Result<(), String> {
+    if cancelled.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+        return Err("Julkaisu pysäytettiin.".into());
+    }
+    Ok(())
+}
 pub fn transfer(config: &Config, content: Option<&[u8]>) -> Result<(), String> {
+    transfer_with_cancel(config, content, None)
+}
+fn transfer_with_cancel(
+    config: &Config,
+    content: Option<&[u8]>,
+    cancelled: Option<&AtomicBool>,
+) -> Result<(), String> {
     config.validate()?;
     let _serial = TRANSFER
         .lock()
         .map_err(|_| "Edellinen tiedostosiirto keskeytyi odottamattomasti.")?;
+    check_cancelled(cancelled)?;
     if config.ftp {
         let mut ftp = Ftp::login(config)?;
         if let Some(bytes) = content {
-            ftp.put(config, bytes)?;
+            ftp.put(config, bytes, cancelled)?;
         }
         let _ = ftp.command("QUIT", &[221]);
     } else {
@@ -306,6 +326,7 @@ pub fn transfer(config: &Config, content: Option<&[u8]>) -> Result<(), String> {
                     remote(name)
                 }
             };
+            check_cancelled(cancelled)?;
             posix_rename(
                 &session,
                 &remote(&format!("{}.as2026-upload", config.filename)),
@@ -374,7 +395,7 @@ impl Publisher {
                         // Odotukset yhdistetään: vain viimeisin tilanne lasketaan taustalla.
                         let outcome = html(&project).and_then(|body| {
                             let body = if final_result { body.replace("Epäviralliset tulokset", "Lopulliset tulokset") } else { body };
-                            transfer(&config, Some(body.as_bytes()))
+                            transfer_with_cancel(&config, Some(body.as_bytes()), Some(&cancelled))
                         });
                         match outcome {
                             Ok(()) => {

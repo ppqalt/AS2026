@@ -6,7 +6,10 @@ use as2026::{
 use std::{
     io::{BufRead, BufReader, Read, Write},
     net::TcpListener,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -14,7 +17,8 @@ fn fixture() -> Project {
     Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap()
 }
 type Published = Arc<Mutex<Vec<Vec<u8>>>>;
-fn server(count: usize, fail_first: bool) -> (Config, Published, thread::JoinHandle<()>) {
+type TestServer = (Config, Published, Arc<AtomicBool>, thread::JoinHandle<()>);
+fn server(count: usize, fail_first: bool, delay_first_store: bool) -> TestServer {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let config = Config {
         ftp: true,
@@ -28,6 +32,8 @@ fn server(count: usize, fail_first: bool) -> (Config, Published, thread::JoinHan
     };
     let published = Arc::new(Mutex::new(Vec::new()));
     let result = published.clone();
+    let started = Arc::new(AtomicBool::new(false));
+    let stored = started.clone();
     let handle = thread::spawn(move || {
         for i in 0..count {
             let (mut socket, _) = listener.accept().unwrap();
@@ -80,6 +86,10 @@ fn server(count: usize, fail_first: bool) -> (Config, Published, thread::JoinHan
                     let mut bytes = Vec::new();
                     stream.read_to_end(&mut bytes).unwrap();
                     temporary = Some(bytes);
+                    stored.store(true, Ordering::Relaxed);
+                    if i == 0 && delay_first_store {
+                        thread::sleep(Duration::from_millis(500));
+                    }
                     "226 OK\r\n"
                 } else if line.starts_with("RNFR ") {
                     rename = true;
@@ -99,11 +109,11 @@ fn server(count: usize, fail_first: bool) -> (Config, Published, thread::JoinHan
             }
         }
     });
-    (config, published, handle)
+    (config, published, started, handle)
 }
 #[test]
 fn ftp_test_does_not_publish_and_transfer_renames_complete_file() {
-    let (config, published, handle) = server(2, false);
+    let (config, published, _, handle) = server(2, false, false);
     live_publish::transfer(&config, None).unwrap();
     assert!(published.lock().unwrap().is_empty());
     live_publish::transfer(&config, Some(b"valmis synteettinen tulossivu")).unwrap();
@@ -115,7 +125,7 @@ fn ftp_test_does_not_publish_and_transfer_renames_complete_file() {
 }
 #[test]
 fn background_retry_publishes_latest_snapshot_after_disconnect() {
-    let (config, published, handle) = server(2, true);
+    let (config, published, _, handle) = server(2, true, false);
     let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
     let mut project = fixture();
     publisher.offer(&project);
@@ -186,7 +196,7 @@ fn sftp_real_isolated_server_when_configured() {
 
 #[test]
 fn final_publication_requires_complete_results_and_stops_only_after_success() {
-    let (config, published, handle) = server(1, false);
+    let (config, published, _, handle) = server(1, false, false);
     let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
     let mut project = fixture();
     assert!(publisher.finish(&project).is_err());
@@ -207,5 +217,40 @@ fn final_publication_requires_complete_results_and_stops_only_after_success() {
         String::from_utf8(values[0].clone())
             .unwrap()
             .contains("Lopulliset tulokset")
+    );
+}
+
+#[test]
+fn stopped_publisher_cannot_commit_over_the_replacement_publisher() {
+    let (config, published, started, handle) = server(2, false, true);
+    let first = Publisher::start(config.clone(), "ensimmainen.toml".into()).unwrap();
+    let mut project = fixture();
+    first.offer(&project);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !started.load(Ordering::Relaxed) {
+        assert!(Instant::now() < deadline);
+        thread::sleep(Duration::from_millis(20));
+    }
+    drop(first);
+    let second = Publisher::start(config, "toinen.toml".into()).unwrap();
+    project.kilpailu.nimi = "Vain uusi julkaisija".into();
+    second.offer(&project);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while published.lock().unwrap().is_empty() {
+        assert!(Instant::now() < deadline, "{}", second.status());
+        thread::sleep(Duration::from_millis(20));
+    }
+    drop(second);
+    handle.join().unwrap();
+    let values = published.lock().unwrap();
+    assert_eq!(
+        values.len(),
+        1,
+        "Pysäytetty julkaisija ei saa vahvistaa vanhaa tiedostoa"
+    );
+    assert!(
+        String::from_utf8(values[0].clone())
+            .unwrap()
+            .contains("Vain uusi julkaisija")
     );
 }
