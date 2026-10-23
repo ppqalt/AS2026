@@ -147,7 +147,7 @@ fn background_retry_publishes_latest_snapshot_after_disconnect() {
     assert_eq!(values.len(), 1);
     let html = String::from_utf8(values[0].clone()).unwrap();
     assert!(html.contains("Viimeisin tilanne &amp; korjaus"));
-    assert!(html.contains("content=\"60\""));
+    assert!(html.contains("content=\"60;url="));
     assert!(html.contains("Epäviralliset tulokset"));
     assert!(html.contains("Päivitetty"));
 }

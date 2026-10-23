@@ -55,9 +55,10 @@ ja laskentaa. Julkaisuikkunassa näkyvät viimeinen onnistunut lähetys ja virhe
 Siirto kirjoittaa ensin `<tiedostonimi>.as2026-upload`-väliaikaistiedoston.
 Vasta valmistunut tiedosto nimetään varsinaiseksi tulossivuksi. SFTP-palvelimen
 on tuettava OpenSSH:n `posix-rename`-laajennusta; tavalliset OpenSSH-palvelimet
-tukevat sitä. FTP-palvelimen täytyy sallia RNFR/RNTO ja olemassa olevan tiedoston
-korvaaminen. Jos palvelin hylkää vaihdon, vanhaa tulossivua ei poisteta sen
-kiertämiseksi. Yhteys- tai kirjoitusvirheen jälkeen uutta kokonaista tilannetta
+tukevat sitä. FTP-palvelimen täytyy sallia RNFR/RNTO. Jos palvelin ei salli
+olemassa olevan nimen korvaamista, kokonaan siirretyn uuden sivun tieltä poistetaan
+vanha kohdetiedosto ja uudelleennimeämistä yritetään uudelleen. Tällaisella
+FTP-palvelimella vaihdossa voi olla lyhyt katko, mutta osittaista HTML:ää ei näytetä. Yhteys- tai kirjoitusvirheen jälkeen uutta kokonaista tilannetta
 yritetään uudelleen kymmenen sekunnin välein.
 
 Tulossivu on itsenäinen mobiilissa toimiva HTML-sivu. Siinä näkyvät kilpailu,
@@ -99,3 +100,18 @@ Todellinen 900 × 600 -virtuaali-ikkuna. Yhteyskentät vierivät, mutta tilatiet
 toimintopainikkeet pysyvät näkyvissä.
 
 ![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/live-julkaisu-900x600.png)
+
+
+## Luokkakohtaiset kiertävät sivut (0.6.11)
+
+Valitse julkaisuikkunan alusta julkaistavat luokat. Kukin valittu luokka saa oman
+sivun. Annettu nimi, esimerkiksi `tulokset.html`, on ensimmäinen sivu. Seuraavat
+ovat `tulokset1.html`, `tulokset2.html` jne. Sivun 60 sekunnin refresh avaa seuraavan
+luokan ja viimeinen sivu palauttaa pääsivulle. Perusnimen voi vaihtaa julkaistaessa.
+
+Sivut ovat pystysuunnassa tiiviitä. Niillä ei julkaista ohjelman virheilmoituksia,
+nousupisteitä tai sarjapisteitä. Paikallisten tulossivujen kansio määritetään samassa
+ikkunassa. **Paikallinen live** aloittaa päivityksen siihen ilman palvelinyhteyttä;
+avaa kansion pääsivu selaimeen. Samat sivut lähetetään FTP/SFTP-julkaisussa.
+
+SFTP-toteutus on sisäänrakennettu; ulkoista WinSCP-asennusta ei tarvita.

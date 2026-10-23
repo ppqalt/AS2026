@@ -27,6 +27,10 @@ pub struct Config {
     pub public_url: String,
     pub key_file: String,
     pub fingerprint: String,
+    pub classes: Vec<String>,
+    pub local_directory: String,
+    #[serde(skip)]
+    pub local_only: bool,
     #[serde(skip)]
     pub password: String,
 }
@@ -38,8 +42,13 @@ impl std::fmt::Debug for Config {
 static TRANSFER: Mutex<()> = Mutex::new(());
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
-        if self.host.trim().is_empty() || self.user.trim().is_empty() || self.port == 0 {
+        if !self.local_only
+            && (self.host.trim().is_empty() || self.user.trim().is_empty() || self.port == 0)
+        {
             return Err("Anna palvelin, portti ja käyttäjätunnus.".into());
+        }
+        if self.local_only && self.local_directory.is_empty() {
+            return Err("Anna paikallisten tulossivujen kansio.".into());
         }
         if self.filename.is_empty()
             || self.filename.starts_with('.')
@@ -91,7 +100,7 @@ fn ssh(config: &Config) -> Result<ssh2::Session, String> {
     session.set_timeout(12000);
     session
         .handshake()
-        .map_err(|_| "SFTP-kättely epäonnistui.")?;
+        .map_err(|e| format!("SFTP-kättely epäonnistui: {e}"))?;
     let (key, _) = session.host_key().ok_or("Palvelimen avain puuttuu.")?;
     let fingerprint = format!(
         "SHA256:{}",
@@ -221,7 +230,15 @@ impl Ftp {
         self.response(&[226, 250])?;
         check_cancelled(cancelled)?;
         self.command(&format!("RNFR {temporary}"), &[350])?;
-        self.command(&format!("RNTO {}", c.filename), &[250])?;
+        let renamed = self.command(&format!("RNTO {}", c.filename), &[250, 550, 553])?;
+        if !renamed.starts_with("250") {
+            // Some FTP servers cannot replace an existing destination with RNTO.
+            // Remove it only after the complete replacement has been uploaded.
+            self.command(&format!("DELE {}", c.filename), &[250])?;
+            check_cancelled(cancelled)?;
+            self.command(&format!("RNFR {temporary}"), &[350])?;
+            self.command(&format!("RNTO {}", c.filename), &[250])?;
+        }
         Ok(())
     }
 }
@@ -393,10 +410,18 @@ impl Publisher {
                             continue;
                         }
                         // Odotukset yhdistetään: vain viimeisin tilanne lasketaan taustalla.
-                        let outcome = html(&project).and_then(|body| {
-                            let body = if final_result { body.replace("Epäviralliset tulokset", "Lopulliset tulokset") } else { body };
-                            transfer_with_cancel(&config, Some(body.as_bytes()), Some(&cancelled))
-                        });
+                        let outcome = (|| {
+                            let classes = if config.classes.is_empty() { crate::live_pages::class_choices(&project).map_err(|e|e.to_string())? } else { config.classes.clone() };
+                            let base=if config.local_directory.is_empty() {PathBuf::from(&config.filename)} else {PathBuf::from(&config.local_directory).join(&config.filename)};
+                            let mut pages=crate::live_pages::pages(&project,&crate::live_pages::Settings{base,classes}).map_err(|e|e.to_string())?;
+                            if final_result { for (_,body) in &mut pages {*body=body.replace("Epäviralliset tulokset","Lopulliset tulokset");} }
+                            if !config.local_directory.is_empty() {crate::live_pages::write_pages(&pages).map_err(|e|e.to_string())?;}
+                            if !config.local_only { for (name,body) in pages.iter().rev() {
+                                let mut target=config.clone();target.filename=name.file_name().unwrap().to_string_lossy().into_owned();
+                                transfer_with_cancel(&target,Some(body.as_bytes()),Some(&cancelled))?;
+                            }}
+                            Ok::<_,String>(())
+                        })();
                         match outcome {
                             Ok(()) => {
                                 if final_result {

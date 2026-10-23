@@ -1,14 +1,18 @@
 # AS2026
 
-**AS2026 0.6.10** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
+**AS2026 0.6.11** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
 tuloslaskentasovellus Linuxille ja Windowsille. Rust ja Slint, Fluent 2 / Dark Spruce.
+
+Versio 0.6.11 lisää erillisen Beginners Cupin syöttövaiheen, julkaistavien luokkien
+valinnan, tiiviit automaattisesti kiertävät tulossivut ja paikallisen live-esikatselun.
+Mukana ovat myös tulosnäkymän ja asetuspaneelien käytettävyyskorjaukset.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.6.10 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.6.10):
+Lataa oma pakettisi [version 0.6.11 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.6.11):
 
-- Linux x86-64: `AS2026-0.6.10-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.6.10-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.6.11-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.6.11-windows-x86_64.zip`
 
 Pura koko paketti omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
@@ -40,7 +44,7 @@ kilpailua ja pidä kilpailukansiosta erillinen varmuuskopio.
 - Luokka-, asema- ja kilpailijatulosteet sekä HTML-, CSV- ja XLSX-tulosvienti.
 - Paikallinen offline-käyttö ja kilpailun yhteiskäyttö lähiverkossa.
 
-0.6.10 korjaa koko Toiminnot-valikon, mukaan lukien luokkien lisäämisen ja
+0.6.11 korjaa koko Toiminnot-valikon, mukaan lukien luokkien lisäämisen ja
 vientialavalikon. Mukana ovat keskitetty kilpailijaeditori, neutraalit modaalitaustat,
 BC-valinnan päälle/pois-kytkentä sekä asetusten ja rinnakkaispaneelien asettelukorjaukset.
 Mikky100:n uusimmat kilpailusäännöt ja laskenta säilyvät. [Julkaisutiedot](RELEASE_NOTES.md).

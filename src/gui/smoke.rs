@@ -68,6 +68,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     beginners_cup(app, state, &path, &original)?;
     automatic_preparation(app, state, &path, &original)?;
     result_entry_and_printing(app, state, &path, &original)?;
+    published_issues(app, state, &path, &original)?;
     workflow_069(app, state, &path, &original)?;
     // Nimi riittää. Tämä koe käyttää vain --demo-ajon omaa asetuskansiota.
     app.invoke_create_project("".into(), "Nimellä luotu kilpailu".into());
@@ -1619,6 +1620,141 @@ fn result_entry_and_printing(
     open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
     println!(
         "GUI-tulostuskoe: kortinluvun syöttöikkuna, aikavalidointi, automaattilaskenta, RT/muut pisteet, luokkavalinta ja asematuloste ilman fyysistä tulostusta."
+    );
+    Ok(())
+}
+
+fn published_issues(
+    app: &AppWindow,
+    state: &SharedState,
+    original_path: &Path,
+    original: &Project,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = prepare_print_entry(
+        app,
+        state,
+        original_path.parent().unwrap(),
+        original,
+        "issue-bc-entry",
+    )?;
+    app.invoke_result_entry_close(false);
+    {
+        let mut s = state.borrow_mut();
+        let ws = current_workspace(&mut s)?;
+        let p = ws.project().unwrap();
+        let track = p.radat[0].clone();
+        let config = as2026::beginners::BeginnersCup {
+            nimi: "Testi BC".into(),
+            tunnus: "BC".into(),
+            lahderata: track.numero,
+            lahdeasemat: track.asemat.clone(),
+            mukana_asemat: (1..=track.asemat.len() as u32).collect(),
+        };
+        ws.save_beginners_cup(config, &[7])?;
+    }
+    app.invoke_approve_results();
+    for field in app.get_result_entry_fields().iter().collect::<Vec<_>>() {
+        let value = match field.key {
+            -1 => "2",
+            -2 => "11",
+            _ => {
+                if field.label.contains("AT käsikello") {
+                    "12:05:00"
+                } else {
+                    "12:08:00"
+                }
+            }
+        };
+        app.invoke_result_entry_edited(field.key, value.into());
+    }
+    app.invoke_result_entry_save();
+    assert!(
+        app.get_result_entry_open(),
+        "BC-syöttö avautuu NAC:n tallentamisen jälkeen: {}",
+        app.get_result_entry_error()
+    );
+    assert!(app.get_result_entry_identity().contains("Beginners Cup"));
+    assert!(state.borrow().workspace.as_ref().unwrap().bc_view());
+    for field in app.get_result_entry_fields().iter().collect::<Vec<_>>() {
+        if field.key < 0 {
+            assert_eq!(field.value, "0", "NAC-pisteitä ei kopioida BC:hen");
+        }
+        let value = match field.key {
+            -1 => "3",
+            -2 => "17",
+            _ => {
+                if field.label.contains("AT käsikello") {
+                    "12:05:00"
+                } else {
+                    "12:08:00"
+                }
+            }
+        };
+        app.invoke_result_entry_edited(field.key, value.into());
+    }
+    app.invoke_result_entry_save();
+    assert!(
+        !app.get_result_entry_open(),
+        "{}",
+        app.get_result_entry_error()
+    );
+    let saved = ProjectStore::open(&path)?;
+    assert_eq!(
+        saved.project().kilpailijat[0].lisavirheet.puuttuvat_rt_kpl,
+        2
+    );
+    assert_eq!(
+        saved.project().kilpailijat[0].lisavirheet.muut_virhepisteet,
+        11
+    );
+    assert_eq!(
+        saved.project().bc_osallistujat[0]
+            .lisavirheet
+            .puuttuvat_rt_kpl,
+        3
+    );
+    assert_eq!(
+        saved.project().bc_osallistujat[0]
+            .lisavirheet
+            .muut_virhepisteet,
+        17
+    );
+    // A different card must clear the previously selected BC/class filter immediately.
+    {
+        let mut s = state.borrow_mut();
+        let ws = current_workspace(&mut s)?;
+        ws.set_bc_view(false)?;
+        let mut project = ws.project().unwrap().clone();
+        let mut driver = project.kilpailijat[0].clone();
+        driver.numero = 9;
+        driver.emit = 654321;
+        driver.tallennettu_tulos = None;
+        project.kilpailijat.push(driver);
+        let directory = path.parent().unwrap().join("next-card");
+        let next = Workspace::create_imported(&directory, project)?;
+        open_workspace(&mut s, app, next.path(), true)?;
+        s.result_class = "Beginners Cup".into();
+        current_workspace(&mut s)?.set_bc_view(true)?;
+        super::handle_event(
+            &mut s,
+            app,
+            ReaderEvent::Frame {
+                frame: Box::new(synthetic_frame(654321, &[(0, 120), (100, 780), (250, 840)])),
+                read_clock: ClockTime::new(12, 12, 0)?,
+            },
+        );
+    }
+    assert!(
+        app.get_result_entry_identity().starts_with("#9"),
+        "{}",
+        app.get_result_entry_identity()
+    );
+    assert!(!app.get_bc_results());
+    assert_eq!(app.get_selected_key(), 1);
+    app.invoke_result_entry_close(false);
+    open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
+    println!(
+        "Issueiden GUI-koe: erillinen NAC/BC-syöttö ja pysyvät pisteet, uuden kortin oikea kilpailija ja luokkarajauksen nollaus."
     );
     Ok(())
 }

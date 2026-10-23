@@ -368,7 +368,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
             } else if step == 98 {
                 app.invoke_open_publish();
                 assert!(app.get_publish_open());
-                assert_eq!(app.get_publish_fields().row_count(), 9);
+                assert_eq!(app.get_publish_fields().row_count(), 10);
                 app.invoke_publish_edited(1, "0".into());
                 app.invoke_publish_test();
                 assert!(!app.get_publish_busy());

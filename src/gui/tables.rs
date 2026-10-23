@@ -544,9 +544,10 @@ fn results(
             .iter()
             .find(|d| d.numero == driver.number)
     });
-    let interrupted = native
-        .and_then(|d| d.tila.as_ref())
-        .is_some_and(|s| s.tunnus == "KESK");
+    let interrupted = driver.status == "KESK"
+        || native
+            .and_then(|d| d.tila.as_ref())
+            .is_some_and(|s| s.tunnus == "KESK");
     let interruption_confirmed = native.is_some_and(|d| d.has_confirmed_interruption());
     let (snapshot, snapshot_error) = match ws.result_snapshot(driver.number) {
         Ok(snapshot) => (snapshot, None),
@@ -697,7 +698,7 @@ fn results(
         reason: if interrupted {
             native
                 .and_then(|d| d.tila.as_ref())
-                .map_or("", |s| s.syy.as_str())
+                .map_or_else(|| field(&driver.header_fields, 29), |s| s.syy.clone())
                 .into()
         } else {
             field(&driver.header_fields, 29).into()
@@ -706,6 +707,19 @@ fn results(
         issue: issues.join("\n").into(),
         start: start(driver).into(),
         elapsed: clock(13),
+        total_lateness: snapshot.as_ref().map_or_else(
+            || "-".into(),
+            |r| {
+                let value = r.cumulative_schedule_difference();
+                format!(
+                    "{}{:02}:{:02}",
+                    if value < 0 { "-" } else { "+" },
+                    value.unsigned_abs() / 60,
+                    value.unsigned_abs() % 60
+                )
+                .into()
+            },
+        ),
         finish: clock(16),
         time_points: points(19),
         station_points: points(20),
@@ -748,14 +762,17 @@ fn results(
         "Asema",
         "Emit od./luettu",
         "Tavoite, s",
-        "Kello",
-        "Aika, s",
-        "Aikavirhe, p",
-        "Muut, p",
+        "Käytetty, s",
+        "klo",
+        "AT",
+        "ATp/ATy",
         "Yhteensä, p",
+        "Myöhä",
         "Huomautus",
     ]);
-    view.detail_weights = vec![0.04, 0.16, 0.08, 0.07, 0.10, 0.07, 0.09, 0.07, 0.09, 0.23];
+    view.detail_weights = vec![
+        0.04, 0.14, 0.08, 0.07, 0.08, 0.10, 0.07, 0.07, 0.08, 0.08, 0.19,
+    ];
     view.detail_rows = driver
         .results
         .iter()
@@ -780,6 +797,11 @@ fn results(
                     if pending {
                         "-".into()
                     } else {
+                        station.actual_seconds.to_string()
+                    },
+                    if pending {
+                        "-".into()
+                    } else {
                         format!(
                             "{:02}:{:02}:{:02}",
                             station.clock[0], station.clock[1], station.clock[2]
@@ -788,19 +810,37 @@ fn results(
                     if pending {
                         "-".into()
                     } else {
-                        station.actual_seconds.to_string()
+                        format!("{:+}", station.signed_time_penalty)
                     },
-                    if pending {
-                        "-".into()
+                    if station.sequence == 0 {
+                        format!("ATy {}", station.other_penalty)
+                    } else if station.received_code == 0 && station.expected_code != 0 {
+                        format!("ATp {}", station.other_penalty)
                     } else {
-                        station.signed_time_penalty.to_string()
+                        station.other_penalty.to_string()
                     },
-                    station.other_penalty.to_string(),
                     if pending {
                         "-".into()
                     } else {
                         station.total_penalty.to_string()
                     },
+                    snapshot
+                        .as_ref()
+                        .and_then(|result| {
+                            result
+                                .rivit
+                                .iter()
+                                .find(|r| r.output_index == station.output_index)
+                                .and_then(|r| result.section_difference(r))
+                        })
+                        .map_or_else(String::new, |d| {
+                            format!(
+                                "{}{:02}:{:02}",
+                                if d < 0 { "-" } else { "+" },
+                                d.unsigned_abs() / 60,
+                                d.unsigned_abs() % 60
+                            )
+                        }),
                     if pending {
                         "Käsikello puuttuu".into()
                     } else {
@@ -1305,7 +1345,7 @@ mod tests {
         assert_eq!(view.result_overview.finish, "-");
         assert_eq!(text(view.detail_rows.last().unwrap(), 4), "-");
         assert_eq!(
-            text(view.detail_rows.last().unwrap(), 9),
+            text(view.detail_rows.last().unwrap(), 10),
             "Käsikello puuttuu"
         );
         fixture.workspace.review_results(7).unwrap();
@@ -1323,7 +1363,7 @@ mod tests {
             .edit_station_result(7, finish, as2026::workspace::ResultField::Clock, "00:00:00")
             .unwrap();
         let entered = data(&fixture.workspace, 3, 0, "").unwrap();
-        assert_eq!(text(entered.detail_rows.last().unwrap(), 4), "00:00:00");
+        assert_eq!(text(entered.detail_rows.last().unwrap(), 5), "00:00:00");
         assert_eq!(entered.result_overview.total, "-");
     }
 

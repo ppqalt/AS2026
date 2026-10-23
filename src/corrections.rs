@@ -141,6 +141,34 @@ impl From<&StoredRow> for StationResult {
     }
 }
 impl StoredResult {
+    pub fn section_difference(&self, row: &StoredRow) -> Option<i64> {
+        if !matches!(row.station_type.as_str(), "JAT" | "M")
+            || (row.expected_code != 0 && row.received_code != row.expected_code)
+            || self.pending_manual_clocks().contains(&row.output_index)
+        {
+            return None;
+        }
+        let operational = self.laskentatapa == StoredCalculationPolicy::As2026Operational;
+        crate::timing::section_difference(
+            &row.section_text,
+            row.actual_seconds,
+            if operational {
+                crate::timing::CalculationPolicy::As2026OperationalV1
+            } else {
+                crate::timing::CalculationPolicy::RecoveredAs2015aStaticV2
+            },
+        )
+        .ok()
+        .flatten()
+        .or_else(|| operational.then_some(row.target_seconds - row.actual_seconds))
+    }
+    pub fn cumulative_schedule_difference(&self) -> i64 {
+        self.rivit
+            .iter()
+            .filter_map(|r| self.section_difference(r))
+            .sum()
+    }
+
     /// Puuttuva käsikello tunnistetaan syötön alkuperästä: myös 00:00:00 on kelvollinen syöte.
     pub fn pending_manual_clocks(&self) -> Vec<u32> {
         self.rivit

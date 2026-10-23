@@ -189,10 +189,29 @@ fn finish_entry(state: &mut State, app: &AppWindow, print: bool) -> GuiResult<()
     } else {
         status(app, "Tulos tallennettu.", false);
     }
+    let follow_bc = !current_workspace(state)?.bc_view()
+        && current_workspace(state)?.project().is_some_and(|p| {
+            p.bc_osallistujat
+                .iter()
+                .any(|e| e.numero == number && e.osallistuu)
+        });
     app.set_result_entry_open(false);
     state.entry_number = None;
     update_tables(state, app)?;
     update_form(state, app);
+    if follow_bc {
+        current_workspace(state)?.set_bc_view(true)?;
+        state.result_class = "Beginners Cup".into();
+        update_tables(state, app)?;
+        update_form(state, app);
+        open_entry(state, app)?;
+        status(
+            app,
+            "NAC-tulos tallennettu. Syötä nyt erikseen Beginners Cupin ajat ja virhepisteet.",
+            false,
+        );
+        return Ok(());
+    }
     if state.print_test && print {
         status(
             app,

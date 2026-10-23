@@ -1,6 +1,6 @@
 [package]
 name = "as2026"
-version = "0.6.10"
+version = "0.6.11"
 edition = "2024"
 rust-version = "1.89"
 default-run = "as2026"

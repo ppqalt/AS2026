@@ -65,6 +65,7 @@ export component ResultSummary inherits Rectangle {
                 }
             }
             Rectangle { height: 1px; background: Theme.line; }
+            ResultPoint { label: "Kokonaismyöhä"; points: root.data.total-lateness; }
             Text { text: "Virhepisteet"; color: Theme.ink; font-size: Theme.body-font-size; font-weight: 600; }
             ResultPoint { label: "Aikavirhepisteet"; points: root.data.time-points; }
             ResultPoint { label: "Asemien muut virheet"; points: root.data.station-points; }
