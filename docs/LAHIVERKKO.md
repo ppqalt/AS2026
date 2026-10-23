@@ -96,6 +96,9 @@ Katso [kirjaston dokumentaatio](https://docs.rs/snow/0.10.0/snow/).
 Asiakas tarkistaa muutokset taustalla noin 180 ms välein ja GUI noin 250 ms välein.
 Uusi paikallinen muutos herättää lähetyssäikeen heti. Muuttumaton tilakysely ei
 kirjoita lähetysjonoa uudelleen levylle; jonon lisäys tallennetaan silti ennen lähetystä.
+Jos kuittauksen jälkeinen jonotallennus epäonnistuu, virhe näytetään ja tallennusta
+yritetään uudelleen myös tavallisilla tilakyselyillä. Vanhalla tapahtumatunnuksella
+toistettu lähetys ei lisää uutta kilpailutapahtumaa.
 Yhteyden sulkeminen odottaa aikarajatun verkkopyynnön ja taustasäikeiden päättymisen.
 Jonon tai isännän avaaminen uudelleen ei tarvitse arvausta lukkojen vapautumisajasta.
 Muutoksista lähetetään tietuekohtaiset erot; uusi kokonaiskuva lähetetään vain revision

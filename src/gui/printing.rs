@@ -435,22 +435,57 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow) {
             }
         }
     });
-    let state2 = state.clone();
     let weak = app.as_weak();
+    let refreshing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     app.on_refresh_printers(move || {
-        if let Some(app) = weak.upgrade() {
-            run_action(&app, || {
-                let state = state2.borrow();
-                let current = selected_printer(&state);
-                let mut names = vec!["Käyttöjärjestelmän oletus".to_owned()];
-                names.extend(printing::printers().map_err(|e| invalid(&e))?);
-                if !current.is_empty() && !names.contains(&current) {
-                    names.push(current.clone());
-                }
-                app.set_printer_index(names.iter().position(|n| n == &current).unwrap_or(0) as i32);
-                app.set_printers(model(names.into_iter().map(SharedString::from).collect()));
-                Ok(())
+        use std::sync::atomic::Ordering;
+        if refreshing.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let pending = refreshing.clone();
+        let result_weak = weak.clone();
+        let started = std::thread::Builder::new()
+            .name("as2026-tulostinluettelo".into())
+            .spawn(move || {
+                let result = printing::printers();
+                pending.store(false, Ordering::Release);
+                let _ = result_weak.upgrade_in_event_loop(move |app| {
+                    match result {
+                        Ok(printers) => {
+                            // Valinta on voinut muuttua haun aikana: säilytä nykyinen valinta.
+                            let current = if app.get_printer_index() == 0 {
+                                String::new()
+                            } else {
+                                app.get_printer_name().to_string()
+                            };
+                            let mut names = vec!["Käyttöjärjestelmän oletus".to_owned()];
+                            names.extend(printers);
+                            if !current.is_empty() && !names.contains(&current) {
+                                names.push(current.clone());
+                            }
+                            app.set_printer_index(
+                                names.iter().position(|n| n == &current).unwrap_or(0) as i32,
+                            );
+                            app.set_printers(model(
+                                names.into_iter().map(SharedString::from).collect(),
+                            ));
+                        }
+                        Err(error) => status(&app, error, true),
+                    }
+                });
             });
+        if let Err(error) = started {
+            refreshing.store(false, Ordering::Release);
+            if let Some(app) = weak.upgrade() {
+                status(
+                    &app,
+                    format!(
+                        "Tulostinluettelon hakua ei voitu käynnistää: {}",
+                        io_message(&error)
+                    ),
+                    true,
+                );
+            }
         }
     });
     let state2 = state.clone();

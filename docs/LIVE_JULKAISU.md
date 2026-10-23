@@ -1,4 +1,4 @@
-# Live-tulokset SFTP- tai FTP-palvelimelle
+# Paikalliset livetulokset ja SFTP/FTP-julkaisu
 
 Avaa **Tulokset → Toiminnot → Live-tulosten julkaisu**. Sivun voi linkittää
 WordPressin tapahtumaan, artikkeliin tai sivulle tavallisena linkkinä. Erillistä
@@ -56,10 +56,14 @@ Siirto kirjoittaa ensin `<tiedostonimi>.as2026-upload`-väliaikaistiedoston.
 Vasta valmistunut tiedosto nimetään varsinaiseksi tulossivuksi. SFTP-palvelimen
 on tuettava OpenSSH:n `posix-rename`-laajennusta; tavalliset OpenSSH-palvelimet
 tukevat sitä. FTP-palvelimen täytyy sallia RNFR/RNTO. Jos palvelin ei salli
-olemassa olevan nimen korvaamista, kokonaan siirretyn uuden sivun tieltä poistetaan
-vanha kohdetiedosto ja uudelleennimeämistä yritetään uudelleen. Tällaisella
-FTP-palvelimella vaihdossa voi olla lyhyt katko, mutta osittaista HTML:ää ei näytetä. Yhteys- tai kirjoitusvirheen jälkeen uutta kokonaista tilannetta
-yritetään uudelleen kymmenen sekunnin välein.
+olemassa olevan nimen korvaamista, aiempi sivu nimetään ensin väliaikaiseen
+varakopioon. Jos uuden sivun vaihto epäonnistuu, vanha sivu yritetään palauttaa;
+myös katkennut ohjausyhteys avataan tarvittaessa uudelleen palautusta varten.
+Varakopio poistetaan vasta onnistuneen vaihdon jälkeen. Ellei palautus onnistu,
+virheilmoitus kertoo palvelimelle jäävän varakopion nimen. Tällaisella
+FTP-palvelimella vaihdossa voi olla lyhyt katko. SFTP on ensisijainen vaihtoehto,
+kun palvelin tukee sitä. Yhteys- tai kirjoitusvirheen jälkeen uutta kokonaista
+tilannetta yritetään uudelleen kymmenen sekunnin välein.
 
 Tulossivu on itsenäinen mobiilissa toimiva HTML-sivu. Siinä näkyvät kilpailu,
 päivitysaika, epävirallinen tila sekä tavallisten, yhdistettyjen ja Beginners
@@ -73,8 +77,11 @@ välimuistisääntöä. Tämä tarkistetaan ylläpitäjän kanssa julkisesta oso
 
 ## Lopettaminen ja lopulliset tulokset
 
-**Lopeta julkaiseminen** pysäyttää tulevat automaattisiirrot. Jo käynnissä oleva
-siirto voi vielä valmistua. Viimeinen palvelintiedosto ja sen osoite säilyvät.
+**Lopeta julkaiseminen** pysäyttää tulevat automaattisiirrot. Pysäytys tarkistetaan
+myös ennen tiedoston vaihtoa: odottamaan jäänyt vanha julkaisija ei palaa uuden
+julkaisijan jälkeen korvaamaan sen sivua. Jo palvelimelle lähetetty komento voi
+ehtiä valmistua ennen pysäytyksen käsittelyä. Viimeinen valmis palvelintiedosto
+ja sen osoite säilyvät.
 Kilpailun vaihtaminen tai sovelluksen sulkeminen pysäyttää julkaisijan.
 
 **Julkaise lopullisina** on erillinen toimitsijan päätös. Keskeneräiset tulokset
@@ -86,23 +93,24 @@ korjattu lopullinen tilanne erikseen.
 
 ## Testauksen rajat
 
-0.6.10:n kehitystestissä käytetään vain synteettistä kilpailua, paikallista
+Kehitystestit käyttävät vain synteettistä kilpailua, paikallista
 FTP-testipalvelinta ja erillistä localhost-OpenSSH/SFTP-palvelinta. Testit
 kattavat yhteyskokeen ilman kirjoitusta, salaisuuksien poisjäännin asetuksista,
 atomisen SFTP-korvaamisen, väärän palvelinavaimen, FTP-siirron, katkon jälkeisen
-uusimman tilanteen sekä lopullisen julkaisun. Automaattisesti ei kirjaututa
+uusimman tilanteen, pysäytyksen ja uudelleenkäynnistyksen sekä lopullisen julkaisun. Automaattisesti ei kirjaututa
 autosuunnistus.net-palvelimeen. Sen tunnukset, julkinen osoite, siirto-oikeudet,
 WordPress-linkki ja välimuistikäytäntö varmistetaan palvelimen ylläpitäjän kanssa.
 
 ## Näkymä pienessä ikkunassa
 
-Todellinen 900 × 600 -virtuaali-ikkuna. Yhteyskentät vierivät, mutta tilatieto ja
-toimintopainikkeet pysyvät näkyvissä.
+Version 0.6.10 todellinen 900 × 600 -virtuaali-ikkuna havainnollistaa yhteisiä
+pintoja. Uudemmassa versiossa luokkavalinnat ovat kenttien yläpuolella.
+Yhteyskentät vierivät, mutta tilatieto ja toimintopainikkeet pysyvät näkyvissä.
 
 ![Live-julkaisun asetukset 900 × 600 -ikkunassa](kuvat/live-julkaisu-900x600.png)
 
 
-## Luokkakohtaiset kiertävät sivut (0.6.11)
+## Luokkakohtaiset kiertävät sivut
 
 Valitse julkaisuikkunan alusta julkaistavat luokat. Kukin valittu luokka saa oman
 sivun. Annettu nimi, esimerkiksi `tulokset.html`, on ensimmäinen sivu. Seuraavat

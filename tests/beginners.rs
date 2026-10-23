@@ -475,7 +475,6 @@ fn skipped_jat_extends_the_next_section_without_changing_finish() {
     assert_eq!(stations[2].jakso_minuutteina, Some(15));
 }
 
-
 #[test]
 fn bc_finish_has_no_time_penalty_and_preserves_nac_rules() {
     for shortened in [false, true] {
@@ -504,8 +503,12 @@ fn bc_finish_has_no_time_penalty_and_preserves_nac_rules() {
             assert_eq!(finish.rule, as2026::Rule::NoTiming as i64);
             assert_eq!(finish.signed_time_penalty, 0);
             assert_eq!(f.workspace.project().unwrap().radat, source.radat);
-            let nac_after = application::calculated_project(f.workspace.project().unwrap()).unwrap();
-            assert_eq!(nac_before.competitors[0].header_fields, nac_after.competitors[0].header_fields);
+            let nac_after =
+                application::calculated_project(f.workspace.project().unwrap()).unwrap();
+            assert_eq!(
+                nac_before.competitors[0].header_fields,
+                nac_after.competitors[0].header_fields
+            );
         }
     }
 }

@@ -1,6 +1,6 @@
 # Kilpailun tarkastus ja lähtöjärjestelyt
 
-Ohje koskee AS2026 0.6.10:tä ja Mikky100:n nykyisiä kilpailusääntöjä.
+Ohje koskee AS2026 0.7.0:aa ja Mikky100:n nykyisiä kilpailusääntöjä.
 
 ## Emit-kortista tulokseen
 

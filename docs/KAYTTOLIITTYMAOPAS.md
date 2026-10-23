@@ -1,8 +1,8 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa AS2026 0.6.10:n, joka täydentää Mikky100:n 0.6.9-toteutusta. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
+Tämä opas kuvaa AS2026 0.7.0:n, jonka pohjana on Mikky100:n 0.6.11-toteutus. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
 Emit-editorin toiminta tulevat Mikky100:n toteutuksesta. Opas ei määrittele niitä
-uudelleen. Katso myös [0.6.9:n työnkulut](KAYTTOLIITTYMA_069.md) ja
+uudelleen. Katso myös [kilpailun työvaiheet](../KILPAILUTOIMINNOT.md) ja
 [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
@@ -46,7 +46,7 @@ Lähde: [ui/components.slint](../ui/components.slint).
 | `DialogSurface` | Keskitetty tumma kortti, ohut reunus, pyöristetyt kulmat | Ikkunan reunoille vähintään 12 px, sisään 24 px; sisältö rajoitetaan ikkunaan |
 | `DialogActions` | Oikealle tasattu painikeryhmä | Peruuta vasemmalla, vahvistus oikealla; ryhmä pysyy vierityksen ulkopuolella |
 | `NavItem` | Vasemman reunan navigaatiorivi ja vihreä valintapalkki | Hiiri, Enter ja Space avaavat sivun |
-| `FormField` | Nimi ylhäällä; tekstikenttä, valikko tai h:min:s-kentät | Kelvollinen muutos tallentuu Enterillä tai kentästä poistuttaessa; virhe kentän yhteydessä |
+| `FormField` | Nimi ylhäällä; tekstikenttä, valikko tai h:min:s-kentät | Kelvollinen muutos tallentuu Enterillä tai kentästä poistuttaessa; Enter poistaa kohdistuskorostuksen, virhe jää korjattavaksi |
 | `DataTable` | Tumma otsikkorivi, tasakorkuiset tietorivit, vihreä valinta | Pystyvieritys oikealla; leveän taulukon vaakavieritys kuljettaa otsikot ja rivit yhdessä |
 | `EditorEntry` | Yksi `FormField`-kenttä mallista | Välittää olemassa olevat kenttätunnukset ja tallennuskutsut |
 | `EditorFields` | Kenttäryhmä yhdessä tai useammassa palstassa | Sama kenttämalli; asemien ja kilpailijan omat ryhmittelyt säilyvät |
@@ -58,7 +58,7 @@ Lähde: [ui/components.slint](../ui/components.slint).
 
 | Lähde ja komponentti | Näkyvä sisältö | Olennainen toiminta |
 |---|---|---|
-| [app.slint](../ui/app.slint): `AppWindow` | Sivupalkki, sivun työalue, tilapalkki ja sisäiset valintaikkunat | Navigaatio, tiedoston avaus/uusi, LAN, tuonti, vienti, huomautukset, virheen lisätiedot, asennus ja vahvistukset |
+| [app.slint](../ui/app.slint): `AppWindow` | Sivupalkki, sivun työalue, tilapalkki ja sisäiset valintaikkunat | Navigaatio, tiedoston avaus/uusi, LAN, tuonti, vienti, huomautukset, asennus ja vahvistukset |
 | [results.slint](../ui/results.slint): `ResultSummary` | Kilpailijan tila, ajat, virhepisteet, yhteensä ja toimintopainikkeet | Tulostus ja kilpailijan muokkaus; ei omaa rinnakkaista pistelaskentaa |
 | `ResultPoint` samassa tiedostossa | Selite vasemmalla, arvo oikealla | Yhden tulossumman esitys |
 | [live-publish.slint](../ui/live-publish.slint): `LivePublishDialog` | Keskitetty tumma ikkuna, yhteystapa, nimetyt palvelinkentät ja lähetyksen tila | Vieritys pienessä ikkunassa, salasanan peittäminen, erilliset testaus/aloitus/lopetus/lopullinen julkaisu; [käyttöohje](LIVE_JULKAISU.md) |
@@ -126,7 +126,10 @@ näytöllä asetukset hyödyntävät useampaa palstaa, mutta lukuleveys pysyy ra
 Tarkista jokaiselta sivulta hiiri, Tab, Shift+Tab, Enter, Space, Esc,
 pysty-/vaakavieritys, kenttävirhe ja palautuminen. Valintojen ja dialogien
 kuvat ovat todellisia synteettisen kilpailun kuvakaappauksia, eivät mallikuvia.
-Kuvagalleria on alla. Kuvat on otettu Linuxin virtuaalinäytössä natiivisti käännetystä sovelluksesta synteettisellä kilpailulla. LAN-kuvan kertakäyttöinen testijako on suljettu.
+Alla olevan kuvagallerian kuvat ovat 0.6.10:n Linux-virtuaalinäytön kokeesta
+synteettisellä kilpailulla. Ne havainnollistavat yhteisiä komponentteja; 0.7.0:n
+yhteyspainikkeen sijoittelu, radan tietopaneelin korkeus ja liveikkunan
+luokkavalinnat ovat sittemmin muuttuneet. LAN-kuvan kertakäyttöinen testijako on suljettu.
 
 LAN-ohje: [yhteiskäyttö ja palautuminen](LAHIVERKKO.md),
 [Windowsin ja UFW:n palomuuri](PALOMUURI.md).
@@ -143,8 +146,9 @@ oma ikkuna säilyy Mikky100:n toteutuksena.
 
 ### Rataluettelo ja radan tiedot
 
-Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta. Otsikko
-kuuluu luettelon yläpuolelle; asemien oma toimintorivi säilyy erillisenä.
+Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta. Versiossa
+0.7.0 myös tietokortin ja luettelon alareunat ovat rinnakkaisnäkymässä samalla
+korkeudella. Otsikko kuuluu luettelon yläpuolelle; asemien oma toimintorivi säilyy erillisenä.
 
 ![Radat ja asemat 1920 × 1080](kuvat/kayttoliittyma/radat.png)
 
@@ -233,3 +237,16 @@ Koskematon Täydennä tulos -ikkuna seuraa uutta korttia suoraan. Jo aloitettu
 syöttö säilyy; ikkunan ohjeteksti nimeää odottavan kilpailijan. Tallentaminen tai
 peruuttaminen avaa seuraavan kortin tuloksen. Raakaleimat säilyvät nykyisessä
 Emit-historiassa.
+
+## Kentän vahvistaminen ja yhteyspainike
+
+Tavalliseen muokkauskenttään kirjoitetun kelvollisen arvon Enter tallentaa
+ja siirtää kohdistuksen pois kentästä. Kentän aktiivinen alareuna häviää,
+mutta dialogi pysyy avoinna. Virheellinen arvo jää korjattavaksi. LAN-liittyminen,
+vientitiedoston tallentaminen ja tulosdialogin painikkeet säilyttävät omat
+Enter-toimintonsa; yleinen lomakekäytös ei korvaa niitä.
+
+Sivupalkin yhteystila on tavallinen Fluent-painike. Sen leveys ja korkeus
+seuraavat navigoinnin mittoja. Pitkä tila lyhenee painikkeessa, ja koko tila
+on luettavissa yhteysikkunasta. Alareunan virhetekstillä ei ole erillistä
+Näytä virhe -painiketta.

@@ -1,6 +1,6 @@
 # AS2026:n kunnostuksen tarkastusraportti
 
-> Historiallinen kuvaus aikaisemmasta työvaiheesta tai versiosta. Nykyinen 0.6.10: [käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md).
+> Historiallinen kuvaus aikaisemmasta työvaiheesta tai versiosta. Nykyinen 0.7.0: [käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md).
 Alkuosa kuvaa CLI-kunnostuksen valmistumishetkeä. Sen jälkeen toteutettu GUI-vaihe ja sen tarkistukset ovat tämän raportin lopussa. Ajantasaiset käyttöohjeet ovat README-, BUILDING- ja UI-tiedostoissa.
 
 Työ tehtiin olemassa olevaan `dev`-työpuuhun. Lähtötila oli puhdas commit `5f869c4` (TOML-kilpailutuki), ei aiemmin mainittu `1bfc541`. Valmisteilla ollutta kunnostuspatchia ei käytetty. `main` ja `codex-original` säilyvät alkuperäisessä commitissa `944ee4f`.

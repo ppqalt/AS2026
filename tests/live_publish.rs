@@ -256,3 +256,220 @@ fn stopped_publisher_cannot_commit_over_the_replacement_publisher() {
             .contains("Vain uusi julkaisija")
     );
 }
+
+#[derive(Clone, Copy)]
+enum Replacement {
+    Success,
+    Reject,
+    Disconnect,
+    DisconnectBackup,
+    PauseAfterBackup,
+}
+
+type RemoteFiles = Arc<Mutex<std::collections::BTreeMap<String, Vec<u8>>>>;
+type FallbackServer = (
+    Config,
+    RemoteFiles,
+    std::sync::mpsc::Receiver<()>,
+    std::sync::mpsc::Sender<()>,
+    thread::JoinHandle<()>,
+);
+
+// Oikea paikallinen FTP-ohjaus- ja datayhteys. Palvelin ei korvaa olemassa
+// olevaa kohdetta RNTO:lla, joten myös varakopio- ja palautuspolut suoritetaan.
+fn fallback_server(mode: Replacement) -> FallbackServer {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let config = Config {
+        ftp: true,
+        host: "127.0.0.1".into(),
+        port: listener.local_addr().unwrap().port(),
+        user: "testaaja".into(),
+        password: "synteettinen".into(),
+        filename: "kilpailu.html".into(),
+        ..Default::default()
+    };
+    let files = Arc::new(Mutex::new(std::collections::BTreeMap::from([(
+        "kilpailu.html".into(),
+        b"aiempi julkinen sivu".to_vec(),
+    )])));
+    let remote = files.clone();
+    let (backup_ready, backup_wait) = std::sync::mpsc::channel();
+    let (resume, resumed) = std::sync::mpsc::channel();
+    let handle = thread::spawn(move || {
+        for _ in 0..if matches!(
+            mode,
+            Replacement::Disconnect | Replacement::DisconnectBackup
+        ) {
+            2
+        } else {
+            1
+        } {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let (mut socket, _) = loop {
+                match listener.accept() {
+                    Ok(connection) => break connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline, "FTP-palautusyhteys puuttui");
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("FTP-testiyhteys epäonnistui: {error}"),
+                }
+            };
+            socket.set_nonblocking(false).unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(10)))
+                .unwrap();
+            socket.write_all(b"220 Valmis\r\n").unwrap();
+            let mut control = BufReader::new(socket.try_clone().unwrap());
+            let mut data = None;
+            let mut source = None::<String>;
+            loop {
+                let mut line = String::new();
+                if control.read_line(&mut line).unwrap_or(0) == 0 {
+                    break;
+                }
+                let command = line.trim_end_matches(['\r', '\n']);
+                let response = if command.starts_with("USER ") {
+                    "331 Salasana\r\n"
+                } else if command.starts_with("PASS ") {
+                    "230 OK\r\n"
+                } else if command == "TYPE I" {
+                    "200 OK\r\n"
+                } else if command == "PASV" {
+                    let connection = TcpListener::bind("127.0.0.1:0").unwrap();
+                    let port = connection.local_addr().unwrap().port();
+                    socket
+                        .write_all(
+                            format!("227 Passive (127,0,0,1,{},{})\r\n", port / 256, port % 256)
+                                .as_bytes(),
+                        )
+                        .unwrap();
+                    data = Some(connection);
+                    continue;
+                } else if let Some(name) = command.strip_prefix("STOR ") {
+                    socket.write_all(b"150 Data\r\n").unwrap();
+                    let (mut stream, _) = data.take().unwrap().accept().unwrap();
+                    let mut bytes = Vec::new();
+                    stream.read_to_end(&mut bytes).unwrap();
+                    remote.lock().unwrap().insert(name.into(), bytes);
+                    "226 OK\r\n"
+                } else if let Some(name) = command.strip_prefix("RNFR ") {
+                    if remote.lock().unwrap().contains_key(name) {
+                        source = Some(name.into());
+                        "350 OK\r\n"
+                    } else {
+                        "550 Puuttuu\r\n"
+                    }
+                } else if let Some(name) = command.strip_prefix("RNTO ") {
+                    let old = source.take().unwrap();
+                    if remote.lock().unwrap().contains_key(name) {
+                        "550 Kohde on olemassa\r\n"
+                    } else if old.ends_with(".as2026-upload") && matches!(mode, Replacement::Reject)
+                    {
+                        "550 Synteettinen korvausvirhe\r\n"
+                    } else if old.ends_with(".as2026-upload")
+                        && matches!(mode, Replacement::Disconnect)
+                    {
+                        socket.shutdown(std::net::Shutdown::Both).unwrap();
+                        break;
+                    } else {
+                        let mut files = remote.lock().unwrap();
+                        let value = files.remove(&old).unwrap();
+                        files.insert(name.into(), value);
+                        drop(files);
+                        if name.contains(".as2026-backup-")
+                            && matches!(mode, Replacement::DisconnectBackup)
+                        {
+                            socket.shutdown(std::net::Shutdown::Both).unwrap();
+                            break;
+                        }
+                        if name.contains(".as2026-backup-")
+                            && matches!(mode, Replacement::PauseAfterBackup)
+                        {
+                            backup_ready.send(()).unwrap();
+                            resumed.recv_timeout(Duration::from_secs(10)).unwrap();
+                        }
+                        "250 OK\r\n"
+                    }
+                } else if let Some(name) = command.strip_prefix("DELE ") {
+                    assert!(
+                        name.contains(".as2026-backup-"),
+                        "Aiempi julkinen sivu on säilytettävä"
+                    );
+                    remote.lock().unwrap().remove(name).unwrap();
+                    "250 OK\r\n"
+                } else if command == "QUIT" {
+                    socket.write_all(b"221 Hei\r\n").unwrap();
+                    break;
+                } else {
+                    panic!("Odottamaton testikomento: {command}");
+                };
+                socket.write_all(response.as_bytes()).unwrap();
+            }
+        }
+    });
+    (config, files, backup_wait, resume, handle)
+}
+
+#[test]
+fn ftp_non_overwriting_server_replaces_page_and_removes_backup_after_success() {
+    let (config, files, _, _, handle) = fallback_server(Replacement::Success);
+    live_publish::transfer(&config, Some(b"uusi valmis sivu")).unwrap();
+    handle.join().unwrap();
+    let files = files.lock().unwrap();
+    assert_eq!(files["kilpailu.html"], b"uusi valmis sivu");
+    assert_eq!(files.len(), 1);
+}
+
+#[test]
+fn ftp_rejected_replacement_restores_previous_public_page() {
+    let (config, files, _, _, handle) = fallback_server(Replacement::Reject);
+    let error = live_publish::transfer(&config, Some(b"hylatty uusi sivu")).unwrap_err();
+    handle.join().unwrap();
+    assert!(error.contains("palautettiin"), "{error}");
+    assert_eq!(
+        files.lock().unwrap()["kilpailu.html"],
+        b"aiempi julkinen sivu"
+    );
+}
+
+#[test]
+fn ftp_disconnect_during_replacement_reconnects_to_restore_previous_page() {
+    let (config, files, _, _, handle) = fallback_server(Replacement::Disconnect);
+    let error = live_publish::transfer(&config, Some(b"katkennut uusi sivu")).unwrap_err();
+    handle.join().unwrap();
+    assert!(error.contains("palautettiin"), "{error}");
+    assert_eq!(
+        files.lock().unwrap()["kilpailu.html"],
+        b"aiempi julkinen sivu"
+    );
+}
+
+#[test]
+fn ftp_lost_backup_rename_reply_still_restores_previous_page() {
+    let (config, files, _, _, handle) = fallback_server(Replacement::DisconnectBackup);
+    let error = live_publish::transfer(&config, Some(b"katkennut uusi sivu")).unwrap_err();
+    handle.join().unwrap();
+    assert!(error.contains("palautettiin"), "{error}");
+    assert_eq!(
+        files.lock().unwrap()["kilpailu.html"],
+        b"aiempi julkinen sivu"
+    );
+}
+
+#[test]
+fn ftp_stop_after_backup_restores_previous_page_instead_of_leaving_it_missing() {
+    let (config, files, backup_ready, resume, handle) =
+        fallback_server(Replacement::PauseAfterBackup);
+    let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
+    publisher.offer(&fixture());
+    backup_ready.recv_timeout(Duration::from_secs(10)).unwrap();
+    drop(publisher);
+    resume.send(()).unwrap();
+    handle.join().unwrap();
+    assert_eq!(
+        files.lock().unwrap()["kilpailu.html"],
+        b"aiempi julkinen sivu"
+    );
+}
