@@ -19,6 +19,10 @@ lähtöluettelon sarakkeet sekä LAN-tilaviestit säilyvät.
 - Fluent-valikot avautuvat kentän alapuolelle ja lyhyet listat ilman turhaa vieritystä.
 - LAN-ikkunan parituskoodi ja osoite on erotettu selkeästi. Liittyminen onnistuu Enterillä.
 
+- Kilpailijatulosteessa näkyvät leimauskello, etumerkilliset AT-pisteet sekä erilliset ATp/ATy-sarakkeet.
+- Jaksojen ja kokonaismyöhän esitys käyttää tavoiteaikaa myös ilman erillistä Jakso-arvoa.
+- LAN-työnkulkukoe odottaa palvelimen kuittauksen myös hitaammalla Windows-levyllä.
+
 ## Ohjeet ja varmennus
 
 README ja käännös-/UI-ohjeet on ajantasaistettu. Mukana ovat

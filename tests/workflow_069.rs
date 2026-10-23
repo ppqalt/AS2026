@@ -314,10 +314,5 @@ fn selected_combined_print_contains_unread_drivers_and_start_list_sorts_across_c
     let html = starts::start_list_html(&p).unwrap();
     assert!(html.find("11:59:00").unwrap() < html.find("12:00:00").unwrap());
     let doc = printing::competitor(&p, 7, None).unwrap();
-    assert!(
-        doc.pages[0]
-            .texts
-            .iter()
-            .any(|t| t.value == "ATp (AT pisteet)")
-    );
+    assert!(doc.pages[0].texts.iter().any(|t| t.value == "ATp"));
 }

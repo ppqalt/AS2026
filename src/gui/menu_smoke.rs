@@ -305,6 +305,34 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 save_view(&app, &directory.join("kehystiedoston-jalkeen.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_result_entry_open(), "Esc kohdistuu tuloksen syöttöikkunaan eikä vanhaan valikkoon");
+            } else if step == 93 {
+                let mut project = original.clone();
+                let mut second = project.kilpailijat[0].clone();
+                second.numero = 8; second.emit = 123457; second.kuljettaja = "Toinen lukija".into();
+                second.tallennettu_tulos = None;
+                project.kilpailijat.push(second);
+                shared.borrow_mut().workspace = Some(Workspace::create_imported(&directory.join("perakkaiset-kortit"), project).unwrap());
+                let frame = emit::parse_frame(include_bytes!("../../fixtures/synthetic/emit-frame.raw")).unwrap();
+                handle_event(&mut shared.borrow_mut(), &app, ReaderEvent::Frame {
+                    frame: Box::new(frame), read_clock: ClockTime::new(12, 15, 0).unwrap()
+                });
+                assert!(app.get_result_entry_identity().starts_with("#7 "));
+                smoke::key(&app, slint::platform::Key::Escape);
+            } else if step == 94 {
+                let mut raw = *include_bytes!("../../fixtures/synthetic/emit-frame.raw");
+                for (offset, byte) in 123457u32.to_le_bytes()[..3].iter().enumerate() {
+                    raw[2 + offset] = byte ^ emit::XOR_MASK;
+                }
+                handle_event(&mut shared.borrow_mut(), &app, ReaderEvent::Frame {
+                    frame: Box::new(emit::parse_frame(&raw).unwrap()), read_clock: ClockTime::new(12, 16, 0).unwrap()
+                });
+                assert!(app.get_result_entry_open());
+                assert!(app.get_result_entry_identity().starts_with("#8 · Toinen lukija"), "Uusi kortti ei saa avata edellistä kilpailijaa");
+                assert_eq!(shared.borrow().entry_number, Some(8));
+            } else if step == 95 {
+                assert!(app.get_result_entry_identity().starts_with("#8 · Toinen lukija"));
+                save_view(&app, &directory.join("toisen-kortin-tulos.png")).unwrap();
+                smoke::key(&app, slint::platform::Key::Escape);
             } else {
                 println!("Valikkokoe valmis: 50 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
