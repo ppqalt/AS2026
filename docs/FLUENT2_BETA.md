@@ -45,6 +45,10 @@ Windows 11:n design-ohjeet ovat visuaalinen vertailukohta. **Slint ei ole WinUI 
 
 Testaa erityisesti: uusi asennus (pois), vanhojen asetusten migraatio (pois), päälle/pois ilman uudelleenkäynnistystä, asetuksen pysyvyys uudelleenkäynnistyksessä, epäonnistunut tallennus, Linux ilman Windows-efektejä, Windowsin laitekiihdytys ja ohjelmistorenderöinti sekä ettei mikään uusi animaatio toimi valinnan ollessa pois.
 
+## Toteutusvaihe: preset-kirjasto ja galleria
+
+`ui/presets.slint` sisältää betan ensimmäiset oikeat preset-kontrollit: `UiButton` (kolme kokoa, neljä varianttia), `UiTextField`, `UiComboBox`, `UiCheckBox`, `UiScrollView`, `UiCard`, `UiSeparator` sekä `UiSlider`. `ui/fluent-gallery.slint` esittää ne interaktiivisesti kehitystilassa. Suora käynnistys ja QA-vaatimukset: **[FLUENT2_GALLERIA.md](FLUENT2_GALLERIA.md)**. Nämä ovat ensimmäisen vaiheen toteutuksia: täydellinen teema, WinUI-pikselivertailu ja sivujen migraatio ovat yhä keskeneräisiä.
+
 ## Koko käyttöliittymän tarkastus
 
 Käy jokainen kohta läpi sekä vaaleassa että tummassa tilassa ja kaikissa olennaisissa ohjain-/virhetiloissa.
