@@ -142,7 +142,7 @@ export component UiSlider inherits Rectangle {
     input := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
-        clicked => { root.set-by-pointer(self.mouse-x); root.released(root.value); }
+        clicked => { keyboard.focus(); root.set-by-pointer(self.mouse-x); root.released(root.value); }
         moved => { root.set-by-pointer(self.mouse-x); }
     }
     keyboard := FocusScope {
