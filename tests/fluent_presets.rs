@@ -18,10 +18,7 @@ fn common_presets_reuse_accessible_fluent_controls() {
         assert!(presets.contains(size), "missing size {size}");
     }
     for variant in ["standard", "primary", "subtle", "danger"] {
-        assert!(
-            presets.contains(variant),
-            "missing semantic variant {variant}"
-        );
+        assert!(presets.contains(variant), "missing semantic variant {variant}");
     }
     let button = include_str!("../ui/fluent/style/button.slint");
     assert!(button.contains("accessible-role: button"));
