@@ -16,7 +16,30 @@ fn click(app: &AppWindow, x: f32, y: f32) {
     });
 }
 
-pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) -> GuiResult<Timer> {
+pub(super) struct MenuSmoke {
+    _timer: Timer,
+    progress: Rc<std::cell::Cell<usize>>,
+    complete: Rc<std::cell::Cell<bool>>,
+}
+
+impl MenuSmoke {
+    pub(super) fn verify_complete(&self) -> GuiResult<()> {
+        if self.complete.get() {
+            Ok(())
+        } else {
+            Err(invalid(&format!(
+                "Valikkokoe keskeytyi ennen lopputarkistusta, vaihe {}",
+                self.progress.get()
+            )))
+        }
+    }
+}
+
+pub(super) fn start(
+    app: &AppWindow,
+    state: &SharedState,
+    directory: PathBuf,
+) -> GuiResult<MenuSmoke> {
     std::fs::create_dir_all(&directory).map_err(|e| invalid(&io_message(&e)))?;
     let directory = std::fs::canonicalize(directory).map_err(|e| invalid(&io_message(&e)))?;
     state.borrow_mut().print_test = true;
@@ -80,6 +103,10 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
     let shared = state.clone();
     let timer = Timer::default();
     let mut phase = 0usize;
+    let progress = Rc::new(std::cell::Cell::new(0));
+    let complete = Rc::new(std::cell::Cell::new(false));
+    let test_progress = progress.clone();
+    let test_complete = complete.clone();
     let mut pending_attempts = 0u32;
     let mut live_resize_attempts = 0u32;
     let mut read_count = 0usize;
@@ -154,8 +181,10 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                         "vienti" | "vienti-csv" | "vienti-html" => {
                             let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, _ => 0 };
                             for _ in 0..kind { smoke::key(&app, slint::platform::Key::Tab); }
+                            save_view(&app, &directory.join(format!("{stem}-valikko.png"))).unwrap();
                             smoke::key(&app, slint::platform::Key::Return);
-                            assert!(app.get_export_open(), "Vienti valikon kautta");
+                            save_view(&app, &directory.join(format!("{stem}-aktivointi.png"))).unwrap();
+                            assert!(app.get_export_open(), "Vienti valikon kautta: {}", app.get_status_text());
                             assert_eq!(app.get_export_kind(), kind);
                             let extension = ["xlsx", "csv", "html"][kind as usize];
                             let destination = directory.join(format!("tulokset-{method}.{extension}"));
@@ -396,11 +425,17 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
             } else {
+                test_complete.set(true);
                 println!("Valikkokoe valmis: 52 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
             }
         }
         phase += 1;
+        test_progress.set(phase);
     });
-    Ok(timer)
+    Ok(MenuSmoke {
+        _timer: timer,
+        progress,
+        complete,
+    })
 }

@@ -7,6 +7,7 @@ import { UiButton, UiTextField, UiComboBox, UiCheckBox, UiSlider, UiScrollView, 
 
 export component FluentGallery inherits Rectangle {
     in property <bool> effects-enabled;
+    in-out property<int> appearance-index: 0;
     callback toggle-effects(bool);
     callback close();
     private property <string> last-action: "Valitse komponentti tai kokeile näppäimistöä.";
@@ -22,6 +23,13 @@ export component FluentGallery inherits Rectangle {
     out property<Point> slider-position: sample-slider.absolute-position;
     out property<length> slider-width: sample-slider.width;
     out property<length> slider-height: sample-slider.height;
+    in-out property<bool> sample-switch <=> sample-switch-control.checked;
+    in-out property<int> sample-number <=> sample-spin.value;
+    out property<string> sample-radio: sample-radio-control.current-value;
+    public function focus-switch() { sample-switch-control.focus(); }
+    public function focus-number() { sample-spin.focus(); }
+    public function show-additional() { gallery-scroll.content-y = min(0px, gallery-scroll.content-y + 170px - extra-controls.absolute-position.y); }
+
     public function focus-slider() { sample-slider.focus(); }
     public function focus-check() { sample-check.focus(); }
     public function focus-text() { sample-text-field.focus(); }
@@ -44,9 +52,8 @@ export component FluentGallery inherits Rectangle {
         }
         UiComboBox {
             model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Dark Spruce"];
-            current-index: Theme.appearance-index;
+            current-index <=> root.appearance-index;
             accessible-label: "Gallerian ulkoasu";
-            selected(value) => { Theme.appearance-index = self.current-index; }
         }
         UiSeparator {}
 
@@ -77,11 +84,13 @@ export component FluentGallery inherits Rectangle {
                         Text { text: "Semanttiset painikevariantit"; color: Theme.muted; font-size: Theme.label-font-size; }
                         HorizontalLayout {
                             spacing: Theme.space-2;
+                            UiIconButton { label: "Sulje esikatselu"; icon: @image-url("fluent/style/_dismiss.svg"); colorize-icon: true; clicked => { root.last-action = "Kuvakepainike"; } }
                             UiButton { text: "Toissijainen"; clicked => { root.last-action = "Toissijainen"; } }
                             UiButton { text: "Ensisijainen"; preset-variant: "primary"; clicked => { root.last-action = "Ensisijainen"; } }
                             UiButton { text: "Huomaamaton"; preset-variant: "subtle"; clicked => { root.last-action = "Huomaamaton"; } }
                             UiButton { text: "Poista"; preset-variant: "danger"; clicked => { root.last-action = "Vaarallinen toiminto (demo)"; } }
                             UiButton { text: "Ei käytössä"; enabled: false; }
+                            UiButton { text: "Ohje"; Tooltip { text: @markdown("Tämä on komponenttigallerian **työkaluvihje**."); } clicked => { root.last-action = "Ohjepainike"; } }
                             Rectangle { horizontal-stretch: 1; }
                         }
                     }
@@ -97,17 +106,17 @@ export component FluentGallery inherits Rectangle {
                             VerticalLayout {
                                 spacing: Theme.space-1;
                                 Text { text: "Nimi / pieni"; color: Theme.muted; font-size: Theme.label-font-size; }
-                                UiTextField { preset-size: "compact"; text <=> root.sample-text; }
+                                UiTextField { preset-size: "compact"; text <=> root.sample-text; accessible-label: "Esikatselun nimi, pieni"; }
                             }
                             VerticalLayout {
                                 spacing: Theme.space-1;
                                 Text { text: "Nimi / tavallinen"; color: Theme.muted; font-size: Theme.label-font-size; }
-                                sample-text-field := UiTextField { text <=> root.sample-text; }
+                                sample-text-field := UiTextField { text <=> root.sample-text; accessible-label: "Esikatselun nimi"; }
                             }
                             VerticalLayout {
                                 spacing: Theme.space-1;
                                 Text { text: "Nimi / suuri"; color: Theme.muted; font-size: Theme.label-font-size; }
-                                UiTextField { preset-size: "large"; text <=> root.sample-text; }
+                                UiTextField { preset-size: "large"; text <=> root.sample-text; accessible-label: "Esikatselun nimi, suuri"; }
                             }
                         }
                         HorizontalLayout {
@@ -199,17 +208,17 @@ export component FluentGallery inherits Rectangle {
                         }
                     }
                 }
-                UiCard {
+                extra-controls := UiCard {
                     min-height: 530px;
                     VerticalLayout {
                         padding: Theme.space-4; spacing: Theme.space-3;
                         Text { text: "06 / Muut peruskomponentit"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; }
                         HorizontalLayout {
-                            UiSwitch { text: "Automaattinen esikatselu"; }
-                            UiSpinBox { minimum: 0; maximum: 100; value: 5; step-size: 5; accessible-label: "Esikatselun määrä"; }
+                            sample-switch-control := UiSwitch { text: "Automaattinen esikatselu"; }
+                            sample-spin := UiSpinBox { minimum: 0; maximum: 100; value: 5; step-size: 5; accessible-label: "Esikatselun määrä"; }
                         }
-                        UiRadioGroup {
-                            RadioButton { text: "Ensimmäinen vaihtoehto"; }
+                        sample-radio-control := UiRadioGroup {
+                            RadioButton { text: "Ensimmäinen vaihtoehto"; checked: true; }
                             RadioButton { text: "Toinen vaihtoehto"; }
                         }
                         UiTextArea { text: "Monirivinen esikatseluteksti.\nTämä ei ole kilpailun huomautus."; accessible-label: "Monirivinen esikatselu"; }
@@ -273,6 +282,12 @@ export component GalleryWindow inherits Window {
     in-out property<int> scroll-rows <=> gallery.scroll-rows;
     in-out property<length> internal-scroll-offset <=> gallery.internal-scroll-offset;
     out property<length> internal-scroll-minimum: gallery.internal-scroll-minimum;
+    out property<bool> sample-switch <=> gallery.sample-switch;
+    out property<int> sample-number <=> gallery.sample-number;
+    out property<string> sample-radio: gallery.sample-radio;
+    public function focus-switch() { gallery.focus-switch(); }
+    public function focus-number() { gallery.focus-number(); }
+    public function show-additional() { gallery.show-additional(); }
     out property<float> slider-value <=> gallery.slider-value;
     out property<bool> sample-checkbox <=> gallery.sample-checkbox;
     out property<string> sample-text <=> gallery.sample-text;
@@ -285,6 +300,7 @@ export component GalleryWindow inherits Window {
     public function show-slider() { gallery.show-slider(); }
     public function reset-scroll() { gallery.reset-scroll(); }
     gallery := FluentGallery {
+        appearance-index <=> root.appearance-index;
         effects-enabled: root.effects-enabled;
         toggle-effects(enabled) => { root.effects-enabled = enabled; }
         close => { root.hide(); }

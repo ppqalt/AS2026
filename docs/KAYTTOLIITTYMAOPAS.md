@@ -1,21 +1,16 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa AS2026 0.7.0:n, jonka pohjana on Mikky100:n 0.6.11-toteutus. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
-Emit-editorin toiminta tulevat Mikky100:n toteutuksesta. Opas ei määrittele niitä
-uudelleen. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja
-[yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
+Tämä opas kuvaa `beta/fluent2-v071`-haaran käyttöliittymää, jonka pohja on Mikky100:n julkaistu 0.7.1. Beta ei ole uusi vakaa julkaisu. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
 
-Lähde on [ui/theme.slint](../ui/theme.slint): tumma Dark Spruce -tausta,
-vaaleat tekstit ja vihreät toiminto- ja valintakorostukset. Säätimen korkeus
-on 36 loogista pikseliä, taulukkorivin 38, sivumarginaali 20 ja paneelin
-sisämarginaali 16. Välit seuraavat neljän pikselin asteikkoa. Otsikko on 22,
-osion otsikko 16, perusteksti 14 ja kenttäteksti 12 pikseliä.
+Tietoja-ikkunan **Ulkoasu**-valinnalla voit käyttää järjestelmän mukaista, vaaleaa, tummaa tai vihreää **Dark Spruce** -ulkoasua. Valinta tallentuu tämän tietokoneen sovellusasetuksiin. Se ei muuta kilpailua tai muiden LAN-koneiden ulkoasua. Järjestelmän mukainen tila seuraa käyttöjärjestelmän Slintille ilmoittamaa vaaleaa/tummaa tilaa; tuntematon tila käyttää vaaleaa.
 
-Valintaikkunan alla näkyy neutraali 50-prosenttinen musta peite. Taustasta ei
-oteta tilannekuvaa eikä sitä sumenneta. Varsinaiset paneelit ja kentät ovat
-peittäviä; työpöydän väri ei muuta niiden kontrastia.
+**Ota animaatiot ja tehosteet käyttöön** on erillinen valinta samassa ikkunassa. Oletus on pois. Perustoiminnot, valinta ja näppäimistöfokus toimivat myös ilman tehosteita. Windowsin Mica/Acrylic-taustamateriaaleja ei ole toteutettu.
+
+Säätimen oletuskorkeus on 36 loogista pikseliä, taulukkorivin 38, sivumarginaali 20 ja paneelin sisämarginaali 16. Välit seuraavat neljän pikselin asteikkoa. Otsikko on 22, osion otsikko 16, perusteksti 14 ja pienet tekstit vähintään 12 pikseliä. Värit ja mitat tulevat yhdestä [teemasta](../ui/theme.slint).
+
+Valintaikkunan alla näkyy neutraali musta peite. Taustasta ei oteta tilannekuvaa eikä sitä sumenneta. Varsinaiset paneelit ja kentät ovat peittäviä; työpöydän väri ei muuta niiden kontrastia. Pitkät lomakkeet vierivät oman sisältöalueensa sisällä. **Seurat ja lisenssit** -osion sulkeminen rajaa vierityskohdan sisällön uusiin rajoihin; avaaminen ei vieritä itsestään.
 
 ## Sivut ja niiden tarkoitus
 
@@ -245,3 +240,9 @@ Sivupalkin yhteystila on tavallinen Fluent-painike. Sen leveys ja korkeus
 seuraavat navigoinnin mittoja. Pitkä tila lyhenee painikkeessa, ja koko tila
 on luettavissa yhteysikkunasta. Alareunan virhetekstillä ei ole erillistä
 Näytä virhe -painiketta.
+
+## Kehittäjän komponenttikartta
+
+Käyttäjän työvaiheet ovat yllä. Toteuttajalle ensisijainen lähde on [komponenttistandardi](FLUENT2_KOMPONENTTISTANDARDI.md). `ui/presets.slint` kokoaa yhteiset säätimet; varsinaiset sivut tuovat ne myös vanhoilla Button/LineEdit/ComboBox/CheckBox/ScrollView-nimillä, jotta niiden tapahtumasopimukset säilyvät. `ui/components.slint` säilyttää kilpailutaulukot, listan ja tietojen työtilan sekä modaalipinnan. `src/gui` vastaa yhteydestä olemassa olevaan kilpailuytimeen.
+
+[Kehitysgalleria](FLUENT2_GALLERIA.md) käynnistyy erikseen eikä avaa kilpailuja, käyttäjäasetuksia, tulostinta tai Emit-lukijaa. Gallerian ulkoasu- ja tehostevalinnat häviävät sulkemisessa. Tämä poikkeaa varsinaisen sovelluksen tallentuvista valinnoista.

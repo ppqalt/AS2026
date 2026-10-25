@@ -33,7 +33,7 @@ Windows 11:n design-ohjeet ovat visuaalinen vertailukohta. **Slint ei ole WinUI 
 ## v0.7.1:n tarkastuksessa havaittu
 
 - `ui/theme.slint`: aikaisempi `Google Sans`, tumma Dark Spruce -paletti sekä 5/6 px -kulmasäteet. Betan ensimmäisessä pienessä muutoksessa Windowsin ensisijaiseksi fontiksi valittiin `Segoe UI Variable` sekä peruskulmasäteiksi 4/8 px. **Paletti ja suurin osa mitoista odottavat tarkastusta.**
-- `ui/fluent/style`: Slint 1.16.0:n paikallinen Fluent-sovitus. `ui/fluent/README.md` kertoo, että animaatiot, varjot, läpikuultavuus, järjestelmäkorostus ja reunojen liukuvärit on tarkoituksella poistettu. Käy jokainen muutos läpi verrattuna viralliseen Windows-viitteeseen; älä palauta tehosteita mekaanisesti.
+- `ui/fluent/style`: Slint 1.18.1:n paikallinen Fluent-sovitus. `ui/fluent/README.md` kertoo, että animaatiot, varjot, läpikuultavuus, järjestelmäkorostus ja reunojen liukuvärit on tarkoituksella poistettu. Käy jokainen muutos läpi verrattuna viralliseen Windows-viitteeseen; älä palauta tehosteita mekaanisesti.
 - `ui/components.slint`: sovelluskohtaisia komponentteja (mm. `NavItem`, `Workspace`, `DataTable`, `Editor`, `DialogSurface`) on arvioitava erikseen vakiosäätimistä.
 - `ui/app.slint`: seitsemän pääsivun runko, sivupalkki, tilarivi, Toiminnot-valikko ja useita valintaikkunoita. Myös pienet näytöt ja skaalaukset kuuluvat arviointiin.
 - Sivupalkin **Päivitykset ↻**- ja **Tietoja**-painikkeet ovat käyttäjän nimeämä nykyinen visuaalinen vertailukohta, **eivät hyväksytty lopullinen komponenttimalli**.

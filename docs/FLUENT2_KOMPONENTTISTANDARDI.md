@@ -308,7 +308,38 @@ Kun sisältö **kutistuu** tai osio suljetaan, korjaa scroll-offset uuden asette
 
 ### Presettikirjaston ensimmäinen toteutus [BETA, VAATII GUI-VERIFIOINNIN]
 
-**`ui/presets.slint` on nyt lisätty beta-haaraan.** Se tarjoaa `UiButton`, `UiTextField`, `UiComboBox`, `UiCheckBox`, `UiScrollView`, `UiCard`, `UiSeparator` ja oman `UiSlider`-ohjaimen. `UiButton` käyttää `preset-size` ja `preset-variant` -ominaisuuksia. Tämä ei tarkoita, että kaikkia katalogin suunniteltuja variaatioita olisi toteutettu. Varsinkin `UiRadio`, `UiSwitch`, `UiSpin` ja valmiit teema-/blur-materiaalit puuttuvat. [Gallerian käyttö- ja testausohje](FLUENT2_GALLERIA.md).
+`ui/presets.slint` tarjoaa yhteiset kontrollit ja semanttiset viestit. `UiButton` käyttää `preset-size`-arvoja `compact/default/large` ja `preset-variant`-arvoja `standard/primary/subtle/danger`. `UiSlider` perii Slintin Sliderin. `UiSwitch`, `UiSpinBox`, `UiRadioGroup`, `UiTextArea`, `UiTabs` ja `UiProgressBar` käyttävät samaa 1.18.1-lähdepohjaa. `UiInfoBar`, `UiEmptyState` ja `UiValidationMessage` ovat pieniä yhteisiä esityskomponentteja. `NavItem`, `DataTable`, `Workspace`, `DialogSurface` ja `DialogActions` säilyvät yhteisinä AS2026-komponentteina; niistä ei tehdä tarpeettomia rinnakkaisia kopioita. Tooltip on Slintin oma `Tooltip`-elementti, jota ei voi periä.
+
+Gallerian ja todellisten sivujen testit täydentävät lähdekooditarkistuksia. Windowsin materiaaleja tai kaikkien ohjainten WinUI-pikselivastaavuutta ei ole vahvistettu. [Gallerian käyttö- ja testausohje](FLUENT2_GALLERIA.md).
+
+### Toteutettujen presettien API
+
+Kaikki koot ovat loogisia pikseleitä. Nimet ovat `ui/presets.slint`-vientejä. Perityn Slint-ohjaimen tavalliset ominaisuudet ja callbackit säilyvät; tämän taulukon lisäykset ovat AS2026:n omia.
+
+| Komponentti | Ominaisuudet ja käyttö |
+| --- | --- |
+| `UiButton` | `preset-size`: compact/default/large (28/36/44); `preset-variant`: standard/primary/subtle/danger; `text`, `icon`, `enabled`, `clicked` säilyvät |
+| `UiIconButton` | Sama painike, `label` on pakollinen saavutettava nimi; aseta `icon`; teksti ei korvaa kuvaketta |
+| `UiMenuButton` | Painike avausnuolella; `expanded` välittää saavutettavan tilan; omistaja avaa ja sulkee oikean popupin |
+| `UiTextField` | Slint LineEditInterface + `preset-size`; `text`, `placeholder-text`, `read-only`, `edited`, `accepted`, valinta ja kumoa/tee uudelleen |
+| `UiTextArea` | Monirivinen TextEdit, sanarivitys; vähintään 100 korkea, oletusehdotus 120 |
+| `UiSpinBox` | `minimum`, `maximum`, `value`, `step-size`, `read-only`, `preset-size`; ei muutoksia kilpailun numeromuotoihin |
+| `UiComboBox` | `model`, `current-index`, `current-value`, `selected`, `preset-size`; ei väitetä hakukelpoiseksi comboboxiksi |
+| `UiCheckBox` | `text`, `checked`, `toggled`, `enabled`, `preset-size`; Space ja fokus Slintiltä |
+| `UiSwitch` | `text`, `checked`, `toggled`, `enabled`; vähimmäiskorkeus 36 |
+| `UiRadioGroup` | Vain Slintin `RadioButton`-lapset; `title`, `current-value`, `selected`; ei julkista current-index-ominaisuutta |
+| `UiSlider` | `label`, `preset-size`, `minimum`, `maximum`, `value`, `step`, `changed`, `released`; pieni/default 20:n ja suuri 24:n nuppi. Tarkkoihin kilpailuarvoihin käytetään tekstisyötettä |
+| `UiScrollView` | Slintin `content-*`, `visible-*` ja scrollbar-policy; 14:n oma vierityskaista, supistumisen rajaus |
+| `UiTabs` | Slintin `Tab`-lapset ja välilehtien näppäimistölogiikka; sisäisen sisällön luokitteluun |
+| `UiListView` | Sisältölapset (`@children`), ei omaa model-ominaisuutta; mallipohjainen tavallinen luettelo on Slintin StandardListView |
+| `UiProgressBar` | `progress` 0–1, `indeterminate`; jatkuva liike vain tehosteiden ollessa päällä, muuten staattinen palkki ja saavutettava työn tilan nimi |
+| `UiCard` | `raised`, lapsisisältö; teemapinta, viiva ja 4:n kulma |
+| `UiSeparator` | Yhden pikselin teemaviiva |
+| `UiInfoBar` | `severity`: info/warning/error/success; `text`, vapaaehtoinen `action-text`, `action`; näkyvä tilasana värin lisäksi |
+| `UiEmptyState` | `title`, `description`, vapaaehtoinen `action-text` ja `action` |
+| `UiValidationMessage` | `text`, `severity`: error/warning/success; rivittyvä kenttäviesti |
+
+Yhteiset sovelluskomponentit `NavItem`, `DataTable`, `Workspace`, `DialogSurface` ja `DialogActions` tarjoavat navigaation, taulukon, lista/tiedot-asettelun sekä modaalin rungon. Älä luo niille toista rinnakkaista Ui-versiota. Slintin oma `PopupWindow`, `ContextMenuArea` ja `Tooltip` täydentävät valikoimaa. Tooltip-elementtiä ei voi periä, joten sille ei tehdä näennäistä UiTooltip-wrapperia.
 
 ### Nykyinen komponenttipolku [NYK]
 
@@ -319,7 +350,7 @@ Kun sisältö **kutistuu** tai osio suljetaan, korjaa scroll-offset uuden asette
 ### Nykyiseen Slintiin sopiva painikkeen käyttö
 
 ```slint
-import { Button } from "std-widgets.slint";
+import { UiButton as Button } from "presets.slint";
 import { Theme } from "theme.slint";
 import { AccentButton } from "components.slint";
 

@@ -53,7 +53,7 @@ Preset-kirjaston ensisijainen toteutusstrategia on **periä Slintin jo toimiva, 
 cargo run --locked --features gui --bin as2026-gui -- --gallery-smoke-test --capture-dir /tmp/as2026-gallerian-koe
 ```
 
-Koe lähettää oikeita Slint-ikkunan näppäin- ja hiiritapahtumia. Se tarkistaa liukusäätimen nuoli/Home/End-näppäimet ja askelen, ettei hiiren pelkkä liike muuta arvoa, valintaruudun välilyöntikytkennän sekä tekstisyötteen. Lisäksi tallennetaan neljä teemaa tehosteet pois/päällä. Tämä ei vielä kata kaikkia ohjaimia eikä korvaa Windowsin visuaalista vertailua. Gallerian käynnistys hylkää kilpailu- ja asennusvalintojen yhdistämisen.
+Koe lähettää oikeita Slint-ikkunan näppäin- ja hiiritapahtumia. Se tarkistaa liukusäätimen nuoli/Home/End-näppäimet ja askelen, ettei hiiren pelkkä liike muuta arvoa, valintaruudun välilyöntikytkennän sekä tekstisyötteen, kytkimen välilyöntitoiminnon ja numerosäätimen nuolinäppäimet. Hiiren painallus tarkistaa liukusäätimen askelluksen. Sisällön supistuminen rajaa vierityksen; laajentuminen ei vieritä. Lisäksi tallennetaan neljä teemaa tehosteet pois/päällä, lisäkomponentit ja 900×600-ikkuna. Tämä ei vielä kata kaikkia ohjaimia eikä korvaa Windowsin visuaalista vertailua. Gallerian käynnistys hylkää kilpailu- ja asennusvalintojen yhdistämisen.
 
 ## Seuraava vaihe
 

@@ -19,6 +19,16 @@ fn key(app: &GalleryWindow, text: impl Into<slint::SharedString>) {
         .dispatch_event(WindowEvent::KeyReleased { text });
 }
 
+fn pointer(app: &GalleryWindow, pressed: bool, x: f32, y: f32) {
+    let position = slint::LogicalPosition::new(x, y);
+    let button = slint::platform::PointerEventButton::Left;
+    app.window().dispatch_event(if pressed {
+        WindowEvent::PointerPressed { position, button }
+    } else {
+        WindowEvent::PointerReleased { position, button }
+    });
+}
+
 fn capture(app: &GalleryWindow, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let buffer = app.window().take_snapshot()?;
     image::save_buffer(
@@ -79,6 +89,26 @@ pub(super) fn run(
                         } else {
                             capture(&app, &directory.join(format!("teema-{}-tehosteet-{}.png", index / 2, index % 2)))?;
                         }
+                    }
+                    28 => {
+                        app.invoke_show_slider();
+                        let p = app.get_slider_position();
+                        let x = p.x + app.get_slider_width() * 0.35;
+                        let y = p.y + app.get_slider_height() / 2.;
+                        pointer(&app, true, x, y); pointer(&app, false, x, y);
+                        assert!((app.get_slider_value() - 35.).abs() <= 5.);
+                        assert_eq!(app.get_slider_value() % 5., 0.);
+                        app.invoke_show_additional(); app.invoke_focus_switch();
+                    }
+                    29 => { key(&app, " "); assert!(app.get_sample_switch()); app.invoke_focus_number(); }
+                    30 => { key(&app, Key::UpArrow); assert_eq!(app.get_sample_number(), 10); }
+                    31 => { key(&app, Key::DownArrow); assert_eq!(app.get_sample_number(), 5); capture(&app, &directory.join("lisakomponentit.png"))?; app.window().set_size(slint::LogicalSize::new(900., 600.)); }
+                    32 => { app.invoke_reset_scroll(); }
+                    33 => {
+                        let size = app.window().size();
+                        let scale = app.window().scale_factor();
+                        assert!((size.width as f32 / scale - 900.).abs() <= 2. && (size.height as f32 / scale - 600.).abs() <= 2., "Gallerian todellinen koko: {size:?}, skaala {scale}");
+                        capture(&app, &directory.join("pieni-900x600.png"))?;
                     }
                     _ => {
                         app.set_effects_enabled(false);

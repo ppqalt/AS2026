@@ -257,10 +257,11 @@ export component AppWindow inherits Window {
     in-out property <bool> status-details-open;
     callback show-export-menu();
     show-export-menu => { export-menu.show(); }
+    private property<bool> extras-export-mode: false;
     function export-from-extras() {
-        // Kutsu elää pääikkunassa: ensimmäisen popupin sulkeminen ei katkaise sitä.
-        extras-menu.close();
-        export-menu.show();
+        // Pidetään sama popup auki: alkuperäisen ikkunan sulkeminen ja uuden
+        // avaaminen samassa syötteessä voi hävittää Waylandin popup-kohdistuksen.
+        root.extras-export-mode = true;
     }
     export-menu := PopupWindow {
         close-policy: close-on-click-outside;
@@ -293,7 +294,7 @@ export component AppWindow inherits Window {
     in-out property <bool> details-open;
     changed page => { root.details-open = false; root.result-stations = false; root.notes-open = false; }
     callback show-extras-menu();
-    show-extras-menu => { extras-menu.show(); }
+    show-extras-menu => { root.extras-export-mode = false; extras-menu.show(); }
     callback approve-results();
     in-out property <bool> result-approvable: false;
     in-out property <bool> result-interrupted: false;
@@ -517,11 +518,22 @@ export component AppWindow inherits Window {
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
-                            width: 280px; height: root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
+                            width: 280px; height: root.extras-export-mode ? 144px : root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
                                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
-                                VerticalLayout {
-                                    padding: Theme.space-2; spacing: Theme.space-2;
+                                if root.extras-export-mode: Rectangle {
+                                    VerticalLayout {
+                                        padding: Theme.space-2; spacing: Theme.space-2;
+                                        nested-excel := Button { text: "Excel (XLSX)"; clicked => { root.export-xlsx(); extras-menu.close(); } }
+                                        Button { text: "CSV"; clicked => { root.export-csv(); extras-menu.close(); } }
+                                        Button { text: "HTML"; clicked => { root.export-report(); extras-menu.close(); } }
+                                    }
+                                    FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { nested-excel.focus(); } }
+                                }
+                                Rectangle {
+                                    visible: !root.extras-export-mode;
+                                    VerticalLayout {
+                                        padding: Theme.space-2; spacing: Theme.space-2;
                                     refresh-menu := Button { text: "Päivitä tiedot"; enabled: true; clicked => { root.focus-page(); root.reload(); extras-menu.close(); } }
                                     if root.page == 0: Button { text: "Avaa"; clicked => { root.open-file(); extras-menu.close(); } }
                                     if root.page == 0: Button { text: "+ Uusi"; clicked => { root.begin-new(); extras-menu.close(); } }
@@ -539,8 +551,9 @@ export component AppWindow inherits Window {
                                     if root.page == 3: Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); extras-menu.close(); } }
                                     if root.page == 2: Button { text: "Lue kehystiedosto"; enabled: root.editable; clicked => { root.focus-page(); root.import-frame(); extras-menu.close(); } }
                                     if root.page == 3: Button { text: "Live-tulosten julkaisu"; enabled: root.editable; clicked => { root.open-publish(); extras-menu.close(); } }
+                                    }
+                                    FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                                 }
-                                FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                             }
                         }
                     }

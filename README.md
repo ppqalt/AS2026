@@ -1,5 +1,7 @@
 # AS2026
 
+> Tämä on kokeellinen `beta/fluent2-v071`-kehityshaara. Alla oleva latausohje koskee vakaata 0.7.1:tä. Betan [komponenttigalleria](docs/FLUENT2_GALLERIA.md), [käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md) ja [komponenttistandardi](docs/FLUENT2_KOMPONENTTISTANDARDI.md) kuvaavat tämän haaran toteutusta. Betaa ei ole julkaistu vakaana.
+
 **AS2026 0.7.1** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
 tuloslaskentasovellus Linuxille ja Windowsille. Se toimii yhdellä koneella ilman
 internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.

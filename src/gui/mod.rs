@@ -2885,7 +2885,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 103 } else { 24 } {
+        if current >= if keyboard_test { 112 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -3179,6 +3179,28 @@ fn capture_views(
                 100 => app.invoke_open_print_classes(true),
                 101 => save_view(&app, &directory.join("34-asematulosten-luokkavalinta.png")).unwrap(),
                 102 => { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_print_classes_open()); }
+                103 => { app.set_about_open(true); assert!(!app.get_effects_enabled()); }
+                104 | 105 => smoke::key(&app, slint::platform::Key::Tab),
+                106 => {
+                    smoke::key(&app, slint::platform::Key::Space);
+                    assert!(app.get_effects_enabled(), "Tietoja-ikkunan tehostevalinta on saavutettava Tabilla");
+                    assert!(state.borrow().preferences.as_ref().unwrap().get().effects_enabled);
+                }
+                107 => { smoke::key(&app, slint::platform::Key::Space); assert!(!app.get_effects_enabled()); }
+                108 => {
+                    smoke::key(&app, slint::platform::Key::Tab);
+                    smoke::key(&app, slint::platform::Key::Tab);
+                    smoke::key(&app, slint::platform::Key::DownArrow);
+                }
+                109 => {
+                    assert_eq!(app.get_appearance_index(), 1, "Ulkoasu vaihtuu näppäimistöltä");
+                    assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Light);
+                    save_view(&app, &directory.join("35-ulkoasuasetukset.png")).unwrap();
+                    smoke::key(&app, slint::platform::Key::UpArrow);
+                }
+                110 => { assert_eq!(app.get_appearance_index(), 0); smoke::key(&app, slint::platform::Key::Escape); }
+                111 => { assert!(!app.get_about_open()); println!("GUI-ulkoasukoe hyväksytty: Tab, tehosteportti, tallennettu teema ja Esc."); }
+
                 _ => {}
             }
             *phase.borrow_mut() += 1;
@@ -3498,6 +3520,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     slint::run_event_loop()?;
+    if let Some(test) = &_menu_timer {
+        test.verify_complete()?;
+    }
     lan_timer.stop();
     publish_timer.stop();
     if let Some(client) = state

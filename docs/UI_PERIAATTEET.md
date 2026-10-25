@@ -1,14 +1,14 @@
 # AS2026:n käyttöliittymän kehitysohje
 
-Fluent 2 / Dark Spruce, suomenkielinen työpöytäsovellus. Toteutus säilyy Rustissa
+Fluent 2, suomenkielinen työpöytäsovellus. Beta tarjoaa järjestelmän mukaisen, vaalean, tumman ja Dark Spruce -ulkoasun. Toteutus säilyy Rustissa
 ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytimen kautta.
 
-> **Fluent 2 -betan kehittäjälle:** uusi [komponenttistandardi ja esiasetuskatalogi](FLUENT2_KOMPONENTTISTANDARDI.md) on beta-haaran ensisijainen lähde mitoille, varianteille ja vuorovaikutusmalleille. Tämä vanhempi ohje kuvaa v0.7.1:n lähtötilannetta ja sen muita toimintarajoitteita; ristiriidoissa komponenttistandardi voittaa beta-haarassa. `main` ei muutu.
+> **Fluent 2 -betan kehittäjälle:** uusi [komponenttistandardi ja esiasetuskatalogi](FLUENT2_KOMPONENTTISTANDARDI.md) on beta-haaran ensisijainen lähde mitoille, varianteille ja vuorovaikutusmalleille. Tämä ohje kuvaa betan yhteisiä toimintarajoja; tarkat presetit ja toteutuksen rajaus löytyvät komponenttistandardista. Ristiriidoissa komponenttistandardi voittaa beta-haarassa. `main` ei muutu.
 
 ## Arkkitehtuuri
 
 `ui/app.slint` kokoaa sivupalkin, seitsemän pääsivua, Toiminnot-valikot ja
-valintaikkunat. `ui/components.slint` sisältää yhteiset taulukot, editorit ja
+valintaikkunat. `ui/presets.slint` tarjoaa yhteiset kontrollit. `ui/components.slint` sisältää yhteiset taulukot, editorit ja
 paneelit. `ui/theme.slint` omistaa Fluent 2 / Dark Spruce -mitat ja värit.
 Paikallinen Fluent-sovitus ja sen lisenssit ovat `ui/fluent`-hakemistossa.
 
@@ -33,7 +33,7 @@ Koko kortin leimat korjataan Emit-sivun **Muokkaa leimauksia** -toiminnolla.
    näppäimistökohdistusta ja käytöstäpoistotilaa. Leveys seuraa tekstiä; vain
    tarkoitukselliset koko rivin toiminnot venyvät. Nimeä toiminto verbillä ilman
    kolmea pistettä. Kuvakepainikkeella on suomenkielinen saavutettava nimi.
-2. **Toiminnot:** yksi vihreä ensisijainen toiminto toimintoryhmässä. Toissijaiset
+2. **Toiminnot:** yksi teeman korostusväriä käyttävä ensisijainen toiminto toimintoryhmässä. Toissijaiset
    ovat neutraaleja. Peruuta vasemmalla, vahvistus oikealla, molemmat ryhmänä
    valintaikkunan oikeassa alakulmassa. Kilpailutietoja korvaava toiminto kertoo
    seurauksensa ja säilyttää nykyisen vahvistuksen; älä lisää uusia poistotoimintoja.
@@ -138,3 +138,11 @@ Automaattikokeissa ei käytetä oikeita kilpailutietoja tai fyysistä Emit-lukij
 Paikallisen Fluent-sovituksen lisenssit ja alkuperäinen AboutSlint-maininta
 säilytetään. Katso [kolmannen osapuolen tiedot](../THIRD_PARTY.md) ja
 [sovituksen ylläpito-ohje](../ui/fluent/README.md).
+
+## Ulkoasuasetukset ja gallerian eristys
+
+`Preferences.appearance` tallentaa käyttäjän valinnan System/Light/Dark/Spruce. Vanhassa asetustiedostossa puuttuva arvo tarkoittaa järjestelmän mukaista tilaa. Virheellinen arvo tai tallennuskonflikti ei korvaa tiedostoa. UI palauttaa viimeisen tallennetun arvon tallennusvirheessä. `effects_enabled` pysyy erillisenä, oletuksena epätotena.
+
+Ainoastaan upstreamin `color-scheme.slint` lukee Slintin sisäistä järjestelmävärimallia. Älä levitä `SlintInternal`-kutsuja näkymiin. Teeman pinnat ovat staattisesti peittäviä. Windowsin alkuperäisiä taustamateriaaleja tai suurikontrastisen tilan täydellistä alustaintegraatiota ei saa kuvata valmiiksi.
+
+`--fluent-gallery` palaa erilliseen `GalleryWindow`-ajoon ennen AppWindow-, PreferencesStore-, tulostin-, lukija- ja päivityspalvelujen alustusta. Galleria ei käytä demo-kilpailua eikä oikeita käyttäjäasetuksia. Kaappaus- ja testiajastimet ovat vain erikseen pyydettyä QA-ajoa varten; tavallinen galleria ei käynnistä niitä.

@@ -101,12 +101,18 @@ export component Button {
 
                 accessible-role: none;
             }
-            if root.menu-button: Image {
-                source: Icons.dropdown;
+            if root.menu-button: Rectangle {
                 width: 12px;
-                height: 12px;
-                colorize: root.text-color;
+                vertical-stretch: 1;
                 accessible-role: none;
+                Image {
+                    y: (parent.height - self.height) / 2;
+                    source: Icons.dropdown;
+                    width: 12px;
+                    height: 12px;
+                    colorize: root.text-color;
+                    accessible-role: none;
+                }
             }
         }
     }

@@ -3,7 +3,7 @@
 Lataus ja asennus: [projektin etusivu](../README.md) ·
 [version 0.7.1 julkaisutiedot](../RELEASE_NOTES.md).
 
-> **Fluent 2 -beta on keskeneräinen.** Tällä haaralla oleva [beta-suunnitelma ja koko käyttöliittymän tarkastuslista](FLUENT2_BETA.md) kertoo suunnan ja todetut puutteet. Alla olevat nykyiset käyttöohjeet kuvaavat vielä pitkälti aiempaa käyttöliittymää, eivät valmista Fluent 2 -versiota. Niitä päivitetään toteutuksen ja testauksen yhteydessä.
+> **Fluent 2 -beta on keskeneräinen.** Tällä haaralla oleva [beta-suunnitelma ja koko käyttöliittymän tarkastuslista](FLUENT2_BETA.md) kertoo suunnan ja todetut puutteet. Käyttöliittymäopas ja yhteiset periaatteet on päivitetty betan nykyisten teemojen, presettien ja valintaikkunoiden mukaisiksi. Suunniteltujen materiaalien ja WinUI-vertailun keskeneräisyys on erotettu toteutetuista ominaisuuksista.
 
 ## Kilpailun järjestäjälle
 
