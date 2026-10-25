@@ -269,7 +269,7 @@ export component AppWindow inherits Window {
         y: Theme.gutter + Theme.control-height + Theme.space-2;
         width: 180px; height: 3 * Theme.control-height + 4 * Theme.space-2;
         Rectangle {
-            background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+            background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
             VerticalLayout {
                 padding: Theme.space-2; spacing: Theme.space-2;
                 export-excel := Button { text: "Excel (XLSX)"; clicked => { root.export-xlsx(); export-menu.close(); } }
@@ -520,7 +520,7 @@ export component AppWindow inherits Window {
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
                             width: 280px; height: root.extras-export-mode ? 144px : root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
-                                background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                                background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
                                 if root.extras-export-mode: Rectangle {
                                     VerticalLayout {
                                         padding: Theme.space-2; spacing: Theme.space-2;

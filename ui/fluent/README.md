@@ -35,7 +35,7 @@ käyttölogiikka kopioidaan mahdollisimman muuttamattomana upstreamista.
   käyttävät sitä; upstreamin vanhat `viewport-*`-yhteensopivuusaliakset
   ovat edelleen tarjolla. Palkille varataan oma 14 px kaista. Kaistan varaus
   ei riipu vieritystarpeesta, jotta asettelu ei muodosta takaisinkytkentää.
-  `maximum`-muutos rajaa nykyisen vierityskohdan sallitulle alueelle. Sisällön
+  `maximum`-muutos sekä ScrollView:n sisältö- ja näkyvän alueen muutokset rajaavat nykyisen vierityskohdan sallitulle alueelle myös palkin ollessa piirtoalueen ulkopuolella. Sisällön
   laajentuminen säilyttää kelvollisen kohdan; nollapituinen alue ei jaa nollalla.
 - `Button`, `CheckBox`, `ListItem` ja valikkopohjat sisältävät uudemmat
   näppäin-, saavutettavuus- ja rajapintakorjaukset. Buttonin
@@ -77,3 +77,5 @@ Slintin alkuperäiset Slider-, Switch-, SpinBox-, TextEdit-, RadioGroup-, TabWid
 `color-scheme.slint` on muuttamaton upstream-silta käyttöjärjestelmän värimalliin. Vain tämä tiedosto lukee `SlintInternal.color-scheme`-arvoa. `build.rs`:n kokeellisten rajapintojen lippu on tarpeen sekä tälle sillalle että `LineEditInterface`-rajapinnalle. Se ei ota käyttöön valinnaisia visuaalisia tehosteita.
 
 Buttonin `icon-only` ja `menu-button` ovat pieniä projektisovituksia; jälkimmäinen lisää tekstin jälkeen avausnuolen. Väripaletti on keskitetty: järjestelmän mukana vaihtuva neutraali vaalea/tumma tai käyttäjän valitsema Dark Spruce.
+
+Valikkojen ja yhdistelmäruutujen ulkokehys käyttää `Theme.radius-large`-tokenia (8 px); sisäisten valintojen 4 px:n säde säilyy. Työkaluvihjeen alkuperäinen 4 px:n säde vastaa erillistä tooltip-sääntöä.

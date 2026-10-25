@@ -231,7 +231,7 @@ export component FluentGallery inherits Rectangle {
                         gallery-popup := PopupWindow {
                             width: 220px; height: 100px;
                             Rectangle {
-                                background: Theme.surface-raised; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                                background: Theme.surface-raised; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
                                 VerticalLayout {
                                     padding: Theme.space-2;
                                     UiButton { text: "Valitse toiminto"; clicked => { root.last-action = "Valikkotoiminto"; gallery-popup.close(); } }

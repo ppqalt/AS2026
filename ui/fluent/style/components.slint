@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 // AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
 
+import { Theme } from "../../theme.slint";
 import { FluentPalette, FluentFontSettings, FluentSizeSettings } from "styling.slint";
 
 export component FocusBorder inherits Rectangle {
@@ -20,7 +21,7 @@ export component FocusBorder inherits Rectangle {
 }
 
 export component MenuBorder inherits Rectangle {
-    border-radius: 7px;
+    border-radius: Theme.radius-large;
     background: FluentPalette.alternate-background;
 
 

@@ -170,6 +170,18 @@ export component ScrollView {
 
     callback scrolled <=> flickable.flicked;
 
+    // Tarkkaillaan sisältöä myös silloin, kun palkki on näkymän ulkopuolella.
+    // Pelkkä ScrollBar.maximum voi arvioitua vasta palkin seuraavassa piirrossa.
+    changed content-height => { root.clamp-scroll(); }
+    changed content-width => { root.clamp-scroll(); }
+    changed visible-height => { root.clamp-scroll(); }
+    changed visible-width => { root.clamp-scroll(); }
+    function clamp-scroll() {
+        root.content-y = max(min(0px, root.visible-height - root.content-height), min(0px, root.content-y));
+        root.content-x = max(min(0px, root.visible-width - root.content-width), min(0px, root.content-x));
+    }
+
+
     min-height: 50px;
     min-width: 50px;
     horizontal-stretch: 1;
