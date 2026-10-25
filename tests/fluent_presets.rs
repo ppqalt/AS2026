@@ -72,7 +72,8 @@ fn gallery_is_developer_only_and_does_not_open_last_competition() {
     assert!(rust.contains("Some(\"--fluent-gallery\")"));
     assert!(rust.contains("Some(\"--gallery-smoke-test\")"));
     assert!(
-        rust.contains("let path = if fluent_gallery {") && rust.contains("None // Gallery never opens real competition data"),
+        rust.contains("let path = if fluent_gallery {")
+            && rust.contains("None // Gallery never opens real competition data"),
         "gallery must not open the remembered competition"
     );
     assert!(gallery.contains("UiButton"));
