@@ -1882,6 +1882,10 @@ mod workflow_tests {
             .find(|r| r.station_type == "M")
             .unwrap()
             .output_index;
+        // The GUI opens a fresh time-entry form after review, synchronizing
+        // and pinning its basis even when review was acknowledged later.
+        wa.synchronize_lan().unwrap();
+        wa.pin_lan_basis();
         let completed = wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25);
         await_edit(&mut wa, &a, completed);
         assert!(wa.result_snapshot(7).unwrap().unwrap().hyvaksytty);
@@ -1893,8 +1897,21 @@ mod workflow_tests {
         }
         wb.set_bc_view(true).unwrap();
         wb.pin_lan_basis();
+        // Exercise the delayed-acknowledgement path deterministically rather
+        // than depending on Windows filesystem speed to trigger it.
+        let authority = host.authority.clone();
+        let (locked, ready) = std::sync::mpsc::channel();
+        let delay = thread::spawn(move || {
+            let _guard = authority.lock().unwrap();
+            locked.send(()).unwrap();
+            thread::sleep(Duration::from_millis(1_200));
+        });
+        ready.recv().unwrap();
         let reviewed = wb.review_results(7);
         await_edit(&mut wb, &b, reviewed);
+        delay.join().unwrap();
+        wb.synchronize_lan().unwrap();
+        wb.pin_lan_basis();
         let completed = wb.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 30);
         await_edit(&mut wb, &b, completed);
         assert!(wb.result_snapshot(7).unwrap().unwrap().hyvaksytty);
