@@ -3375,7 +3375,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|p| p.parent().map(Path::to_owned))
         .filter(|p| p.join("release.json").is_file());
     app.set_installable(package.is_some());
-    app.set_setup_open((package.is_some() && !app.get_managed() && !demo) || install_requested);
+    app.set_setup_open(!fluent_gallery && ((package.is_some() && !app.get_managed() && !demo) || install_requested));
     let previous = preferences
         .as_ref()
         .and_then(|p| p.get().last_competition.clone());
@@ -3422,6 +3422,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(app) = weak.upgrade() {
                     if let Err(error) = save_view(&app, &directory.join("fluent-gallery.png")) {
                         eprintln!("Fluent-gallerian kuvan tallennus epäonnistui: {error}");
+                        if gallery_smoke {
+                            std::process::exit(1);
+                        }
                     }
                 }
                 if gallery_smoke {
