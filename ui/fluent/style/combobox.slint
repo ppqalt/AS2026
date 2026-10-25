@@ -9,6 +9,7 @@ import { ScrollView } from "./scrollview.slint";
 import { Theme } from "../../theme.slint";
 
 export component ComboBox {
+    in property <length> control-height: Theme.control-height;
     in property <[string]> model <=> base.model;
     in property <bool> enabled <=> base.enabled;
     out property <bool> has-focus <=> base.has-focus;
@@ -22,8 +23,8 @@ export component ComboBox {
     property <int> visible-items: min(6, model.length);
 
     min-width: max(160px, layout.min-height);
-    min-height: max(Theme.control-height, layout.min-height);
-    preferred-height: Theme.control-height;
+    min-height: max(root.control-height, layout.min-height);
+    preferred-height: root.control-height;
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: base;
