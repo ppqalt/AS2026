@@ -3255,6 +3255,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut initial_path = None;
     let mut demo = false;
     let mut fluent_gallery = false;
+    let mut gallery_smoke = false;
     let mut portable = false;
     let mut smoke_test = false;
     let mut captures = None;
@@ -3265,6 +3266,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         match arg.to_str() {
             Some("--demo") => demo = true,
             Some("--fluent-gallery") => fluent_gallery = true,
+            Some("--gallery-smoke-test") => { fluent_gallery = true; gallery_smoke = true; }
             Some("--portable") => portable = true,
             Some("--install") => install_requested = true,
             Some("--health-check") => {
@@ -3299,6 +3301,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     if emit_correction_test && (!demo || captures.is_none()) {
         return Err("Emit-korjauksen GUI-koe tarvitsee --demo- ja --capture-dir-valinnat".into());
+    }
+    if gallery_smoke && captures.is_none() {
+        return Err("Gallerian GUI-koe tarvitsee --capture-dir-valinnan".into());
     }
     if captures.is_some() {
         // Kuvataan nykyinen näkymä suoraan ohjelmistorenderöinnistä, ei edellistä GL-puskuria.
@@ -3418,6 +3423,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                     if let Err(error) = save_view(&app, &directory.join("fluent-gallery.png")) {
                         eprintln!("Fluent-gallerian kuvan tallennus epäonnistui: {error}");
                     }
+                }
+                if gallery_smoke {
+                    let _ = slint::quit_event_loop();
                 }
             });
         }
