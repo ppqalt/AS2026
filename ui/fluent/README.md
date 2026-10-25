@@ -19,12 +19,12 @@ teemakansiota ei tarvita käyttäjän koneella.
 
 ## Paikalliset muutokset
 
-- Kaikki komponenttien `animate`-lohkot on poistettu.
+- Oletusarvoisesti kaikki valinnaiset tehosteet ovat pois käytöstä (`Theme.effects-enabled: false`). Betassa Button-tyylin taustavärisiirtymä on palautettu **vain opt-in-portilla**; tehostetta ei saa käynnistää ilman käyttäjän Tietoja-ikkunassa tekemää valintaa.
 - Varjojen määritykset on poistettu, myös valikoiden ponnahduspinnoista.
 - FluentPalette käyttää pelkästään `ui/theme.slint`-tiedoston peittäviä
   Dark Spruce -värejä. Ei järjestelmän sinistä korostusta, läpikuultavia
   täyttöjä tai reunojen liukuvärejä.
-- Button, LineEdit ja ComboBox käyttävät yhteistä 36 pikselin säätimen
+- Button, LineEdit ja ComboBox käyttävät oletuksena yhteistä 36 pikselin säätimen
   korkeutta, tekstikokoa, kulmasädettä ja sisennyksiä. Korostettu toiminto
   on saman Fluent-painikkeen `primary`-tila: myös sen näppäimistökohdistus,
   käytöstä poistaminen ja esteettömyystiedot säilyvät samoina.
@@ -70,3 +70,7 @@ Slint-lähteiden tarjoamat lisenssivaihtoehdot ovat hakemistossa `licenses`:
 GPL-3.0-only, LicenseRef-Slint-Royalty-free-2.0 ja
 LicenseRef-Slint-Software-3.0. Muuttamattomiin MadeWithSlint-tunnuksiin
 liittyvä CC-BY-ND-4.0-teksti on samassa hakemistossa.
+
+## Beta-haaran preset-kirjasto
+
+`ui/presets.slint` tarjoaa valmiita 28/36/44 px:n kokoja. Buttonin `control-height` ja `visual-variant` sekä LineEditin/ComboBoxin `control-height` ovat AS2026:n lisäyksiä tähän Slint 1.16.0 -widgetkopioon. Oletus säilyy ennallaan vanhoille call-siteille. `danger` ja `subtle` ovat uudet semanttiset variantit. Ohjeet ja testikäynnistys: `docs/FLUENT2_GALLERIA.md` ja `docs/FLUENT2_KOMPONENTTISTANDARDI.md`.
