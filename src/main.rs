@@ -47,8 +47,8 @@ fn help() {
          Tuloslaskenta näyttää korttiaineiston laskennan esikatselun.\n\
          TOML-kilpailu käyttää tallennettuja korjauksia tai kortista laskettuja tuloksia.\n\
          Vanhan kilpailun tulosluettelot perustuvat tallennettuihin pisteisiin.\n\
-         Tasatulokset säilytetään jaettuina. --ratkaise-tasatulokset ottaa käyttöön\n\
-         asematietoihin perustuvan vertailun, kun tarvittavat tiedot ovat saatavilla.\n\
+         Tasatulokset ratkaistaan RT-määrän ja aika-asemien parivertailulla.\n\
+         Puuttuvat tiedot tai ristiriitainen vertailu jättävät sijan jaetuksi. --ratkaise-tasatulokset valitsee vanhan parhaiden rivien vertailun.\n\
          Emit-luku ja paivita tallentavat TOML-kilpailun automaattisesti.\n\
          Tarkastus ja esikatselu säilyttävät lähdetiedostot. Lopeta jatkuva luku Ctrl+C:llä."
     );

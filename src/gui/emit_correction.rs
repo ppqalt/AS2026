@@ -451,9 +451,10 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
             8 => {assert!(app.get_editor_scroll_min()<0.,"Näkyvän laajennetun editorin pitää ylivuotaa");app.set_editor_scroll_offset(app.get_editor_scroll_min());}
             9 => {app.set_competitor_details_open(false);}
             10 => {assert!(app.get_editor_scroll_offset()>=app.get_editor_scroll_min()-0.5);assert!(app.get_editor_scroll_offset()<=0.5);save_view(&app,&directory.join("05-vieritys-suljettuna.png")).unwrap();app.window().set_size(slint::LogicalSize::new(1366.,600.));app.set_competitor_details_open(true);}
-            11 => {app.set_editor_scroll_offset(app.get_editor_scroll_min());}
-            12 => {app.set_competitor_details_open(false);}
+            11 => {menu_smoke::click(&app,345.,140.);app.set_competitor_details_open(true);}
+            12 => {app.set_editor_scroll_offset(app.get_editor_scroll_min());app.set_competitor_details_open(false);}
             13 => {
+                assert!(app.get_editor_scroll_min()<0.,"Myös matalan ikkunan editorin pitää näkyä ja ylivuotaa");
                 assert!(app.get_editor_scroll_offset()>=app.get_editor_scroll_min()-0.5);assert!(app.get_editor_scroll_offset()<=0.5);save_view(&app,&directory.join("06-vieritys-pieni.png")).unwrap();
                 let mut state=state.borrow_mut();let mut p=state.workspace.as_ref().unwrap().project().unwrap().clone();p.leimaluvut.clear();p.emit_korjaukset.clear();for d in &mut p.kilpailijat{d.tallennettu_tulos=None;}for d in &mut p.bc_osallistujat{d.tallennettu_tulos=None;}
                 state.workspace=Some(Workspace::create_imported(&directory.join("tyhja-kortti"),p).unwrap());drop(state);

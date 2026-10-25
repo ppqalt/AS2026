@@ -300,7 +300,7 @@ export component AppWindow inherits Window {
     in-out property <length> editor-scroll-offset;
     in-out property <length> editor-scroll-min;
     in-out property <bool> details-open;
-    changed page => { root.details-open = false; root.result-stations = false; root.notes-open = false; }
+    changed page => { root.details-open = false; root.result-stations = false; root.notes-open = false; root.editor-scroll-offset = 0px; root.editor-scroll-min = 0px; }
     callback show-extras-menu();
     show-extras-menu => { extras-menu.show(); }
     callback approve-results();

@@ -68,6 +68,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
         (3, 1, "vienti"),
         (3, 1, "vienti-csv"),
         (3, 1, "vienti-html"),
+        (3, 1, "vienti-pdf"),
         (0, 0, "paivitys"),
         (1, 0, "paivitys"),
         (2, 0, "paivitys"),
@@ -151,13 +152,14 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                             assert!(!app.get_publish_open());
                         }
                         "uusi" => { assert!(app.get_dialog_open()); smoke::key(&app, slint::platform::Key::Escape); }
-                        "vienti" | "vienti-csv" | "vienti-html" => {
-                            let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, _ => 0 };
+                        "vienti" | "vienti-csv" | "vienti-html" | "vienti-pdf" => {
+                            let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, "vienti-pdf" => 3, _ => 0 };
                             for _ in 0..kind { smoke::key(&app, slint::platform::Key::Tab); }
                             smoke::key(&app, slint::platform::Key::Return);
                             assert!(app.get_export_open(), "Vienti valikon kautta");
                             assert_eq!(app.get_export_kind(), kind);
-                            let extension = ["xlsx", "csv", "html"][kind as usize];
+                            let extension = ["xlsx", "csv", "html", "pdf"][kind as usize];
+                            if kind==3 {app.set_export_stations(true);}
                             let destination = directory.join(format!("tulokset-{method}.{extension}"));
                             app.set_export_path(destination.display().to_string().into());
                             app.invoke_save_export();
@@ -171,6 +173,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                                 zip.by_name("xl/worksheets/sheet1.xml").unwrap().read_to_string(&mut xml).unwrap();
                                 assert!(xml.contains("Esimerkkikuljettaja"), "Hyväksytty kilpailija XLSX:ssä");
                             }
+                            else if kind==3 {assert!(bytes.starts_with(b"%PDF-1.7"));}
                             else { let text = String::from_utf8(bytes).unwrap(); assert!(text.contains("Esimerkkikuljettaja"), "Hyväksytty kilpailija viennissä"); assert!(text.contains(if kind == 2 { "<table" } else { ";" })); }
                         }
                         "paivitys" => assert!(!app.get_status_error(), "{}", app.get_status_text()),
@@ -396,7 +399,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
             } else {
-                println!("Valikkokoe valmis: 52 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
+                println!("Valikkokoe valmis: 54 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
             }
         }

@@ -696,6 +696,7 @@ fn snapshot_for_calculation(
         .to_core()
         .map_err(|e| invalid(e.to_string()))?;
     Ok(crate::corrections::StoredResult {
+        emit_kortti: competitor.emit_card.parse().ok(),
         laskentatapa: if result.policy == CalculationPolicy::As2026OperationalV1 {
             crate::corrections::StoredCalculationPolicy::As2026Operational
         } else {

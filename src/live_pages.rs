@@ -110,7 +110,7 @@ pub fn pages_with_interval(
                 let member = if group.kind == crate::ranking::GroupKind::Ordinary { c.class_code == group.code } else {
                     archive.basic.combined_classes.iter().any(|g| group.code == format!("Y{}: {}", g.first().map(String::as_str).unwrap_or(""), g.get(1).map(String::as_str).unwrap_or("")) && archive.basic.classes.iter().enumerate().any(|(i, class)| class.code == c.class_code && g.get(4 + i).is_some_and(|v| v == "1")))
                 };
-                member && !archive.can_publish_competitor(c) && !matches!(c.status.as_str(), "KESK" | "HYL" | "SULJ" | "PER" | "EILÄ")
+                member && !archive.can_publish_competitor(c)
             }).map(|c| format!("<tr><td>—</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">AJAA</td></tr>", c.number, escape(&c.driver), escape(&c.navigator))).collect::<String>();
             let mut pending_added = false;
             for entry in entries {

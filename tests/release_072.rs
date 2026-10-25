@@ -31,6 +31,35 @@ fn manual_station_time_is_between_neighbors_across_midnight() {
     r.set_clock(index, [23, 55, 0]).unwrap();
 }
 
+#[cfg(feature = "desktop")]
+#[test]
+fn unchecked_interruption_is_not_dropped_from_live_results() {
+    let mut p = project();
+    p.radat[0].asemat[1].tyyppi = "JAT".into();
+    p.radat[0].asemat[1].emit_koodi = 77;
+    let settings = as2026::live_pages::Settings {
+        base: "tulokset.html".into(),
+        classes: vec!["A".into()],
+    };
+    let pages = as2026::live_pages::pages(&p, &settings).unwrap();
+    assert!(pages[0].1.contains(">AJAA<"));
+    let mut result = application::capture_project_result(&p, 7).unwrap();
+    let finish = result
+        .rivit
+        .iter()
+        .find(|r| r.station_type == "M")
+        .unwrap()
+        .output_index;
+    result.set_clock(finish, [12, 10, 0]).unwrap();
+    let mut result = application::recalculate_stored_result(&p, 7, &result).unwrap();
+    assert_eq!(result.tila, "KESK");
+    result.hyvaksytty = true;
+    p.kilpailijat[0].tallennettu_tulos = Some(result);
+    let pages = as2026::live_pages::pages(&p, &settings).unwrap();
+    assert!(!pages[0].1.contains(">AJAA<"));
+    assert!(pages[0].1.contains(">KESK<"));
+}
+
 #[test]
 fn compact_clock_validates_all_six_digits_and_leading_zeroes() {
     for (value, h, m, s) in [
