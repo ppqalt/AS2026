@@ -294,6 +294,10 @@ Kun sisältö **kutistuu** tai osio suljetaan, korjaa scroll-offset uuden asette
 
 ## 5. Slint-toteutusmalli: valmiit ja puuttuvat esiasetukset
 
+### Presettikirjaston ensimmäinen toteutus [BETA, VAATII GUI-VERIFIOINNIN]
+
+**`ui/presets.slint` on nyt lisätty beta-haaraan.** Se tarjoaa `UiButton`, `UiTextField`, `UiComboBox`, `UiCheckBox`, `UiScrollView`, `UiCard`, `UiSeparator` ja oman `UiSlider`-ohjaimen. `UiButton` käyttää `preset-size` ja `preset-variant` -ominaisuuksia. Tämä ei tarkoita, että kaikkia katalogin suunniteltuja variaatioita olisi toteutettu. Varsinkin `UiRadio`, `UiSwitch`, `UiSpin` ja valmiit teema-/blur-materiaalit puuttuvat. [Gallerian käyttö- ja testausohje](FLUENT2_GALLERIA.md).
+
 ### Nykyinen komponenttipolku [NYK]
 
 `build.rs` valitsee `.with_style("fluent")` ja hakee `ui/fluent/style`-hakemistosta paikallisesti rajatut `std-widgets.slint`-viennit. Nykyiset vietyjen widgetien nimet löytyvät `ui/fluent/style/std-widgets.slint`-tiedostosta. Sovelluksen lisäkomponentit löytyvät `ui/components.slint`-tiedostosta. Varsinaiset värit/mitat löytyvät `ui/theme.slint`-tiedostosta.
@@ -325,9 +329,9 @@ HorizontalLayout {
 
 Koodi on ohjeellinen komponentin sisälle liitettävä katkelma; se ei ole kokonainen, sellaisenaan suoritettava ikkuna. Nämä koko- ja väriarvot tulevat keskitetystä `Theme`-globaalista, **eivät** eri sivun uusista hex-arvoista.
 
-### Tuleva presetien API – suunnitelma, ei vielä importoitava toteutus
+### Presetien jatkokehitys – suunnitelma, ei vielä kokonaan importoitava toteutus
 
-Kun toteutetaan uusi `ui/presets.slint` (nimi voidaan hyväksyä toteutusvaiheessa), sen tulee tarjota **yhteiset variantit** kuten `UiButton`-roolit `neutral/primary/subtle/danger` ja `compact/default/large`, `UiSlider`, `UiSpinBox`, `UiScrollView`, `UiDialog` jne. Koska Slintin komponenttien perintä, property-binding ja käytettävät widget-viennit vaihtelevat, **älä kirjoita fiktiivistä Slint-koodia dokumentin perusteella**. Valitse toteutus niin, että:
+Nyt toteutettu `ui/presets.slint` antaa ensimmäiset nimet ja komponentit. Seuraavien komponenttien tulee tarjota **yhteiset variantit** kuten `UiButton`-roolit `neutral/primary/subtle/danger` ja `compact/default/large`, `UiSlider`, `UiSpinBox`, `UiScrollView`, `UiDialog` jne. Koska Slintin komponenttien perintä, property-binding ja käytettävät widget-viennit vaihtelevat, **älä kirjoita fiktiivistä Slint-koodia dokumentin perusteella**. Valitse toteutus niin, että:
 
 1. Komponentti käyttää todellista Slint-widgetiä tai täsmällisesti toteutettua accessible-role/callback/focus -vastinetta.
 2. Yhtenäiset tilat ja geometria tulevat `Theme` / yhdestä preset-julkaisusta.
