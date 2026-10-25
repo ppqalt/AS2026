@@ -1,8 +1,10 @@
-// Fluent 2 / Dark Spruce. 4 px spacing ramp, solid surfaces, no effects.
+// AS2026 Fluent 2 beta: Windows 11 type and corner geometry baseline.
+// The existing dark spruce colors are retained pending a semantic token audit.
+// Segoe UI Variable is supplied by Windows; other platforms use font fallback.
 // Only the interface is themed; competition data and scoring are unchanged.
 export global Theme {
     out property <ColorScheme> color-scheme: ColorScheme.dark;
-    out property <string> font-family: "Google Sans";
+    out property <string> font-family: "Segoe UI Variable";
     out property <length> control-height: 36px;
     out property <length> header-height: 64px;
     out property <length> control-min-width: 76px;
@@ -28,8 +30,8 @@ export global Theme {
     out property <length> sidebar-width: 200px;
     out property <length> gutter: 20px;
     out property <length> row-height: 38px;
-    out property <length> radius: 5px;
-    out property <length> radius-large: 6px;
+    out property <length> radius: 4px;
+    out property <length> radius-large: 8px;
     out property <length> space-1: 4px;
     out property <length> space-2: 8px;
     out property <length> space-3: 12px;
