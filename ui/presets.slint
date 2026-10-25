@@ -150,8 +150,8 @@ export component UiSlider inherits Rectangle {
         width: 0px;
         enabled: root.enabled;
         key-pressed(event) => {
-            if event.text == Key.Left || event.text == Key.Down { root.increment(-1); return accept; }
-            if event.text == Key.Right || event.text == Key.Up { root.increment(1); return accept; }
+            if event.text == Key.LeftArrow || event.text == Key.DownArrow { root.increment(-1); return accept; }
+            if event.text == Key.RightArrow || event.text == Key.UpArrow { root.increment(1); return accept; }
             if event.text == Key.Home { root.value = root.minimum; root.changed(root.value); root.released(root.value); return accept; }
             if event.text == Key.End { root.value = root.maximum; root.changed(root.value); root.released(root.value); return accept; }
             reject
