@@ -3,6 +3,9 @@
 // Segoe UI Variable is supplied by Windows; other platforms use font fallback.
 // Only the interface is themed; competition data and scoring are unchanged.
 export global Theme {
+    // Global gate for optional animated transitions, effects, and future blur.
+    // Default stays off even when the operating system permits visual effects.
+    in-out property <bool> effects-enabled: false;
     out property <ColorScheme> color-scheme: ColorScheme.dark;
     out property <string> font-family: "Segoe UI Variable";
     out property <length> control-height: 36px;
