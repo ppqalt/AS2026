@@ -22,6 +22,10 @@ Lataus ja asennus: [projektin etusivu](../README.md) ·
 | [Livetulokset](LIVE_JULKAISU.md) | Paikallinen live, SFTP/FTP ja lopullinen julkaisu |
 | [Komentorivi](CLI.md) | Kilpailutiedostot, komennot ja turvallinen tallennus |
 
+## Fluent 2 -betan testattava komponenttigalleria
+
+**[FLUENT2_GALLERIA.md](FLUENT2_GALLERIA.md)** dokumentoi `ui/presets.slint`-kirjaston tämänhetkiset kontrollit ja sen oman `--fluent-gallery`-käynnistysvalinnan. Galleria toimii erillään kilpailudatasta. Ohje erottaa vielä toteuttamattomat ominaisuudet jo lähdekoodiin lisätyistä preseteistä.
+
 ## Fluent 2 -betan komponenttistandardi
 
 **[Fluent 2 / Windows 11 -komponenttistandardi ja preset-katalogi](FLUENT2_KOMPONENTTISTANDARDI.md)** on tämän beta-haaran ensisijainen ohje kaikille `ui/**/*.slint`-muutoksille. Se sisältää Microsoftin lähdeviitteet, painike-, slider-, scrollbar-, dialogi- ja muiden kontrollien variantit, ulkoasun mitoista ja behaviorista tehtävät projektipäätökset sekä tiedostokohtaiset toteutussäännöt. **Huom.: kaikki katalogin komponentit eivät ole vielä toteutettuja.** Vakaalla `main`-haaralla ei ole näitä muutoksia.
