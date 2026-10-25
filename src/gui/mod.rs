@@ -1690,6 +1690,19 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             });
         }}
     }
+    action!(on_set_effects_enabled, |s, a, enabled| {
+        let preferences = s
+            .preferences
+            .as_mut()
+            .ok_or_else(|| invalid("Sovellusasetuksia ei voitu avata"))?;
+        if let Err(error) = preferences.save_effects_enabled(enabled) {
+            // Revert the checkbox and visual gate if the preference was not saved.
+            a.set_effects_enabled(preferences.get().effects_enabled);
+            return Err(invalid(&error));
+        }
+        a.set_effects_enabled(enabled);
+        Ok(())
+    });
     action!(on_navigate, |s, a, page| navigate(s, &a, page));
     action!(on_open_emit_edit, |s, a| emit_correction::open(s, &a));
     action!(on_emit_edit_edited, |s, a, key, value| {
@@ -3298,6 +3311,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let Some(app) = tung_weak.upgrade() else {
             return;
         };
+        if !app.get_effects_enabled() {
+            return;
+        }
         let mut random = [0u8; 16];
         if getrandom::fill(&mut random).is_err() {
             return;
@@ -3335,6 +3351,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
     let preferences = match preferences {
         Ok(preferences) => {
+            app.set_effects_enabled(preferences.get().effects_enabled);
             if let Ok(root) = preferences.competition_root() {
                 app.set_default_root(root.display().to_string().into());
             }
