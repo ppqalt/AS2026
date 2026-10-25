@@ -3254,6 +3254,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let emit_correction_test = std::env::var_os("AS2026_EMIT_CORRECTION_TEST").is_some();
     let mut initial_path = None;
     let mut demo = false;
+    let mut fluent_gallery = false;
     let mut portable = false;
     let mut smoke_test = false;
     let mut captures = None;
@@ -3263,6 +3264,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--demo") => demo = true,
+            Some("--fluent-gallery") => fluent_gallery = true,
             Some("--portable") => portable = true,
             Some("--install") => install_requested = true,
             Some("--health-check") => {
@@ -3281,7 +3283,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             Some("--help" | "ohje") => {
                 println!(
-                    "AS2026-käyttöliittymä\n  as2026-gui [kilpailu.toml tai kilpailukansio]\n  as2026-gui --demo\n  as2026-gui --demo --capture-dir KANSIO"
+                    "AS2026-käyttöliittymä\n  as2026-gui [kilpailu.toml tai kilpailukansio]\n  as2026-gui --demo\n  as2026-gui --demo --capture-dir KANSIO\n  as2026-gui --fluent-gallery [--capture-dir KANSIO]"
                 );
                 return Ok(());
             }
@@ -3329,6 +3331,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         app.set_tung_active(true);
     });
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
+    app.set_gallery_open(fluent_gallery);
     app.set_app_version(env!("CARGO_PKG_VERSION").into());
     app.set_managed(installation::is_managed());
     let preferences = if demo {
@@ -3389,7 +3392,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
-    let path = if demo {
+    let path = if fluent_gallery {
+        None // Gallery never opens real competition data or the remembered project.
+    } else if demo {
         Some(demo_path()?)
     } else {
         initial_path.or(previous)
@@ -3404,6 +3409,19 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         status(&app, error, true);
     }
     app.show()?;
+    if fluent_gallery {
+        if let Some(directory) = captures.clone() {
+            std::fs::create_dir_all(&directory)?;
+            let weak = app.as_weak();
+            Timer::single_shot(Duration::from_millis(500), move || {
+                if let Some(app) = weak.upgrade() {
+                    if let Err(error) = save_view(&app, &directory.join("fluent-gallery.png")) {
+                        eprintln!("Fluent-gallerian kuvan tallennus epäonnistui: {error}");
+                    }
+                }
+            });
+        }
+    }
     let _lan_smoke = if let Some(role) = std::env::var_os("AS2026_LAN_GUI_ROLE") {
         if !demo {
             return Err("LAN-GUI-koe vaatii --demo-valinnan".into());
