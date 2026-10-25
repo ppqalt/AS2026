@@ -1,0 +1,166 @@
+// AS2026 Fluent 2 beta — reusable control presets.
+// All dimensions are AS2026 presets, not Microsoft's certified WinUI measurements.
+// Existing Rust callbacks and UI behavior remain unchanged.
+// See docs/FLUENT2_KOMPONENTTISTANDARDI.md before adding variants.
+import { Button, LineEdit, ComboBox, CheckBox, ScrollView } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+
+// Existing Button has keyboard navigation, accessible-role and FocusBorder.
+// Reuse it instead of introducing another Rectangle + TouchArea button.
+export component UiButton inherits Button {
+    in property <string> preset-size: "default";       // compact | default | large
+    in property <string> preset-variant: "standard";  // standard | primary | subtle | danger
+    control-height: root.preset-size == "compact" ? 28px :
+                    root.preset-size == "large" ? 44px : Theme.control-height;
+    visual-variant: root.preset-variant;
+    primary: root.preset-variant == "primary";
+    // A named action cannot shrink below the existing text minimum.
+}
+
+export component UiTextField inherits LineEdit {
+    in property <string> preset-size: "default"; // compact | default | large
+    control-height: root.preset-size == "compact" ? 28px :
+                    root.preset-size == "large" ? 44px : Theme.control-height;
+}
+
+export component UiComboBox inherits ComboBox {
+    in property <string> preset-size: "default";
+    control-height: root.preset-size == "compact" ? 28px :
+                    root.preset-size == "large" ? 44px : Theme.control-height;
+}
+
+export component UiCheckBox inherits CheckBox {
+    in property <string> preset-size: "default";
+    min-height: root.preset-size == "compact" ? 28px :
+                root.preset-size == "large" ? 44px : Theme.control-height;
+}
+
+export component UiScrollView inherits ScrollView {
+    // Keep scrollbar ownership, keyboard and touch handling in Slint's
+    // existing accessible ScrollView. The 14px reserved track is shared.
+    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+}
+
+export component UiCard inherits Rectangle {
+    in property <bool> raised: false;
+    background: root.raised ? Theme.surface-raised : Theme.surface;
+    border-width: 1px;
+    border-color: Theme.line;
+    border-radius: Theme.radius;
+    @children
+}
+
+export component UiSeparator inherits Rectangle {
+    height: 1px;
+    min-height: 1px;
+    vertical-stretch: 0;
+    background: Theme.line;
+}
+
+// AS2026-provided slider (Slint 1.16's Slider is absent from the local
+// curated widget export). Its numeric range is for approximate UI values,
+// NEVER for competition timing, RT/AT penalties or scoring data.
+// Accessible keyboard controls and screen-reader range metadata are required.
+export component UiSlider inherits Rectangle {
+    in property <string> label: "Arvo";
+    in property <bool> enabled: true;
+    in property <string> preset-size: "default";
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    in-out property <float> value: 50;
+    callback changed(float);
+    callback released(float);
+
+    private property <float> usable-range: max(0.00001, root.maximum - root.minimum);
+    private property <float> ratio: max(0, min(1, (root.value - root.minimum) / root.usable-range));
+    private property <length> thumb-diameter: root.preset-size == "large" ? 24px : 20px;
+    private property <length> track-start: root.thumb-diameter / 2;
+    private property <length> track-length: max(1px, root.width - root.thumb-diameter);
+
+    width: 260px;
+    min-width: 100px;
+    preferred-height: root.preset-size == "large" ? 44px : 36px;
+    height: root.preset-size == "large" ? 44px : 36px;
+    vertical-stretch: 0;
+    clip: false;
+
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-orientation: horizontal;
+    accessible-value: "" + root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-action-increment => { root.increment(1); }
+    accessible-action-decrement => { root.increment(-1); }
+    forward-focus: keyboard;
+
+    function increment(direction: int) {
+        if !root.enabled { return; }
+        root.value = max(root.minimum, min(root.maximum, root.value + direction * max(0.00001, root.step)));
+        root.changed(root.value);
+        root.released(root.value);
+    }
+
+    function set-by-pointer(position: length) {
+        if !root.enabled || root.maximum <= root.minimum { return; }
+        let portion = max(0, min(1, (position - root.track-start) / root.track-length));
+        let ticks = Math.round(portion * root.usable-range / max(0.00001, root.step));
+        root.value = max(root.minimum, min(root.maximum, root.minimum + ticks * root.step));
+        root.changed(root.value);
+    }
+
+    Rectangle {
+        x: root.track-start;
+        width: root.track-length;
+        y: (root.height - 4px) / 2;
+        height: 4px;
+        background: Theme.line;
+        border-radius: 2px;
+    }
+    Rectangle {
+        x: root.track-start;
+        width: root.track-length * root.ratio;
+        y: (root.height - 4px) / 2;
+        height: 4px;
+        background: root.enabled ? Theme.accent : Theme.muted;
+        border-radius: 2px;
+    }
+    Rectangle {
+        x: root.track-start + root.track-length * root.ratio - root.thumb-diameter / 2;
+        y: (root.height - root.thumb-diameter) / 2;
+        width: root.thumb-diameter;
+        height: root.thumb-diameter;
+        background: root.enabled ? Theme.ink : Theme.muted;
+        border-color: root.enabled ? Theme.accent : Theme.line;
+        border-width: 2px;
+        border-radius: root.thumb-diameter / 2;
+    }
+
+    input := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.set-by-pointer(self.mouse-x); root.released(root.value); }
+        moved => { root.set-by-pointer(self.mouse-x); }
+    }
+    keyboard := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.Left || event.text == Key.Down { root.increment(-1); return accept; }
+            if event.text == Key.Right || event.text == Key.Up { root.increment(1); return accept; }
+            if event.text == Key.Home { root.value = root.minimum; root.changed(root.value); root.released(root.value); return accept; }
+            if event.text == Key.End { root.value = root.maximum; root.changed(root.value); root.released(root.value); return accept; }
+            reject
+        }
+    }
+    if keyboard.has-focus && root.enabled: Rectangle {
+        border-width: 2px;
+        border-color: Theme.accent;
+        border-radius: Theme.radius;
+        background: transparent;
+    }
+}
