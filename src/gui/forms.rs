@@ -137,6 +137,37 @@ fn classes(project: &Project) -> Vec<(String, String)> {
         .collect()
 }
 
+pub fn kiti_fields(
+    project: &Project,
+    path: &std::path::Path,
+    saved: &str,
+) -> Result<Vec<EditorField>, CoreError> {
+    let mappings = saved
+        .split(';')
+        .filter_map(|v| v.split_once('='))
+        .collect::<BTreeMap<_, _>>();
+    let options = as2026::kiti::group_choices(project);
+    Ok(as2026::kiti::template_classes(path)?
+        .into_iter()
+        .enumerate()
+        .map(|(i, source)| {
+            let suggested = as2026::kiti::suggested_group(project, &source);
+            let selected = mappings
+                .get(source.as_str())
+                .copied()
+                .filter(|value| options.iter().any(|(_, id)| id == value))
+                .unwrap_or(&suggested);
+            choice(
+                i as i32,
+                &source,
+                selected,
+                "Valitse pohjan luokalle tulosluokka",
+                options.clone(),
+            )
+        })
+        .collect())
+}
+
 fn tracks(project: &Project) -> Vec<(String, String)> {
     std::iter::once(("-".to_owned(), "0".to_owned()))
         .chain(

@@ -10,7 +10,7 @@ Versio kokoaa 25.10.2026 pyydetyt kilpailupäivän korjaukset ja viennit.
 - Luokan lähtöväli annetaan yhdessä kentässä kokonaissekunteina. Vanhojen kilpailutiedostojen minuuttimäärät muunnetaan näkymään oikein.
 - Viennissä voi valita luokat ja tavalliset tai asemakohtaiset tulokset. Otsikko on kilpailun nimi, alaotsikko **luokka: luokan nimi**.
 - Suora PDF-vienti käyttää upotettua Unicode-fonttia. Asetuksiin tallennettava PNG-logo näkyy vasemmassa ylänurkassa 2 cm korkeana.
-- KITIstä tuotu XLSX-pohja voidaan täyttää alkuperäiseen rakenteeseen. Tilakoodit ja tarvittavat luokkakohdistukset määritellään vienti-ikkunassa. Alkuperäistä pohjaa ei korvata.
+- KITIstä tuotu XLSX-pohja voidaan täyttää alkuperäiseen rakenteeseen. Luokkakohdistukset valitaan nimillä ja tilakoodeissa käytetään pohjan selitteen mukaisia oletuksia. Koodit voi tarvittaessa muuttaa. Alkuperäistä pohjaa ei korvata.
 - Windowsin tulostinluettelo haetaan kattavasta tulostinrajapinnasta. Mukana ovat asennetut virtuaalitulostimet.
 - Livetuloksissa tarkastamattomat kilpailijat näkyvät **AJAA**-tilassa hyväksyttyjen ja keskeyttäneiden välissä. Selaimen päivityksen ja sivukierron väli asetetaan julkaisuikkunassa.
 - LAN-paritus käyttää nelinumeroista PIN-koodia, joka vaihtuu jakamisistunnon alussa. Epäonnistuneita yhteysyrityksiä rajoitetaan.

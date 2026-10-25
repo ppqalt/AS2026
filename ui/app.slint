@@ -281,6 +281,9 @@ export component AppWindow inherits Window {
     in-out property <string> kiti-template;
     in-out property <string> kiti-codes;
     in-out property <string> kiti-groups;
+    in-out property <[EditorField]> kiti-class-fields;
+    in-out property <bool> kiti-advanced: false;
+    callback kiti-class-selected(int, int);
     callback export-class-toggled(int, bool);
     callback export-pdf();
     callback export-kiti();
@@ -1196,11 +1199,18 @@ export component AppWindow inherits Window {
                         VerticalLayout { for item[i] in root.export-classes: CheckBox { text: item.label; checked: item.selected; toggled => { root.export-class-toggled(i, self.checked); } } }
                     }
                     if root.export-kind == 4: VerticalLayout {
-                        Note { text: "KITI-tilakoodit (TRK=numero,KESK=numero). Varmista koodit käyttämästäsi KITI-pohjasta."; }
-                        LineEdit { text <=> root.kiti-codes; }
-                        Note { text: "Luokkakohdistukset tarvittaessa: pohjan luokka=tulosryhmä; toinen luokka=tulosryhmä"; }
-                        LineEdit { text <=> root.kiti-groups; }
-
+                        Note { text: "Valitse Excel-pohja ja tarkista sen luokkien tulosluokat."; }
+                        ScrollView {
+                            height: 210px;
+                            VerticalLayout { spacing: Theme.space-2;
+                                for field[i] in root.kiti-class-fields: HorizontalLayout {
+                                    Text { text: field.label; color: Theme.ink; vertical-alignment: center; horizontal-stretch: 1; }
+                                    ComboBox { model: field.options; current-index: field.choice; accessible-label: field.label; selected => { root.kiti-class-selected(i, self.current-index); } }
+                                }
+                            }
+                        }
+                        CheckBox { text: "Muokkaa KITI-tilakoodeja"; checked <=> root.kiti-advanced; }
+                        if root.kiti-advanced: LineEdit { text <=> root.kiti-codes; accessible-label: "KITI-tilakoodit"; }
                     }
                     if root.export-kind == 4: Button { text: root.kiti-template == "" ? "Valitse KITI-Excel-pohja" : root.kiti-template; clicked => { root.choose-kiti(); } }
                     Text { text: "Tiedosto"; color: Theme.muted; font-size: Theme.label-font-size; }

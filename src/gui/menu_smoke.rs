@@ -398,8 +398,36 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 save_view(&app, &directory.join("live-julkaisu-900x600.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
+            } else if step == 103 {
+                use std::io::{Cursor, Read, Write};
+                if app.get_result_entry_open() { app.invoke_result_entry_close(false); }
+                app.set_print_classes_open(false);
+                let class = shared.borrow().workspace.as_ref().unwrap().project().unwrap().luokat[0].tunnus.clone();
+                let bytes = report::xlsx_from_csv(&format!("Luokka / Class;{class}\n")).unwrap();
+                let mut input = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+                let mut output = zip::ZipWriter::new(Cursor::new(Vec::new()));
+                for i in 0..input.len() {
+                    let mut entry = input.by_index(i).unwrap();
+                    let mut data = Vec::new(); entry.read_to_end(&mut data).unwrap();
+                    if entry.name() == "xl/workbook.xml" {data = String::from_utf8(data).unwrap().replace("name=\"Tulokset\"", "name=\"Results\"").into_bytes();}
+                    output.start_file(entry.name(), zip::write::SimpleFileOptions::default()).unwrap();
+                    output.write_all(&data).unwrap();
+                }
+                let path = directory.join("synteettinen-kiti-pohja.xlsx");
+                std::fs::write(&path, output.finish().unwrap().into_inner()).unwrap();
+                app.invoke_export_kiti();
+                shared.borrow_mut().test_file_choice = Some(Some(path));
+                app.invoke_choose_kiti();
+                assert_eq!(app.get_kiti_class_fields().row_count(), 1, "{}", app.get_export_error());
+                assert!(app.get_kiti_class_fields().row_data(0).unwrap().choice >= 0);
+            } else if step == 104 {
+                save_view(&app, &directory.join("kiti-luokkavalinnat.png")).unwrap();
+                app.invoke_kiti_class_selected(0, 0);
+                assert_eq!(app.get_kiti_class_fields().row_data(0).unwrap().choice, 0);
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_export_open());
             } else {
-                println!("Valikkokoe valmis: 54 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
+                println!("Valikkokoe valmis: 54 oikeaa valikkovalintaa, KITI-luokkavalinnat, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
             }
         }

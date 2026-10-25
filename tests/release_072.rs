@@ -174,6 +174,7 @@ fn kiti_template_keeps_identity_cells_and_writes_numeric_results() {
     std::fs::create_dir_all(&directory).unwrap();
     let path = directory.join("synthetic-template.xlsx");
     std::fs::write(&path, &bytes).unwrap();
+    assert_eq!(as2026::kiti::template_classes(&path).unwrap(), ["A"]);
     let codes = as2026::kiti::parse_codes("TRK=1,KESK=2").unwrap();
     let filled = as2026::kiti::fill(&p, &path, &codes).unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
@@ -585,4 +586,30 @@ fn pin_leading_zeroes_and_invalid_lengths() {
     for pin in ["", "123", "12345", "a427", " 0427"] {
         assert!(as2026::lan::validate_pairing_code(pin).is_err());
     }
+}
+
+#[test]
+fn kiti_defaults_and_visible_combined_class_suggestion() {
+    let codes = as2026::kiti::parse_codes("").unwrap();
+    assert_eq!(codes["TRK"], 1);
+    assert_eq!(codes["KESK"], 2);
+    assert_eq!(codes["HYL"], 3);
+    assert_eq!(codes["SULJ"], 4);
+    assert_eq!(codes["PER"], 0);
+    assert_eq!(codes["EILÄ"], 0);
+    let mut p = project();
+    p.luokat[0].nimi = "SM-A+NAC-K".into();
+    let code = p.luokat[0].tunnus.clone();
+    p.yhdistetyt_luokat.push(as2026::native::CombinedClass {
+        nimi: "SM-A".into(),
+        luokat: vec![code.clone()],
+        nousupisteet: 0,
+        sarjapistetapa: 0,
+    });
+    assert_eq!(as2026::kiti::suggested_group(&p, "SM-A+NAC-K"), "Y1: SM-A");
+    assert!(
+        as2026::kiti::group_choices(&p).contains(&("SM-A (yhdistetty)".into(), "Y1: SM-A".into()))
+    );
+    p.yhdistetyt_luokat[0].luokat.clear();
+    assert_eq!(as2026::kiti::suggested_group(&p, "SM-A+NAC-K"), code);
 }

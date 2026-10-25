@@ -52,12 +52,14 @@ tulostiedoston. Results-työlehden luokkalohkot ja A–R-tiedot säilyvät, tulo
 täytetään S–Y-sarakkeisiin. Sijoitus ja luokkasijoitus käsitellään erikseen.
 Kohdistus käyttää kilpailunumeroa ja luokkayhteyttä; nimiä ei käytetä arvaukseen.
 
-Anna KITI-tilakoodit vienti-ikkunassa muodossa `TRK=numero,KESK=numero` sekä
-muut tarvittavat tilat (HYL, SULJ, PER, EILÄ). Käytä oman KITI-järjestelmäsi
-koodeja; ohjelma ei päättele koodien merkitystä yksittäisestä esimerkkirivistä.
-Jos ilmoittautumisluokka ja tulosryhmä eroavat, anna erilliset luokkakohdistukset
-muodossa `pohjan luokka=tulosryhmä; toinen luokka=tulosryhmä`. Tulosryhmä voi olla
-myös ohjelman tarkka yhdistetyn luokan tunniste. Määritykset muistetaan asetuksissa.
+Valitse jokaiselle pohjan luokalle tulosluokka valintalistasta. Lista sisältää myös
+nimetyt yhdistetyt luokat; ohjelman sisäisiä tunnisteita ei tarvitse kirjoittaa.
+Kohdistukset muistetaan asetuksissa. Tarkista ehdotukset ennen vientiä.
+
+KITI-pohjan tulosselitesarakkeen kommentin mukaiset oletukset ovat osallistunut 1,
+keskeyttänyt 2, hylätty 3, kilpailusta suljettu 4 ja peruuttanut 0. Myös lähtemätön
+viedään koodilla 0. Tarvittaessa eri pohjaversion tilakoodit voi muuttaa valinnasta
+**Muokkaa KITI-tilakoodeja** (TRK, KESK, HYL, SULJ, PER ja EILÄ).
 Puuttuva tai moniselitteinen kohdistus estää viennin selkeällä virheilmoituksella.
 
 Älä liitä oikeita kilpailijatietoja GitHubiin. Käytä testiaineistona synteettisiä

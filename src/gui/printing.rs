@@ -87,7 +87,7 @@ fn parse_clock(value: &str) -> GuiResult<[i64; 3]> {
         .split(':')
         .map(str::parse::<i64>)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| invalid("Anna kellonaika muodossa hh:mm:ss, esimerkiksi 18:03:25"))?;
+        .map_err(|_| invalid("Anna kellonaika muodossa hhmmss, esimerkiksi 180325"))?;
     let clock: [i64; 3] = values
         .try_into()
         .map_err(|_| invalid("Anna tunnit, minuutit ja sekunnit"))?;

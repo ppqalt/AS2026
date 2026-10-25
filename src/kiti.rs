@@ -90,10 +90,88 @@ fn sheet_path(zip: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> Result<String, Core
     }
     Err(invalid("Results-työlehden kohdetta ei löydy"))
 }
-/// Status codes are supplied explicitly: KITI numeric codes are not guessed
-/// from names or from which codes happen to occur in a reference workbook.
+/// Codes documented in the KITI template's Result definition cell comment.
+pub const DEFAULT_CODES: &str = "TRK=1,KESK=2,HYL=3,SULJ=4,PER=0,EILÄ=0";
+
+/// Read class identities without importing competitor identity data.
+pub fn template_classes(path: &Path) -> Result<Vec<String>, CoreError> {
+    let mut workbook: calamine::Xlsx<_> = calamine::open_workbook(path)
+        .map_err(|_| invalid("Valitse kelvollinen KITI-XLSX-pohja"))?;
+    let range = workbook
+        .worksheet_range("Results")
+        .map_err(|_| invalid("KITI-pohjasta puuttuu Results-työlehti"))?;
+    let mut classes = Vec::new();
+    for row in range.rows() {
+        if text(row.first()) == "Luokka / Class" {
+            let name = text(row.get(1));
+            if !name.is_empty() && !classes.contains(&name) {
+                classes.push(name);
+            }
+        }
+    }
+    if classes.is_empty() {
+        return Err(invalid("KITI-pohjasta puuttuvat luokkalohkot"));
+    }
+    Ok(classes)
+}
+
+/// Display names and exact ranking identifiers, including combined classes.
+pub fn group_choices(project: &Project) -> Vec<(String, String)> {
+    project
+        .luokat
+        .iter()
+        .map(|c| (c.nimi.clone(), c.tunnus.clone()))
+        .chain(project.yhdistetyt_luokat.iter().enumerate().map(|(i, c)| {
+            (
+                format!("{} (yhdistetty)", c.nimi),
+                format!("Y{}: {}", i + 1, c.nimi.trim()),
+            )
+        }))
+        .chain(
+            project
+                .beginners_cup
+                .iter()
+                .map(|c| (c.nimi.clone(), c.tunnus.clone())),
+        )
+        .collect()
+}
+
+pub fn suggested_group(project: &Project, source: &str) -> String {
+    if let Some(cup) = &project.beginners_cup
+        && (cup.tunnus == source || cup.nimi == source)
+    {
+        return cup.tunnus.clone();
+    }
+    let combined = project
+        .yhdistetyt_luokat
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| {
+            (source == c.nimi || source.starts_with(&format!("{}+", c.nimi)))
+                && project.luokat.iter().any(|class| {
+                    (class.tunnus == source || class.nimi == source)
+                        && c.luokat.contains(&class.tunnus)
+                })
+        })
+        .collect::<Vec<_>>();
+    if let [(i, c)] = combined.as_slice() {
+        return format!("Y{}: {}", i + 1, c.nimi.trim());
+    }
+    project
+        .luokat
+        .iter()
+        .find(|c| c.tunnus == source || c.nimi == source)
+        .map_or_else(String::new, |c| c.tunnus.clone())
+}
+
+/// Explicit overrides remain available for another template revision.
 pub fn parse_codes(input: &str) -> Result<BTreeMap<String, i64>, CoreError> {
     let mut codes = BTreeMap::new();
+    let input = if input.trim().is_empty() {
+        DEFAULT_CODES
+    } else {
+        input
+    };
     for part in input.split(',').filter(|p| !p.trim().is_empty()) {
         let (status, code) = part
             .trim()

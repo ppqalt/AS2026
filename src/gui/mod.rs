@@ -1658,6 +1658,8 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
     app.set_export_classes(model(options));
     app.set_export_stations(false);
     app.set_kiti_template("".into());
+    app.set_kiti_class_fields(model(Vec::<EditorField>::new()));
+    app.set_kiti_advanced(false);
     app.set_kiti_codes(
         state
             .preferences
@@ -1672,6 +1674,9 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
             .map_or("", |p| p.get().kiti_luokkaryhmat.as_str())
             .into(),
     );
+    if app.get_kiti_codes().trim().is_empty() {
+        app.set_kiti_codes(as2026::kiti::DEFAULT_CODES.into());
+    }
     app.set_export_kind(kind);
     app.set_export_label(label.into());
     app.set_export_path(path.display().to_string().into());
@@ -2702,7 +2707,34 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 .add_filter("KITI Excel-pohja", &["xlsx"])
                 .pick_file()
         }) {
+            let project = s
+                .workspace
+                .as_ref()
+                .and_then(|ws| ws.project())
+                .ok_or_else(|| invalid("KITI-vienti tarvitsee AS2026-kilpailun"))?;
+            match forms::kiti_fields(project, &path, a.get_kiti_groups().as_str()) {
+                Ok(fields) => {
+                    a.set_kiti_class_fields(model(fields));
+                    a.set_export_error("".into());
+                }
+                Err(error) => {
+                    a.set_export_error(error_text(&error).into());
+                    return Ok(());
+                }
+            }
             a.set_kiti_template(path.display().to_string().into());
+        }
+        Ok(())
+    });
+    action!(on_kiti_class_selected, |_s, a, index, selected| {
+        let fields = a.get_kiti_class_fields();
+        if let Some(mut field) = fields.row_data(index as usize)
+            && let Some(value) = field.values.row_data(selected as usize)
+        {
+            field.choice = selected;
+            field.value = value;
+            fields.set_row_data(index as usize, field);
+            a.set_export_error("".into());
         }
         Ok(())
     });
@@ -2727,20 +2759,32 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 let project = ws
                     .project()
                     .ok_or_else(|| invalid("KITI-vienti tarvitsee AS2026-kilpailun"))?;
+                let groups = a
+                    .get_kiti_class_fields()
+                    .iter()
+                    .map(|field| {
+                        if field.choice < 0 {
+                            return Err(invalid(&format!(
+                                "Valitse luokan {} tulosluokka",
+                                field.label
+                            )));
+                        }
+                        Ok((field.label.to_string(), field.value.to_string()))
+                    })
+                    .collect::<GuiResult<BTreeMap<_, _>>>()?;
+                a.set_kiti_groups(
+                    groups
+                        .iter()
+                        .map(|(key, value)| format!("{key}={value}"))
+                        .collect::<Vec<_>>()
+                        .join(";")
+                        .into(),
+                );
                 as2026::kiti::fill_with_groups(
                     project,
                     Path::new(a.get_kiti_template().as_str()),
                     &as2026::kiti::parse_codes(a.get_kiti_codes().as_str())?,
-                    &a.get_kiti_groups()
-                        .split(';')
-                        .filter(|v| !v.trim().is_empty())
-                        .map(|v| {
-                            let (key, value) = v.split_once('=').ok_or_else(|| {
-                                invalid("Anna luokkakohdistus muodossa pohjan luokka=tulosryhmä")
-                            })?;
-                            Ok((key.trim().to_owned(), value.trim().to_owned()))
-                        })
-                        .collect::<GuiResult<BTreeMap<_, _>>>()?,
+                    &groups,
                 )?
             } else {
                 let document = selected_export(ws, &a)?;
