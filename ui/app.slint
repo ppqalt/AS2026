@@ -1204,6 +1204,7 @@ export component AppWindow inherits Window {
                             height: 210px;
                             VerticalLayout { spacing: Theme.space-2;
                                 for field[i] in root.kiti-class-fields: HorizontalLayout {
+                                    height: Theme.control-height; vertical-stretch: 0;
                                     Text { text: field.label; color: Theme.ink; vertical-alignment: center; horizontal-stretch: 1; }
                                     ComboBox { model: field.options; current-index: field.choice; accessible-label: field.label; selected => { root.kiti-class-selected(i, self.current-index); } }
                                 }
@@ -1212,7 +1213,8 @@ export component AppWindow inherits Window {
                         CheckBox { text: "Muokkaa KITI-tilakoodeja"; checked <=> root.kiti-advanced; }
                         if root.kiti-advanced: LineEdit { text <=> root.kiti-codes; accessible-label: "KITI-tilakoodit"; }
                     }
-                    if root.export-kind == 4: Button { text: root.kiti-template == "" ? "Valitse KITI-Excel-pohja" : root.kiti-template; clicked => { root.choose-kiti(); } }
+                    if root.export-kind == 4: Button { text: root.kiti-template == "" ? "Valitse KITI-Excel-pohja" : "Vaihda KITI-Excel-pohja"; clicked => { root.choose-kiti(); } }
+                    if root.export-kind == 4 && root.kiti-template != "": Text { text: root.kiti-template; overflow: elide; color: Theme.muted; }
                     Text { text: "Tiedosto"; color: Theme.muted; font-size: Theme.label-font-size; }
                     HorizontalLayout {
                         spacing: Theme.space-2;
