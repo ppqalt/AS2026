@@ -64,10 +64,7 @@ fn text(key: i32, label: &str, value: impl ToString, hint: &str) -> EditorField 
         seconds: "".into(),
     };
     let unit = match label {
-        "Lähtöväli (min)"
-        | "Myöhästymisraja (min)"
-        | "Jakson pituus (min)"
-        | "Jakson raja (min)" => 60,
+        "Myöhästymisraja (min)" | "Jakson pituus (min)" | "Jakson raja (min)" => 60,
         "Vapaa-aika (s)" => 1,
         _ => return field,
     };
@@ -205,9 +202,9 @@ fn class_fields(project: &Project, class: &ClassEdit) -> Vec<EditorField> {
         clock_field(4, "Luokan lähtöaika (h : min : s)", &class.start_time),
         text(
             5,
-            "Lähtöväli (min)",
-            &class.interval_minutes,
-            "Lähtöjen väli minuutteina",
+            "Lähtöväli (s)",
+            &class.interval_seconds,
+            "Lähtöjen väli kokonaissekunteina",
         ),
         choice(
             7,
@@ -398,14 +395,15 @@ pub(super) fn emit_card_fields(
             punch.code,
             "99 ja 999 sivuutetaan laskennassa",
         ));
-        fields.push(clock_field(
+        fields.push(text(
             key + 1,
             "Kellonaika (hh:mm:ss)",
-            &as2026::emit_corrections::clock_text(as2026::emit_corrections::punch_clock(
+            as2026::emit_corrections::clock_text(as2026::emit_corrections::punch_clock(
                 project,
                 number,
                 i64::from(punch.elapsed_seconds),
             )?),
+            "hhmmss tai hh:mm:ss",
         ));
         fields.push(choice(
             key + 2,
@@ -520,7 +518,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                         route: class.rata.to_string(),
                         first_number: class.ensimmainen_numero.to_string(),
                         start_time: class.lahtoaika.clone(),
-                        interval_minutes: class.lahtovali_minuutteina.to_string(),
+                        interval_seconds: class.start_interval_seconds().to_string(),
                         lateness_minutes: class.myohastymisraja_minuutteina.to_string(),
                         np_enabled: class.nousupisteet.to_string(),
                         series_method: class.sarjapistetapa.to_string(),
@@ -546,7 +544,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     .saturating_add(1)
                     .to_string(),
                 start_time: "15:00:00".into(),
-                interval_minutes: "2".into(),
+                interval_seconds: "120".into(),
                 lateness_minutes: "60".into(),
                 np_enabled: "0".into(),
                 series_method: "0".into(),
@@ -702,7 +700,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     let pending = project.kilpailijat.iter().find(|d| d.numero == *number)
                         .and_then(|d| d.tallennettu_tulos.as_ref()).is_none_or(|r| r.pending_manual_clocks().contains(row));
                     let value = if pending { String::new() } else { format!("{:02}:{:02}:{:02}", station.clock[0], station.clock[1], station.clock[2]) };
-                    fields.push(clock_field(100, "Käsikello (h : min : s)", &value));
+                    fields.push(text(100, "Käsikello (hhmmss)", value.replace(':', ""), "Kuusi numeroa, esimerkiksi 123456"));
                 }
                 fields.extend([
                 text(101, "Aikavirhe (p)", station.signed_time_penalty, "Ennakko positiivisena, myöhä negatiivisena; summaan tulee itseisarvo"),
@@ -729,7 +727,8 @@ fn identifier(value: &str) -> Result<u32, CoreError> {
 fn stored_duration(selection: &Selection, key: i32, value: &str) -> Result<String, CoreError> {
     let unit = match (selection, key) {
         (Selection::Driver(_) | Selection::NewDriver, 7) => 1,
-        (Selection::Class(_) | Selection::NewClass, 5 | 6) => 60,
+        (Selection::Class(_) | Selection::NewClass, 5) => 1,
+        (Selection::Class(_) | Selection::NewClass, 6) => 60,
         (Selection::Station { .. } | Selection::NewStation { .. }, 5) => 60,
         (Selection::Settings, 10) => 1,
         (Selection::Settings, 16) => 60,
@@ -954,7 +953,7 @@ pub fn add(
                 route: value(2),
                 first_number: value(3),
                 start_time: value(4),
-                interval_minutes: value(5),
+                interval_seconds: value(5),
                 lateness_minutes: "60".into(),
                 np_enabled: value(7),
                 series_method: value(8),
@@ -1006,9 +1005,12 @@ mod target_duration_tests {
     fn duration_controls_preserve_units_sign_and_optional_values() {
         assert_eq!(
             stored_duration(&Selection::NewClass, 5, "01:02:00").unwrap(),
-            "62"
+            "3720"
         );
-        assert!(stored_duration(&Selection::NewClass, 5, "00:01:01").is_err());
+        assert_eq!(
+            stored_duration(&Selection::NewClass, 5, "00:01:01").unwrap(),
+            "61"
+        );
         assert_eq!(
             stored_duration(&Selection::Driver(7), 7, "-00:00:12").unwrap(),
             "-12"

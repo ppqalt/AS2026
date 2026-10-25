@@ -85,9 +85,7 @@ fn join(s: &mut State, app: &AppWindow) -> GuiResult<()> {
     }
     let address = endpoint(app.get_lan_address().as_str())?;
     let code = app.get_lan_code().to_string();
-    if code.trim().len() < 12 {
-        return Err(invalid("Anna isäntäkoneessa näkyvä 12 merkin parituskoodi"));
-    }
+    as2026::lan::validate_pairing_code(&code)?;
     let root = s
         .preferences
         .as_ref()

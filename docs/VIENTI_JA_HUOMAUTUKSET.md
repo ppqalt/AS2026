@@ -36,3 +36,29 @@ Toimitsijan yllä kuvatut huomautukset ja täydelliset lisätiedot säilyvät sa
 Komentorivin `tulokset` tulostaa luettelon stdout-virtaan ja toimitsijan
 huomautukset stderr-virtaan. Tiedostoon ohjattu tulosluettelo (`> tulokset.md`)
 ei siten sisällä raakadiagnostiikkaa.
+
+
+## Version 0.7.2 vientivalinnat
+
+Viennin XLSX-, CSV-, HTML- ja PDF-muodoissa valitaan vietävät luokat sekä
+haluttaessa **Asemakohtaiset tulokset**. Otsikko on kilpailun nimi ja
+luokkaotsikko `luokka: luokan nimi`; yhdistetyn luokan sisäinen Y-tunnus ei näy.
+PDF syntyy ilman virtuaalitulostinta. Asetusten PNG-logo tallentuu sovellusasetuksiin,
+kuvan alkuperäistä tiedostoa ei tarvita myöhemmin. PDF:ssä logo on vasemmassa
+ylänurkassa 2 cm korkea ja kuvasuhde säilyy.
+
+**KITI Excel-pohjaan** pyytää alkuperäisen KITIstä ladatun XLSX-pohjan ja erillisen
+tulostiedoston. Results-työlehden luokkalohkot ja A–R-tiedot säilyvät, tulokset
+täytetään S–Y-sarakkeisiin. Sijoitus ja luokkasijoitus käsitellään erikseen.
+Kohdistus käyttää kilpailunumeroa ja luokkayhteyttä; nimiä ei käytetä arvaukseen.
+
+Anna KITI-tilakoodit vienti-ikkunassa muodossa `TRK=numero,KESK=numero` sekä
+muut tarvittavat tilat (HYL, SULJ, PER, EILÄ). Käytä oman KITI-järjestelmäsi
+koodeja; ohjelma ei päättele koodien merkitystä yksittäisestä esimerkkirivistä.
+Jos ilmoittautumisluokka ja tulosryhmä eroavat, anna erilliset luokkakohdistukset
+muodossa `pohjan luokka=tulosryhmä; toinen luokka=tulosryhmä`. Tulosryhmä voi olla
+myös ohjelman tarkka yhdistetyn luokan tunniste. Määritykset muistetaan asetuksissa.
+Puuttuva tai moniselitteinen kohdistus estää viennin selkeällä virheilmoituksella.
+
+Älä liitä oikeita kilpailijatietoja GitHubiin. Käytä testiaineistona synteettisiä
+nimiä, tunnisteita ja lisenssejä myös piilotetuissa soluissa ja metatiedoissa.

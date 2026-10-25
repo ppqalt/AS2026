@@ -1,15 +1,15 @@
 # AS2026
 
-**AS2026 0.7.1** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
+**AS2026 0.7.2** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
 tuloslaskentasovellus Linuxille ja Windowsille. Se toimii yhdellä koneella ilman
 internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.7.1 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.1):
+Lataa oma pakettisi [version 0.7.2 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.2):
 
-- Linux x86-64: `AS2026-0.7.1-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.1-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.2-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.2-windows-x86_64.zip`
 
 Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
@@ -49,7 +49,7 @@ varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 ## Yhteiskäyttö lähiverkossa
 
 Avaa kilpailu isäntäkoneella ja valitse sivupalkin yhteystila → **Jaa tämä kilpailu**.
-Muut koneet liittyvät saman lähiverkon kautta 12-merkkisellä parituskoodilla.
+Muut koneet liittyvät saman lähiverkon kautta nelinumeroisella PIN-koodilla.
 Automaattisen haun vaihtoehtona on isännän IP-osoite. Kaikilla on samat muokkausoikeudet.
 Muutokset välittyvät automaattisesti, ja yhteyskatkon Emit-luvut säilyvät paikallisessa
 jonossa. Internetiä, pilvipalvelua tai jaettua kansiota ei tarvita.
@@ -70,7 +70,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md)
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
-- [Version 0.7.1 julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.2 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja

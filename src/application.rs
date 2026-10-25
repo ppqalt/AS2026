@@ -512,7 +512,20 @@ pub fn rank_stored(
                 .ok_or_else(|| invalid("Kartanlukijan lisenssi puuttuu"))?,
             tie_rows,
             route_errors: Some(ranking::RouteErrors {
-                missing_count: header_count(c, 21, "Puuttuvien RT määrä")?,
+                missing_count: header_count(c, 21, "Puuttuvien RT määrä")?
+                    .checked_add(if a.result_publication.is_some() {
+                        c.results
+                            .iter()
+                            .filter(|r| {
+                                r.station_type == "RT"
+                                    && r.expected_code != 0
+                                    && r.expected_code != r.received_code
+                            })
+                            .count() as u32
+                    } else {
+                        0
+                    })
+                    .ok_or(CoreError::ArithmeticOverflow("puuttuvien RT määrä"))?,
                 missing_sum: header_number(c, 22, "Puuttuvien RT pisteet")?,
                 extra_count: header_count(c, 23, "Ylimääräisten RT määrä")?,
                 extra_sum: header_number(c, 24, "Ylimääräisten RT pisteet")?,

@@ -120,7 +120,7 @@ fn imported_competition_reaches_approved_reopened_and_exported_results_without_d
         .edit_class("C", ClassField::Start, "17:00:00")
         .unwrap();
     workspace
-        .edit_class("C", ClassField::Interval, "2")
+        .edit_class("C", ClassField::Interval, "120")
         .unwrap();
     workspace.edit_class("C", ClassField::Np, "1").unwrap();
     workspace.edit_class("C", ClassField::Sp, "1").unwrap();

@@ -2,7 +2,7 @@
 use super::*;
 use slint::platform::{PointerEventButton, WindowEvent};
 
-fn click(app: &AppWindow, x: f32, y: f32) {
+pub(super) fn click(app: &AppWindow, x: f32, y: f32) {
     let position = slint::LogicalPosition::new(x, y);
     app.window()
         .dispatch_event(WindowEvent::PointerMoved { position });
@@ -368,7 +368,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
             } else if step == 98 {
                 app.invoke_open_publish();
                 assert!(app.get_publish_open());
-                assert_eq!(app.get_publish_fields().row_count(), 10);
+                assert_eq!(app.get_publish_fields().row_count(), 11);
                 app.invoke_publish_edited(1, "0".into());
                 app.invoke_publish_test();
                 assert!(!app.get_publish_busy());

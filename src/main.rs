@@ -473,7 +473,7 @@ fn rank(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<String
     let policy = if break_ties {
         ranking::TiePolicy::BestRowsWithExplicitCounts
     } else {
-        ranking::TiePolicy::KeepSharedAndFlag
+        ranking::TiePolicy::PairwiseControlComparison
     };
     let result = application::rank_stored(&a, policy)?;
     println!(
@@ -584,7 +584,7 @@ fn rank_csv(directory: &Path, encoding: Encoding, break_ties: bool) -> Result<St
     let policy = if break_ties {
         ranking::TiePolicy::BestRowsWithExplicitCounts
     } else {
-        ranking::TiePolicy::KeepSharedAndFlag
+        ranking::TiePolicy::PairwiseControlComparison
     };
     let ranked = application::rank_stored(&archive, policy)?;
     if native_path.is_file() {
@@ -608,7 +608,7 @@ fn rank_html_live(directory: &Path, encoding: Encoding, break_ties: bool) -> Res
     let policy = if break_ties {
         ranking::TiePolicy::BestRowsWithExplicitCounts
     } else {
-        ranking::TiePolicy::KeepSharedAndFlag
+        ranking::TiePolicy::PairwiseControlComparison
     };
     let ranked = application::rank_stored(&archive, policy)?;
     Ok(if native {

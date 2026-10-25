@@ -8,7 +8,7 @@ Saatavilla versiosta 0.6.7 alkaen. Käyttöliittymä ja yhteysvirheet ovat suome
    Paina sivupalkin **Yhteys**-painiketta ja **Jaa tämä kilpailu**.
 2. Avaa muillakin koneilla sivupalkin **Yhteys**-painike. Automaattinen haku
    täydentää löytyneen isännän osoitteen; haun voi uusia painikkeesta **Etsi lähiverkosta**.
-   Anna isäntäkoneessa näkyvä 12 merkin parituskoodi ja paina **Enter** tai **Yhdistä kilpailuun**.
+   Anna isäntäkoneessa näkyvä nelinumeroinen PIN-koodi ja paina **Enter** tai **Yhdistä kilpailuun**.
 3. Jos haku ei löydä isäntää, kirjoita sen IP-osoite käsin. Isännän yhteysikkuna näyttää
    osoitteen. Tarvittaessa osoitteeseen voi liittää portin, esimerkiksi `192.168.1.20:42165`.
 4. Kaikki muokkaavat samaa kilpailua samoilla oikeuksilla. Jokaisella on oma lukija ja
@@ -91,7 +91,7 @@ Linuxissa lähetysjonot ja isännän LAN-palautumistiedosto kirjoitetaan vain om
 periytyviä käyttöoikeuksia. Parituskoodin haltija saa täydet kilpailun muokkausoikeudet.
 
 Yhteys käyttää Rustin `snow`-kirjaston Noise NNpsk0 / Curve25519 / ChaChaPoly / SHA256
--toteutusta. Satunnainen 12 merkin koodi toimii yhteisenä avaimena. Liikenne todennetaan
+-toteutusta. Satunnainen nelinumeroinen PIN-koodi toimii yhteisenä avaimena. Liikenne todennetaan
 ja salataan. Löytöviestissä välitetään kilpailun nimi ja osoite, ei parituskoodia.
 Katso [kirjaston dokumentaatio](https://docs.rs/snow/0.10.0/snow/).
 

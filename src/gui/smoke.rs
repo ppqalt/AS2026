@@ -1368,7 +1368,7 @@ fn finish_imported_race(
     let pending_archive = state.borrow().workspace.as_ref().unwrap().results()?;
     let pending_ranking = application::rank_stored(
         &pending_archive,
-        as2026::ranking::TiePolicy::KeepSharedAndFlag,
+        as2026::ranking::TiePolicy::PairwiseControlComparison,
     )?;
     assert!(!report::ranking_html(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
     assert!(!report::ranking_csv(&pending_archive, &pending_ranking).contains("Mallikuljettaja"));
@@ -1424,7 +1424,10 @@ fn finish_imported_race(
     assert_eq!(store.project().leimaluvut.len(), 3);
     let archive = state.borrow().workspace.as_ref().unwrap().results()?;
     assert!(archive.competitors.iter().all(|d| d.status == "TRK"));
-    let ranked = application::rank_stored(&archive, as2026::ranking::TiePolicy::KeepSharedAndFlag)?;
+    let ranked = application::rank_stored(
+        &archive,
+        as2026::ranking::TiePolicy::PairwiseControlComparison,
+    )?;
     for (name, text) in [
         (
             "lahtoluettelo.html",
@@ -1465,7 +1468,10 @@ fn finish_imported_race(
     assert_eq!(
         report::ranking_csv(
             &reopened,
-            &application::rank_stored(&reopened, as2026::ranking::TiePolicy::KeepSharedAndFlag)?
+            &application::rank_stored(
+                &reopened,
+                as2026::ranking::TiePolicy::PairwiseControlComparison
+            )?
         ),
         report::ranking_csv(&archive, &ranked)
     );

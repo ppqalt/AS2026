@@ -5,17 +5,8 @@ pub(super) struct Basis {
     number: u32,
     path: PathBuf,
     content: Vec<as2026::Punch>,
-}
-fn current_content(project: &Project, number: u32) -> GuiResult<Vec<as2026::Punch>> {
-    let driver = project
-        .kilpailijat
-        .iter()
-        .find(|d| d.numero == number)
-        .ok_or_else(|| invalid("Kilpailija puuttuu"))?;
-    let read = project
-        .active_readout(driver.emit)
-        .ok_or_else(|| invalid("Korttiluku puuttuu"))?;
-    emit_corrections::effective_readout(project, read)?.content()
+    new: bool,
+    source_card: u32,
 }
 pub(super) fn open(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     if !can_leave(state, app) {
@@ -26,24 +17,46 @@ pub(super) fn open(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .as_ref()
         .and_then(Workspace::project)
         .ok_or_else(|| invalid("Avaa kilpailu"))?;
-    let number = if state.page == 2 {
-        let read = usize::try_from(state.selected)
+    let selected_read = if state.page == 2 {
+        usize::try_from(state.selected)
             .ok()
             .and_then(|i| project.leimaluvut.get(i))
-            .ok_or_else(|| invalid("Valitse lukutapahtuma"))?;
-        project
-            .kilpailijat
-            .iter()
-            .find(|d| d.emit == read.emit)
-            .ok_or_else(|| invalid("Kortin kilpailija puuttuu"))?
-            .numero
+    } else {
+        None
+    };
+    let assigned = selected_read
+        .and_then(|read| project.kilpailijat.iter().find(|d| d.emit == read.emit))
+        .map(|d| d.numero);
+    let number = if state.page == 2 {
+        assigned
+            .or_else(|| project.kilpailijat.first().map(|d| d.numero))
+            .ok_or_else(|| invalid("Lisää ensin kilpailija"))?
     } else {
         selected_number(state)?
     };
+    let source_card = selected_read.map(|r| r.emit);
+    let page = state.page;
     let ws = current_workspace(state)?;
     ws.pin_lan_basis();
     let project = ws.project().unwrap();
-    let content = current_content(project, number)?;
+    let driver_card = project
+        .kilpailijat
+        .iter()
+        .find(|d| d.numero == number)
+        .unwrap()
+        .emit;
+    let source_card = source_card.unwrap_or(driver_card);
+    let existing = project
+        .active_readout(source_card)
+        .map(|r| emit_corrections::effective_readout(project, r).and_then(|r| r.content()))
+        .transpose()?;
+    let new = existing.is_none();
+    let content = existing.unwrap_or_else(|| {
+        vec![as2026::Punch {
+            code: 0,
+            elapsed_seconds: 0,
+        }]
+    });
     let driver = project
         .kilpailijat
         .iter()
@@ -57,6 +70,32 @@ pub(super) fn open(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .into(),
     );
     app.set_emit_edit_fields(model(forms::emit_card_fields(project, number, &content)?));
+    app.set_emit_edit_card(driver.emit.to_string().into());
+    app.set_emit_edit_competitors(model(
+        project
+            .kilpailijat
+            .iter()
+            .map(|d| SharedString::from(format!("{} · {}", d.numero, d.kuljettaja)))
+            .collect(),
+    ));
+    app.set_emit_edit_driver(if page == 2 && assigned.is_none() {
+        -1
+    } else {
+        project
+            .kilpailijat
+            .iter()
+            .position(|d| d.numero == number)
+            .unwrap() as i32
+    });
+    app.set_emit_edit_new(new);
+    app.set_emit_edit_routes(model(
+        project
+            .radat
+            .iter()
+            .map(|r| SharedString::from(format!("{} · {}", r.numero, r.nimi)))
+            .collect(),
+    ));
+    app.set_emit_edit_route(-1);
     app.set_emit_edit_history("".into());
     app.set_emit_edit_error("".into());
     app.set_emit_edit_open(true);
@@ -64,10 +103,24 @@ pub(super) fn open(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         number,
         path: ws.path().into(),
         content,
+        new,
+        source_card,
     });
     Ok(())
 }
 pub(super) fn edit(_state: &mut State, app: &AppWindow, key: i32, value: &str) -> GuiResult<()> {
+    if key >= 0 && key % 3 == 2 && value == "1" {
+        let mut fields = app.get_emit_edit_fields().iter().collect::<Vec<_>>();
+        let start = (key / 3 * 3) as usize;
+        if start + 3 <= fields.len() {
+            fields.drain(start..start + 3);
+        }
+        for (i, f) in fields.iter_mut().enumerate() {
+            f.key = i as i32;
+        }
+        app.set_emit_edit_fields(model(fields));
+        return Ok(());
+    }
     let fields = app.get_emit_edit_fields();
     if let Some(i) = fields.iter().position(|f| f.key == key) {
         let mut f = fields.row_data(i).unwrap();
@@ -100,13 +153,14 @@ pub(super) fn add(state: &mut State, app: &AppWindow, restore: bool) -> GuiResul
         .as_ref()
         .and_then(Workspace::project)
         .ok_or_else(|| invalid("Kilpailu puuttuu"))?;
+    if restore && basis.new {
+        return template(state, app, app.get_emit_edit_route());
+    }
     if restore {
-        let driver = project
-            .kilpailijat
-            .iter()
-            .find(|d| d.numero == basis.number)
-            .unwrap();
-        let content = project.active_readout(driver.emit).unwrap().content()?;
+        let content = project
+            .active_readout(basis.source_card)
+            .unwrap()
+            .content()?;
         app.set_emit_edit_fields(model(forms::emit_card_fields(
             project,
             basis.number,
@@ -144,6 +198,84 @@ pub(super) fn add(state: &mut State, app: &AppWindow, restore: bool) -> GuiResul
     app.set_emit_edit_error("".into());
     Ok(())
 }
+pub(super) fn select_driver(state: &mut State, app: &AppWindow, index: i32) -> GuiResult<()> {
+    let basis = state
+        .emit_edit_basis
+        .as_mut()
+        .ok_or_else(|| invalid("Avaa editori uudelleen"))?;
+    let project = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Kilpailu puuttuu"))?;
+    let driver = project
+        .kilpailijat
+        .get(index as usize)
+        .ok_or_else(|| invalid("Valitse kilpailija"))?;
+    basis.number = driver.numero;
+    app.set_emit_edit_driver(index);
+    app.set_emit_edit_card(driver.emit.to_string().into());
+    app.set_emit_edit_fields(model(forms::emit_card_fields(
+        project,
+        driver.numero,
+        &basis.content,
+    )?));
+    Ok(())
+}
+pub(super) fn insert(state: &mut State, app: &AppWindow, after: i32) -> GuiResult<()> {
+    add(state, app, false)?;
+    let mut fields = app.get_emit_edit_fields().iter().collect::<Vec<_>>();
+    let added = fields.split_off(fields.len() - 3);
+    let position = ((after + 1).max(0) as usize * 3).min(fields.len());
+    fields.splice(position..position, added);
+    for (i, field) in fields.iter_mut().enumerate() {
+        field.key = i as i32;
+    }
+    app.set_emit_edit_fields(model(fields));
+    Ok(())
+}
+pub(super) fn template(state: &mut State, app: &AppWindow, index: i32) -> GuiResult<()> {
+    let basis = state
+        .emit_edit_basis
+        .as_ref()
+        .ok_or_else(|| invalid("Avaa editori uudelleen"))?;
+    if !basis.new {
+        return Ok(());
+    }
+    let project = state
+        .workspace
+        .as_ref()
+        .and_then(Workspace::project)
+        .ok_or_else(|| invalid("Kilpailu puuttuu"))?;
+    let route = project
+        .radat
+        .get(index as usize)
+        .ok_or_else(|| invalid("Valitse rata"))?;
+    let mut content = vec![as2026::Punch {
+        code: 0,
+        elapsed_seconds: 0,
+    }];
+    content.extend(
+        route
+            .asemat
+            .iter()
+            .filter(|s| s.emit_koodi != 0)
+            .map(|s| as2026::Punch {
+                code: s.emit_koodi,
+                elapsed_seconds: 0,
+            }),
+    );
+    let mut fields = forms::emit_card_fields(project, basis.number, &content)?;
+    for field in fields.iter_mut().filter(|f| f.key % 3 == 1) {
+        field.value = "".into();
+        field.hours = "".into();
+        field.minutes = "".into();
+        field.seconds = "".into();
+    }
+    app.set_emit_edit_route(index);
+    app.set_emit_edit_fields(model(fields));
+    Ok(())
+}
 pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult<()> {
     if !save {
         state.emit_edit_basis = None;
@@ -159,7 +291,15 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
         .as_ref()
         .ok_or_else(|| invalid("Kilpailu puuttuu"))?;
     let project = ws.project().unwrap();
-    if basis.path != ws.path() || current_content(project, basis.number)? != basis.content {
+    if basis.path != ws.path()
+        || (!basis.new
+            && project
+                .active_readout(basis.source_card)
+                .map(|r| emit_corrections::effective_readout(project, r).and_then(|r| r.content()))
+                .transpose()?
+                .as_ref()
+                != Some(&basis.content))
+    {
         return Err(invalid(
             "Korttiluku on muuttunut muokkauksen aikana. Avaa leimat uudelleen",
         ));
@@ -184,9 +324,22 @@ pub(super) fn close(state: &mut State, app: &AppWindow, save: bool) -> GuiResult
         });
     }
     // Card order follows the supplied clocks, so a missing punch can be added anywhere in the editor.
-    punches.sort_by_key(|p| p.aika_sekuntia);
+    // Card order is explicit in the table; validation reports out-of-order times.
     let number = basis.number;
-    current_workspace(state)?.replace_emit_content(number, punches)?;
+    if app.get_emit_edit_driver() < 0 {
+        return Err(invalid("Valitse kilpailija, jolle korttiluku kuuluu"));
+    }
+    let source_card = basis.source_card;
+    let card = app
+        .get_emit_edit_card()
+        .trim()
+        .parse()
+        .map_err(|_| invalid("Anna Emit-numero kokonaislukuna"))?;
+    let new = basis.new;
+    if new && app.get_emit_edit_route() < 0 {
+        return Err(invalid("Valitse rata uudelle leimariville"));
+    }
+    current_workspace(state)?.save_emit_card_from(number, source_card, card, punches, new)?;
     app.set_emit_edit_open(false);
     state.emit_edit_basis = None;
     state.detail = -1;
@@ -254,9 +407,9 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
                 app.invoke_emit_edit_edited(0,"31".into());
                 app.invoke_emit_edit_edited(1,"12:05:00".into());
                 app.invoke_emit_edit_edited(5,"1".into()); // remove arbitrary extra punch
-                app.invoke_emit_edit_add(false);
-                app.invoke_emit_edit_edited(9,"99".into());
-                app.invoke_emit_edit_edited(10,"12:05:01".into());
+                app.invoke_emit_edit_insert(0);
+                app.invoke_emit_edit_edited(3,"99".into());
+                app.invoke_emit_edit_edited(4,"12:05:01".into());
                 save_view(&app,&directory.join("02-korjattu-kortti.png")).unwrap();
                 app.invoke_emit_edit_close(true);
                 assert!(!app.get_emit_edit_open(),"{}",app.get_emit_edit_error());
@@ -281,42 +434,35 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
                 let reopened=Workspace::open(ws.path()).unwrap();assert_eq!(reopened.project().unwrap().leimaluvut,raw);
                 println!("0.6.9 Emit-editori: kaikki leimat, kellosta laskettu korttiaika, lisäys, poisto, 99, virheellinen koodi, NAC/BC, peruutus ja uudelleenavaus hyväksytty.");
             }
-            5 => { app.invoke_open_emit_edit(); assert!(app.get_emit_edit_open()); }
-            6 | 7 => { smoke::key(&app, slint::platform::Key::Tab); }
-            8 => {
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
-                smoke::key(&app, "a");
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
-                smoke::key(&app, "42");
-                assert_eq!(app.get_emit_edit_fields().row_data(0).unwrap().value, "42", "Koe kirjoittaa ensin Emit-koodikenttään: {:?}", app.get_emit_edit_fields().iter().map(|f| f.value.to_string()).collect::<Vec<_>>());
+            5 => {
+                app.invoke_navigate(1); app.invoke_select_row(0); app.invoke_open_emit_edit();
+                assert!(app.get_emit_edit_open());
+                app.set_emit_edit_card("654321".into());
+                app.invoke_emit_edit_close(true);
+                assert!(!app.get_emit_edit_open(),"{}",app.get_emit_edit_error());
+                let state=state.borrow();let p=state.workspace.as_ref().unwrap().project().unwrap();
+                assert_eq!(p.kilpailijat[0].emit,654321);
+                assert_eq!(&p.leimaluvut[..raw.len()],raw.as_slice());
+                assert!(p.active_readout(654321).is_some());
+                println!("0.7.2 Emit-taulukko: lisäys väliin, välitön poisto ja korttinumeron korjaus hyväksytty.");
             }
-            9 | 12 => { smoke::key(&app, slint::platform::Key::Return); }
-            10 => {
-                save_view(&app, &directory.join("04-enterin-jalkeen.png")).unwrap();
-                smoke::key(&app, slint::platform::Key::Tab);
-            }
-            11 => {
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
-                smoke::key(&app, "a");
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
-                smoke::key(&app, "13");
-                assert!(app.get_emit_edit_fields().row_data(1).unwrap().value.starts_with("13:"), "Enter ja Tab siirtyvät seuraavalle kelloriville: {:?}", app.get_emit_edit_fields().iter().map(|f| f.value.to_string()).collect::<Vec<_>>());
-            }
+            6 => {app.invoke_navigate(1);app.invoke_select_row(0);app.window().set_size(slint::LogicalSize::new(1366.,900.));}
+            7 => {menu_smoke::click(&app,345.,140.);app.set_competitor_details_open(true);}
+            8 => {assert!(app.get_editor_scroll_min()<0.,"Näkyvän laajennetun editorin pitää ylivuotaa");app.set_editor_scroll_offset(app.get_editor_scroll_min());}
+            9 => {app.set_competitor_details_open(false);}
+            10 => {assert!(app.get_editor_scroll_offset()>=app.get_editor_scroll_min()-0.5);assert!(app.get_editor_scroll_offset()<=0.5);save_view(&app,&directory.join("05-vieritys-suljettuna.png")).unwrap();app.window().set_size(slint::LogicalSize::new(1366.,600.));app.set_competitor_details_open(true);}
+            11 => {app.set_editor_scroll_offset(app.get_editor_scroll_min());}
+            12 => {app.set_competitor_details_open(false);}
             13 => {
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() });
-                smoke::key(&app, slint::platform::Key::Tab);
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() });
+                assert!(app.get_editor_scroll_offset()>=app.get_editor_scroll_min()-0.5);assert!(app.get_editor_scroll_offset()<=0.5);save_view(&app,&directory.join("06-vieritys-pieni.png")).unwrap();
+                let mut state=state.borrow_mut();let mut p=state.workspace.as_ref().unwrap().project().unwrap().clone();p.leimaluvut.clear();p.emit_korjaukset.clear();for d in &mut p.kilpailijat{d.tallennettu_tulos=None;}for d in &mut p.bc_osallistujat{d.tallennettu_tulos=None;}
+                state.workspace=Some(Workspace::create_imported(&directory.join("tyhja-kortti"),p).unwrap());drop(state);
+                app.invoke_navigate(1);app.invoke_select_row(0);app.invoke_open_emit_edit();assert!(app.get_emit_edit_new());
             }
-            14 => {
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Control.into() });
-                smoke::key(&app, "a");
-                app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Control.into() });
-                smoke::key(&app, "43");
-                assert_eq!(app.get_emit_edit_fields().row_data(0).unwrap().value, "43", "Enter ja Shift+Tab palaavat edelliselle kentälle");
-                app.invoke_emit_edit_close(false);
-                println!("Enterin jälkeinen Tab/Shift+Tab hyväksytty oikealla näppäinsyötteellä.");
-                if let Some(timer)=tick_timer.upgrade(){timer.stop();} owner.borrow_mut().take();let _=slint::quit_event_loop();
-            }
+            14 => {app.invoke_emit_edit_template(0);assert_eq!(app.get_emit_edit_fields().row_count(),6);assert_eq!(app.get_emit_edit_fields().row_data(0).unwrap().value,"31");app.invoke_emit_edit_close(true);assert!(app.get_emit_edit_open(),"Tyhjiä kellonaikoja ei arvata");}
+            15 => {app.invoke_emit_edit_edited(1,"120500".into());app.invoke_emit_edit_edited(4,"121000".into());save_view(&app,&directory.join("07-tyhjalta-pohjalta.png")).unwrap();app.invoke_emit_edit_close(true);assert!(!app.get_emit_edit_open(),"{}",app.get_emit_edit_error());let state=state.borrow();let p=state.workspace.as_ref().unwrap().project().unwrap();assert!(p.leimaluvut[0].lahde.as_deref().unwrap().contains("Käsin"));}
+            16 => {let mut state=state.borrow_mut();let mut p=state.workspace.as_ref().unwrap().project().unwrap().clone();p.leimaluvut[0].emit=999001;p.kilpailijat[0].emit=555555;p.kilpailijat[0].tallennettu_tulos=None;for d in &mut p.bc_osallistujat{d.tallennettu_tulos=None;}state.workspace=Some(Workspace::create_imported(&directory.join("vaara-numero"),p).unwrap());drop(state);app.invoke_navigate(2);app.invoke_select_row(0);app.invoke_open_emit_edit();assert_eq!(app.get_emit_edit_driver(),-1);app.invoke_emit_edit_close(true);assert!(app.get_emit_edit_open());app.invoke_emit_edit_select_driver(0);}
+            17 => {app.invoke_emit_edit_close(true);assert!(!app.get_emit_edit_open(),"{}",app.get_emit_edit_error());let state=state.borrow();let p=state.workspace.as_ref().unwrap().project().unwrap();assert_eq!(p.leimaluvut[0].emit,999001);assert!(p.active_readout(555555).is_some());println!("0.7.2: vieritys, ratapohjasta luonti ja vääränumeroisen kortin kohdistus varmennettu natiivisti.");if let Some(timer)=tick_timer.upgrade(){timer.stop();}owner.borrow_mut().take();let _=slint::quit_event_loop();}
             _ => unreachable!(),
         }
         *phase.borrow_mut()+=1;

@@ -23,6 +23,11 @@ fn configuration(app: &AppWindow, local_only: bool) -> GuiResult<Config> {
         filename: field(7),
         public_url: field(8),
         local_directory: field(9),
+        refresh_seconds: field(10)
+            .parse::<u32>()
+            .ok()
+            .filter(|v| *v > 0)
+            .ok_or_else(|| invalid("Anna päivitysväliksi positiivinen sekuntimäärä."))?,
         local_only,
         classes: app
             .get_publish_classes()
@@ -47,12 +52,12 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
         if config.local_directory.is_empty(){config.local_directory=ws.path().parent().unwrap().join("livetulokset").display().to_string();}
         let choices=as2026::live_pages::class_choices(ws.project().unwrap()).unwrap_or_default();
         app.set_publish_classes(model(choices.into_iter().map(|code|DrawClassOption{label:code.clone().into(),selected:config.classes.is_empty()||config.classes.contains(&code),code:code.into()}).collect()));
-        let values=[config.host,config.port.to_string(),config.user,String::new(),config.key_file,config.fingerprint,config.directory,config.filename,config.public_url,config.local_directory];
-        let labels=["Palvelin","Portti (SFTP 22, FTP 21)","Käyttäjätunnus","Salasana tai yksityisen avaimen salasana (ei tallenneta)","Yksityisen avaimen paikallinen tiedostopolku (tyhjä = salasana)","SFTP-palvelimen SHA256-heksasormenjälki","Palvelimen kohdehakemisto","Tulostiedoston nimi (olemassa oleva tiedosto korvataan)","Julkinen tulososoite (valinnainen)","Paikallisten tulossivujen kansio"];
+        let values=[config.host,config.port.to_string(),config.user,String::new(),config.key_file,config.fingerprint,config.directory,config.filename,config.public_url,config.local_directory,if config.refresh_seconds == 0 { "60".into() } else {config.refresh_seconds.to_string()}];
+        let labels=["Palvelin","Portti (SFTP 22, FTP 21)","Käyttäjätunnus","Salasana tai yksityisen avaimen salasana (ei tallenneta)","Yksityisen avaimen paikallinen tiedostopolku (tyhjä = salasana)","SFTP-palvelimen SHA256-heksasormenjälki","Palvelimen kohdehakemisto","Tulostiedoston nimi (olemassa oleva tiedosto korvataan)","Julkinen tulososoite (valinnainen)","Paikallisten tulossivujen kansio","Selaimen päivitys ja sivukierto (s)"];
         app.set_publish_fields(model(values.into_iter().zip(labels).enumerate().map(|(key,(value,label))|ResultEntryInput{key:key as i32,label:label.into(),value:value.into()}).collect()));
         app.set_publish_protocol(i32::from(config.ftp));
         app.set_publish_running(s.publisher.is_some());
-        if s.publisher.is_none(){app.set_publish_status("Ei käynnissä. Testaa yhteys ennen aloittamista. Tulossivun päivitysväli on 60 s.".into());}
+        if s.publisher.is_none(){app.set_publish_status("Ei käynnissä. Testaa yhteys ennen aloittamista. Selaimen päivitysväli asetetaan yllä sekunteina.".into());}
         app.set_publish_open(true);
     }});
     let weak = app.as_weak();

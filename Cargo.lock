@@ -275,7 +275,7 @@ dependencies = [
 
 [[package]]
 name = "as2026"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "calamine",
  "chrono",
@@ -286,6 +286,7 @@ dependencies = [
  "getrandom 0.3.4",
  "image",
  "libssh2-sys",
+ "quick-xml",
  "reqwest",
  "rfd",
  "semver",
@@ -299,6 +300,7 @@ dependencies = [
  "ssh2",
  "tar",
  "toml 0.8.23",
+ "ttf-parser",
  "windows-sys 0.61.2",
  "zip 2.4.2",
 ]

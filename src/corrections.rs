@@ -301,6 +301,42 @@ impl StoredResult {
                 "Kellon tunnin on oltava 0–24 sekä minuuttien ja sekuntien 0–59".into(),
             ));
         }
+        let position = self
+            .rivit
+            .iter()
+            .position(|r| r.output_index == index)
+            .ok_or_else(|| CoreError::InvalidInput("Asemariviä ei löydy".into()))?;
+        if self.rivit[position].expected_code == 0 {
+            let seconds = |c: [i64; 3]| c[0] * 3600 + c[1] * 60 + c[2];
+            let origin = self.rivit.first().map_or(0, |r| seconds(r.clock));
+            let relative = |c| (seconds(c) - origin).rem_euclid(86_400);
+            let known = |r: &&StoredRow| {
+                r.sequence != 0
+                    && (r.station_type == "L"
+                        || self.kasin_annetut_kellot.contains(&r.output_index)
+                        || (r.expected_code != 0 && r.received_code == r.expected_code))
+            };
+            let before = self.rivit[..position].iter().rev().find(known);
+            let after = self.rivit[position + 1..].iter().find(known);
+            let entered = relative(clock);
+            if before.is_some_and(|r| entered < relative(r.clock))
+                || after.is_some_and(|r| entered > relative(r.clock))
+            {
+                let describe = |r: Option<&StoredRow>| {
+                    r.map_or("ei asemaa".into(), |r| {
+                        format!(
+                            "{} {:02}:{:02}:{:02}",
+                            r.name, r.clock[0], r.clock[1], r.clock[2]
+                        )
+                    })
+                };
+                return Err(CoreError::InvalidInput(format!(
+                    "Ajan pitää olla edellisen ja seuraavan aseman välissä: {} – {}",
+                    describe(before),
+                    describe(after)
+                )));
+            }
+        }
         let last = self.rivit.last().map(|r| r.output_index) == Some(index);
         let row = self.row_mut(index)?;
         row.clock = clock;
@@ -374,6 +410,17 @@ pub(crate) fn invalidate_input_changes(
         // Snapshotissa ei ole uuden kortin todistetta. Uusi kortti luetaan ja
         // kohdistetaan erikseen; aiempaa kortinhistoriaa ei poisteta.
         if driver.emit != old.emit {
+            let new_read = after
+                .leimaluvut
+                .iter()
+                .skip(before.leimaluvut.len())
+                .any(|read| read.emit == driver.emit && read.validate().is_ok());
+            if new_read && driver.tallennettu_tulos != old.tallennettu_tulos {
+                if let Some(result) = &mut driver.tallennettu_tulos {
+                    result.hyvaksytty = false;
+                }
+                continue;
+            }
             driver.tallennettu_tulos = None;
             continue;
         }

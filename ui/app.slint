@@ -135,6 +135,15 @@ export component AppWindow inherits Window {
     in-out property <[EditorField]> emit-edit-fields;
     in-out property <string> emit-edit-error;
     in-out property <string> emit-edit-history;
+    in-out property <[string]> emit-edit-competitors;
+    in-out property <int> emit-edit-driver;
+    callback emit-edit-select-driver(int);
+    in-out property <string> emit-edit-card;
+    in-out property <bool> emit-edit-new;
+    in-out property <[string]> emit-edit-routes;
+    in-out property <int> emit-edit-route: -1;
+    callback emit-edit-template(int);
+    callback emit-edit-insert(int);
     callback open-emit-edit();
     callback emit-edit-edited(int, string);
     callback emit-edit-add(bool);
@@ -251,7 +260,7 @@ export component AppWindow inherits Window {
         close-policy: close-on-click-outside;
         x: root.width - Theme.gutter - self.width;
         y: Theme.gutter + Theme.control-height + Theme.space-2;
-        width: 180px; height: 3 * Theme.control-height + 4 * Theme.space-2;
+        width: 220px; height: 5 * Theme.control-height + 6 * Theme.space-2;
         Rectangle {
             background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
             VerticalLayout {
@@ -259,12 +268,25 @@ export component AppWindow inherits Window {
                 export-excel := Button { text: "Excel (XLSX)"; clicked => { root.export-xlsx(); export-menu.close(); } }
                 Button { text: "CSV"; clicked => { root.export-csv(); export-menu.close(); } }
                 Button { text: "HTML"; clicked => { root.export-report(); export-menu.close(); } }
+                Button { text: "PDF"; clicked => { root.export-pdf(); export-menu.close(); } }
+                Button { text: "KITI Excel-pohjaan"; clicked => { root.export-kiti(); export-menu.close(); } }
             }
             FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { export-excel.focus(); } }
         }
     }
     in-out property <bool> export-open;
     changed export-open => { if !root.export-open { root.focus-page(); } }
+    in-out property <[DrawClassOption]> export-classes;
+    in-out property <bool> export-stations;
+    in-out property <string> kiti-template;
+    in-out property <string> kiti-codes;
+    in-out property <string> kiti-groups;
+    callback export-class-toggled(int, bool);
+    callback export-pdf();
+    callback export-kiti();
+    callback choose-kiti();
+    callback choose-logo();
+    callback clear-logo();
     in-out property <int> export-kind;
     in-out property <string> export-label;
     in-out property <string> export-path;
@@ -275,6 +297,8 @@ export component AppWindow inherits Window {
     in-out property <bool> note-details-open;
     in-out property <bool> notes-open;
     in-out property <bool> result-stations;
+    in-out property <length> editor-scroll-offset;
+    in-out property <length> editor-scroll-min;
     in-out property <bool> details-open;
     changed page => { root.details-open = false; root.result-stations = false; root.notes-open = false; }
     callback show-extras-menu();
@@ -770,7 +794,8 @@ export component AppWindow inherits Window {
                                     horizontal-stretch: 1;
                                     vertical-stretch: 0;
                                     fit-content: true;
-                                    heading: root.editor-title; description: root.editor-description;
+
+                            heading: root.editor-title; description: root.editor-description;
                                     fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             deletable: root.page == 4 && root.editable && !root.new-record;
                             delete => { root.delete-class(); }
@@ -782,9 +807,13 @@ export component AppWindow inherits Window {
                         }
                         if root.page != 3 && root.editor-visible: Editor {
                             width: parent.width; height: parent.height;
+                            scroll-offset <=> root.editor-scroll-offset; scroll-min <=> root.editor-scroll-min;
+                            can-edit-emit: root.page == 1 && root.editable && !root.new-record;
+                            edit-emit => { root.open-emit-edit(); }
                             details-open <=> root.competitor-details-open;
                             driver-layout: root.editor-title == "Kilpailijan tiedot";
                             horizontal-stretch: 0;
+
                             heading: root.editor-title; description: root.editor-description;
                             fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             deletable: root.page == 4 && root.editable && !root.new-record;
@@ -927,7 +956,8 @@ export component AppWindow inherits Window {
                                 horizontal-stretch: 1;
                                 vertical-stretch: 0;
                                 fit-content: true;
-                                heading: root.editor-title; description: root.editor-description;
+
+                            heading: root.editor-title; description: root.editor-description;
                                 fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             deletable: root.page == 4 && root.editable && !root.new-record;
                             delete => { root.delete-class(); }
@@ -941,7 +971,8 @@ export component AppWindow inherits Window {
                                 fit-content: true;
                                 station-layout: route-workspace.compact;
                                 record-key: root.selected-key + "/" + root.detail-key;
-                                heading: root.editor-title; description: root.editor-description;
+
+                            heading: root.editor-title; description: root.editor-description;
                                 fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
                             deletable: root.page == 4 && root.editable && !root.new-record;
                             delete => { root.delete-class(); }
@@ -994,6 +1025,12 @@ export component AppWindow inherits Window {
                                         Rectangle { horizontal-stretch: 1; }
                                     }
                                     Note { text: "Sijainnin vaihtaminen koskee uusia kilpailuja. Aiemmat kilpailut säilyvät paikoillaan."; }
+                                    Text { text: "PDF-tulosten logo"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                    HorizontalLayout {
+                                        Button { text: "Tallenna PNG-logo"; clicked => { root.choose-logo(); } }
+                                        Button { text: "Poista logo"; clicked => { root.clear-logo(); } }
+                                    }
+                                    Note { text: "Logo tulostuu PDF:n vasempaan ylänurkkaan 2 cm korkeana."; }
                                     Text { text: "Tulostin"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
                                     ComboBox { model: root.printers; current-index <=> root.printer-index; selected => { root.select-printer(self.current-index); } }
                                     Button { text: "Päivitä tulostinluettelo"; clicked => { root.refresh-printers(); } }
@@ -1030,7 +1067,14 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-3;
                     Heading { text: "Muokkaa kilpailijaa"; }
+                    Button { text: "Emit-leimat / Luo leimarivi"; enabled: root.editable; clicked => { root.edit-result-competitor(); root.open-emit-edit(); } }
                     competitor-scroll := ScrollView {
+                        scroll-clamp := Timer {
+                            interval: 16ms; running: true;
+                            triggered => {
+                                competitor-scroll.viewport-y = min(0px, max(competitor-scroll.viewport-y, competitor-scroll.visible-height - competitor-scroll.viewport-height));
+                            }
+                        }
                         horizontal-scrollbar-policy: always-off;
                         viewport-width: self.visible-width; viewport-height: competitor-editor.min-height;
                         competitor-editor := Editor {
@@ -1142,10 +1186,23 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 760px; preferred-dialog-height: 340px;
+                preferred-dialog-width: 760px; preferred-dialog-height: 700px;
                 VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-3;
                     Heading { text: "Vie tulokset · " + root.export-label; }
+                    if root.export-kind != 4: CheckBox { text: "Asemakohtaiset tulokset"; checked <=> root.export-stations; }
+                    if root.export-kind != 4: ScrollView {
+                        height: 240px;
+                        VerticalLayout { for item[i] in root.export-classes: CheckBox { text: item.label; checked: item.selected; toggled => { root.export-class-toggled(i, self.checked); } } }
+                    }
+                    if root.export-kind == 4: VerticalLayout {
+                        Note { text: "KITI-tilakoodit (TRK=numero,KESK=numero). Varmista koodit käyttämästäsi KITI-pohjasta."; }
+                        LineEdit { text <=> root.kiti-codes; }
+                        Note { text: "Luokkakohdistukset tarvittaessa: pohjan luokka=tulosryhmä; toinen luokka=tulosryhmä"; }
+                        LineEdit { text <=> root.kiti-groups; }
+
+                    }
+                    if root.export-kind == 4: Button { text: root.kiti-template == "" ? "Valitse KITI-Excel-pohja" : root.kiti-template; clicked => { root.choose-kiti(); } }
                     Text { text: "Tiedosto"; color: Theme.muted; font-size: Theme.label-font-size; }
                     HorizontalLayout {
                         spacing: Theme.space-2;
@@ -1509,6 +1566,10 @@ export component AppWindow inherits Window {
     if root.emit-edit-open: EmitCorrectionDialog {
         width: root.width; height: root.height;
         identity: root.emit-edit-identity; fields: root.emit-edit-fields;
+        competitors: root.emit-edit-competitors; driver <=> root.emit-edit-driver; select-driver(index) => { root.emit-edit-select-driver(index); }
+        card <=> root.emit-edit-card; new-card: root.emit-edit-new; routes: root.emit-edit-routes; route <=> root.emit-edit-route;
+        template(index) => { root.emit-edit-template(index); }
+        insert(index) => { root.emit-edit-insert(index); }
         error: root.emit-edit-error; history: root.emit-edit-history;
         edited(key, value) => { root.emit-edit-edited(key, value); }
         add(restore) => { root.emit-edit-add(restore); }

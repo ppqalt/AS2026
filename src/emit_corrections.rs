@@ -209,6 +209,14 @@ pub fn rows(project: &Project, number: u32) -> Result<Vec<Row>, CoreError> {
             .into_iter()
             .map(|r| {
                 let consumes = matches!(r.kind, MatchKind::Matched | MatchKind::Extra);
+                let source_position = if consumes {
+                    punches[position..]
+                        .iter()
+                        .position(|p| Some(*p) == r.punch)
+                        .map_or(position, |offset| position + offset)
+                } else {
+                    position
+                };
                 let row = Row {
                     index: r.output_index as u32,
                     sequence: r.station.as_ref().map_or(0, |s| s.sequence),
@@ -219,12 +227,12 @@ pub fn rows(project: &Project, number: u32) -> Result<Vec<Row>, CoreError> {
                     expected_code: r.station.as_ref().map_or(999, |s| s.expected_code),
                     code: r.punch.map_or(0, |p| p.code),
                     elapsed_seconds: r.punch.map_or(0, |p| p.elapsed_seconds),
-                    position,
+                    position: source_position,
                     consumes,
                     shared: r.kind == MatchKind::SharedUla,
                 };
                 if consumes {
-                    position += 1;
+                    position = source_position + 1;
                 }
                 row
             })
@@ -473,5 +481,77 @@ fn rebuild_results(project: &mut Project, number: u32) -> Result<(), CoreError> 
         // Myös tilapäisesti pois valittu BC-tulos on tarkistettava uudelleen.
         entry.tallennettu_tulos = None;
     }
+    Ok(())
+}
+
+/// Creates a traceable manual readout or copies the effective readout under a
+/// corrected card number. The original physical readout is never modified.
+pub fn save_card(
+    project: &mut Project,
+    number: u32,
+    card: u32,
+    punches: Vec<ReadPunch>,
+    new: bool,
+) -> Result<(), CoreError> {
+    let mut candidate = project.clone();
+    if card == 0
+        || candidate
+            .kilpailijat
+            .iter()
+            .any(|d| d.numero != number && d.emit == card)
+    {
+        return Err(invalid("Anna vapaa, nollaa suurempi Emit-numero"));
+    }
+    let old_card = candidate
+        .kilpailijat
+        .iter()
+        .find(|d| d.numero == number)
+        .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?
+        .emit;
+    if !new && old_card == card {
+        return replace_content(project, number, punches);
+    }
+    let origin = if new {
+        ReadPunch {
+            koodi: 0,
+            aika_sekuntia: 0,
+        }
+    } else {
+        let old = candidate
+            .active_readout(old_card)
+            .ok_or_else(|| invalid("Korttiluku puuttuu"))?;
+        content(&effective_readout(&candidate, old)?)?[0].clone()
+    };
+    let mut values = vec![origin];
+    values.extend(punches);
+    validate_content(&values)?;
+    let last = values.last().unwrap().aika_sekuntia;
+    let clock = clock_text(punch_clock(&candidate, number, i64::from(last))?);
+    values.push(ReadPunch {
+        koodi: 250,
+        aika_sekuntia: last,
+    });
+    let read = Readout {
+        emit: card,
+        lukukello: clock,
+        leimat: values,
+        luettu_unix_ms: None,
+        lahde: Some(if new {
+            "Käsin luotu Emit-rivi".into()
+        } else {
+            format!("Korttinumeron korjaus: {old_card} → {card}")
+        }),
+    };
+    read.validate()?;
+    candidate
+        .kilpailijat
+        .iter_mut()
+        .find(|d| d.numero == number)
+        .unwrap()
+        .emit = card;
+    candidate.leimaluvut.push(read);
+    rebuild_results(&mut candidate, number)?;
+    candidate.validate()?;
+    *project = candidate;
     Ok(())
 }
