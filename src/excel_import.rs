@@ -232,6 +232,7 @@ impl ImportPreview {
                     .unwrap_or(1),
                 lahtoaika: "00:00:00".into(),
                 lahtovali_minuutteina: 1,
+                lahtovali_sekuntia: None,
                 myohastymisraja_minuutteina: 60,
                 nousupisteet: 0,
                 sarjapistetapa: 0,

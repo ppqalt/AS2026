@@ -187,7 +187,7 @@ edellyttäviä taulukoita ei näytetä tyhjinä työalueina.
 ### Lähiverkon isäntänäkymä
 
 Parituskoodi on erotettu omaksi selkeäksi pinnakseen. Osoite, tila ja
-lopettaminen ovat erillisiä. Koodin 12 merkin suojaus säilyy; ulkoasu ei
+lopettaminen ovat erillisiä. PIN-koodi on nelinumeroinen ja epäonnistuneita yrityksiä rajoitetaan; ulkoasu ei
 lyhennä yhteyden salaisuutta. Liittymiskenttien Enter tekee saman kuin
 Yhdistä kilpailuun.
 

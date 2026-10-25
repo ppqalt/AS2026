@@ -628,12 +628,18 @@ pub fn xlsx_from_csv(csv: &str) -> Result<Vec<u8>, CoreError> {
     for (row_index, values) in csv_rows(csv).iter().enumerate() {
         sheet.push_str(&format!("<row r=\"{}\">", row_index + 1));
         for (col_index, value) in values.iter().enumerate() {
-            if col_index >= 26 {
+            if col_index >= 16_384 {
                 return Err(CoreError::InvalidInput(
-                    "XLSX-viennissä voi olla enintään 26 saraketta".into(),
+                    "Excelin sarakemäärä ylittyy".into(),
                 ));
             }
-            let column = char::from(b'A' + col_index as u8);
+            let mut number = col_index + 1;
+            let mut letters = Vec::new();
+            while number > 0 {
+                letters.push(char::from(b'A' + ((number - 1) % 26) as u8));
+                number = (number - 1) / 26;
+            }
+            let column = letters.into_iter().rev().collect::<String>();
             let reference = format!("{column}{}", row_index + 1);
             if row_index > 0
                 && matches!(col_index, 2 | 3 | 8 | 9 | 10)

@@ -18,7 +18,21 @@ pub fn match_operational_route(
     punches: &[Punch],
     official_start: ClockTime,
 ) -> Result<Vec<MatchedRow>, CoreError> {
-    match_route_inner(route, punches, official_start, true)
+    let mut normalized = Vec::with_capacity(punches.len());
+    let mut previous = None;
+    let mut battery = false;
+    for &punch in punches {
+        if matches!(punch.code, 99 | 999) {
+            battery = true;
+        } else {
+            if !(battery && previous == Some(punch.code)) {
+                normalized.push(punch);
+            }
+            previous = Some(punch.code);
+            battery = false;
+        }
+    }
+    match_route_inner(route, &normalized, official_start, true)
 }
 
 fn match_route_inner(

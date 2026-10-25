@@ -97,6 +97,14 @@ pub fn clean_path(value: &str) -> PathBuf {
 }
 
 pub fn parse_clock(value: &str) -> Result<ClockTime, CoreError> {
+    let value = value.trim();
+    if value.len() == 6 && value.bytes().all(|b| b.is_ascii_digit()) {
+        return ClockTime::new(
+            value[..2].parse().unwrap(),
+            value[2..4].parse().unwrap(),
+            value[4..].parse().unwrap(),
+        );
+    }
     let parts: Vec<&str> = value.trim().split(':').collect();
     if parts.len() != 3
         || parts
@@ -104,7 +112,7 @@ pub fn parse_clock(value: &str) -> Result<ClockTime, CoreError> {
             .any(|p| p.len() != 2 || !p.bytes().all(|c| c.is_ascii_digit()))
     {
         return Err(CoreError::InvalidInput(
-            "anna kellonaika muodossa HH:MM:SS, esimerkiksi 12:11:00".into(),
+            "anna kellonaika muodossa hhmmss, esimerkiksi 121100".into(),
         ));
     }
     let number = |p: &str| {

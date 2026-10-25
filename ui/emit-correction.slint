@@ -1,100 +1,73 @@
-import { Button, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ComboBox, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions, FormField } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { EditorField } from "types.slint";
-
-component CorrectionField inherits FocusScope {
-    in property <EditorField> data;
-    in property <int> index;
-    in property <int> focus-index;
-    in property <bool> focus-last;
-    callback edited(int, string);
-    callback next(int, bool);
-    height: field.min-height;
-    vertical-stretch: 0;
-    changed focus-index => { if root.index == root.focus-index { focus-timer.running = true; } }
-    focus-timer := Timer {
-        interval: 1ms;
-        triggered => { self.running = false; if root.index == root.focus-index { if root.focus-last { field.focus-last(); } else { field.focus-first(); } } }
-    }
-    capture-key-pressed(event) => {
-        if event.text == Key.Tab {
-            if event.modifiers.shift && field.first-focused() { root.next(root.index - 1, true); return accept; }
-            if !event.modifiers.shift && field.last-focused() { root.next(root.index + 1, false); return accept; }
-        }
-        reject
-    }
-    field := FormField {
-        width: parent.width;
-        label: root.data.label; value: root.data.value; hint: root.data.hint;
-        options: root.data.options; values: root.data.values; choice: root.data.choice;
-        duration: root.data.duration; hours: root.data.hours; minutes: root.data.minutes; seconds: root.data.seconds;
-        draft(value) => { root.edited(root.data.key, value); }
-        commit(value) => { root.edited(root.data.key, value); true }
-    }
-}
-
 export component EmitCorrectionDialog inherits Rectangle {
     in property <string> identity;
     in property <[EditorField]> fields;
     in property <string> error;
     in property <string> history;
+    in property <[string]> competitors;
+    in-out property <int> driver;
+    callback select-driver(int);
+    in-out property <string> card;
+    in property <bool> new-card;
+    in property <[string]> routes;
+    in-out property <int> route;
+    callback template(int);
+    callback insert(int);
     callback edited(int, string);
     callback close(bool);
     callback add(bool);
-    property <int> focus-index: -1;
-    property <bool> focus-last;
     background: Theme.modal-backdrop;
     TouchArea { }
     FocusScope {
         width: root.width; height: root.height;
-        init => { cancel.focus(); }
-        // Kenttien ja vieritysalueen valmistuttua sama turvallinen alkukohdistus kaikilla skaalauksilla.
-        Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
-            if event.text == Key.Tab && !event.modifiers.shift && save.has-focus { root.focus-last = false; root.focus-index = 0; return accept; }
-            if event.text == Key.Tab && event.modifiers.shift && cancel.has-focus { root.focus-last = true; root.focus-index = root.fields.length - 1; return accept; }
             reject
         }
         DialogSurface {
             available-width: root.width; available-height: root.height;
-            preferred-dialog-width: 620px; preferred-dialog-height: 740px;
+            preferred-dialog-width: 860px; preferred-dialog-height: 740px;
             VerticalLayout {
                 padding: Theme.dialog-padding; spacing: Theme.space-3;
-                Heading { text: "Muokkaa Emit-leimauksia"; vertical-stretch: 0; }
+                Heading { text: root.new-card ? "Luo Emit-leimarivi" : "Muokkaa Emit-leimauksia"; }
                 Note { text: root.identity; }
+                ComboBox { model: root.competitors; current-index <=> root.driver; selected => { root.select-driver(self.current-index); } }
                 HorizontalLayout {
-                    vertical-stretch: 0;
-                    Button { text: "+ Lisää leima"; clicked => { root.add(false); } }
+                    Note { text: "Emit-numero"; }
+                    LineEdit { text <=> root.card; }
+                }
+                if root.new-card: ComboBox { model: root.routes; current-index <=> root.route; selected => { root.template(self.current-index); } }
+                HorizontalLayout {
+                    Button { text: "+ Lisää alkuun"; clicked => { root.insert(-1); } }
                     Button { text: "Palauta alkuperäiset leimat"; clicked => { root.add(true); } }
                 }
+                Note { text: "Yksi leima rivillä. Anna kellonaika hhmmss tai hh:mm:ss. Alkuperäinen korttiluku säilyy historiassa. Tallennus laskee tulokset uudelleen ja poistaa hyväksynnät."; }
                 body := ScrollView {
                     horizontal-scrollbar-policy: always-off;
                     viewport-width: self.visible-width; viewport-height: content.min-height;
                     content := VerticalLayout {
-                        x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
+                        width: body.visible-width; height: self.min-height;
                         spacing: Theme.space-2; alignment: start;
-                        Note { text: "Korjaus laskee NAC- ja BC-tulokset uudelleen. Hyväksynnät ja asemien pistekorjaukset poistuvat. Käsikellot ja erilliset lisävirheet säilyvät."; }
-                        Note { text: "Anna puuttuvan leiman koodi ja kilpailukortin kellonaika hh:mm:ss. Korttiaika lasketaan automaattisesti. Leimat 99 ja 999 sivuutetaan. Valitse Poista leima poistaaksesi minkä tahansa leimauksen."; }
-                        for field[i] in root.fields: CorrectionField {
-                            data: field; index: i; focus-index: root.focus-index; focus-last: root.focus-last;
-                            edited(key, value) => { root.edited(key, value); }
-                            next(index, last) => {
-                                root.focus-index = -1;
-                                if index < 0 { save.focus(); }
-                                else if index >= root.fields.length { cancel.focus(); }
-                                else { root.focus-last = last; root.focus-index = index; }
+                        for field[i] in root.fields: Rectangle {
+                            height: Math.mod(i, 3) == 0 ? Theme.control-height : 0px;
+                            visible: Math.mod(i, 3) == 0;
+                            HorizontalLayout {
+                            spacing: Theme.space-2;
+                            LineEdit { preferred-width: 100px; accessible-label: "Leimasin"; text: field.value; edited => { root.edited(field.key, self.text); } }
+                            LineEdit { horizontal-stretch: 1; accessible-label: "Kellonaika"; text: root.fields[i + 1].value; placeholder-text: "hhmmss"; edited => { root.edited(root.fields[i + 1].key, self.text); } }
+                            Button { text: "Poista"; clicked => { root.edited(field.key + 2, "1"); } }
+                            Button { text: "Lisää leima"; clicked => { root.insert(i / 3); } }
                             }
                         }
-                        Note { text: "Alkuperäinen kortti säilyy Emit-lukuhistoriassa. Korjauksen voi perua valinnalla Palauta alkuperäiset leimat."; }
-                        if root.history != "": Note { text: root.history; }
                     }
                 }
-                if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; vertical-stretch: 0; }
+                if root.error != "": Text { text: root.error; color: Theme.danger; wrap: word-wrap; vertical-stretch: 0; }
                 DialogActions {
-                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
-                    save := AccentButton { text: "Tallenna korjaus"; clicked => { root.close(true); } }
+                    Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    AccentButton { text: "Tallenna korjaus"; clicked => { root.close(true); } }
                 }
             }
         }

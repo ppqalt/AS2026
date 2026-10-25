@@ -60,7 +60,7 @@ pub fn class_choices(project: &Project) -> Result<Vec<String>, CoreError> {
     let mut choices = Vec::new();
     for archive in archives(project)? {
         choices.extend(
-            application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag)?
+            application::rank_stored(&archive, TiePolicy::PairwiseControlComparison)?
                 .groups
                 .into_iter()
                 .map(|g| g.code),
@@ -69,6 +69,16 @@ pub fn class_choices(project: &Project) -> Result<Vec<String>, CoreError> {
     Ok(choices)
 }
 pub fn pages(project: &Project, settings: &Settings) -> Result<Vec<(PathBuf, String)>, CoreError> {
+    pages_with_interval(project, settings, 60)
+}
+pub fn pages_with_interval(
+    project: &Project,
+    settings: &Settings,
+    refresh_seconds: u32,
+) -> Result<Vec<(PathBuf, String)>, CoreError> {
+    if refresh_seconds == 0 {
+        return Err(invalid("Päivitysvälin pitää olla positiivinen"));
+    }
     let filename = settings
         .base
         .file_name()
@@ -83,13 +93,31 @@ pub fn pages(project: &Project, settings: &Settings) -> Result<Vec<(PathBuf, Str
     }
     let mut selected = Vec::new();
     for archive in archives(project)? {
-        let ranked = application::rank_stored(&archive, TiePolicy::KeepSharedAndFlag)?;
+        let ranked = application::rank_stored(&archive, TiePolicy::PairwiseControlComparison)?;
         for group in ranked.groups {
             if !settings.classes.contains(&group.code) {
                 continue;
             }
             let mut rows = String::new();
-            for entry in &group.entries {
+            let mut entries = group.entries.iter().collect::<Vec<_>>();
+            entries.sort_by_key(|e| {
+                (
+                    e.status != crate::ranking::Status::Classified,
+                    e.primary_position,
+                )
+            });
+            let pending = archive.competitors.iter().filter(|c| {
+                let member = if group.kind == crate::ranking::GroupKind::Ordinary { c.class_code == group.code } else {
+                    archive.basic.combined_classes.iter().any(|g| group.code == format!("Y{}: {}", g.first().map(String::as_str).unwrap_or(""), g.get(1).map(String::as_str).unwrap_or("")) && archive.basic.classes.iter().enumerate().any(|(i, class)| class.code == c.class_code && g.get(4 + i).is_some_and(|v| v == "1")))
+                };
+                member && !archive.can_publish_competitor(c)
+            }).map(|c| format!("<tr><td>—</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">AJAA</td></tr>", c.number, escape(&c.driver), escape(&c.navigator))).collect::<String>();
+            let mut pending_added = false;
+            for entry in entries {
+                if entry.status != crate::ranking::Status::Classified && !pending_added {
+                    rows.push_str(&pending);
+                    pending_added = true;
+                }
                 let Some(driver) = archive.competitors.iter().find(|c| {
                     i64::from(c.number) == entry.number && archive.can_publish_competitor(c)
                 }) else {
@@ -109,6 +137,9 @@ pub fn pages(project: &Project, settings: &Settings) -> Result<Vec<(PathBuf, Str
                 };
                 rows.push_str(&format!("<tr><td>{place}</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">{total}</td></tr>", driver.number, escape(&driver.driver), escape(&driver.navigator)));
             }
+            if !pending_added {
+                rows.push_str(&pending);
+            }
             selected.push((group.code, rows));
         }
     }
@@ -127,7 +158,7 @@ pub fn pages(project: &Project, settings: &Settings) -> Result<Vec<(PathBuf, Str
     let updated = chrono::Local::now().format("%d.%m.%Y %H:%M:%S").to_string();
     Ok(selected.iter().enumerate().map(|(i, (class, rows))| {
         let next = url(&names[(i + 1) % names.len()]);
-        let html = format!(r#"<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="60;url={next}"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><title>{competition} · {class}</title><style>
+        let html = format!(r#"<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="{refresh_seconds};url={next}"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><title>{competition} · {class}</title><style>
 :root{{color-scheme:light;font:16px/1.2 system-ui,sans-serif;color:#152433;background:#f2f5f8}}body{{margin:0}}header,main{{max-width:1400px;margin:auto;padding:.5rem 1rem}}h1{{font-size:1.6rem;margin:.15rem 0}}h2{{font-size:1.25rem;margin:0 0 .4rem}}p{{margin:.2rem 0}}.brand{{font-weight:750;letter-spacing:.06em;color:#245779;font-size:.8rem}}.subtitle{{color:#4d6375;font-size:.85rem}}section{{background:#fff;border:1px solid #d7e0e8;border-radius:10px;padding:.6rem}}.table-wrap{{overflow-x:auto}}table{{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}}th,td{{text-align:left;padding:.18rem .5rem;border-bottom:1px solid #dce4eb}}th{{background:#edf2f6;font-size:.9rem}}.numeric{{text-align:right;white-space:nowrap}}tbody tr:nth-child(even){{background:#f8fafc}}@media(max-width:600px){{:root{{font-size:13px}}header,main{{padding:.4rem}}th,td{{padding:.18rem .25rem}}}}
 </style></head><body><header><p class="brand">AS2026</p><h1>{competition}</h1><p class="subtitle">Epäviralliset tulokset · Päivitetty {updated} · Sivu {page}/{count}</p></header><main><section><h2>Luokka: {class}</h2><div class="table-wrap"><table><thead><tr><th>Sij.</th><th>Nro</th><th>Kuljettaja</th><th>Kartanlukija</th><th class="numeric">Tulos</th></tr></thead><tbody>{rows}</tbody></table></div></section></main></body></html>"#,
             competition=escape(&project.kilpailu.nimi), class=escape(class), page=i+1, count=selected.len());

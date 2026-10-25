@@ -103,7 +103,7 @@ pub(super) fn printers() -> Result<Vec<String>, String> {
     let flags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
     // SAFETY: Ensimmäinen kutsu kysyy puskurin koon, eikä kirjoita dataa.
     let first =
-        unsafe { EnumPrintersW(flags, null(), 4, null_mut(), 0, &mut needed, &mut returned) };
+        unsafe { EnumPrintersW(flags, null(), 2, null_mut(), 0, &mut needed, &mut returned) };
     if needed == 0 {
         return if first != 0 {
             Ok(Vec::new())
@@ -118,7 +118,7 @@ pub(super) fn printers() -> Result<Vec<String>, String> {
             EnumPrintersW(
                 flags,
                 null(),
-                4,
+                2,
                 data.as_mut_ptr().cast(),
                 needed,
                 &mut needed,
@@ -131,12 +131,12 @@ pub(super) fn printers() -> Result<Vec<String>, String> {
             }
             return Err(error("Tulostinluetteloa ei voitu hakea"));
         }
-        if returned as usize > size_of_val(data.as_slice()) / size_of::<PRINTER_INFO_4W>() {
+        if returned as usize > size_of_val(data.as_slice()) / size_of::<PRINTER_INFO_2W>() {
             return Err("Tulostinluettelon rakenne on virheellinen".into());
         }
-        // SAFETY: Win32 palautti returned kpl PRINTER_INFO_4W-rakenteita.
+        // SAFETY: Win32 palautti returned kpl PRINTER_INFO_2W-rakenteita.
         let printers = unsafe {
-            std::slice::from_raw_parts(data.as_ptr().cast::<PRINTER_INFO_4W>(), returned as usize)
+            std::slice::from_raw_parts(data.as_ptr().cast::<PRINTER_INFO_2W>(), returned as usize)
         };
         let mut names = printers
             .iter()

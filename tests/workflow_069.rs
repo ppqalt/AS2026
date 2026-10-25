@@ -214,7 +214,7 @@ fn classes_combined_classes_and_routes_remain_editable_after_scoring() {
         route: "1".into(),
         first_number: "8".into(),
         start_time: "12:01:00".into(),
-        interval_minutes: "1".into(),
+        interval_seconds: "60".into(),
         lateness_minutes: "60".into(),
         np_enabled: "0".into(),
         series_method: "0".into(),

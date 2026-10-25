@@ -499,7 +499,7 @@ impl Workspace {
     }
 
     pub fn ranking(&self) -> Result<RankingReport, CoreError> {
-        application::rank_stored(&self.results()?, TiePolicy::KeepSharedAndFlag)
+        application::rank_stored(&self.results()?, TiePolicy::PairwiseControlComparison)
     }
 
     fn update<T>(
@@ -786,14 +786,12 @@ impl Workspace {
             };
             match field {
                 ResultField::Clock => {
-                    let clock = value
-                        .trim()
-                        .split(':')
-                        .map(|v| number(v, "Kello"))
-                        .collect::<Result<Vec<i64>, _>>()?;
-                    let clock: [i64; 3] = clock
-                        .try_into()
-                        .map_err(|_| invalid("Anna kello muodossa 15:00:00"))?;
+                    let parsed = crate::terminal::parse_clock(value)?;
+                    let clock = [
+                        i64::from(parsed.hour),
+                        i64::from(parsed.minute),
+                        i64::from(parsed.second),
+                    ];
                     result.set_clock(row, clock)?;
                 }
                 ResultField::TimePenalty | ResultField::OtherPenalty => {
@@ -860,6 +858,49 @@ impl Workspace {
         match &mut self.source {
             Source::Native(store) => {
                 store.update(|p| crate::emit_corrections::replace_content(p, number, punches))
+            }
+            _ => Err(invalid("Avaa muokattava kilpailu")),
+        }
+    }
+
+    pub fn save_emit_card_from(
+        &mut self,
+        number: u32,
+        source_card: u32,
+        card: u32,
+        punches: Vec<native::ReadPunch>,
+        new: bool,
+    ) -> Result<(), CoreError> {
+        match &mut self.source {
+            Source::Native(store) => store.update(|p| {
+                if !new {
+                    if p.kilpailijat
+                        .iter()
+                        .any(|d| d.numero != number && d.emit == source_card)
+                    {
+                        return Err(invalid("Korttiluku kuuluu toiselle kilpailijalle"));
+                    }
+                    p.kilpailijat
+                        .iter_mut()
+                        .find(|d| d.numero == number)
+                        .ok_or_else(|| invalid("Kilpailija puuttuu"))?
+                        .emit = source_card;
+                }
+                crate::emit_corrections::save_card(p, number, card, punches, new)
+            }),
+            _ => Err(invalid("Avaa muokattava kilpailu")),
+        }
+    }
+    pub fn save_emit_card(
+        &mut self,
+        number: u32,
+        card: u32,
+        punches: Vec<native::ReadPunch>,
+        new: bool,
+    ) -> Result<(), CoreError> {
+        match &mut self.source {
+            Source::Native(store) => {
+                store.update(|p| crate::emit_corrections::save_card(p, number, card, punches, new))
             }
             _ => Err(invalid("Avaa muokattava kilpailu")),
         }
@@ -1003,7 +1044,9 @@ impl Workspace {
                     class.ensimmainen_numero = number(value, "Ensimmäinen numero")?
                 }
                 ClassField::Start => class.lahtoaika = value.trim().into(),
-                ClassField::Interval => class.lahtovali_minuutteina = number(value, "Lähtöväli")?,
+                ClassField::Interval => {
+                    class.lahtovali_sekuntia = Some(number(value, "Lähtöväli")?)
+                }
                 ClassField::Lateness => {
                     class.myohastymisraja_minuutteina = number(value, "Myöhästymisraja")?
                 }
@@ -1416,7 +1459,7 @@ pub struct ClassEdit {
     pub route: String,
     pub first_number: String,
     pub start_time: String,
-    pub interval_minutes: String,
+    pub interval_seconds: String,
     pub lateness_minutes: String,
     pub np_enabled: String,
     pub series_method: String,
@@ -1431,7 +1474,8 @@ impl ClassEdit {
             rata: number(&self.route, "Radan numero")?,
             ensimmainen_numero: number(&self.first_number, "Ensimmäinen numero")?,
             lahtoaika: self.start_time.trim().into(),
-            lahtovali_minuutteina: number(&self.interval_minutes, "Lähtöväli")?,
+            lahtovali_minuutteina: 0,
+            lahtovali_sekuntia: Some(number(&self.interval_seconds, "Lähtöväli")?),
             myohastymisraja_minuutteina: number(&self.lateness_minutes, "Myöhästymisraja")?,
             nousupisteet: optional_number(&self.np_enabled, "Nousupistevalinta")?.unwrap_or(0),
             sarjapistetapa: optional_number(&self.series_method, "Sarjapistemenetelmä")?

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StoredResult {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emit_kortti: Option<u32>,
     #[serde(default)]
     pub laskentatapa: StoredCalculationPolicy,
     #[serde(default)]
@@ -301,6 +303,42 @@ impl StoredResult {
                 "Kellon tunnin on oltava 0–24 sekä minuuttien ja sekuntien 0–59".into(),
             ));
         }
+        let position = self
+            .rivit
+            .iter()
+            .position(|r| r.output_index == index)
+            .ok_or_else(|| CoreError::InvalidInput("Asemariviä ei löydy".into()))?;
+        if self.rivit[position].expected_code == 0 {
+            let seconds = |c: [i64; 3]| c[0] * 3600 + c[1] * 60 + c[2];
+            let origin = self.rivit.first().map_or(0, |r| seconds(r.clock));
+            let relative = |c| (seconds(c) - origin).rem_euclid(86_400);
+            let known = |r: &&StoredRow| {
+                r.sequence != 0
+                    && (r.station_type == "L"
+                        || self.kasin_annetut_kellot.contains(&r.output_index)
+                        || (r.expected_code != 0 && r.received_code == r.expected_code))
+            };
+            let before = self.rivit[..position].iter().rev().find(known);
+            let after = self.rivit[position + 1..].iter().find(known);
+            let entered = relative(clock);
+            if before.is_some_and(|r| entered < relative(r.clock))
+                || after.is_some_and(|r| entered > relative(r.clock))
+            {
+                let describe = |r: Option<&StoredRow>| {
+                    r.map_or("ei asemaa".into(), |r| {
+                        format!(
+                            "{} {:02}:{:02}:{:02}",
+                            r.name, r.clock[0], r.clock[1], r.clock[2]
+                        )
+                    })
+                };
+                return Err(CoreError::InvalidInput(format!(
+                    "Ajan pitää olla edellisen ja seuraavan aseman välissä: {} – {}",
+                    describe(before),
+                    describe(after)
+                )));
+            }
+        }
         let last = self.rivit.last().map(|r| r.output_index) == Some(index);
         let row = self.row_mut(index)?;
         row.clock = clock;
@@ -371,9 +409,25 @@ pub(crate) fn invalidate_input_changes(
         else {
             continue;
         };
-        // Snapshotissa ei ole uuden kortin todistetta. Uusi kortti luetaan ja
-        // kohdistetaan erikseen; aiempaa kortinhistoriaa ei poisteta.
+        // Preserve only a snapshot explicitly recaptured for the newly recorded
+        // card. A prior card's snapshot is never transferred by a number edit.
         if driver.emit != old.emit {
+            let new_read = after
+                .leimaluvut
+                .iter()
+                .skip(before.leimaluvut.len())
+                .any(|read| read.emit == driver.emit && read.validate().is_ok());
+            if new_read
+                && driver
+                    .tallennettu_tulos
+                    .as_ref()
+                    .is_some_and(|r| r.emit_kortti == Some(driver.emit))
+            {
+                if let Some(result) = &mut driver.tallennettu_tulos {
+                    result.hyvaksytty = false;
+                }
+                continue;
+            }
             driver.tallennettu_tulos = None;
             continue;
         }
@@ -414,5 +468,47 @@ pub(crate) fn invalidate_input_changes(
                 result.hyvaksytty = false;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod card_identity_tests {
+    use super::*;
+    fn project() -> crate::native::Project {
+        let mut p = crate::native::Project::from_toml(include_str!(
+            "../fixtures/native-demo/kilpailu.toml"
+        ))
+        .unwrap();
+        p.kilpailijat[0].tallennettu_tulos =
+            Some(crate::application::capture_project_result(&p, 7).unwrap());
+        p
+    }
+    #[test]
+    fn newly_recaptured_card_survives_lan_input_invalidation() {
+        let before = project();
+        let mut after = before.clone();
+        let punches = after.leimaluvut[0]
+            .leimat
+            .iter()
+            .skip(1)
+            .take_while(|p| p.koodi != 250)
+            .cloned()
+            .collect();
+        crate::emit_corrections::save_card(&mut after, 7, 7002, punches, false).unwrap();
+        let snapshot = after.kilpailijat[0].tallennettu_tulos.clone();
+        assert_eq!(snapshot.as_ref().unwrap().emit_kortti, Some(7002));
+        invalidate_input_changes(&before, &mut after);
+        assert_eq!(after.kilpailijat[0].tallennettu_tulos, snapshot);
+    }
+    #[test]
+    fn new_read_does_not_transfer_an_old_cards_snapshot() {
+        let before = project();
+        let mut after = before.clone();
+        let mut read = after.leimaluvut[0].clone();
+        read.emit = 7002;
+        after.leimaluvut.push(read);
+        after.kilpailijat[0].emit = 7002;
+        invalidate_input_changes(&before, &mut after);
+        assert!(after.kilpailijat[0].tallennettu_tulos.is_none());
     }
 }
