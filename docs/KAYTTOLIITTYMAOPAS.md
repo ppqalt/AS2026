@@ -130,7 +130,9 @@ todista koko testimatriisin, fyysisen Emit-lukijan tai paperitulostimen toiminta
 LAN-ohje: [yhteiskäyttö ja palautuminen](LAHIVERKKO.md),
 [Windowsin ja UFW:n palomuuri](PALOMUURI.md).
 
-## Todelliset tarkistuskuvat
+## Todelliset betan tarkistuskuvat
+
+Kuvat on tuotettu 25.10.2026 Linuxin eristetyssä Slint-ohjelmistorenderöinnissä synteettisellä kilpailulla. Ne eivät ole WinUI 3 -referenssikuvia eikä niiden perusteella väitetä Windowsin pikselivastaavuutta.
 
 ### Luokan lisääminen
 
@@ -140,11 +142,11 @@ oma ikkuna säilyy Mikky100:n toteutuksena.
 
 ### Rataluettelo ja radan tiedot
 
-Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta. Versiossa
-0.7.0 myös tietokortin ja luettelon alareunat ovat rinnakkaisnäkymässä samalla
+Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta.
+Tietokortin ja luettelon alareunat ovat rinnakkaisnäkymässä samalla
 korkeudella. Otsikko kuuluu luettelon yläpuolelle; asemien oma toimintorivi säilyy erillisenä.
 
-![AS2026 0.7.0: Radat ja asemat, samankorkuiset rinnakkaispaneelit 1920 × 1080](kuvat/070-radat-1920x1080.png)
+![AS2026 Fluent 2 -beta: Radat ja asemat, samankorkuiset rinnakkaispaneelit 1920 × 1080](kuvat/fluent2-radat-1920x1080.png)
 
 ### Emit-historia ja luettu sisältö
 
@@ -152,7 +154,7 @@ Yhteinen otsikkorivi pitää molemmat taulukot samalla korkeudella.
 Muokkaa leimauksia avaa Mikky100:n koko kortin editorin. Alkuperäiset
 lukemat ja korjaukset säilyvät hänen tietomallissaan.
 
-![AS2026 0.7.0: Emit-historia ja leimat 1366 × 768](kuvat/070-emit-1366x768.png)
+![AS2026 Fluent 2 -beta: Emit-historia ja leimat 1366 × 768](kuvat/fluent2-emit-1366x768.png)
 
 ### Kilpailijan muokkaus
 
@@ -161,7 +163,7 @@ pysyvä Valmis-painike ja vierivä sisältö. Valmis, Esc ja sama muokkauskutsu
 sulkevat ikkunan vain, kun nykyinen validointi sallii sen. Tausta on näkyvissä
 neutraalisti tummennettuna. Mikky100:n Emit-korjauksen sekuntiyksikkö säilyy.
 
-![AS2026 0.7.0: Kilpailijan muokkaus ja neutraali taustapeite](kuvat/070-kilpailijan-muokkaus.png)
+![AS2026 Fluent 2 -beta: Kilpailijan muokkaus ja neutraali taustapeite](kuvat/fluent2-kilpailijan-muokkaus.png)
 
 ### Asetukset leveässä ja pienessä ikkunassa
 
@@ -170,9 +172,9 @@ sovellusasetukset. Pienessä ikkunassa sivu vierii; kaikkia asetuksia ei
 puristeta yhdelle ruudulle. Tab-järjestys etenee palstan alusta loppuun
 ja seuraavan palstan alkuun.
 
-![AS2026 0.7.0: Asetukset leveässä 2560 × 1440 -ikkunassa](kuvat/070-asetukset-2560x1440.png)
+![AS2026 Fluent 2 -beta: Asetukset leveässä 2560 × 1440 -ikkunassa](kuvat/fluent2-asetukset-2560x1440.png)
 
-![AS2026 0.7.0: Asetukset vierivät 900 × 600 -ikkunassa](kuvat/070-asetukset-900x600.png)
+![AS2026 Fluent 2 -beta: Asetukset vierivät 900 × 600 -ikkunassa](kuvat/fluent2-asetukset-900x600.png)
 
 ### Aloitus ilman kilpailua
 
@@ -192,7 +194,7 @@ Luokkavalinnat ja palvelinkentät vierivät, mutta julkaisutila ja alapainikkeet
 pysyvät näkyvissä. Paikallinen live ja palvelinjulkaisu ovat erillisiä toimintoja.
 Yhteyskoe ei kirjoita tuloksia palvelimelle.
 
-![AS2026 0.7.0: Livejulkaisu ja luokkavalinnat 900 × 600 -ikkunassa](kuvat/070-live-900x600.png)
+![AS2026 Fluent 2 -beta: Livejulkaisu ja luokkavalinnat 900 × 600 -ikkunassa](kuvat/fluent2-live-900x600.png)
 
 ## Kokeiden toistaminen
 

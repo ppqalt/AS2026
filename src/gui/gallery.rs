@@ -80,8 +80,12 @@ pub(super) fn run(
                     8 => { key(&app, Key::End); key(&app, "!"); assert!(app.get_sample_text().ends_with('!')); }
                     9 => { app.set_internal_scroll_offset(app.get_internal_scroll_minimum()); app.set_scroll_rows(2); }
                     10 => { assert_eq!(app.get_internal_scroll_offset(), 0., "Supistunut sisältö ei saa jäädä alueen ulkopuolelle"); app.set_scroll_rows(15); }
-                    11 => { assert_eq!(app.get_internal_scroll_offset(), 0., "Laajentuminen ei saa vierittää itsestään"); }
+                    11 => {
+                        assert_eq!(app.get_internal_scroll_offset(), 0., "Laajentuminen ei saa vierittää itsestään");
+                        app.set_internal_scroll_offset(-40.); app.set_scroll_rows(20);
+                    }
                     12..=27 => {
+                        if current == 12 { assert_eq!(app.get_internal_scroll_offset(), -40., "Laajentuminen säilyttää myös nollasta poikkeavan vierityskohdan"); }
                         let index = (current - 12) / 2;
                         if current % 2 == 0 {
                             app.set_appearance_index(index / 2);
@@ -102,9 +106,11 @@ pub(super) fn run(
                     }
                     29 => { key(&app, " "); assert!(app.get_sample_switch()); app.invoke_focus_number(); }
                     30 => { key(&app, Key::UpArrow); assert_eq!(app.get_sample_number(), 10); }
-                    31 => { key(&app, Key::DownArrow); assert_eq!(app.get_sample_number(), 5); capture(&app, &directory.join("lisakomponentit.png"))?; app.window().set_size(slint::LogicalSize::new(900., 600.)); }
-                    32 => { app.invoke_reset_scroll(); }
-                    33 => {
+                    31 => { key(&app, Key::DownArrow); assert_eq!(app.get_sample_number(), 5); capture(&app, &directory.join("lisakomponentit.png"))?; app.invoke_focus_menu(); key(&app, Key::Return); }
+                    32 => { assert!(app.get_popup_open(), "Valikkopainikkeen Enter avaa popupin"); capture(&app, &directory.join("valikko.png"))?; key(&app, Key::Escape); }
+                    33 => { assert!(!app.get_popup_open(), "Esc sulkee popupin ja päivittää laajentumistilan"); let scale = app.window().scale_factor(); app.window().set_size(slint::PhysicalSize::new((900. * scale) as u32, (600. * scale) as u32)); }
+                    34 => { app.invoke_reset_scroll(); }
+                    35 => {
                         let size = app.window().size();
                         let scale = app.window().scale_factor();
                         assert!((size.width as f32 / scale - 900.).abs() <= 2. && (size.height as f32 / scale - 600.).abs() <= 2., "Gallerian todellinen koko: {size:?}, skaala {scale}");

@@ -32,7 +32,7 @@ export component ResultSummary inherits Rectangle {
         spacing: Theme.space-2;
         Text {
             text: root.data.selected ? root.data.identity : "Kilpailijan tulos";
-            font-size: Theme.section-font-size; font-weight: 700; color: Theme.ink; wrap: word-wrap;
+            font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; color: Theme.ink; wrap: word-wrap;
         }
         Note { text: root.data.selected ? root.data.details : "Valitse kilpailija tulosluettelosta."; }
         if root.data.selected: VerticalLayout {
@@ -75,7 +75,7 @@ export component ResultSummary inherits Rectangle {
             Rectangle { height: 1px; background: Theme.line; }
             HorizontalLayout {
                 Text { text: "Yhteensä"; color: Theme.ink; font-size: Theme.body-font-size; font-weight: 600; horizontal-stretch: 1; }
-                Text { text: root.data.total; color: Theme.accent-text; font-size: Theme.section-font-size; font-weight: 700; }
+                Text { text: root.data.total; color: Theme.accent-text; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
             }
             if root.editable: AccentButton {
                 text: "Tulosta tulos";

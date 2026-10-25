@@ -6,7 +6,7 @@ import { TableRow, EditorField } from "types.slint";
 export component Heading inherits Text {
     color: Theme.ink;
     font-size: Theme.heading-font-size;
-    font-weight: 700;
+    font-weight: Theme.strong-font-weight;
 }
 
 export component Note inherits Text {
@@ -307,7 +307,7 @@ export component DataTable inherits Rectangle {
                     for title[i] in root.headers: Text {
                         text: title; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
-                        font-size: Theme.caption-font-size; font-weight: 700; color: Theme.muted;
+                        font-size: Theme.caption-font-size; font-weight: Theme.strong-font-weight; color: Theme.muted;
                         vertical-alignment: center;
                     }
                 }
@@ -499,7 +499,7 @@ export component Editor inherits Rectangle {
     editor-content := VerticalLayout {
         height: root.fit-content ? self.min-height : parent.height;
         padding: Theme.panel-padding; spacing: Theme.space-3;
-        Text { text: root.heading; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; wrap: word-wrap; }
+        Text { text: root.heading; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; wrap: word-wrap; }
         if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; }
         if root.description != "": Note { text: root.description; }
         if root.fit-content: EditorFields {
@@ -544,7 +544,7 @@ export component Metric inherits VerticalLayout {
     in property <string> label;
     in property <int> count;
     spacing: Theme.space-1;
-    Text { text: root.count; color: Theme.ink; font-size: 26px; font-weight: 700; }
+    Text { text: root.count; color: Theme.ink; font-size: 26px; font-weight: Theme.strong-font-weight; }
     Note { text: root.label; }
 }
 

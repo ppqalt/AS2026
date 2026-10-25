@@ -26,6 +26,8 @@ export component FluentGallery inherits Rectangle {
     in-out property<bool> sample-switch <=> sample-switch-control.checked;
     in-out property<int> sample-number <=> sample-spin.value;
     out property<string> sample-radio: sample-radio-control.current-value;
+    out property<bool> popup-open: gallery-popup.is-open;
+    public function focus-menu() { sample-menu.focus(); }
     public function focus-switch() { sample-switch-control.focus(); }
     public function focus-number() { sample-spin.focus(); }
     public function show-additional() { gallery-scroll.content-y = min(0px, gallery-scroll.content-y + 170px - extra-controls.absolute-position.y); }
@@ -227,16 +229,17 @@ export component FluentGallery inherits Rectangle {
                         UiInfoBar { text: "Komponentit käyttävät yhteistä teemaa."; }
                         UiInfoBar { severity: "warning"; text: "Tämä on esimerkkihuomautus."; }
                         UiValidationMessage { text: "Esimerkkivirhe: tarkista kentän sisältö."; }
-                        UiMenuButton { text: "Esimerkkivalikko"; clicked => { gallery-popup.show(); } }
+                        sample-menu := UiMenuButton { text: "Esimerkkivalikko"; expanded: gallery-popup.is-open; clicked => { gallery-popup.show(); } }
                         gallery-popup := PopupWindow {
                             width: 220px; height: 100px;
                             Rectangle {
                                 background: Theme.surface-raised; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
                                 VerticalLayout {
                                     padding: Theme.space-2;
-                                    UiButton { text: "Valitse toiminto"; clicked => { root.last-action = "Valikkotoiminto"; gallery-popup.close(); } }
+                                    popup-first := UiButton { text: "Valitse toiminto"; clicked => { root.last-action = "Valikkotoiminto"; gallery-popup.close(); } }
                                     UiButton { text: "Sulje valikko"; clicked => { gallery-popup.close(); } }
                                 }
+                                FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { popup-first.focus(); } }
                             }
                         }
                     }
@@ -282,6 +285,8 @@ export component GalleryWindow inherits Window {
     in-out property<int> scroll-rows <=> gallery.scroll-rows;
     in-out property<length> internal-scroll-offset <=> gallery.internal-scroll-offset;
     out property<length> internal-scroll-minimum: gallery.internal-scroll-minimum;
+    out property<bool> popup-open: gallery.popup-open;
+    public function focus-menu() { gallery.focus-menu(); }
     out property<bool> sample-switch <=> gallery.sample-switch;
     out property<int> sample-number <=> gallery.sample-number;
     out property<string> sample-radio: gallery.sample-radio;
