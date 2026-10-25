@@ -1,0 +1,23 @@
+name: Beta Slint lockfile migration (temporary)
+on:
+  push:
+    branches:
+      - beta/fluent2-v071
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Resolve pinned Slint 1.18.1 lockfile
+        run: |
+          cargo +stable update -p slint --precise 1.18.1
+          cargo +stable update -p slint-build --precise 1.18.1
+          cargo +stable metadata --format-version 1 --locked --no-deps > /dev/null
+          echo 'AS2026_CARGO_LOCK_BEGIN'
+          cat Cargo.lock
+          echo 'AS2026_CARGO_LOCK_END'
