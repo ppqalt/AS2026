@@ -173,6 +173,10 @@ export component AppWindow inherits Window {
     }
     in-out property <bool> dialog-open;
     in-out property <bool> about-open;
+    // User-selected optional UI animations/effects; persisted by Rust.
+    in-out property <bool> effects-enabled: false;
+    callback set-effects-enabled(bool);
+    changed effects-enabled => { Theme.effects-enabled = root.effects-enabled; }
     property <string> tung-keys;
     in-out property <bool> tung-active;
     in-out property <[int]> tung-speeds;
@@ -180,7 +184,7 @@ export component AppWindow inherits Window {
     callback tung-start();
     Timer {
         interval: 5s;
-        running: root.tung-active;
+        running: root.effects-enabled && root.tung-active;
         triggered => { root.tung-active = false; }
     }
     Timer {
@@ -1310,6 +1314,14 @@ export component AppWindow inherits Window {
                     Text { text: "AS2026:n oma koodi: BSD-2-Clause-lisenssi"; color: Theme.ink; font-size: Theme.body-font-size; }
                     Note { text: "Käyttö, muokkaus ja jakelu on sallittu lisenssin ehdoin. Tekijänoikeusilmoitus ja lisenssiehdot säilytetään jaettaessa. Ei takuuta."; }
                     AboutSlint { horizontal-stretch: 1; height: 170px; }
+                    Rectangle { height: Theme.space-3; }
+                    Text { text: "Ulkoasutehosteet"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; }
+                    CheckBox {
+                        text: "Ota animaatiot ja tehosteet käyttöön";
+                        checked <=> root.effects-enabled;
+                        toggled => { root.set-effects-enabled(self.checked); }
+                    }
+                    Note { text: "Oletus on pois käytöstä. Valinta ohjaa kaikkia betan valinnaisia animaatioita ja tehosteita. Sumennus ja muut uudet tehosteet lisätään vasta niiden toteutuksen ja testauksen jälkeen."; }
                     }
                     }
                     DialogActions { about-close := Button { text: "Sulje"; clicked => { root.about-open = false; } } }
@@ -1546,7 +1558,7 @@ export component AppWindow inherits Window {
         close(accepted) => { root.print-classes-close(accepted); }
     }
     // Paikallinen yllätys: sama kuva 16 kertaa, kukin omalla pyörimisnopeudella.
-    if root.tung-active: Rectangle {
+    if root.effects-enabled && root.tung-active: Rectangle {
         width: root.width; height: root.height;
         background: transparent;
         for speed[index] in root.tung-speeds: Image {
