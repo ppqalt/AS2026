@@ -29,6 +29,18 @@ Windows 11:n design-ohjeet ovat visuaalinen vertailukohta. **Slint ei ole WinUI 
 - Sivupalkin **Päivitykset ↻**- ja **Tietoja**-painikkeet ovat käyttäjän nimeämä nykyinen visuaalinen vertailukohta, **eivät hyväksytty lopullinen komponenttimalli**.
 - `docs/KAYTTOLIITTYMAOPAS.md` ja `docs/README.md` kuvaavat edelleen 0.7.0:aa. Nykyinen käyttöliittymäopas sekoittaa käyttäjälle tarkoitetut toimintaohjeet, komponenttien lähdekoodikartan ja visuaaliset parametrit. Jaa nämä selkeisiin, eri tarkoituksia palveleviin ohjeisiin.
 
+## Animaatiot, sumennus ja muut visuaaliset tehosteet — käyttäjän päätös
+
+**Käyttäjän vaatimus (25.10.2026): kaikki valinnaiset, suorituskykyyn vaikuttavat animaatiot ja visuaaliset tehosteet ovat OLETUKSENA POIS käytöstä.** Niille on yksi yhteinen, pysyvä valinta nimenomaan **Tietoja AS2026:sta** -ikkunassa: **Ota animaatiot ja tehosteet käyttöön**. Älä tee monia erillisiä asetuksia tai käänteistä `Poista tehosteet käytöstä` -valintaa.
+
+- Valinta tallennetaan käyttäjän sovellusasetuksiin eikä kilpailukohtaiseen aineistoon. Puuttuva/vanha asetus tarkoittaa `false`; tallennusvirhe palauttaa edellisen arvon ja näyttää virheen.
+- Yksi keskitetty `Theme.effects-enabled`-portti ohjaa Slintin valinnaisia hover-/painallus-/navigaatioanimaatioita, popup- ja sivusiirtymiä, läpikuultavuutta, varjoja, blur-efektejä, mahdollisia Mica/Acrylic-taustoja ja muita tulevia valinnaisia GPU/CPU-kustannuksia. Jokaisen uuden tehosteen on kunnioitettava porttia.
+- Pois päältä: animaatiot eivät käynnisty, ajastimia ei pyöritetä niille tarpeettomasti, valinnaista blurria tai taustamateriaaleja ei alusteta/ylläpidetä. Ei näytön jatkuvaa ylimääräistä piirtämistä. Peruskäytettävyys, kontrasti, fokusmerkinnät ja virhetilat pysyvät näkyvinä ilman animaatioita.
+- Päällä: vain todella toteutetut, testatut ja alustalla tuetut Fluent/Windows 11 -tehosteet aktivoidaan; niidenkin tulee noudattaa tarkoituksenmukaisia rajoja.
+- **Ensimmäinen beta-vaihe:** lisätty Tietoja-ikkunan valinta ja käyttäjäasetuksen tallennus sekä keskitetty tehosteportti. Vain ensimmäiset Fluent-painike- ja sivupalkkianimaatiot on sidottu porttiin. **Windowsin oikeaa Mica/Acrylic-sumennusta eikä kaikkia tehosteita ole vielä toteutettu.** Älä kuvaa niitä valmiiksi käyttäjäoppaissa tai PR:ssä.
+
+Testaa erityisesti: uusi asennus (pois), vanhojen asetusten migraatio (pois), päälle/pois ilman uudelleenkäynnistystä, asetuksen pysyvyys uudelleenkäynnistyksessä, epäonnistunut tallennus, Linux ilman Windows-efektejä, Windowsin laitekiihdytys ja ohjelmistorenderöinti sekä ettei mikään uusi animaatio toimi valinnan ollessa pois.
+
 ## Koko käyttöliittymän tarkastus
 
 Käy jokainen kohta läpi sekä vaaleassa että tummassa tilassa ja kaikissa olennaisissa ohjain-/virhetiloissa.
