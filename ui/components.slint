@@ -292,11 +292,11 @@ export component DataTable inherits Rectangle {
         width: root.width - 2px; height: root.height - 2px;
         horizontal-scrollbar-policy: as-needed;
         vertical-scrollbar-policy: always-off;
-        viewport-width: max(self.visible-width, root.content-min-width);
-        viewport-height: self.visible-height;
+        content-width: max(self.visible-width, root.content-min-width);
+        content-height: self.visible-height;
         VerticalLayout {
             x: 0px; y: 0px;
-            width: horizontal.viewport-width;
+            width: horizontal.content-width;
             height: horizontal.visible-height;
             spacing: 0px;
             Rectangle {
@@ -315,14 +315,14 @@ export component DataTable inherits Rectangle {
                 vertical-stretch: 1;
                 list := ListView {
                     // Pystyvieritys pysyy ikkunan reunassa myös vaakavierityksen aikana.
-                    x: -horizontal.viewport-x;
+                    x: -horizontal.content-x;
                     width: horizontal.visible-width;
-                    viewport-width: horizontal.viewport-width;
-                    viewport-x <=> horizontal.viewport-x;
+                    content-width: horizontal.content-width;
+                    content-x <=> horizontal.content-x;
                     horizontal-scrollbar-policy: always-off;
                     for row[index] in root.rows: Rectangle {
                         property <bool> active: row.key == root.selected-key;
-                        width: horizontal.viewport-width;
+                        width: horizontal.content-width;
                         height: Theme.row-height;
                         background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
                         HorizontalLayout {
@@ -344,7 +344,7 @@ export component DataTable inherits Rectangle {
                 }
                 if root.rows.length == 0: Text {
                     text: root.empty-text; color: Theme.muted; font-size: Theme.body-font-size;
-                    x: 20px - horizontal.viewport-x; y: 0px;
+                    x: 20px - horizontal.content-x; y: 0px;
                     width: horizontal.visible-width - 40px; height: parent.height;
                     horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
                 }
@@ -512,8 +512,8 @@ export component Editor inherits Rectangle {
         }
         if !root.fit-content: fields-scroll := ScrollView {
             horizontal-scrollbar-policy: always-off;
-            viewport-y <=> root.scroll-offset;
-            viewport-height: scroll-fields.min-height;
+            content-y <=> root.scroll-offset;
+            content-height: scroll-fields.min-height;
             scroll-fields := EditorFields {
                 x: 0px; y: 0px;
                 width: fields-scroll.visible-width;

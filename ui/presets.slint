@@ -51,8 +51,9 @@ export component UiCard inherits Rectangle {
 }
 
 export component UiSeparator inherits Rectangle {
-    height: 1px;
+    preferred-height: 1px;
     min-height: 1px;
+    max-height: 1px;
     vertical-stretch: 0;
     background: Theme.line;
 }
@@ -78,7 +79,7 @@ export component UiSlider inherits Rectangle {
     private property <length> track-start: root.thumb-diameter / 2;
     private property <length> track-length: max(1px, root.width - root.thumb-diameter);
 
-    width: 260px;
+    preferred-width: 260px;
     min-width: 100px;
     preferred-height: root.preset-size == "large" ? 44px : 36px;
     height: root.preset-size == "large" ? 44px : 36px;

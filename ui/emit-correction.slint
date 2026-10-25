@@ -71,7 +71,7 @@ export component EmitCorrectionDialog inherits Rectangle {
                 }
                 body := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width; viewport-height: content.min-height;
+                    content-width: self.visible-width; content-height: content.min-height;
                     content := VerticalLayout {
                         x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
                         spacing: Theme.space-2; alignment: start;

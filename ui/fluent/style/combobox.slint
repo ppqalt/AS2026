@@ -22,9 +22,8 @@ export component ComboBox {
     property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * FluentSizeSettings.item-height;
     property <int> visible-items: min(6, model.length);
 
-    min-width: max(160px, layout.min-height);
-    min-height: max(root.control-height, layout.min-height);
-    preferred-height: root.control-height;
+    min-width: max(160px, layout.min-width);
+    min-height: max(32px, layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: base;
@@ -78,12 +77,12 @@ export component ComboBox {
             spacing: Theme.space-2;
 
             text := Text {
+                horizontal-stretch: 1;
                 horizontal-alignment: left;
                 vertical-alignment: center;
-                font-size: FluentFontSettings.body.font-size;
-                font-weight: FluentFontSettings.body.font-weight;
                 color: FluentPalette.control-foreground;
                 text: root.current-value;
+                overflow: elide;
                 accessible-role: none;
             }
 
@@ -123,11 +122,7 @@ export component ComboBox {
 
             MenuBorder {
                 ScrollView {
-                    horizontal-scrollbar-policy: always-off;
-                    vertical-scrollbar-policy: root.model.length > root.visible-items ? as-needed : always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: root.model.length * FluentSizeSettings.item-height + 2 * root.popup-padding;
-                    viewport-y: root.popup-scroll-y;
+                    content-y: root.popup-scroll-y;
 
                     VerticalLayout {
                         alignment: start;

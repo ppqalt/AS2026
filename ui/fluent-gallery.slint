@@ -34,8 +34,8 @@ export component FluentGallery inherits Rectangle {
         gallery-scroll := UiScrollView {
             vertical-stretch: 1;
             horizontal-stretch: 1;
-            viewport-width: self.visible-width;
-            viewport-height: gallery-content.min-height;
+            content-width: self.visible-width;
+            content-height: gallery-content.min-height;
             gallery-content := VerticalLayout {
                 x: 0px; y: 0px;
                 width: gallery-scroll.visible-width;
@@ -146,8 +146,8 @@ export component FluentGallery inherits Rectangle {
                         internal-scroll := UiScrollView {
                             height: 130px;
                             horizontal-scrollbar-policy: always-off;
-                            viewport-width: self.visible-width;
-                            viewport-height: long-content.min-height;
+                            content-width: self.visible-width;
+                            content-height: long-content.min-height;
                             long-content := VerticalLayout {
                                 x: 0px; y: 0px;
                                 width: internal-scroll.visible-width;

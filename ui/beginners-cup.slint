@@ -96,8 +96,8 @@ export component BeginnersCupDialog inherits Rectangle {
                     x: 0px; y: 0px;
                     width: parent.width; height: parent.height;
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: body-content.min-height;
+                    content-width: self.visible-width;
+                    content-height: body-content.min-height;
                     scrolled => { keys.focus(); }
                     body-content := VerticalLayout {
                         x: 0px; y: 0px;
@@ -133,8 +133,8 @@ export component BeginnersCupDialog inherits Rectangle {
                         y: participant-note.height + Theme.space-3;
                         width: parent.width; height: max(0px, parent.height - self.y);
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: participant-entries.min-height;
+                        content-width: self.visible-width;
+                        content-height: participant-entries.min-height;
                         participant-entries := VerticalLayout {
                             x: 0px; y: 0px;
                             width: participant-list.visible-width; height: self.min-height;
@@ -151,8 +151,8 @@ export component BeginnersCupDialog inherits Rectangle {
                                     if root.focus-index == index {
                                     let top = index * (Theme.control-height + Theme.space-2);
                                     let bottom = top + Theme.control-height;
-                                    if top < -participant-list.viewport-y { participant-list.viewport-y = -top; }
-                                    else if bottom > -participant-list.viewport-y + participant-list.visible-height { participant-list.viewport-y = min(0px, participant-list.visible-height - bottom); }
+                                    if top < -participant-list.content-y { participant-list.content-y = -top; }
+                                    else if bottom > -participant-list.content-y + participant-list.visible-height { participant-list.content-y = min(0px, participant-list.visible-height - bottom); }
                                     }
                                 }
                             }

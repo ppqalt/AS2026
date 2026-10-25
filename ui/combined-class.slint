@@ -69,8 +69,8 @@ export component CombinedClassDialog inherits Rectangle {
                     min-height: 0px;
                     vertical-stretch: 1;
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: entries.min-height;
+                    content-width: self.visible-width;
+                    content-height: entries.min-height;
                     entries := VerticalLayout {
                         width: body.visible-width; height: self.min-height;
                         alignment: start; spacing: Theme.space-2;
@@ -86,8 +86,8 @@ export component CombinedClassDialog inherits Rectangle {
                                 root.focus-index = index;
                                 let top = index * (Theme.control-height + Theme.space-2);
                                 let bottom = top + Theme.control-height;
-                                if top < -body.viewport-y { body.viewport-y = -top; }
-                                else if bottom > -body.viewport-y + body.visible-height { body.viewport-y = min(0px, body.visible-height - bottom); }
+                                if top < -body.content-y { body.content-y = -top; }
+                                else if bottom > -body.content-y + body.visible-height { body.content-y = min(0px, body.visible-height - bottom); }
                             }
                         }
                     }

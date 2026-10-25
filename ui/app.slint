@@ -447,8 +447,8 @@ export component AppWindow inherits Window {
                     vertical-stretch: 1;
                     horizontal-stretch: 1;
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: nav-items.min-height;
+                    content-width: self.visible-width;
+                    content-height: nav-items.min-height;
                     nav-items := VerticalLayout {
                         x: 0px; y: 0px;
                         width: nav-scroll.visible-width;
@@ -541,7 +541,7 @@ export component AppWindow inherits Window {
                 }
                 if root.page == 0: overview-scroll := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width; viewport-height: overview-content.min-height;
+                    content-width: self.visible-width; content-height: overview-content.min-height;
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
                     overview-content := VerticalLayout {
@@ -756,8 +756,8 @@ export component AppWindow inherits Window {
                         if root.page == 3 && root.result-overview.selected: result-panel := ScrollView {
                             horizontal-stretch: 0;
                             vertical-stretch: 1;
-                            viewport-width: self.visible-width;
-                            viewport-height: result-content.min-height;
+                            content-width: self.visible-width;
+                            content-height: result-content.min-height;
                             horizontal-scrollbar-policy: always-off;
                             result-content := VerticalLayout {
                                 x: 0px; y: 0px;
@@ -847,7 +847,7 @@ export component AppWindow inherits Window {
                                     DataTable {
                                         rows: root.rows; headers: root.headers; weights: root.weights;
                                         selected-key: root.selected-key;
-                                        selected(key) => { root.select-row(key); route-menu.close(); route-details.viewport-y = 0px; }
+                                        selected(key) => { root.select-row(key); route-menu.close(); route-details.content-y = 0px; }
                                     }
                                 }
                             }
@@ -862,7 +862,7 @@ export component AppWindow inherits Window {
                                 rows: root.rows; headers: root.headers; weights: root.weights;
                                 selected-key: root.selected-key;
                                 empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
-                                selected(key) => { root.select-row(key); route-details.viewport-y = 0px; }
+                                selected(key) => { root.select-row(key); route-details.content-y = 0px; }
                             }
                             HorizontalLayout {
                                 vertical-stretch: 0;
@@ -901,7 +901,7 @@ export component AppWindow inherits Window {
                                 rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
                                 selected-key: root.detail-key;
                                 empty-text: "Valitse rata yllä olevasta luettelosta.";
-                                selected(key) => { root.select-detail(key); route-workspace.show-details = true; route-details.viewport-y = 0px; }
+                                selected(key) => { root.select-detail(key); route-workspace.show-details = true; route-details.content-y = 0px; }
                             }
                         }
                         }
@@ -912,14 +912,14 @@ export component AppWindow inherits Window {
                             height: route-workspace.content-height - (route-workspace.compact ? 0px : 22px + Theme.space-2);
                             visible: route-workspace.details-visible;
                             horizontal-scrollbar-policy: always-off;
-                            viewport-width: self.visible-width; viewport-height: route-content.min-height;
+                            content-width: self.visible-width; content-height: route-content.min-height;
                         route-content := VerticalLayout {
                             x: 0px; y: 0px; width: route-details.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
                             if route-workspace.compact && root.editor-visible && (root.editor-title == "Aseman tiedot" || root.editor-title == "Uusi asema"): HorizontalLayout {
                                 height: Theme.control-height; vertical-stretch: 0; spacing: Theme.space-2; alignment: start;
-                                Button { text: "Radan tiedot"; checkable: true; checked: !root.station-editor-focused; clicked => { root.station-editor-focused = false; route-details.viewport-y = 0px; } }
-                                Button { text: "Aseman tiedot"; checkable: true; checked: root.station-editor-focused; clicked => { root.station-editor-focused = true; route-details.viewport-y = 0px; } }
+                                Button { text: "Radan tiedot"; checkable: true; checked: !root.station-editor-focused; clicked => { root.station-editor-focused = false; route-details.content-y = 0px; } }
+                                Button { text: "Aseman tiedot"; checkable: true; checked: root.station-editor-focused; clicked => { root.station-editor-focused = true; route-details.content-y = 0px; } }
                             }
                             if root.route-editor-visible && (!route-workspace.compact || !root.station-editor-focused): Editor {
                                 horizontal-stretch: 1;
@@ -964,7 +964,7 @@ export component AppWindow inherits Window {
                 }
                 if root.page == 6: settings-scroll := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width; viewport-height: settings-content.height;
+                    content-width: self.visible-width; content-height: settings-content.height;
                     settings-content := Rectangle {
                         x: 0px; y: 0px;
                         width: min(Theme.settings-max-width, settings-scroll.visible-width);
@@ -1041,7 +1041,7 @@ export component AppWindow inherits Window {
                     Heading { text: "Muokkaa kilpailijaa"; }
                     competitor-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width; viewport-height: competitor-editor.min-height;
+                        content-width: self.visible-width; content-height: competitor-editor.min-height;
                         competitor-editor := Editor {
                             width: competitor-scroll.visible-width;
                             fit-content: true;
@@ -1095,7 +1095,7 @@ export component AppWindow inherits Window {
                     lan-dialog-scroll := ScrollView {
                         horizontal-stretch: 1; vertical-stretch: 1;
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width; viewport-height: lan-dialog-body.min-height;
+                        content-width: self.visible-width; content-height: lan-dialog-body.min-height;
                         lan-dialog-body := VerticalLayout {
                             width: lan-dialog-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3; alignment: start;
@@ -1194,7 +1194,7 @@ export component AppWindow inherits Window {
                     Heading { text: "Tulosten huomautukset"; vertical-stretch: 0; }
                     notes-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width; viewport-height: notes-text.preferred-height;
+                        content-width: self.visible-width; content-height: notes-text.preferred-height;
                         notes-text := Note { width: notes-scroll.visible-width; height: self.preferred-height; text: root.note-details-open ? root.calculation-note-details : (root.calculation-notes != "" ? root.calculation-notes : "Ei huomautuksia."); }
                     }
                     HorizontalLayout { alignment: start; notes-toggle := Button { text: root.note-details-open ? "Näytä yhteenveto" : "Näytä lisätiedot"; clicked => { root.note-details-open = !root.note-details-open; } } }
@@ -1240,8 +1240,8 @@ export component AppWindow inherits Window {
                 Heading { text: "Uusi kilpailu"; }
                 new-scroll := ScrollView {
                 horizontal-scrollbar-policy: always-off;
-                viewport-width: self.visible-width;
-                viewport-height: new-content.min-height;
+                content-width: self.visible-width;
+                content-height: new-content.min-height;
                 new-content := VerticalLayout {
                 x: 0px; y: 0px; width: new-scroll.visible-width; height: self.min-height;
                 spacing: Theme.space-3;
@@ -1310,8 +1310,8 @@ export component AppWindow inherits Window {
                     Heading { text: "Tietoja AS2026:sta"; }
                     about-scroll := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: about-content.min-height;
+                    content-width: self.visible-width;
+                    content-height: about-content.min-height;
                     about-content := VerticalLayout {
                     x: 0px; y: 0px; width: about-scroll.visible-width; height: self.min-height;
                     spacing: Theme.space-3;
@@ -1357,8 +1357,8 @@ export component AppWindow inherits Window {
                 Heading { text: root.install-busy ? "Asennetaan AS2026:ta" : "Asenna AS2026"; }
                 setup-scroll := ScrollView {
                 horizontal-scrollbar-policy: always-off;
-                viewport-width: self.visible-width;
-                viewport-height: setup-content.min-height;
+                content-width: self.visible-width;
+                content-height: setup-content.min-height;
                 setup-content := VerticalLayout {
                 x: 0px; y: 0px; width: setup-scroll.visible-width; height: self.min-height;
                 spacing: Theme.space-3;
@@ -1402,14 +1402,14 @@ export component AppWindow inherits Window {
                     Heading { text: root.confirm-title; }
                     if !root.import-open: confirm-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: confirm-note.preferred-height;
+                        content-width: self.visible-width;
+                        content-height: confirm-note.preferred-height;
                         confirm-note := Note { x: 0px; y: 0px; width: confirm-scroll.visible-width; height: self.preferred-height; text: root.confirm-text; }
                     }
                     if root.import-open: import-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: import-content.min-height;
+                        content-width: self.visible-width;
+                        content-height: import-content.min-height;
                         import-content := VerticalLayout {
                             x: 0px; y: 0px; width: import-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
@@ -1478,8 +1478,8 @@ export component AppWindow inherits Window {
                     Heading { text: "Toiminnon tiedot"; }
                     status-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: status-note.preferred-height;
+                        content-width: self.visible-width;
+                        content-height: status-note.preferred-height;
                         status-note := Note { x: 0px; y: 0px; width: status-scroll.visible-width; height: self.preferred-height; text: root.status-text; }
                     }
                     DialogActions { status-close := Button { text: "Sulje"; clicked => { root.status-details-open = false; } } }

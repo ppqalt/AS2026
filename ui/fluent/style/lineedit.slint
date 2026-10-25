@@ -1,35 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// Copyright © 2025 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-// AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
 
+import { Theme } from "../../theme.slint";
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
-import { Theme } from "../../theme.slint";
 
+import { LineEditInterface } from "../common/std-widget-interfaces.slint";
 
 export component LineEdit {
     in property <length> control-height: Theme.control-height;
-    in property <bool> enabled <=> base.enabled;
-    in property <string> font-family <=> base.font-family;
-    in property <bool> font-italic <=> base.font-italic;
-    in property <length> font-size <=> base.font-size;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
-    in property <InputType> input-type <=> base.input-type;
-    in property <string> placeholder-text <=> base.placeholder-text;
-    in property <bool> read-only <=> base.read-only;
-    out property <bool> has-focus <=> base.has-focus;
-    in-out property <string> text <=> base.text;
-    callback accepted <=> base.accepted;
-    callback edited <=> base.edited;
-    callback key-pressed <=> base.key-pressed;
-    callback key-released <=> base.key-released;
-    public function set-selection-offsets(start: int, end: int) { base.set-selection-offsets(start, end); }
-    public function select-all() { base.select-all(); }
-    public function clear-selection() { base.clear-selection(); }
-    public function cut() { base.cut(); }
-    public function copy() { base.copy(); }
-    public function paste() { base.paste(); }
+    implement LineEditInterface <=> base;
 
     accessible-role: text-input;
     accessible-enabled: root.enabled;
@@ -37,6 +17,7 @@ export component LineEdit {
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
+    accessible-action-set-selection-offsets(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
@@ -65,12 +46,10 @@ export component LineEdit {
         border-color: FluentPalette.text-control-border;
 
         layout := HorizontalLayout {
-            padding-left: Theme.space-3;
-            padding-right: Theme.space-3;
+            padding-left: 12px;
+            padding-right: 12px;
 
             base := LineEditBase {
-                font-size: FluentFontSettings.body.font-size;
-                font-weight: FluentFontSettings.body.font-weight;
                 selection-background-color: FluentPalette.selection-background;
                 selection-foreground-color: FluentPalette.accent-foreground;
                 text-color: FluentPalette.foreground;
@@ -81,7 +60,6 @@ export component LineEdit {
 
             if !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only && root.has-focus: LineEditClearIcon {
                 width: 16px;
-                text: base.text;
                 source: @image-url("_dismiss.svg");
                 colorize: base.text-color;
                 clear => {
