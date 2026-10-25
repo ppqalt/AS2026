@@ -11,6 +11,9 @@ export component Button {
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
+    // AS2026 preset API. Unset variant preserves existing primary behavior.
+    in property <string> visual-variant: "standard";
+    in property <length> control-height: Theme.control-height;
     in property <bool> enabled <=> i-touch-area.enabled;
     in property <bool> checkable;
     in property <bool> colorize-icon;
@@ -20,11 +23,14 @@ export component Button {
 
     callback clicked;
 
-    private property <brush> text-color: primary || checked ? FluentPalette.accent-foreground : FluentPalette.control-foreground;
+    private property <bool> is-primary: root.primary || root.visual-variant == "primary";
+    private property <bool> is-danger: root.visual-variant == "danger";
+    private property <bool> is-subtle: root.visual-variant == "subtle";
+    private property <brush> text-color: root.is-danger ? Theme.danger : root.is-primary || checked ? FluentPalette.accent-foreground : FluentPalette.control-foreground;
 
     min-width: max(Theme.control-min-width, i-layout.min-width);
-    min-height: max(Theme.control-height, i-layout.min-height);
-    preferred-height: Theme.control-height;
+    min-height: max(root.control-height, i-layout.min-height);
+    preferred-height: root.control-height;
     horizontal-stretch: 0;
     vertical-stretch: 0;
     forward-focus: i-focus-scope;
@@ -38,17 +44,17 @@ export component Button {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: root.primary || root.checked ? FluentPalette.accent-disabled : FluentPalette.control-disabled;
-            i-border.border-color: root.primary || root.checked ? transparent : FluentPalette.border;
-            root.text-color: root.primary || root.checked ? FluentPalette.text-accent-foreground-disabled : FluentPalette.text-disabled;
+            i-background.background: root.is-primary || root.checked ? FluentPalette.accent-disabled : FluentPalette.control-disabled;
+            i-border.border-color: root.is-primary || root.checked || root.is-subtle ? transparent : FluentPalette.border;
+            root.text-color: root.is-primary || root.checked ? FluentPalette.text-accent-foreground-disabled : FluentPalette.text-disabled;
         }
         pressed when root.pressed : {
-            i-background.background: root.primary || root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-tertiary;
+            i-background.background: root.is-danger ? Theme.danger-soft : root.is-primary || root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-tertiary;
             i-border.border-color: FluentPalette.border;
-            root.text-color: root.primary || root.checked ? FluentPalette.text-accent-foreground-secondary : FluentPalette.text-secondary;
+            root.text-color: root.is-danger ? Theme.danger : root.is-primary || root.checked ? FluentPalette.text-accent-foreground-secondary : FluentPalette.text-secondary;
         }
         hover when i-touch-area.has-hover : {
-            i-background.background: root.primary || root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-secondary;
+            i-background.background: root.is-danger ? Theme.danger-soft : root.is-primary || root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-secondary;
         }
         checked when root.checked : {
             i-background.background: FluentPalette.accent-background;
@@ -59,13 +65,13 @@ export component Button {
 
     i-background := Rectangle {
         border-radius: Theme.radius;
-        background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
+        background: root.is-danger ? Theme.surface-raised : root.is-primary ? FluentPalette.accent-background : root.is-subtle ? transparent : FluentPalette.control-background;
         animate background { enabled: Theme.effects-enabled; duration: 120ms; }
 
         i-border := Rectangle {
             border-radius: parent.border-radius;
             border-width: 1px;
-            border-color: root.primary ? FluentPalette.accent-control-border : FluentPalette.control-border;
+            border-color: root.is-danger ? Theme.danger : root.is-primary ? FluentPalette.accent-control-border : root.is-subtle ? transparent : FluentPalette.control-border;
         }
 
         i-layout := HorizontalLayout {
