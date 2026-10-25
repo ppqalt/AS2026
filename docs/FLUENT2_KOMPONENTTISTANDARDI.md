@@ -26,6 +26,10 @@
 
 **Jos lähteet ovat ristiriidassa:** Windows 11 -natiivi käyttäytyminen voittaa Fluent Webin yksityiskohdan; nykyisen kilpailutoiminnon turvallisuus voittaa kosmeettisen yhdenmukaistamisen. Epävarma mitta merkitään `[AS]`, ei `[MS]`.
 
+### Päivityshuomautus: Slint 1.18.1 (beta)
+
+Beta-haaran `Cargo.toml` ja `Cargo.lock` käyttävät **Slint 1.18.1**:tä; `ui/fluent` on vielä 1.16.0-pohjainen paikallinen kopio. Tarkista Slintin 1.18.1 API ja widgettien yhteensopivuus kääntäjällä, älä oleta että aiempi 1.16.0-widget toimii muutoksitta tai että uusi API tarkoittaa päivittynyttä vendoroitua widgettiä. Kirjaston todella käytettävissä olevat exportit määrittää `ui/fluent/style/std-widgets.slint`. `ui/fluent/UPSTREAM.sha256` pysyy alkuperäisen lähteen 1.16.0-tiivisteenä, kunnes widgetkopio oikeasti uudelleensovitetaan.
+
 ## 1. Viralliset viitelähteet (ensisijaiset linkit)
 
 | Lähde | Mikä tulee tarkistaa |
