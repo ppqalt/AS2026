@@ -32,6 +32,8 @@ pub struct Preferences {
     pub last_competition: Option<PathBuf>,
     /// Tyhjä arvo käyttää käyttöjärjestelmän oletustulostinta.
     pub tulostin: String,
+    /// Fluent 2 -betan vapaaehtoiset animaatiot ja tehosteet. Oletus: pois.
+    pub effects_enabled: bool,
     /// Paikalliset yhteysasetukset; salasanaa ei koskaan tallenneta.
     pub live_julkaisut: std::collections::BTreeMap<PathBuf, crate::live_publish::Config>,
 }
@@ -110,6 +112,13 @@ impl PreferencesStore {
         let mut candidate = self.preferences.clone();
         config.password.clear();
         candidate.live_julkaisut.insert(path, config);
+        self.save(candidate)
+    }
+
+    /// Käyttäjäkohtainen ja kilpailusta riippumaton ulkoasuasetus.
+    pub fn save_effects_enabled(&mut self, enabled: bool) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.effects_enabled = enabled;
         self.save(candidate)
     }
 
@@ -486,6 +495,27 @@ mod tests {
         assert!(store.save_root(Some(root.clone())).is_err());
         assert!(store.create_competition("Ei tilapäiskansioon").is_err());
         assert!(!root.exists());
+    }
+
+    #[test]
+    fn effects_are_off_by_default_and_persist() {
+        let root = std::env::temp_dir().join(format!(
+            "as2026-effects-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        let path = root.join("asetukset.toml");
+        let default_root = root.join("Kilpailut");
+        let mut store = PreferencesStore::open_at(&path, &default_root).unwrap();
+        assert!(!store.get().effects_enabled);
+        store.save_effects_enabled(true).unwrap();
+        drop(store);
+        let mut reopened = PreferencesStore::open_at(&path, &default_root).unwrap();
+        assert!(reopened.get().effects_enabled);
+        reopened.save_effects_enabled(false).unwrap();
+        drop(reopened);
+        assert!(!PreferencesStore::open_at(&path, &default_root).unwrap().get().effects_enabled);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
