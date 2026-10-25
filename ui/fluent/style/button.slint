@@ -60,6 +60,7 @@ export component Button {
     i-background := Rectangle {
         border-radius: Theme.radius;
         background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
+        animate background { enabled: Theme.effects-enabled; duration: 120ms; }
 
         i-border := Rectangle {
             border-radius: parent.border-radius;
