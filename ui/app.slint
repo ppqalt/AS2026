@@ -176,7 +176,10 @@ export component AppWindow inherits Window {
     // User-selected optional UI animations/effects; persisted by Rust.
     in-out property <bool> effects-enabled: false;
     callback set-effects-enabled(bool);
-    changed effects-enabled => { Theme.effects-enabled = root.effects-enabled; }
+    changed effects-enabled => {
+        Theme.effects-enabled = root.effects-enabled;
+        if !root.effects-enabled { root.tung-active = false; }
+    }
     property <string> tung-keys;
     in-out property <bool> tung-active;
     in-out property <[int]> tung-speeds;
