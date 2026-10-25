@@ -8,6 +8,10 @@
 
 **[FLUENT2_KOMPONENTTISTANDARDI.md](FLUENT2_KOMPONENTTISTANDARDI.md)** on tämän beta-haaran kaikkia `ui/**/*.slint`-muutoksia ohjaava mittojen, varianttien, saavutettavuuden, tilojen, suunnittelulähteiden ja tiedostokohtaisten komponenttien normatiivinen preset-katalogi. Älä tee uutta rinnakkaista mittataulukkoa tähän tiedostoon. Osa katalogin nimistä on tulevia toteutuksia, ei vielä importoitavia Slint-komponentteja.
 
+## Slint 1.18.1 -päivityksen tila
+
+Slint-runtimen ja `slint-build`-kääntäjän riippuvuudet sekä `Cargo.lock` on päivitetty betassa versioon **1.18.1** (21.9.2026). **Tämä ei vielä tarkoita, että paikalliset Fluent-widgetit olisi päivitetty:** `ui/fluent/style` on edelleen Slint 1.16.0:sta lähtevä muokattu kopio, jonka uudelleensovitus on varmistettava lähdevertailulla, käännöksellä, GUI-testeillä ja Windows/Linux-kuvien avulla. Älä korvaa lisenssi- tai SHA-tiedostoja epätosilla 1.18.1-merkinnöillä. Animaation `enabled`-kenttä on uudemman kääntäjän tukema; tehosteet ovat silti oletuksena pois ja vain käyttäjä saa sallia ne.
+
 ## Tavoite
 
 AS2026:n tulee näyttää ja käyttäytyä mahdollisimman uskollisesti **Windows 11:n WinUI 3 / Fluent 2** -sovellukselta. Pelkkä vihreän väripaletin tai kulmasäteen vaihtaminen ei täytä tavoitetta. Kokonaisuus kattaa myös komponenttien mitat, tekstihierarkian, navigaation, ohjauselementtien tilat, painikkeiden semantiikan, valintaikkunat, vierityksen, näppäimistö- ja hiirikäytön, saavutettavuuden ja ikkunan elinkaaren.
