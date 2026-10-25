@@ -18,7 +18,7 @@ export { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
-    title: "AS2026 — " + root.competition-name;
+    title: root.gallery-open ? "AS2026 — Fluent 2 -komponenttigalleria (beta)" : "AS2026 — " + root.competition-name;
     preferred-width: 1480px; preferred-height: 960px;
     min-width: 900px; min-height: 600px;
     background: Theme.canvas;
