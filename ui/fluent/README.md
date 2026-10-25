@@ -1,8 +1,9 @@
 # Slintin Fluent-komponentit — paikallinen sovitus
 
 Lähde: Slint **1.16.0**, paketti `i-slint-compiler`, hakemisto `widgets`.
-AS2026 käyttää saman version `slint`- ja `slint-build`-paketteja tarkasti
-lukittuina. Alkuperäisten tiedostojen nimet ja tiivisteet ovat tiedostossa
+**Beta-haaran Rust Slint- ja slint-build-versio on nyt 1.18.1**, mutta tämä hakemisto
+sisältää edelleen **1.16.0-pohjaisen vendoroidun Fluent-sovituksen**. Niitä ei saa
+kutsua saman upstream-version tiedostoiksi ennen oikeaa migraatiota ja testejä. Alkuperäisten tiedostojen nimet ja tiivisteet ovat tiedostossa
 `UPSTREAM.sha256`.
 
 Tässä on vain sovelluksen tarvitsemien Fluent-komponenttien riippuvuudet:
