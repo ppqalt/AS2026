@@ -82,6 +82,7 @@ export component NavItem inherits Rectangle {
     vertical-stretch: 0;
     border-radius: Theme.radius;
     background: root.active ? Theme.accent-soft : touch.has-hover ? Theme.sidebar-hover : transparent;
+    animate background { enabled: Theme.effects-enabled; duration: 120ms; }
     border-width: focus.has-focus ? 2px : 0px;
     border-color: Theme.accent;
     forward-focus: focus;
