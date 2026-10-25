@@ -118,7 +118,7 @@ export component FluentGallery inherits Rectangle {
                             spacing: Theme.space-4;
                             UiSlider {
                                 label: "Esikatselun arvo";
-                                width: 360px;
+                                width: 185px;
                                 value <=> root.slider-value;
                                 minimum: 0;
                                 maximum: 100;
@@ -131,7 +131,7 @@ export component FluentGallery inherits Rectangle {
                                 value <=> root.slider-value;
                                 step: 5;
                             }
-                            UiSlider { label: "Ei käytössä"; enabled: false; value: 50; }
+                            UiSlider { label: "Ei käytössä"; width: 145px; enabled: false; value: 50; }
                             Rectangle { horizontal-stretch: 1; }
                         }
                     }
