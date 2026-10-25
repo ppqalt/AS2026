@@ -1,13 +1,37 @@
 // Small source-level regression checks for the application design system.
 // The normal Linux/Windows CI pipeline separately compiles the full GUI.
+
+// Optional animations are allowed only behind the user-controlled global
+// performance gate. Their default state is OFF. This is intentionally
+// stricter than allowing arbitrary animations, but unlike the v0.7.1 test it
+// permits explicit, opt-in Fluent transitions.
+fn assert_animations_use_effect_gate(name: &str, source: &str) {
+    let mut remainder = source;
+    while let Some(start) = remainder.find("animate ") {
+        let declaration = &remainder[start..];
+        let open = declaration
+            .find('{')
+            .expect("Slint animation declaration must have a body");
+        let close = declaration[open + 1..]
+            .find('}')
+            .expect("Slint animation body must close");
+        let body = &declaration[open + 1..open + 1 + close];
+        assert!(
+            body.contains("enabled: Theme.effects-enabled"),
+            "{name}: animation bypasses global effects gate: {body}"
+        );
+        remainder = &declaration[open + 1 + close + 1..];
+    }
+}
 #[test]
-fn fluent2_application_surfaces_are_effect_free_and_use_theme_tokens() {
+fn fluent2_application_surfaces_use_theme_tokens_and_gated_animations() {
     let build = include_str!("../build.rs");
     assert!(build.contains(".with_style(\"fluent\".into())"));
     assert!(build.contains("manifest_dir.join(\"ui/fluent/style\")"));
     assert!(build.contains("EmbedResourcesKind::EmbedFiles"));
     let theme = include_str!("../ui/theme.slint");
     assert!(theme.contains("accent-fill: #356f54"));
+    assert!(theme.contains("effects-enabled: false"));
     for (name, source) in [
         ("app", include_str!("../ui/app.slint")),
         ("components", include_str!("../ui/components.slint")),
@@ -15,8 +39,8 @@ fn fluent2_application_surfaces_are_effect_free_and_use_theme_tokens() {
         ("draw-classes", include_str!("../ui/draw-classes.slint")),
     ] {
         assert!(!source.contains("background: #"), "{name} bypasses theme");
+        assert_animations_use_effect_gate(name, source);
         for effect in [
-            "animate ",
             "drop-shadow:",
             "opacity:",
             "linear-gradient(",
@@ -28,7 +52,7 @@ fn fluent2_application_surfaces_are_effect_free_and_use_theme_tokens() {
 }
 
 #[test]
-fn local_fluent_controls_have_no_decorative_effects_or_external_imports() {
+fn local_fluent_controls_have_no_ungated_effects_or_external_imports() {
     use std::path::Path;
     let style = Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/fluent");
     fn check(directory: &Path, style: &Path) {
@@ -41,12 +65,12 @@ fn local_fluent_controls_have_no_decorative_effects_or_external_imports() {
                 .is_some_and(|extension| extension == "slint")
             {
                 let source = std::fs::read_to_string(&path).unwrap();
+                assert_animations_use_effect_gate(&path.display().to_string(), &source);
                 for line in source.lines().map(str::trim) {
                     if line.starts_with("//") {
                         continue;
                     }
                     for effect in [
-                        "animate ",
                         "drop-shadow-",
                         "opacity:",
                         "linear-gradient(",
@@ -73,6 +97,18 @@ fn local_fluent_controls_have_no_decorative_effects_or_external_imports() {
         }
     }
     check(&style, &style);
+}
+
+#[test]
+fn effects_preference_is_opt_in_and_is_saved_outside_competition_data() {
+    let theme = include_str!("../ui/theme.slint");
+    let app = include_str!("../ui/app.slint");
+    let prefs = include_str!("../src/preferences.rs");
+    assert!(theme.contains("effects-enabled: false"));
+    assert!(app.contains("Ota animaatiot ja tehosteet käyttöön"));
+    assert!(app.contains("Theme.effects-enabled = root.effects-enabled"));
+    assert!(prefs.contains("pub effects_enabled: bool"));
+    assert!(prefs.contains("pub fn save_effects_enabled"));
 }
 
 #[test]
