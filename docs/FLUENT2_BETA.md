@@ -4,6 +4,10 @@
 >
 > **Tila:** kokeellinen ja keskeneräinen. Tämä tiedosto on tavoitemäärittely ja tarkastuslista, ei väite siitä, että kaikki kohdat olisi jo toteutettu. Älä julkaise vakaana versiona tai yhdistä `main`-haaraan ilman arviointia.
 
+## Komponenttistandardin ensisijainen lähde
+
+**[FLUENT2_KOMPONENTTISTANDARDI.md](FLUENT2_KOMPONENTTISTANDARDI.md)** on tämän beta-haaran kaikkia `ui/**/*.slint`-muutoksia ohjaava mittojen, varianttien, saavutettavuuden, tilojen, suunnittelulähteiden ja tiedostokohtaisten komponenttien normatiivinen preset-katalogi. Älä tee uutta rinnakkaista mittataulukkoa tähän tiedostoon. Osa katalogin nimistä on tulevia toteutuksia, ei vielä importoitavia Slint-komponentteja.
+
 ## Tavoite
 
 AS2026:n tulee näyttää ja käyttäytyä mahdollisimman uskollisesti **Windows 11:n WinUI 3 / Fluent 2** -sovellukselta. Pelkkä vihreän väripaletin tai kulmasäteen vaihtaminen ei täytä tavoitetta. Kokonaisuus kattaa myös komponenttien mitat, tekstihierarkian, navigaation, ohjauselementtien tilat, painikkeiden semantiikan, valintaikkunat, vierityksen, näppäimistö- ja hiirikäytön, saavutettavuuden ja ikkunan elinkaaren.
