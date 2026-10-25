@@ -1,0 +1,194 @@
+// Development-only interactive component gallery.
+// Open with: cargo run --features gui --bin as2026-gui -- --fluent-gallery
+// No competition data or scoring callbacks. Follow docs/FLUENT2_KOMPONENTTISTANDARDI.md.
+import { Theme } from "theme.slint";
+import { UiButton, UiTextField, UiComboBox, UiCheckBox, UiSlider, UiScrollView, UiCard, UiSeparator } from "presets.slint";
+
+export component FluentGallery inherits Rectangle {
+    in property <bool> effects-enabled;
+    callback toggle-effects(bool);
+    callback close();
+    private property <string> last-action: "Valitse komponentti tai kokeile näppäimistöä.";
+    in-out property <string> sample-text: "Kilpailijan nimi";
+    in-out property <int> sample-class: 0;
+    in-out property <float> slider-value: 35;
+    in-out property <bool> sample-checkbox: true;
+
+    background: Theme.canvas;
+    VerticalLayout {
+        padding: Theme.space-5;
+        spacing: Theme.space-3;
+        HorizontalLayout {
+            vertical-stretch: 0;
+            spacing: Theme.space-4;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: Theme.space-1;
+                Text { text: "AS2026 / Fluent 2"; color: Theme.ink; font-size: Theme.heading-font-size; font-weight: 600; }
+                Text { text: "Kehitysgalleria · komponenttipresetit · vain beta"; color: Theme.muted; font-size: Theme.body-font-size; }
+            }
+            UiButton { text: "Sulje galleria"; preset-variant: "standard"; clicked => { root.close(); } }
+        }
+        UiSeparator {}
+
+        gallery-scroll := UiScrollView {
+            vertical-stretch: 1;
+            horizontal-stretch: 1;
+            viewport-width: self.visible-width;
+            viewport-height: gallery-content.min-height;
+            gallery-content := VerticalLayout {
+                x: 0px; y: 0px;
+                width: gallery-scroll.visible-width;
+                height: self.min-height;
+                spacing: Theme.space-4;
+
+                UiCard {
+                    min-height: 190px;
+                    VerticalLayout {
+                        padding: Theme.space-4;
+                        spacing: Theme.space-3;
+                        Text { text: "01 / Painikkeet — compact, default, large"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                        HorizontalLayout {
+                            spacing: Theme.space-3;
+                            UiButton { text: "Pieni"; preset-size: "compact"; clicked => { root.last-action = "Pieni painike"; } }
+                            UiButton { text: "Tavallinen"; preset-size: "default"; clicked => { root.last-action = "Tavallinen painike"; } }
+                            UiButton { text: "Suuri"; preset-size: "large"; clicked => { root.last-action = "Suuri painike"; } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        Text { text: "Semanttiset painikevariantit"; color: Theme.muted; font-size: Theme.label-font-size; }
+                        HorizontalLayout {
+                            spacing: Theme.space-2;
+                            UiButton { text: "Toissijainen"; clicked => { root.last-action = "Toissijainen"; } }
+                            UiButton { text: "Ensisijainen"; preset-variant: "primary"; clicked => { root.last-action = "Ensisijainen"; } }
+                            UiButton { text: "Huomaamaton"; preset-variant: "subtle"; clicked => { root.last-action = "Huomaamaton"; } }
+                            UiButton { text: "Poista"; preset-variant: "danger"; clicked => { root.last-action = "Vaarallinen toiminto (demo)"; } }
+                            UiButton { text: "Ei käytössä"; enabled: false; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                }
+                UiCard {
+                    min-height: 180px;
+                    VerticalLayout {
+                        padding: Theme.space-4;
+                        spacing: Theme.space-3;
+                        Text { text: "02 / Tekstikentät ja valintaruudut"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                        HorizontalLayout {
+                            spacing: Theme.space-3;
+                            VerticalLayout {
+                                spacing: Theme.space-1;
+                                Text { text: "Nimi / pieni"; color: Theme.muted; font-size: Theme.label-font-size; }
+                                UiTextField { preset-size: "compact"; text <=> root.sample-text; }
+                            }
+                            VerticalLayout {
+                                spacing: Theme.space-1;
+                                Text { text: "Nimi / tavallinen"; color: Theme.muted; font-size: Theme.label-font-size; }
+                                UiTextField { text <=> root.sample-text; }
+                            }
+                            VerticalLayout {
+                                spacing: Theme.space-1;
+                                Text { text: "Nimi / suuri"; color: Theme.muted; font-size: Theme.label-font-size; }
+                                UiTextField { preset-size: "large"; text <=> root.sample-text; }
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: Theme.space-4;
+                            VerticalLayout {
+                                spacing: Theme.space-1;
+                                Text { text: "Luokka"; color: Theme.muted; font-size: Theme.label-font-size; }
+                                UiComboBox {
+                                    model: ["A", "B", "C", "Beginners Cup"];
+                                    current-index <=> root.sample-class;
+                                }
+                            }
+                            UiCheckBox { text: "Valittu vaihtoehto"; checked <=> root.sample-checkbox; }
+                            UiCheckBox { text: "Pois käytöstä"; enabled: false; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                }
+                UiCard {
+                    min-height: 170px;
+                    VerticalLayout {
+                        padding: Theme.space-4;
+                        spacing: Theme.space-3;
+                        Text { text: "03 / Liukusäätimet — hiiri, nuolinäppäimet ja ruudunlukija"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                        Text { text: "Näytearvo " + Math.round(root.slider-value) + " / 100 (ei kilpailulaskennan syöte)"; color: Theme.muted; font-size: Theme.body-font-size; }
+                        HorizontalLayout {
+                            spacing: Theme.space-4;
+                            UiSlider {
+                                label: "Esikatselun arvo";
+                                width: 360px;
+                                value <=> root.slider-value;
+                                minimum: 0;
+                                maximum: 100;
+                                step: 5;
+                            }
+                            UiSlider {
+                                label: "Suuri liukusäädin";
+                                preset-size: "large";
+                                width: 250px;
+                                value <=> root.slider-value;
+                                step: 5;
+                            }
+                            UiSlider { label: "Ei käytössä"; enabled: false; value: 50; }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                }
+                UiCard {
+                    min-height: 240px;
+                    VerticalLayout {
+                        padding: Theme.space-4;
+                        spacing: Theme.space-3;
+                        Text { text: "04 / Vieritys ja tilat"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                        Text { text: "Testaa vierityspalkkia ja sisäistä sisältöaluetta sekä pystysuuntaista scrollia."; color: Theme.muted; font-size: Theme.body-font-size; }
+                        internal-scroll := UiScrollView {
+                            height: 130px;
+                            horizontal-scrollbar-policy: always-off;
+                            viewport-width: self.visible-width;
+                            viewport-height: long-content.min-height;
+                            long-content := VerticalLayout {
+                                x: 0px; y: 0px;
+                                width: internal-scroll.visible-width;
+                                height: self.min-height;
+                                spacing: Theme.space-2;
+                                for i in 15 : Text {
+                                    text: "Vieritysrivi " + (i + 1) + " — tämä osio käyttää Slintin oikeaa ScrollView-komponenttia.";
+                                    color: Theme.ink;
+                                    font-size: Theme.body-font-size;
+                                }
+                            }
+                        }
+                    }
+                }
+                UiCard {
+                    min-height: 155px;
+                    VerticalLayout {
+                        padding: Theme.space-4;
+                        spacing: Theme.space-3;
+                        Text { text: "05 / Suorituskyky ja tehosteet"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                        UiCheckBox {
+                            text: "Ota animaatiot ja tehosteet käyttöön";
+                            checked: root.effects-enabled;
+                            toggled => { root.toggle-effects(self.checked); }
+                        }
+                        Text {
+                            text: root.effects-enabled ? "Tehosteet sallittu — vain toteutetut animaatiot käytössä." : "Suorituskykytila: valinnaiset tehosteet pois.";
+                            color: Theme.muted;
+                            font-size: Theme.body-font-size;
+                        }
+                    }
+                }
+                Rectangle { height: Theme.space-3; }
+            }
+        }
+        UiSeparator {}
+        Text {
+            text: "Viimeisin toiminto: " + root.last-action + "  ·  Beta: ei todellista kilpailudataa";
+            color: Theme.muted;
+            font-size: Theme.label-font-size;
+            vertical-stretch: 0;
+        }
+    }
+}
