@@ -3,6 +3,8 @@
 Fluent 2 / Dark Spruce, suomenkielinen työpöytäsovellus. Toteutus säilyy Rustissa
 ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytimen kautta.
 
+> **Fluent 2 -betan kehittäjälle:** uusi [komponenttistandardi ja esiasetuskatalogi](FLUENT2_KOMPONENTTISTANDARDI.md) on beta-haaran ensisijainen lähde mitoille, varianteille ja vuorovaikutusmalleille. Tämä vanhempi ohje kuvaa v0.7.1:n lähtötilannetta ja sen muita toimintarajoitteita; ristiriidoissa komponenttistandardi voittaa beta-haarassa. `main` ei muutu.
+
 ## Arkkitehtuuri
 
 `ui/app.slint` kokoaa sivupalkin, seitsemän pääsivua, Toiminnot-valikot ja
