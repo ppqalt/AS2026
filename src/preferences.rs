@@ -514,7 +514,12 @@ mod tests {
         assert!(reopened.get().effects_enabled);
         reopened.save_effects_enabled(false).unwrap();
         drop(reopened);
-        assert!(!PreferencesStore::open_at(&path, &default_root).unwrap().get().effects_enabled);
+        assert!(
+            !PreferencesStore::open_at(&path, &default_root)
+                .unwrap()
+                .get()
+                .effects_enabled
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
