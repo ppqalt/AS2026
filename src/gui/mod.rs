@@ -1691,10 +1691,10 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }}
     }
     action!(on_set_effects_enabled, |s, a, enabled| {
-        let preferences = s
-            .preferences
-            .as_mut()
-            .ok_or_else(|| invalid("Sovellusasetuksia ei voitu avata"))?;
+        let Some(preferences) = s.preferences.as_mut() else {
+            a.set_effects_enabled(false);
+            return Err(invalid("Sovellusasetuksia ei voitu avata"));
+        };
         if let Err(error) = preferences.save_effects_enabled(enabled) {
             // Revert the checkbox and visual gate if the preference was not saved.
             a.set_effects_enabled(preferences.get().effects_enabled);
