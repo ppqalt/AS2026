@@ -1,9 +1,11 @@
-import { Button, LineEdit, Palette, AboutSlint, ScrollView, ComboBox, CheckBox } from "std-widgets.slint";
+import { Palette, AboutSlint } from "std-widgets.slint";
+import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView, UiComboBox as ComboBox, UiCheckBox as CheckBox } from "presets.slint";
 import { Theme } from "theme.slint";
+export { Theme }
 import { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption } from "types.slint";
 import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton, DialogSurface, DialogActions, Workspace } from "components.slint";
 import { ResultSummary } from "results.slint";
-import { FluentGallery } from "fluent-gallery.slint";
+export { GalleryWindow } from "fluent-gallery.slint";
 import { StartColumnsDialog } from "start-columns.slint";
 import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
@@ -18,14 +20,18 @@ export { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
-    title: root.gallery-open ? "AS2026 — Fluent 2 -komponenttigalleria (beta)" : "AS2026 — " + root.competition-name;
+    private property <ColorScheme> resolved-color-scheme: Theme.color-scheme;
+    changed resolved-color-scheme => { Palette.color-scheme = root.resolved-color-scheme; }
+    in-out property <int> appearance-index: 0;
+    callback set-appearance(int);
+    changed appearance-index => { Theme.appearance-index = root.appearance-index; }
+    title: "AS2026 — " + root.competition-name;
     preferred-width: 1480px; preferred-height: 960px;
     min-width: 900px; min-height: 600px;
     background: Theme.canvas;
     default-font-size: Theme.body-font-size;
     default-font-family: Theme.font-family;
     forward-focus: keyboard;
-    in-out property <bool> gallery-open: false;
     in-out property <int> page: 0;
     in-out property <bool> opened;
     in-out property <bool> editable;
@@ -507,7 +513,7 @@ export component AppWindow inherits Window {
                     Rectangle {
                         visible: root.opened || root.page == 0;
                         width: 106px; height: Theme.control-height;
-                        Button { width: 100%; height: 100%; text: "Toiminnot"; accessible-label: "Lisätoiminnot"; clicked => { root.show-extras-menu(); } }
+                        Button { width: 100%; height: 100%; text: "Toiminnot"; menu-button: true; accessible-label: "Lisätoiminnot"; clicked => { root.show-extras-menu(); } }
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
@@ -1299,7 +1305,18 @@ export component AppWindow inherits Window {
                         root.tung-start();
                     } else { root.tung-keys = ""; }
                 }
-                if event.text == Key.Tab { about-close.focus(); return accept; }
+                if event.text == Key.Tab {
+                    if event.modifiers.shift {
+                        if about-close.has-focus { about-effects.focus(); }
+                        else if about-effects.has-focus { about-appearance.focus(); }
+                        else { about-close.focus(); }
+                    } else {
+                        if about-close.has-focus { about-appearance.focus(); }
+                        else if about-appearance.has-focus { about-effects.focus(); }
+                        else { about-close.focus(); }
+                    }
+                    return accept;
+                }
                 reject
             }
             DialogSurface {
@@ -1320,8 +1337,15 @@ export component AppWindow inherits Window {
                     Note { text: "Käyttö, muokkaus ja jakelu on sallittu lisenssin ehdoin. Tekijänoikeusilmoitus ja lisenssiehdot säilytetään jaettaessa. Ei takuuta."; }
                     AboutSlint { horizontal-stretch: 1; height: 170px; }
                     Rectangle { height: Theme.space-3; }
+                    Text { text: "Ulkoasu"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; }
+                    about-appearance := ComboBox {
+                        model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Dark Spruce"];
+                        current-index <=> root.appearance-index;
+                        accessible-label: "Sovelluksen ulkoasu";
+                        selected(value) => { root.set-appearance(self.current-index); }
+                    }
                     Text { text: "Ulkoasutehosteet"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; }
-                    CheckBox {
+                    about-effects := CheckBox {
                         text: "Ota animaatiot ja tehosteet käyttöön";
                         checked <=> root.effects-enabled;
                         toggled => { root.set-effects-enabled(self.checked); }
@@ -1577,13 +1601,5 @@ export component AppWindow inherits Window {
         }
     }
 
-    // Developer-only component gallery. CLI --fluent-gallery opens this after
-    // normal initialization; all competition functions remain untouched.
-    if root.gallery-open: FluentGallery {
-        width: root.width; height: root.height;
-        effects-enabled: root.effects-enabled;
-        toggle-effects(enabled) => { root.set-effects-enabled(enabled); }
-        close => { root.gallery-open = false; root.focus-page(); }
-    }
 
 }

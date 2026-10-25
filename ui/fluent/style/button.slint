@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 // AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
 
-import { FluentFontSettings, FluentPalette } from "styling.slint";
+import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 import { Theme } from "../../theme.slint";
 
@@ -11,6 +11,8 @@ export component Button {
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
+    in property <bool> icon-only: false;
+    in property <bool> menu-button: false;
     // AS2026 preset API. Unset variant preserves existing primary behavior.
     in property <string> visual-variant: "standard";
     in property <length> control-height: Theme.control-height;
@@ -28,7 +30,7 @@ export component Button {
     private property <bool> is-subtle: root.visual-variant == "subtle";
     private property <brush> text-color: root.is-danger ? Theme.danger : root.is-primary || checked ? FluentPalette.accent-foreground : FluentPalette.control-foreground;
 
-    min-width: max(Theme.control-min-width, i-layout.min-width);
+    min-width: max(root.icon-only ? root.control-height : Theme.control-min-width, i-layout.min-width);
     min-height: max(root.control-height, i-layout.min-height);
     preferred-height: root.control-height;
     horizontal-stretch: 0;
@@ -75,8 +77,8 @@ export component Button {
         }
 
         i-layout := HorizontalLayout {
-            padding-left: Theme.space-3;
-            padding-right: Theme.space-3;
+            padding-left: root.icon-only ? 0px : Theme.space-3;
+            padding-right: root.icon-only ? 0px : Theme.space-3;
             padding-top: Theme.space-1;
             padding-bottom: Theme.space-1;
             spacing: Theme.space-1;
@@ -97,6 +99,13 @@ export component Button {
                 text: root.text;
                 color: root.text-color;
 
+                accessible-role: none;
+            }
+            if root.menu-button: Image {
+                source: Icons.dropdown;
+                width: 12px;
+                height: 12px;
+                colorize: root.text-color;
                 accessible-role: none;
             }
         }

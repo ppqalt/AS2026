@@ -1,10 +1,9 @@
 fn main() {
     #[cfg(feature = "gui")]
     {
-        // Slint 1.16:n oma tekstikentän valikko käyttää ContextMenuInternal-
-        // tyyppiä. Lippu sallii sen paikallisessa vakiokomponenttikopiossa.
-        // SAFETY: rakennusskripti on tässä vielä yksisäikeinen; ympäristöä
-        // muutetaan ennen Slint-kääntäjän tai sen työntekijöiden käynnistystä.
+        // Slint 1.18.1:n LineEditInterface ja käyttöjärjestelmän värimallin
+        // alkuperäinen SlintInternal-silta tarvitsevat kokeellisten rajapintojen lipun.
+        // SAFETY: rakennusskripti on yksisäikeinen ennen kääntäjän käynnistystä.
         unsafe { std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1") };
         let manifest_dir = std::path::PathBuf::from(
             std::env::var_os("CARGO_MANIFEST_DIR").expect("Projektihakemisto puuttuu"),

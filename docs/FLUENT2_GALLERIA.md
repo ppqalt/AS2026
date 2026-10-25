@@ -25,13 +25,13 @@ Windowsissa viimeinen polku vaihdetaan esimerkiksi `C:\\Temp\\as2026-fluent-gall
 - **UiTextField**-kentät kolmessa koossa, **UiComboBox** ja **UiCheckBox**.
 - **UiSlider** kahdessa koossa, arvolla 0–100 ja step 5, sekä käytöstä poistettu slider.
 - **UiScrollView**-vieritys ja pitkä sisältö erillisen scrollbar-invariantin testaamiseen.
-- Tehosteen opt-in -ruutu: käyttää samaa käyttäjäasetusta kuin **Tietoja**-ikkunassa ja pysyy oletuksena pois.
+- Tehostevalinta ja neljä ulkoasua: galleriassa vain muistissa. Ei lue tai kirjoita käyttäjäasetuksia. Oletus on pois.
 
 Komponentit sijaitsevat yhdessä tiedostossa `ui/presets.slint`. Tämä galleria on `ui/fluent-gallery.slint`. Esiasetus-koot ovat **AS2026:n omia projektipäätöksiä**, eivät automaattisesti virallisia Microsoft-mittoja. Yksityiskohdat löytyvät [Fluent 2 -komponenttistandardista](FLUENT2_KOMPONENTTISTANDARDI.md).
 
 ## Käyttöliittymätoteutuksen rajoitteet
 
-`UiSlider` on AS2026:n oma toteutus: rajattu liukualue, päätypisteet, nuolinäppäimet, screen-readerin min/max/step-arvot. Sitä **ei saa käyttää pisteisiin, Emit-virheisiin, tarkkoihin kellonaikoihin, lähtöväleihin tai muihin kilpailutuloksiin**. Niille käytetään täsmällistä tekstisyötettä tai (myöhemmin) SpinBoxia.
+`UiSlider` perii Slint 1.18.1:n Sliderin ja käyttää AS2026:n koko-, fokus- ja askelsovitusta: rajattu liukualue, päätypisteet, nuolinäppäimet, screen-readerin min/max/step-arvot. Sitä **ei saa käyttää pisteisiin, Emit-virheisiin, tarkkoihin kellonaikoihin, lähtöväleihin tai muihin kilpailutuloksiin**. Niille käytetään täsmällistä tekstisyötettä tai (myöhemmin) SpinBoxia.
 
 Preset-kirjaston ensisijainen toteutusstrategia on **periä Slintin jo toimiva, saavutettava kontrolli**. UiButton/UiTextField/UiComboBox/UiCheckBox/UiScrollView eivät saa menettää aiempia callbackeja, keskeisiä näppäintoimintoja tai toiminnon tilaa.
 
@@ -46,6 +46,14 @@ Preset-kirjaston ensisijainen toteutusstrategia on **periä Slintin jo toimiva, 
 5. 900×600, 1280×800, 1920×1080; 100 % ja 150 % skaalaus. Vertaa WinUI 3 Galleryn ja Windows UI Kitin viitteisiin.
 6. `Theme.effects-enabled=false` on oletus. Kun checkbox kytketään päälle, vain todelliset tuetut efektit voivat käynnistyä. Varmista ettei mikään tehoste käynnisty off-tilassa.
 7. Tarkista samalla, että tavalliset `as2026-gui --demo` -toiminnot ja kilpailupäivän GUI-smoke eivät muutu.
+
+## Automaattinen gallerian työnkulkukoe
+
+```sh
+cargo run --locked --features gui --bin as2026-gui -- --gallery-smoke-test --capture-dir /tmp/as2026-gallerian-koe
+```
+
+Koe lähettää oikeita Slint-ikkunan näppäin- ja hiiritapahtumia. Se tarkistaa liukusäätimen nuoli/Home/End-näppäimet ja askelen, ettei hiiren pelkkä liike muuta arvoa, valintaruudun välilyöntikytkennän sekä tekstisyötteen. Lisäksi tallennetaan neljä teemaa tehosteet pois/päällä. Tämä ei vielä kata kaikkia ohjaimia eikä korvaa Windowsin visuaalista vertailua. Gallerian käynnistys hylkää kilpailu- ja asennusvalintojen yhdistämisen.
 
 ## Seuraava vaihe
 

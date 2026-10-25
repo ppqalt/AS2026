@@ -35,6 +35,8 @@ käyttölogiikka kopioidaan mahdollisimman muuttamattomana upstreamista.
   käyttävät sitä; upstreamin vanhat `viewport-*`-yhteensopivuusaliakset
   ovat edelleen tarjolla. Palkille varataan oma 14 px kaista. Kaistan varaus
   ei riipu vieritystarpeesta, jotta asettelu ei muodosta takaisinkytkentää.
+  `maximum`-muutos rajaa nykyisen vierityskohdan sallitulle alueelle. Sisällön
+  laajentuminen säilyttää kelvollisen kohdan; nollapituinen alue ei jaa nollalla.
 - `Button`, `CheckBox`, `ListItem` ja valikkopohjat sisältävät uudemmat
   näppäin-, saavutettavuus- ja rajapintakorjaukset. Buttonin
   `control-height` ja `visual-variant` sekä syötteiden `control-height`
@@ -67,3 +69,11 @@ LicenseRef-Slint-Software-3.0. MadeWithSlint-tunnusten CC-BY-ND-4.0 säilyy.
 
 Betan komponenttien käyttö: [preset-katalogi](../../docs/FLUENT2_KOMPONENTTISTANDARDI.md)
 ja [kehitysgalleria](../../docs/FLUENT2_GALLERIA.md).
+
+## Laajennettu perusvalikoima ja järjestelmätila
+
+Slintin alkuperäiset Slider-, Switch-, SpinBox-, TextEdit-, RadioGroup-, TabWidget-, ProgressIndicator- ja ToolTip-pohjat on lisätty samasta 1.18.1-tagista. Animaatioiden `enabled` käyttää yhteistä tehosteporttia; indeterminaattinen etenemispalkki ei lue `animation-tick`-arvoa portin ollessa pois. Sliderin askel pyöristyy suhteessa minimiin, disabled estää muutokset ja pelkkä hiiren liike ei muuta arvoa. Nollapituiset liukualueet on suojattu. Sliderillä on näkyvä fokusreunus.
+
+`color-scheme.slint` on muuttamaton upstream-silta käyttöjärjestelmän värimalliin. Vain tämä tiedosto lukee `SlintInternal.color-scheme`-arvoa. `build.rs`:n kokeellisten rajapintojen lippu on tarpeen sekä tälle sillalle että `LineEditInterface`-rajapinnalle. Se ei ota käyttöön valinnaisia visuaalisia tehosteita.
+
+Buttonin `icon-only` ja `menu-button` ovat pieniä projektisovituksia; jälkimmäinen lisää tekstin jälkeen avausnuolen. Väripaletti on keskitetty: järjestelmän mukana vaihtuva neutraali vaalea/tumma tai käyttäjän valitsema Dark Spruce.

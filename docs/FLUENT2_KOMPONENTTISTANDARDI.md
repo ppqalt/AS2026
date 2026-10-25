@@ -15,20 +15,28 @@
 4. Virallisen Windows-arvon korvaaminen oletusarvauksella on kielletty. Alla `[MS]` tarkoittaa **Microsoftin dokumentoimaa Windows-vaatimusta/suositusta**, `[AS]` **AS2026:n ehdotettua valintaa**, `[NYK]` **v0.7.1:ssä havaittua toteutusta** ja `[TOTEUTTAMATTA]` vielä rakentamatonta komponenttia tai tilaa. `[AS]`-arvot eivät ole Microsoftin virallisia mittoja.
 5. **Kaikki valinnaiset animaatiot ja tehosteet oletuksena POIS.** Vain `Tietoja → Ota animaatiot ja tehosteet käyttöön` saa muuttaa niiden tilan. Käytä `Theme.effects-enabled`-porttia; yksikään animaatio, blur, varjo tai grafiikka-ajastin ei saa ohittaa sitä. Sisältö, valinta, kohdistus ja virheilmoitukset pysyvät toimivina ilman tehosteita.
 6. UI-muutokset eivät saa muuttaa kilpailusääntöjä, tulosten laskentaa, hyväksyntöjä, Emit-protokollaa, synkronointia, tietomalleja, luetteloiden tallennusta, tulostetta tai tiedostovientiä. Julkisiin kuviin ja testiin vain synteettistä kilpailudataa.
-7. **Älä oleta että komponentti on toteutettu siksi, että sille on preset tässä tiedostossa.** Tarkista `ui/fluent/style/std-widgets.slint`-viennit. Erityisesti `Slider`, `RadioButton`, `Switch`, `ProgressBar` ja erikoisvalitsimet **eivät kuulu nykyiseen paikalliseen export-valikoimaan**; ne vaativat toteutuksen tai hallitun Slint-tyylilaajennuksen ja testauksen.
+7. **Älä oleta että komponentti on toteutettu siksi, että sille on preset tässä tiedostossa.** Tarkista `ui/fluent/style/std-widgets.slint`-viennit. Perusvalikoimaan on lisätty `Slider`, `RadioGroup`, `Switch`, `SpinBox`, `TextEdit`, `TabWidget` ja `ProgressIndicator`; erikoisvalitsimia ei ole toteutettu.
 
 ### Lähteiden tärkeysjärjestys
 
 1. **Windows 11 / WinUI 3 design:** Windowsin sovellusohjeet ja käyttöjärjestelmän aidot kontrollimallit; näistä otetaan natiivin Windows-sovelluksen ensisijainen visuaalinen ja käyttäytymisreferenssi.
 2. **Fluent 2 Design System:** komponentin tarkoitus, semanttiset tokenit, sisältö, saavutettavuus ja tilat. Web/React-ohje ei ole automaattisesti WinUI 3:n pikselimitta.
 3. **WinUI 3 Gallery + Windows UI Kit:** mittojen, kuvakkeiden, täytteiden ja tilojen visuaalinen vertailu aidossa Windows 11 -ympäristössä; dokumentoi käyttämäsi lähteen tarkka versio/ruutukaappaus.
-4. **Slint 1.16.0 + AS2026:n paikallinen Fluent-sovitus:** lopullisen toteutuksen tekninen totuus. Tarkista API, paikallinen komponenttien export ja lisenssirajat.
+4. **Slint 1.18.1 + AS2026:n paikallinen Fluent-sovitus:** lopullisen toteutuksen tekninen totuus. Tarkista API, paikallinen komponenttien export ja lisenssirajat.
 
 **Jos lähteet ovat ristiriidassa:** Windows 11 -natiivi käyttäytyminen voittaa Fluent Webin yksityiskohdan; nykyisen kilpailutoiminnon turvallisuus voittaa kosmeettisen yhdenmukaistamisen. Epävarma mitta merkitään `[AS]`, ei `[MS]`.
 
 ### Päivityshuomautus: Slint 1.18.1 (beta)
 
-Beta-haaran `Cargo.toml` ja `Cargo.lock` käyttävät **Slint 1.18.1**:tä; `ui/fluent` on vielä 1.16.0-pohjainen paikallinen kopio. Tarkista Slintin 1.18.1 API ja widgettien yhteensopivuus kääntäjällä, älä oleta että aiempi 1.16.0-widget toimii muutoksitta tai että uusi API tarkoittaa päivittynyttä vendoroitua widgettiä. Kirjaston todella käytettävissä olevat exportit määrittää `ui/fluent/style/std-widgets.slint`. `ui/fluent/UPSTREAM.sha256` pysyy alkuperäisen lähteen 1.16.0-tiivisteenä, kunnes widgetkopio oikeasti uudelleensovitetaan.
+Beta käyttää **Slint 1.18.1**:tä sekä runtimessa, kääntäjässä että paikallisten widgettien lähdepohjana. Alkuperäiset tiedostot on verrattu viralliseen tagiin `372cf0ee5577c3dfec309a45e7b778ba4e81b734`; hashit ovat `ui/fluent/UPSTREAM.sha256`:ssä ja sovitukset `ui/fluent/README.md`:ssä. `LineEditInterface`, valikot ja `content-*`-vieritysrajapinta on siirretty uuteen lähteeseen. Tämä ei ole pelkkä riippuvuuden versionumeron vaihto.
+
+### Toteutuksen ajantasainen rajaus
+
+`ui/presets.slint` tarjoaa UiButton-, UiIconButton-, UiMenuButton-, UiTextField-, UiTextArea-, UiComboBox-, UiCheckBox-, UiSwitch-, UiSpinBox-, UiSlider-, UiRadioGroup-, UiTabs-, UiListView-, UiProgressBar-, UiScrollView-, UiCard-, UiSeparator-, UiInfoBar-, UiEmptyState- ja UiValidationMessage-esiasetukset. Alla olevat `Fluent...`-nimet ovat semanttinen suunnittelukatalogi; ne eivät ole rinnakkaisia Slint-tyyppejä. Vastaava `Ui...`-tyyppi on käytettävissä, vaikka vanhassa katalogirivissä lukee vielä `[TOTEUTTAMATTA]`; merkintä koskee koko rivillä kuvattua tavoitekäytöstä, ei pelkkää perusohjainta.
+
+Todellisten sivujen Button/LineEdit/ComboBox/CheckBox/ScrollView-tuonnit kulkevat nyt yhteisten presettien kautta. Kilpailutietojen callbackit ja laskenta säilyvät. Ulkoasu valitaan Tietoja-ikkunasta: järjestelmä, vaalea, tumma tai Dark Spruce. Järjestelmätila seuraa Slintin alustasiltaa; tuntematon järjestelmätila käyttää vaaleaa. Tehosteasetus on erillinen ja oletuksena pois. Galleria käyttää vain muistissa olevaa esitystilaa eikä avaa käyttäjän asetuksia tai kilpailupalveluja.
+
+Mica/Acrylic, järjestelmän korostusvärin seuranta, suuren kontrastin täydellinen alustaintegraatio ja pikselitason vertailu aitoon WinUI 3 Galleryyn ovat edelleen tekemättä. Näitä ei saa kuvata toteutetuiksi.
 
 ## 1. Viralliset viitelähteet (ensisijaiset linkit)
 
@@ -378,7 +386,7 @@ Kaikki tulevat muutokset: animoidut hoverit, siirtymät, easing, fade, shadow, M
 1. Nimeä toiminto ja valitse oikea komponenttityyppi käyttötehtävän mukaan (tehtävä, ei vain ulkonäkö): tarkka luku → Number/Spin, epätarkka luku → Slider, välitön kyllä/ei → Switch, lomakevalinta → CheckBox, yksi monesta → Radio/Combobox, toiminto → Button.
 2. Tarkista taulukosta, löytyykö preset ja onko se **[NYK]** vai **[TOTEUTTAMATTA]**.
 3. Avaa Microsoftin virallinen WinUI-ohje sekä Fluent 2 -ohje juuri kyseiselle komponentille. Ota mitat WinUI Gallery -referenssistä silloin kun ne eivät ole dokumentoituja. Erottele lähteet/päätökset.
-4. Tarkista `std-widgets.slint`-vienti ja AS2026:n käytössä oleva Slint **1.16.0** (ei uusimman dokumentaation API:sta tehtyä oletusta).
+4. Tarkista `std-widgets.slint`-vienti ja AS2026:n käytössä oleva Slint **1.18.1** (ei uusimman dokumentaation API:sta tehtyä oletusta).
 5. Lisää token `ui/theme.slint`-tiedostoon **vain, jos vastaavaa ei ole**. Valitse roolinimi, älä heksakoodia. Lisää yhteinen uusi komponentti yhden kerran `ui/components.slint`- tai hyväksyttyyn `ui/presets.slint`-tiedostoon; käytä sitä muissa näkymissä.
 6. Toteuta keyboard, hiiri, fokus, saavutettavat nimet, validation, disabled, overlay-dismiss ja mahdolliset popup-elinkaaren safe-call -ehdot. Älä muuta liiketoiminnan Rust-rajapintaa kuin teknisesti välttämätön esitystilan sidonta.
 7. Käy läpi *kaikki* interaktiotilat: off/on (jos relevantti), rest/hover/pressed/focus/disabled, invalid, loading, read-only. Testaa myös hiiren ja näppäimistön yhdistelmäkäyttö.

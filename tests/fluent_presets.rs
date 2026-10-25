@@ -34,10 +34,12 @@ fn common_presets_reuse_accessible_fluent_controls() {
 #[test]
 fn slider_has_real_accessibility_and_keyboard_contract() {
     let presets = include_str!("../ui/presets.slint");
-    let slider = presets
-        .split("export component UiSlider inherits Rectangle")
-        .nth(1)
-        .expect("UiSlider must have a concrete implementation");
+    assert!(presets.contains("UiSlider inherits Slider"));
+    let slider = format!(
+        "{}\n{}",
+        include_str!("../ui/fluent/style/slider.slint"),
+        include_str!("../ui/fluent/common/slider-base.slint")
+    );
     for expected in [
         "accessible-role: slider",
         "accessible-value-minimum",
@@ -45,15 +47,15 @@ fn slider_has_real_accessibility_and_keyboard_contract() {
         "accessible-value-step",
         "accessible-action-increment",
         "accessible-action-decrement",
-        "forward-focus: keyboard",
+        "forward-focus: focus-scope",
         "Key.LeftArrow",
         "Key.RightArrow",
         "Key.Home",
         "Key.End",
-        "clicked =>",
+        "pointer-event(event) =>",
         "moved =>",
-        "callback changed(float)",
-        "callback released(float)",
+        "callback changed(value: float)",
+        "callback released(value: float)",
     ] {
         assert!(slider.contains(expected), "slider missing {expected}");
     }
@@ -68,14 +70,29 @@ fn gallery_is_developer_only_and_does_not_open_last_competition() {
     let app = include_str!("../ui/app.slint");
     let gallery = include_str!("../ui/fluent-gallery.slint");
     let rust = include_str!("../src/gui/mod.rs");
-    assert!(app.contains("if root.gallery-open: FluentGallery"));
+    assert!(app.contains("export { GalleryWindow }"));
     assert!(rust.contains("Some(\"--fluent-gallery\")"));
     assert!(rust.contains("Some(\"--gallery-smoke-test\")"));
+    let early_return = rust
+        .find("return gallery::run(captures, gallery_smoke)")
+        .unwrap();
+    let initialization = rust.find("let app = AppWindow::new()?").unwrap();
     assert!(
-        rust.contains("let path = if fluent_gallery {")
-            && rust.contains("None // Gallery never opens real competition data"),
-        "gallery must not open the remembered competition"
+        early_return < initialization,
+        "gallery must bypass normal application initialization"
     );
+    let runner = include_str!("../src/gui/gallery.rs");
+    for forbidden in [
+        "PreferencesStore",
+        "open_workspace",
+        "initialize_printer",
+        "desktop::bind",
+    ] {
+        assert!(
+            !runner.contains(forbidden),
+            "gallery must remain isolated: {forbidden}"
+        );
+    }
     assert!(gallery.contains("UiButton"));
     assert!(gallery.contains("UiSlider"));
     assert!(gallery.contains("UiScrollView"));

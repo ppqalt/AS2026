@@ -66,6 +66,12 @@ fn local_fluent_controls_have_no_ungated_effects_or_external_imports() {
             {
                 let source = std::fs::read_to_string(&path).unwrap();
                 assert_animations_use_effect_gate(&path.display().to_string(), &source);
+                if source.contains("SlintInternal.") {
+                    assert_eq!(path, style.join("style/color-scheme.slint"));
+                    assert_eq!(source.matches("SlintInternal.").count(), 1);
+                    assert!(source.contains("color-scheme: SlintInternal.color-scheme;"));
+                }
+
                 for line in source.lines().map(str::trim) {
                     if line.starts_with("//") {
                         continue;
@@ -76,7 +82,6 @@ fn local_fluent_controls_have_no_ungated_effects_or_external_imports() {
                         "linear-gradient(",
                         "radial-gradient(",
                         ".with-alpha(",
-                        "SlintInternal.",
                     ] {
                         assert!(!line.contains(effect), "{}: {line}", path.display());
                     }
@@ -115,36 +120,45 @@ fn effects_preference_is_opt_in_and_is_saved_outside_competition_data() {
 fn ordinary_text_and_primary_action_have_readable_contrast() {
     // Evaluate the actual shared palette rather than freezing every color.
     let theme = include_str!("../ui/theme.slint");
-    let luminance = |name: &str| {
-        let token = format!(" {name}: #");
-        let hex = theme.split(&token).nth(1).expect("theme color token");
-        let mut channels = [0.0; 3];
-        for (index, channel) in channels.iter_mut().enumerate() {
-            let value =
-                u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16).unwrap() as f64 / 255.0;
-            *channel = if value <= 0.04045 {
-                value / 12.92
-            } else {
-                ((value + 0.055) / 1.055).powf(2.4)
-            };
+    for name in ["SpruceColors", "LightColors", "DarkColors"] {
+        let palette = theme
+            .split(&format!("export global {name} {{"))
+            .nth(1)
+            .unwrap()
+            .split('}')
+            .next()
+            .unwrap();
+        let luminance = |name: &str| {
+            let token = format!(" {name}: #");
+            let hex = palette.split(&token).nth(1).expect("theme color token");
+            let mut channels = [0.0; 3];
+            for (index, channel) in channels.iter_mut().enumerate() {
+                let value =
+                    u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16).unwrap() as f64 / 255.0;
+                *channel = if value <= 0.04045 {
+                    value / 12.92
+                } else {
+                    ((value + 0.055) / 1.055).powf(2.4)
+                };
+            }
+            channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
+        };
+        for (foreground, background) in [
+            ("ink", "canvas"),
+            ("ink", "surface"),
+            ("muted", "surface"),
+            ("primary-ink", "accent-fill"),
+            ("primary-ink", "accent-hover"),
+            ("accent-text", "accent-soft"),
+        ] {
+            let a = luminance(foreground);
+            let b = luminance(background);
+            let contrast = (a.max(b) + 0.05) / (a.min(b) + 0.05);
+            assert!(
+                contrast >= 4.5,
+                "{foreground} / {background}: text contrast is only {contrast:.2}:1"
+            );
         }
-        channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
-    };
-    for (foreground, background) in [
-        ("ink", "canvas"),
-        ("ink", "surface"),
-        ("muted", "surface"),
-        ("ink", "accent-fill"),
-        ("ink", "accent-hover"),
-        ("accent-text", "accent-soft"),
-    ] {
-        let a = luminance(foreground);
-        let b = luminance(background);
-        let contrast = (a.max(b) + 0.05) / (a.min(b) + 0.05);
-        assert!(
-            contrast >= 4.5,
-            "{foreground} / {background}: text contrast is only {contrast:.2}:1"
-        );
     }
 }
 

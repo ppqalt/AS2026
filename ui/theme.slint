@@ -1,19 +1,117 @@
-// AS2026 Fluent 2 beta: Windows 11 type and corner geometry baseline.
-// The existing dark spruce colors are retained pending a semantic token audit.
-// Segoe UI Variable is supplied by Windows; other platforms use font fallback.
-// Only the interface is themed; competition data and scoring are unchanged.
+// AS2026:n semanttiset paletit. Geometria: Microsoft Windows -ohje;
+// 28/36/44 px koot ja vanhat työnkulkumitat ovat projektin omia valintoja.
+import { ColorSchemeSelector } from "fluent/style/color-scheme.slint";
+
+export global SpruceColors {
+    out property <color> canvas: #0d1210;
+    out property <color> surface: #151c19;
+    out property <color> surface-raised: #1c2722;
+    out property <color> surface-hover: #23332a;
+    out property <color> table-header: #1b2420;
+    out property <color> line: #2c3931;
+    out property <color> ink: #e8eee9;
+    out property <color> muted: #a3b0a7;
+    out property <color> subtle-text: #819287;
+    out property <color> accent: #9cbea8;
+    out property <color> accent-fill: #356f54;
+    out property <color> accent-hover: #3c755a;
+    out property <color> accent-soft: #233b2d;
+    out property <color> accent-text: #d8eddd;
+    out property <color> sidebar: #0b100d;
+    out property <color> sidebar-hover: #1b2821;
+    out property <color> danger: #d48a83;
+    out property <color> danger-soft: #352221;
+    out property <color> warning: #ceab71;
+    out property <color> success: #82b99a;
+    out property <color> modal-backdrop: #00000080;
+    out property <color> primary-ink: #ffffff;
+    out property <color> control-stroke: #819287;
+    out property <color> control-pressed: #1c2722;
+    out property <color> focus-outer: #e8eee9;
+    out property <color> focus-inner: #0d1210;
+}
+
+export global LightColors {
+    out property <color> canvas: #f3f3f3;
+    out property <color> surface: #fbfbfb;
+    out property <color> surface-raised: #ffffff;
+    out property <color> surface-hover: #e9e9e9;
+    out property <color> table-header: #eeeeee;
+    out property <color> line: #d1d1d1;
+    out property <color> ink: #1a1a1a;
+    out property <color> muted: #525252;
+    out property <color> subtle-text: #666666;
+    out property <color> accent: #005fb8;
+    out property <color> accent-fill: #005fb8;
+    out property <color> accent-hover: #0053a3;
+    out property <color> accent-soft: #e5f1fb;
+    out property <color> accent-text: #003e73;
+    out property <color> sidebar: #ededed;
+    out property <color> sidebar-hover: #e0e0e0;
+    out property <color> danger: #a4262c;
+    out property <color> danger-soft: #fde7e9;
+    out property <color> warning: #8a4b00;
+    out property <color> success: #0f6b31;
+    out property <color> modal-backdrop: #00000066;
+    out property <color> primary-ink: #ffffff;
+    out property <color> control-stroke: #858585;
+    out property <color> control-pressed: #dedede;
+    out property <color> focus-outer: #1a1a1a;
+    out property <color> focus-inner: #ffffff;
+}
+
+export global DarkColors {
+    out property <color> canvas: #202020;
+    out property <color> surface: #282828;
+    out property <color> surface-raised: #323232;
+    out property <color> surface-hover: #3d3d3d;
+    out property <color> table-header: #303030;
+    out property <color> line: #454545;
+    out property <color> ink: #ffffff;
+    out property <color> muted: #cdcdcd;
+    out property <color> subtle-text: #a1a1a1;
+    out property <color> accent: #60cdff;
+    out property <color> accent-fill: #60cdff;
+    out property <color> accent-hover: #74d5ff;
+    out property <color> accent-soft: #233d4a;
+    out property <color> accent-text: #e3f5ff;
+    out property <color> sidebar: #1c1c1c;
+    out property <color> sidebar-hover: #303030;
+    out property <color> danger: #ff99a4;
+    out property <color> danger-soft: #44272b;
+    out property <color> warning: #fce100;
+    out property <color> success: #6ccb5f;
+    out property <color> modal-backdrop: #00000080;
+    out property <color> primary-ink: #001821;
+    out property <color> control-stroke: #929292;
+    out property <color> control-pressed: #292929;
+    out property <color> focus-outer: #ffffff;
+    out property <color> focus-inner: #202020;
+}
+
 export global Theme {
     // Global gate for optional animated transitions, effects, and future blur.
     // Default stays off even when the operating system permits visual effects.
     in-out property <bool> effects-enabled: false;
-    out property <ColorScheme> color-scheme: ColorScheme.dark;
+    // 0 = järjestelmä, 1 = vaalea, 2 = tumma, 3 = Dark Spruce.
+    in-out property <int> appearance-index: 0;
+    out property <ColorScheme> color-scheme: Theme.appearance-index == 1 ? ColorScheme.light :
+        Theme.appearance-index == 2 || Theme.appearance-index == 3 ? ColorScheme.dark :
+        ColorSchemeSelector.color-scheme == ColorScheme.dark ? ColorScheme.dark : ColorScheme.light;
+    out property <bool> dark: Theme.color-scheme == ColorScheme.dark;
     out property <string> font-family: "Segoe UI Variable";
     out property <length> control-height: 36px;
+    out property <length> control-compact: 28px;
+    out property <length> control-large: 44px;
+    out property <length> icon-size: 20px;
+    out property <length> icon-small: 16px;
+    out property <duration> duration-fast: 120ms;
+    out property <duration> duration-normal: 180ms;
     out property <length> header-height: 64px;
     out property <length> control-min-width: 76px;
     out property <length> body-font-size: 14px;
     out property <length> label-font-size: 12px;
-    out property <length> caption-font-size: 11px;
+    out property <length> caption-font-size: 12px;
     out property <length> section-font-size: 16px;
     out property <length> heading-font-size: 22px;
     out property <length> field-height: 64px;
@@ -42,30 +140,30 @@ export global Theme {
     out property <length> space-5: 20px;
     out property <length> space-6: 24px;
 
-    // Neutral surfaces deliberately carry only a very slight spruce tint.
-    out property <color> canvas: #0d1210;
-    out property <color> surface: #151c19;
-    out property <color> surface-raised: #1c2722;
-    out property <color> surface-hover: #23332a;
-    out property <color> table-header: #1b2420;
-    out property <color> line: #2c3931;
-    out property <color> ink: #e8eee9;
-    out property <color> muted: #a3b0a7;
-    out property <color> subtle-text: #819287;
-
-    // Dark forest green is an action/selection color, not panel decoration.
-    out property <color> accent: #9cbea8;
-    out property <color> accent-fill: #356f54;
-    out property <color> accent-hover: #3c755a;
-    out property <color> accent-soft: #233b2d;
-    out property <color> accent-text: #d8eddd;
-    out property <color> sidebar: #0b100d;
-    out property <color> sidebar-hover: #1b2821;
-    out property <color> danger: #d48a83;
-    out property <color> danger-soft: #352221;
-    out property <color> warning: #ceab71;
-    out property <color> success: #82b99a;
-    // Neutraali tumma peite säilyttää näkymän asiayhteyden ilman tilannekuvaa.
-    // Slint käyttää järjestystä RRGGBBAA, alfa on viimeisenä.
-    out property <color> modal-backdrop: #00000080;
+    out property <color> canvas: Theme.appearance-index == 3 ? SpruceColors.canvas : Theme.dark ? DarkColors.canvas : LightColors.canvas;
+    out property <color> surface: Theme.appearance-index == 3 ? SpruceColors.surface : Theme.dark ? DarkColors.surface : LightColors.surface;
+    out property <color> surface-raised: Theme.appearance-index == 3 ? SpruceColors.surface-raised : Theme.dark ? DarkColors.surface-raised : LightColors.surface-raised;
+    out property <color> surface-hover: Theme.appearance-index == 3 ? SpruceColors.surface-hover : Theme.dark ? DarkColors.surface-hover : LightColors.surface-hover;
+    out property <color> table-header: Theme.appearance-index == 3 ? SpruceColors.table-header : Theme.dark ? DarkColors.table-header : LightColors.table-header;
+    out property <color> line: Theme.appearance-index == 3 ? SpruceColors.line : Theme.dark ? DarkColors.line : LightColors.line;
+    out property <color> ink: Theme.appearance-index == 3 ? SpruceColors.ink : Theme.dark ? DarkColors.ink : LightColors.ink;
+    out property <color> muted: Theme.appearance-index == 3 ? SpruceColors.muted : Theme.dark ? DarkColors.muted : LightColors.muted;
+    out property <color> subtle-text: Theme.appearance-index == 3 ? SpruceColors.subtle-text : Theme.dark ? DarkColors.subtle-text : LightColors.subtle-text;
+    out property <color> accent: Theme.appearance-index == 3 ? SpruceColors.accent : Theme.dark ? DarkColors.accent : LightColors.accent;
+    out property <color> accent-fill: Theme.appearance-index == 3 ? SpruceColors.accent-fill : Theme.dark ? DarkColors.accent-fill : LightColors.accent-fill;
+    out property <color> accent-hover: Theme.appearance-index == 3 ? SpruceColors.accent-hover : Theme.dark ? DarkColors.accent-hover : LightColors.accent-hover;
+    out property <color> accent-soft: Theme.appearance-index == 3 ? SpruceColors.accent-soft : Theme.dark ? DarkColors.accent-soft : LightColors.accent-soft;
+    out property <color> accent-text: Theme.appearance-index == 3 ? SpruceColors.accent-text : Theme.dark ? DarkColors.accent-text : LightColors.accent-text;
+    out property <color> sidebar: Theme.appearance-index == 3 ? SpruceColors.sidebar : Theme.dark ? DarkColors.sidebar : LightColors.sidebar;
+    out property <color> sidebar-hover: Theme.appearance-index == 3 ? SpruceColors.sidebar-hover : Theme.dark ? DarkColors.sidebar-hover : LightColors.sidebar-hover;
+    out property <color> danger: Theme.appearance-index == 3 ? SpruceColors.danger : Theme.dark ? DarkColors.danger : LightColors.danger;
+    out property <color> danger-soft: Theme.appearance-index == 3 ? SpruceColors.danger-soft : Theme.dark ? DarkColors.danger-soft : LightColors.danger-soft;
+    out property <color> warning: Theme.appearance-index == 3 ? SpruceColors.warning : Theme.dark ? DarkColors.warning : LightColors.warning;
+    out property <color> success: Theme.appearance-index == 3 ? SpruceColors.success : Theme.dark ? DarkColors.success : LightColors.success;
+    out property <color> modal-backdrop: Theme.appearance-index == 3 ? SpruceColors.modal-backdrop : Theme.dark ? DarkColors.modal-backdrop : LightColors.modal-backdrop;
+    out property <color> primary-ink: Theme.appearance-index == 3 ? SpruceColors.primary-ink : Theme.dark ? DarkColors.primary-ink : LightColors.primary-ink;
+    out property <color> control-stroke: Theme.appearance-index == 3 ? SpruceColors.control-stroke : Theme.dark ? DarkColors.control-stroke : LightColors.control-stroke;
+    out property <color> control-pressed: Theme.appearance-index == 3 ? SpruceColors.control-pressed : Theme.dark ? DarkColors.control-pressed : LightColors.control-pressed;
+    out property <color> focus-outer: Theme.appearance-index == 3 ? SpruceColors.focus-outer : Theme.dark ? DarkColors.focus-outer : LightColors.focus-outer;
+    out property <color> focus-inner: Theme.appearance-index == 3 ? SpruceColors.focus-inner : Theme.dark ? DarkColors.focus-inner : LightColors.focus-inner;
 }

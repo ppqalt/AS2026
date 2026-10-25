@@ -1,4 +1,5 @@
-import { Button, LineEdit, ScrollView, ComboBox, ListView, CheckBox } from "std-widgets.slint";
+import { ListView } from "std-widgets.slint";
+import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView, UiComboBox as ComboBox, UiCheckBox as CheckBox } from "presets.slint";
 import { Theme } from "theme.slint";
 import { TableRow, EditorField } from "types.slint";
 
@@ -526,7 +527,7 @@ export component Editor inherits Rectangle {
                 field-draft(key, value) => { root.field-draft(key, value); }
             }
         }
-        if root.deletable: Button { text: "Poista luokka"; clicked => { root.delete(); } }
+        if root.deletable: Button { text: "Poista luokka"; preset-variant: "danger"; clicked => { root.delete(); } }
         if root.new-record: HorizontalLayout {
             spacing: Theme.space-2;
             Rectangle { horizontal-stretch: 1; }

@@ -40,6 +40,10 @@ component ScrollBar inherits Rectangle {
     in-out property <length> maximum;
     in-out property <length> page-size;
     in-out property <length> value;
+    // Sisällön supistuessa pidetään nykyinen kohta sallitulla alueella.
+    // Laajeneminen ei siirrä jo kelvollista vierityskohtaa.
+    changed maximum => { root.value = max(-max(0px, root.maximum), min(0px, root.value)); }
+
     in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
     in property <bool> enabled;
 
@@ -67,8 +71,8 @@ component ScrollBar inherits Rectangle {
     thumb := Rectangle {
         width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
         height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
-        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
-        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
+        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - thumb.width) * (-root.value / max(1px, root.maximum));
+        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - thumb.height) * (-root.value / max(1px, root.maximum));
         border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: FluentPalette.border;
 

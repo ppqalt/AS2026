@@ -2,7 +2,7 @@
 // All dimensions are AS2026 presets, not Microsoft's certified WinUI measurements.
 // Existing Rust callbacks and UI behavior remain unchanged.
 // See docs/FLUENT2_KOMPONENTTISTANDARDI.md before adding variants.
-import { Button, LineEdit, ComboBox, CheckBox, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ComboBox, CheckBox, ScrollView, Slider, Switch, SpinBox, TextEdit, RadioGroup, TabWidget, ProgressIndicator, ListView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 
 // Existing Button has keyboard navigation, accessible-role and FocusBorder.
@@ -10,8 +10,9 @@ import { Theme } from "theme.slint";
 export component UiButton inherits Button {
     in property <string> preset-size: "default";       // compact | default | large
     in property <string> preset-variant: "standard";  // standard | primary | subtle | danger
-    control-height: root.preset-size == "compact" ? 28px :
-                    root.preset-size == "large" ? 44px : Theme.control-height;
+    control-height: root.preset-size == "compact" ? Theme.control-compact :
+                    root.preset-size == "large" ? Theme.control-large : Theme.control-height;
+    max-height: root.control-height;
     visual-variant: root.preset-variant;
     primary: root.preset-variant == "primary";
     // A named action cannot shrink below the existing text minimum.
@@ -19,20 +20,20 @@ export component UiButton inherits Button {
 
 export component UiTextField inherits LineEdit {
     in property <string> preset-size: "default"; // compact | default | large
-    control-height: root.preset-size == "compact" ? 28px :
-                    root.preset-size == "large" ? 44px : Theme.control-height;
+    control-height: root.preset-size == "compact" ? Theme.control-compact :
+                    root.preset-size == "large" ? Theme.control-large : Theme.control-height;
 }
 
 export component UiComboBox inherits ComboBox {
     in property <string> preset-size: "default";
-    control-height: root.preset-size == "compact" ? 28px :
-                    root.preset-size == "large" ? 44px : Theme.control-height;
+    control-height: root.preset-size == "compact" ? Theme.control-compact :
+                    root.preset-size == "large" ? Theme.control-large : Theme.control-height;
 }
 
 export component UiCheckBox inherits CheckBox {
     in property <string> preset-size: "default";
-    min-height: root.preset-size == "compact" ? 28px :
-                root.preset-size == "large" ? 44px : Theme.control-height;
+    min-height: root.preset-size == "compact" ? Theme.control-compact :
+                root.preset-size == "large" ? Theme.control-large : Theme.control-height;
 }
 
 export component UiScrollView inherits ScrollView {
@@ -58,110 +59,95 @@ export component UiSeparator inherits Rectangle {
     background: Theme.line;
 }
 
-// AS2026-provided slider (Slint 1.16's Slider is absent from the local
-// curated widget export). Its numeric range is for approximate UI values,
-// NEVER for competition timing, RT/AT penalties or scoring data.
-// Accessible keyboard controls and screen-reader range metadata are required.
-export component UiSlider inherits Rectangle {
+// Slintin 1.18.1-pohja omistaa fokus-, hiiri-, näppäin- ja saavutettavuuslogiikan.
+// Ei käytetä kilpailun täsmällisiin kellonaikoihin tai pisteisiin.
+export component UiSlider inherits Slider {
     in property <string> label: "Arvo";
-    in property <bool> enabled: true;
     in property <string> preset-size: "default";
-    in property <float> minimum: 0;
-    in property <float> maximum: 100;
-    in property <float> step: 1;
-    in-out property <float> value: 50;
-    callback changed(float);
-    callback released(float);
-
-    private property <float> usable-range: max(0.00001, root.maximum - root.minimum);
-    private property <float> ratio: max(0, min(1, (root.value - root.minimum) / root.usable-range));
-    private property <length> thumb-diameter: root.preset-size == "large" ? 24px : 20px;
-    private property <length> track-start: root.thumb-diameter / 2;
-    private property <length> track-length: max(1px, root.width - root.thumb-diameter);
-
+    thumb-diameter: root.preset-size == "large" ? 24px : 20px;
     preferred-width: 260px;
     min-width: 100px;
-    preferred-height: root.preset-size == "large" ? 44px : 36px;
-    height: root.preset-size == "large" ? 44px : 36px;
-    vertical-stretch: 0;
-    clip: false;
-
-    accessible-role: slider;
+    preferred-height: root.preset-size == "large" ? Theme.control-large : Theme.control-height;
     accessible-label: root.label;
-    accessible-enabled: root.enabled;
-    accessible-orientation: horizontal;
-    accessible-value: "" + root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
-    accessible-value-step: root.step;
-    accessible-action-increment => { root.increment(1); }
-    accessible-action-decrement => { root.increment(-1); }
-    forward-focus: keyboard;
+}
 
-    function increment(direction: int) {
-        if !root.enabled { return; }
-        root.value = max(root.minimum, min(root.maximum, root.value + direction * max(0.00001, root.step)));
-        root.changed(root.value);
-        root.released(root.value);
-    }
+export component UiSwitch inherits Switch {
+    min-height: Theme.control-height;
+}
 
-    function set-by-pointer(position: length) {
-        if !root.enabled || root.maximum <= root.minimum { return; }
-        let portion = max(0, min(1, (position - root.track-start) / root.track-length));
-        let ticks = Math.round(portion * root.usable-range / max(0.00001, root.step));
-        root.value = max(root.minimum, min(root.maximum, root.minimum + ticks * root.step));
-        root.changed(root.value);
-    }
+export component UiSpinBox inherits SpinBox {
+    in property <string> preset-size: "default";
+    control-height: root.preset-size == "compact" ? Theme.control-compact : root.preset-size == "large" ? Theme.control-large : Theme.control-height;
+}
 
-    Rectangle {
-        x: root.track-start;
-        width: root.track-length;
-        y: (root.height - 4px) / 2;
-        height: 4px;
-        background: Theme.line;
-        border-radius: 2px;
-    }
-    Rectangle {
-        x: root.track-start;
-        width: root.track-length * root.ratio;
-        y: (root.height - 4px) / 2;
-        height: 4px;
-        background: root.enabled ? Theme.accent : Theme.muted;
-        border-radius: 2px;
-    }
-    Rectangle {
-        x: root.track-start + root.track-length * root.ratio - root.thumb-diameter / 2;
-        y: (root.height - root.thumb-diameter) / 2;
-        width: root.thumb-diameter;
-        height: root.thumb-diameter;
-        background: root.enabled ? Theme.ink : Theme.muted;
-        border-color: root.enabled ? Theme.accent : Theme.line;
-        border-width: 2px;
-        border-radius: root.thumb-diameter / 2;
-    }
+export component UiTextArea inherits TextEdit {
+    min-height: 100px;
+    preferred-height: 120px;
+    wrap: word-wrap;
+}
 
-    input := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        clicked => { keyboard.focus(); root.set-by-pointer(self.mouse-x); root.released(root.value); }
-        moved => { root.set-by-pointer(self.mouse-x); }
-    }
-    keyboard := FocusScope {
-        x: 0px;
-        width: 0px;
-        enabled: root.enabled;
-        key-pressed(event) => {
-            if event.text == Key.LeftArrow || event.text == Key.DownArrow { root.increment(-1); return accept; }
-            if event.text == Key.RightArrow || event.text == Key.UpArrow { root.increment(1); return accept; }
-            if event.text == Key.Home { root.value = root.minimum; root.changed(root.value); root.released(root.value); return accept; }
-            if event.text == Key.End { root.value = root.maximum; root.changed(root.value); root.released(root.value); return accept; }
-            reject
+export component UiRadioGroup inherits RadioGroup { }
+export component UiTabs inherits TabWidget { }
+export component UiListView inherits ListView { }
+
+export component UiProgressBar inherits ProgressIndicator {
+    min-height: 4px;
+    accessible-label: root.indeterminate ? "Työ käynnissä" : "Työn eteneminen";
+}
+
+export component UiIconButton inherits UiButton {
+    in property <string> label;
+    icon-only: true;
+    accessible-label: root.label;
+}
+
+export component UiMenuButton inherits UiButton {
+    in property <bool> expanded: false;
+    menu-button: true;
+    accessible-expandable: true;
+    accessible-expanded: root.expanded;
+}
+
+export component UiInfoBar inherits Rectangle {
+    in property <string> severity: "info";
+    in property <string> text;
+    in property <string> action-text;
+    callback action();
+    background: root.severity == "error" ? Theme.danger-soft : Theme.surface-raised;
+    border-color: root.severity == "error" ? Theme.danger : root.severity == "warning" ? Theme.warning : Theme.line;
+    border-width: 1px;
+    border-radius: Theme.radius;
+    min-height: info-layout.min-height;
+    accessible-role: groupbox;
+    accessible-label: root.text;
+    info-layout := HorizontalLayout {
+        padding: Theme.space-3;
+        spacing: Theme.space-3;
+        Text {
+            text: root.severity == "error" ? "Virhe:" : root.severity == "warning" ? "Huomio:" : root.severity == "success" ? "Valmis:" : "Tieto:";
+            font-weight: 600;
+            color: Theme.ink;
+            vertical-alignment: center;
         }
+        Text { text: root.text; color: Theme.ink; wrap: word-wrap; horizontal-stretch: 1; vertical-alignment: center; }
+        if root.action-text != "": UiButton { text: root.action-text; clicked => { root.action(); } }
     }
-    if keyboard.has-focus && root.enabled: Rectangle {
-        border-width: 2px;
-        border-color: Theme.accent;
-        border-radius: Theme.radius;
-        background: transparent;
-    }
+}
+
+export component UiEmptyState inherits VerticalLayout {
+    in property <string> title: "Ei tietoja";
+    in property <string> description;
+    in property <string> action-text;
+    callback action();
+    spacing: Theme.space-2;
+    Text { text: root.title; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; wrap: word-wrap; }
+    Text { text: root.description; color: Theme.muted; wrap: word-wrap; }
+    if root.action-text != "": UiButton { text: root.action-text; clicked => { root.action(); } }
+}
+
+export component UiValidationMessage inherits Text {
+    in property <string> severity: "error";
+    color: root.severity == "warning" ? Theme.warning : root.severity == "success" ? Theme.success : Theme.danger;
+    font-size: Theme.label-font-size;
+    wrap: word-wrap;
 }

@@ -1,4 +1,5 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
+mod gallery;
 slint::include_modules!();
 mod desktop;
 mod emit_correction;
@@ -15,7 +16,7 @@ use as2026::{
     ClockTime, CoreError, application, emit, installation, io_message,
     live_reader::{ReaderEvent, ReaderWorker},
     native::{self, Project},
-    preferences::PreferencesStore,
+    preferences::{Appearance, PreferencesStore},
     report,
     storage::ProjectStore,
     updates,
@@ -1690,6 +1691,20 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             });
         }}
     }
+    action!(on_set_appearance, |s, a, index| {
+        let appearance =
+            Appearance::from_index(index).ok_or_else(|| invalid("Tuntematon ulkoasu"))?;
+        let Some(preferences) = s.preferences.as_mut() else {
+            a.set_appearance_index(0);
+            return Err(invalid("Sovellusasetuksia ei voitu avata"));
+        };
+        if let Err(error) = preferences.save_appearance(appearance) {
+            a.set_appearance_index(preferences.get().appearance.index());
+            return Err(invalid(&error));
+        }
+        a.set_appearance_index(appearance.index());
+        Ok(())
+    });
     action!(on_set_effects_enabled, |s, a, enabled| {
         let Some(preferences) = s.preferences.as_mut() else {
             a.set_effects_enabled(false);
@@ -3315,6 +3330,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             .renderer_name("software".into())
             .select()?;
     }
+    if fluent_gallery {
+        if demo
+            || initial_path.is_some()
+            || portable
+            || install_requested
+            || health_check.is_some()
+            || menu_test
+            || emit_correction_test
+        {
+            return Err(
+                "Galleria avataan erikseen ilman kilpailu-, asennus- tai laitevalintoja".into(),
+            );
+        }
+        return gallery::run(captures, gallery_smoke);
+    }
     let app = AppWindow::new()?;
     let tung_weak = app.as_weak();
     app.on_tung_start(move || {
@@ -3339,7 +3369,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         app.set_tung_active(true);
     });
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
-    app.set_gallery_open(fluent_gallery);
     app.set_app_version(env!("CARGO_PKG_VERSION").into());
     app.set_managed(installation::is_managed());
     let preferences = if demo {
@@ -3363,6 +3392,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let preferences = match preferences {
         Ok(preferences) => {
             app.set_effects_enabled(preferences.get().effects_enabled);
+            app.set_appearance_index(preferences.get().appearance.index());
             if let Ok(root) = preferences.competition_root() {
                 app.set_default_root(root.display().to_string().into());
             }
@@ -3378,10 +3408,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|p| p.parent().map(Path::to_owned))
         .filter(|p| p.join("release.json").is_file());
     app.set_installable(package.is_some());
-    app.set_setup_open(
-        !fluent_gallery
-            && ((package.is_some() && !app.get_managed() && !demo) || install_requested),
-    );
+    app.set_setup_open((package.is_some() && !app.get_managed() && !demo) || install_requested);
     let previous = preferences
         .as_ref()
         .and_then(|p| p.get().last_competition.clone());
@@ -3403,9 +3430,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
-    let path = if fluent_gallery {
-        None // Gallery never opens real competition data or the remembered project.
-    } else if demo {
+    let path = if demo {
         Some(demo_path()?)
     } else {
         initial_path.or(previous)
@@ -3420,25 +3445,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         status(&app, error, true);
     }
     app.show()?;
-    if fluent_gallery {
-        if let Some(directory) = captures.clone() {
-            std::fs::create_dir_all(&directory)?;
-            let weak = app.as_weak();
-            Timer::single_shot(Duration::from_millis(500), move || {
-                if let Some(app) = weak.upgrade() {
-                    if let Err(error) = save_view(&app, &directory.join("fluent-gallery.png")) {
-                        eprintln!("Fluent-gallerian kuvan tallennus epäonnistui: {error}");
-                        if gallery_smoke {
-                            std::process::exit(1);
-                        }
-                    }
-                }
-                if gallery_smoke {
-                    let _ = slint::quit_event_loop();
-                }
-            });
-        }
-    }
     let _lan_smoke = if let Some(role) = std::env::var_os("AS2026_LAN_GUI_ROLE") {
         if !demo {
             return Err("LAN-GUI-koe vaatii --demo-valinnan".into());

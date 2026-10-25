@@ -10,7 +10,9 @@
 
 ## Slint 1.18.1 -päivityksen tila
 
-Slint-runtimen ja `slint-build`-kääntäjän riippuvuudet sekä `Cargo.lock` on päivitetty betassa versioon **1.18.1** (21.9.2026). **Tämä ei vielä tarkoita, että paikalliset Fluent-widgetit olisi päivitetty:** `ui/fluent/style` on edelleen Slint 1.16.0:sta lähtevä muokattu kopio, jonka uudelleensovitus on varmistettava lähdevertailulla, käännöksellä, GUI-testeillä ja Windows/Linux-kuvien avulla. Älä korvaa lisenssi- tai SHA-tiedostoja epätosilla 1.18.1-merkinnöillä. Animaation `enabled`-kenttä on uudemman kääntäjän tukema; tehosteet ovat silti oletuksena pois ja vain käyttäjä saa sallia ne.
+Runtime, kääntäjä ja paikalliset widget-lähteet käyttävät **Slint 1.18.1**:tä. Vanha 1.16.0-pohja on verrattu tiedosto kerrallaan ja tarpeelliset projektisovitukset siirretty uudempaan lähteeseen. Alkuperäislähteiden hashit on vahvistettu virallisen Git-tagin puusta. Muutokset ja säilytettävät sovitukset: [widgettien ylläpito-ohje](../ui/fluent/README.md).
+
+Tietoja-ikkunassa on tallentuva järjestelmä/vaalea/tumma/Dark Spruce -ulkoasu. Perusohjainten tuonnit on siirretty yhteisiin presetteihin. Galleria on oma ikkuna ja ohittaa tavallisen sovelluksen asetukset, kilpailut, tulostimen, lukijan ja päivityspalvelut. WinUI-pikselivertailu, täydellinen suuren kontrastin tuki ja Windowsin Mica/Acrylic eivät ole valmiita.
 
 ## Tavoite
 
@@ -51,7 +53,7 @@ Testaa erityisesti: uusi asennus (pois), vanhojen asetusten migraatio (pois), p�
 
 ## Toteutusvaihe: preset-kirjasto ja galleria
 
-`ui/presets.slint` sisältää betan ensimmäiset oikeat preset-kontrollit: `UiButton` (kolme kokoa, neljä varianttia), `UiTextField`, `UiComboBox`, `UiCheckBox`, `UiScrollView`, `UiCard`, `UiSeparator` sekä `UiSlider`. `ui/fluent-gallery.slint` esittää ne interaktiivisesti kehitystilassa. Suora käynnistys ja QA-vaatimukset: **[FLUENT2_GALLERIA.md](FLUENT2_GALLERIA.md)**. Nämä ovat ensimmäisen vaiheen toteutuksia: täydellinen teema, WinUI-pikselivertailu ja sivujen migraatio ovat yhä keskeneräisiä.
+`ui/presets.slint` sisältää betan ensimmäiset oikeat preset-kontrollit: `UiButton` (kolme kokoa, neljä varianttia), `UiTextField`, `UiComboBox`, `UiCheckBox`, `UiScrollView`, `UiCard`, `UiSeparator` sekä `UiSlider` sekä valinta-, numero-, monirivisyöte-, välilehti-, luettelo-, etenemis- ja viestikomponentit. `ui/fluent-gallery.slint` esittää ne interaktiivisesti kehitystilassa. Suora käynnistys ja QA-vaatimukset: **[FLUENT2_GALLERIA.md](FLUENT2_GALLERIA.md)**. Nämä ovat ensimmäisen vaiheen toteutuksia: täydellinen teema, WinUI-pikselivertailu ja sivujen migraatio ovat yhä keskeneräisiä.
 
 ## Koko käyttöliittymän tarkastus
 

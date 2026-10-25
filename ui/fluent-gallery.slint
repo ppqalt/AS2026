@@ -1,8 +1,9 @@
 // Development-only interactive component gallery.
 // Open with: cargo run --features gui --bin as2026-gui -- --fluent-gallery
 // No competition data or scoring callbacks. Follow docs/FLUENT2_KOMPONENTTISTANDARDI.md.
+import { Palette } from "std-widgets.slint";
 import { Theme } from "theme.slint";
-import { UiButton, UiTextField, UiComboBox, UiCheckBox, UiSlider, UiScrollView, UiCard, UiSeparator } from "presets.slint";
+import { UiButton, UiTextField, UiComboBox, UiCheckBox, UiSlider, UiScrollView, UiCard, UiSeparator, UiSwitch, UiSpinBox, UiTextArea, UiRadioGroup, UiTabs, UiListView, UiProgressBar, UiIconButton, UiMenuButton, UiInfoBar, UiEmptyState, UiValidationMessage } from "presets.slint";
 
 export component FluentGallery inherits Rectangle {
     in property <bool> effects-enabled;
@@ -13,7 +14,19 @@ export component FluentGallery inherits Rectangle {
     in-out property <int> sample-class: 0;
     in-out property <float> slider-value: 35;
     in-out property <bool> sample-checkbox: true;
+    in-out property<int> scroll-rows: 15;
+    in-out property<length> internal-scroll-offset <=> internal-scroll.content-y;
+    out property<length> internal-scroll-minimum: min(0px, internal-scroll.visible-height - internal-scroll.content-height);
 
+
+    out property<Point> slider-position: sample-slider.absolute-position;
+    out property<length> slider-width: sample-slider.width;
+    out property<length> slider-height: sample-slider.height;
+    public function focus-slider() { sample-slider.focus(); }
+    public function focus-check() { sample-check.focus(); }
+    public function focus-text() { sample-text-field.focus(); }
+    public function reset-scroll() { gallery-scroll.content-y = 0px; }
+    public function show-slider() { gallery-scroll.content-y = min(0px, -sample-slider.absolute-position.y + 170px); }
     background: Theme.canvas;
     VerticalLayout {
         padding: Theme.space-5;
@@ -28,6 +41,12 @@ export component FluentGallery inherits Rectangle {
                 Text { text: "Kehitysgalleria · komponenttipresetit · vain beta"; color: Theme.muted; font-size: Theme.body-font-size; }
             }
             UiButton { text: "Sulje galleria"; preset-variant: "standard"; clicked => { root.close(); } }
+        }
+        UiComboBox {
+            model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Dark Spruce"];
+            current-index: Theme.appearance-index;
+            accessible-label: "Gallerian ulkoasu";
+            selected(value) => { Theme.appearance-index = self.current-index; }
         }
         UiSeparator {}
 
@@ -47,7 +66,7 @@ export component FluentGallery inherits Rectangle {
                     VerticalLayout {
                         padding: Theme.space-4;
                         spacing: Theme.space-3;
-                        Text { text: "01 / Painikkeet — compact, default, large"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                        Text { text: "01 / Painikkeet — pieni, tavallinen ja suuri"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
                         HorizontalLayout {
                             spacing: Theme.space-3;
                             UiButton { text: "Pieni"; preset-size: "compact"; clicked => { root.last-action = "Pieni painike"; } }
@@ -83,7 +102,7 @@ export component FluentGallery inherits Rectangle {
                             VerticalLayout {
                                 spacing: Theme.space-1;
                                 Text { text: "Nimi / tavallinen"; color: Theme.muted; font-size: Theme.label-font-size; }
-                                UiTextField { text <=> root.sample-text; }
+                                sample-text-field := UiTextField { text <=> root.sample-text; }
                             }
                             VerticalLayout {
                                 spacing: Theme.space-1;
@@ -101,7 +120,7 @@ export component FluentGallery inherits Rectangle {
                                     current-index <=> root.sample-class;
                                 }
                             }
-                            UiCheckBox { text: "Valittu vaihtoehto"; checked <=> root.sample-checkbox; }
+                            sample-check := UiCheckBox { text: "Valittu vaihtoehto"; checked <=> root.sample-checkbox; }
                             UiCheckBox { text: "Pois käytöstä"; enabled: false; }
                             Rectangle { horizontal-stretch: 1; }
                         }
@@ -116,7 +135,7 @@ export component FluentGallery inherits Rectangle {
                         Text { text: "Näytearvo " + Math.round(root.slider-value) + " / 100 (ei kilpailulaskennan syöte)"; color: Theme.muted; font-size: Theme.body-font-size; }
                         HorizontalLayout {
                             spacing: Theme.space-4;
-                            UiSlider {
+                            sample-slider := UiSlider {
                                 label: "Esikatselun arvo";
                                 width: 185px;
                                 value <=> root.slider-value;
@@ -142,7 +161,7 @@ export component FluentGallery inherits Rectangle {
                         padding: Theme.space-4;
                         spacing: Theme.space-3;
                         Text { text: "04 / Vieritys ja tilat"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
-                        Text { text: "Testaa vierityspalkkia ja sisäistä sisältöaluetta sekä pystysuuntaista scrollia."; color: Theme.muted; font-size: Theme.body-font-size; }
+                        Text { text: "Testaa vierityspalkkia ja sisäistä sisältöaluetta sekä pystysuuntaista vieritystä."; color: Theme.muted; font-size: Theme.body-font-size; }
                         internal-scroll := UiScrollView {
                             height: 130px;
                             horizontal-scrollbar-policy: always-off;
@@ -153,7 +172,7 @@ export component FluentGallery inherits Rectangle {
                                 width: internal-scroll.visible-width;
                                 height: self.min-height;
                                 spacing: Theme.space-2;
-                                for i in 15 : Text {
+                                for i in root.scroll-rows : Text {
                                     text: "Vieritysrivi " + (i + 1) + " — tämä osio käyttää Slintin oikeaa ScrollView-komponenttia.";
                                     color: Theme.ink;
                                     font-size: Theme.body-font-size;
@@ -180,6 +199,50 @@ export component FluentGallery inherits Rectangle {
                         }
                     }
                 }
+                UiCard {
+                    min-height: 530px;
+                    VerticalLayout {
+                        padding: Theme.space-4; spacing: Theme.space-3;
+                        Text { text: "06 / Muut peruskomponentit"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 600; }
+                        HorizontalLayout {
+                            UiSwitch { text: "Automaattinen esikatselu"; }
+                            UiSpinBox { minimum: 0; maximum: 100; value: 5; step-size: 5; accessible-label: "Esikatselun määrä"; }
+                        }
+                        UiRadioGroup {
+                            RadioButton { text: "Ensimmäinen vaihtoehto"; }
+                            RadioButton { text: "Toinen vaihtoehto"; }
+                        }
+                        UiTextArea { text: "Monirivinen esikatseluteksti.\nTämä ei ole kilpailun huomautus."; accessible-label: "Monirivinen esikatselu"; }
+                        UiProgressBar { progress: 0.6; }
+                        UiProgressBar { indeterminate: true; }
+                        UiInfoBar { text: "Komponentit käyttävät yhteistä teemaa."; }
+                        UiInfoBar { severity: "warning"; text: "Tämä on esimerkkihuomautus."; }
+                        UiValidationMessage { text: "Esimerkkivirhe: tarkista kentän sisältö."; }
+                        UiMenuButton { text: "Esimerkkivalikko"; clicked => { gallery-popup.show(); } }
+                        gallery-popup := PopupWindow {
+                            width: 220px; height: 100px;
+                            Rectangle {
+                                background: Theme.surface-raised; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                                VerticalLayout {
+                                    padding: Theme.space-2;
+                                    UiButton { text: "Valitse toiminto"; clicked => { root.last-action = "Valikkotoiminto"; gallery-popup.close(); } }
+                                    UiButton { text: "Sulje valikko"; clicked => { gallery-popup.close(); } }
+                                }
+                            }
+                        }
+                    }
+                }
+                UiCard {
+                    min-height: 220px;
+                    VerticalLayout {
+                        padding: Theme.space-4; spacing: Theme.space-3;
+                        UiTabs {
+                            height: 170px;
+                            Tab { title: "Luettelo"; UiListView { VerticalLayout { for label in ["Ensimmäinen rivi", "Toinen rivi", "Kolmas rivi"]: Text { text: label; color: Theme.ink; } } } }
+                            Tab { title: "Tyhjä näkymä"; UiEmptyState { title: "Ei esikatselutietoja"; description: "Valitse toinen välilehti nähdäksesi luettelon."; } }
+                        }
+                    }
+                }
                 Rectangle { height: Theme.space-3; }
             }
         }
@@ -190,5 +253,40 @@ export component FluentGallery inherits Rectangle {
             font-size: Theme.label-font-size;
             vertical-stretch: 0;
         }
+    }
+}
+
+// Tämä ikkuna ei avaa kilpailuja, asetustiedostoja tai laitepalveluja.
+export component GalleryWindow inherits Window {
+    title: "AS2026 — Fluent 2 -komponenttigalleria (beta)";
+    preferred-width: 1100px; preferred-height: 800px;
+    min-width: 700px; min-height: 500px;
+    default-font-family: Theme.font-family;
+    background: Theme.canvas;
+    in-out property<int> appearance-index: 0;
+    in-out property<bool> effects-enabled: false;
+    private property<ColorScheme> resolved-scheme: Theme.color-scheme;
+    changed resolved-scheme => { Palette.color-scheme = self.resolved-scheme; }
+    changed appearance-index => { Theme.appearance-index = self.appearance-index; }
+    changed effects-enabled => { Theme.effects-enabled = self.effects-enabled; }
+    init => { Theme.effects-enabled = false; Theme.appearance-index = 0; Palette.color-scheme = Theme.color-scheme; }
+    in-out property<int> scroll-rows <=> gallery.scroll-rows;
+    in-out property<length> internal-scroll-offset <=> gallery.internal-scroll-offset;
+    out property<length> internal-scroll-minimum: gallery.internal-scroll-minimum;
+    out property<float> slider-value <=> gallery.slider-value;
+    out property<bool> sample-checkbox <=> gallery.sample-checkbox;
+    out property<string> sample-text <=> gallery.sample-text;
+    out property<Point> slider-position: gallery.slider-position;
+    out property<length> slider-width: gallery.slider-width;
+    out property<length> slider-height: gallery.slider-height;
+    public function focus-slider() { gallery.focus-slider(); }
+    public function focus-check() { gallery.focus-check(); }
+    public function focus-text() { gallery.focus-text(); }
+    public function show-slider() { gallery.show-slider(); }
+    public function reset-scroll() { gallery.reset-scroll(); }
+    gallery := FluentGallery {
+        effects-enabled: root.effects-enabled;
+        toggle-effects(enabled) => { root.effects-enabled = enabled; }
+        close => { root.hide(); }
     }
 }
