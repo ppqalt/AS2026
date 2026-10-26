@@ -85,6 +85,18 @@ struct Temporary {
 }
 
 impl Temporary {
+    fn create(path: &Path) -> std::io::Result<File> {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            // Sisältö ei saa olla muiden luettavissa edes ennen lopullista chmodia.
+            options.mode(0o600);
+        }
+        options.open(path)
+    }
+
     fn write(
         path: &Path,
         content: &[u8],
@@ -98,10 +110,7 @@ impl Temporary {
                 NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
             );
             let temp_path = sidecar(path, &suffix);
-            let opened = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&temp_path);
+            let opened = Self::create(&temp_path);
             let mut file = match opened {
                 Ok(file) => file,
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
@@ -368,5 +377,30 @@ impl ProjectStore {
         self.project = project;
         self.expected = content;
         Ok(true)
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn temporary_is_private_before_any_content_is_written() {
+        let path = std::env::temp_dir().join(format!(
+            "as2026-storage-mode-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut file = Temporary::create(&path).unwrap();
+        let temporary = Temporary { path };
+        assert_eq!(file.metadata().unwrap().len(), 0);
+        assert_eq!(file.metadata().unwrap().permissions().mode() & 0o077, 0);
+        file.write_all(b"private session data").unwrap();
+        assert_eq!(
+            Temporary::create(&temporary.path).unwrap_err().kind(),
+            std::io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(fs::read(&temporary.path).unwrap(), b"private session data");
     }
 }

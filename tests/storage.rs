@@ -231,26 +231,28 @@ fn symlink_alias_uses_the_same_file_and_lock() {
 #[test]
 fn replacement_and_backup_preserve_restricted_file_permissions() {
     use std::os::unix::fs::PermissionsExt;
-    let directory = Directory::new();
-    let path = directory.file();
-    let mut store = ProjectStore::create(&path, project()).unwrap();
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-    store
-        .update(|p| {
-            p.kilpailu.nimi = "Yksityinen kilpailu".into();
-            Ok(())
-        })
-        .unwrap();
-    assert_eq!(
-        fs::metadata(&path).unwrap().permissions().mode() & 0o777,
-        0o600
-    );
-    assert_eq!(
-        fs::metadata(store.backup_path())
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777,
-        0o600
-    );
+    for mode in [0o600, 0o640] {
+        let directory = Directory::new();
+        let path = directory.file();
+        let mut store = ProjectStore::create(&path, project()).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+        store
+            .update(|p| {
+                p.kilpailu.nimi = "Yksityinen kilpailu".into();
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            mode
+        );
+        assert_eq!(
+            fs::metadata(store.backup_path())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            mode
+        );
+    }
 }
