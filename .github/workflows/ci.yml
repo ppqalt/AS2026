@@ -70,6 +70,10 @@ jobs:
           SLINT_SCALE_FACTOR=1.5 xvfb-run -a target/debug/as2026-gui --demo --smoke-test --capture-dir target/gui-smoke/150
           AS2026_EMIT_CORRECTION_TEST=1 SLINT_SCALE_FACTOR=1 xvfb-run -a target/debug/as2026-gui --demo --capture-dir target/gui-smoke/emit-069
           AS2026_MENU_GUI_TEST=1 SLINT_SCALE_FACTOR=1 xvfb-run -a --server-args='-screen 0 2560x1440x24' target/debug/as2026-gui --demo --capture-dir target/gui-smoke/valikot
+      - name: Tarkista kahden GUI:n LAN-yhteys, verkkokatko ja palautuminen Linuxissa
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        run: xvfb-run -a --server-args='-screen 0 2560x1440x24' python3 scripts/check_lan_gui.py --app target/debug/as2026-gui --output target/gui-smoke/lan
       - name: Tarkista Fluent 2 -gallerian renderöinti 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Linux'
         timeout-minutes: 5
@@ -119,6 +123,10 @@ jobs:
             $test.WaitForExit()
             if ($test.ExitCode -ne 0) { throw "Windowsin valikkokoe epäonnistui: $($test.ExitCode)" }
           } finally { $test.Dispose() }
+      - name: Tarkista kahden GUI:n LAN-yhteys, verkkokatko ja palautuminen Windowsissa
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        run: python scripts/check_lan_gui.py --app target/debug/as2026-gui.exe --output target/gui-smoke/lan
       - name: Tarkista Fluent 2 -galleria Windowsissa 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Windows'
         timeout-minutes: 5

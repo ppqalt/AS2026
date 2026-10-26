@@ -98,6 +98,27 @@ fyysinen lukija, paperitulostus ja historiallisten tulosten täydellinen
 vastaavuus edellyttävät erillisiä kokeita. Aiemmat paikalliset laitekokeet
 ovat historiallista aineistoa, eivät tämän version hyväksyntätesti.
 
+## Kahden GUI:n lähiverkko- ja palautumiskoe
+
+Käännä ensin GUI. Aja sen jälkeen Python 3:n vakiokirjastoa käyttävä koordinaattori:
+
+```sh
+python3 scripts/check_lan_gui.py --app target/debug/as2026-gui --output target/gui-smoke/lan
+```
+
+Windowsissa käytä `python`-komentoa ja `target/debug/as2026-gui.exe`-polkua.
+Linuxin virtuaalinäytössä komennon eteen voi lisätä `xvfb-run -a`.
+Koe käynnistää kaksi erillistä `--demo`-prosessia, joiden kilpailut ja asetukset
+ovat tilapäisiä. Se käyttää sovelluksen LAN-porttia; sulje muut paikalliset
+jakamisistunnot ennen koetta. Tulostus käyttää esikatselua.
+
+Verkkokatko tehdään testin omalla localhost-välitysyhteydellä. Isäntä ja saman
+jakamisistunnon PIN-koodi säilyvät. Jakamisen lopettaminen ja uudelleenaloitus
+on erillinen toiminto, jossa PIN vaihtuu tarkoituksella. Koe tarkistaa Emit-jonon
+säilymisen, automaattisen palautumisen ja molempien GUI-prosessien saman lopputilan.
+Lokit ja kuvat säilyvät tuloshakemistossa myös epäonnistuessa. CI ajaa kokeen
+Linuxissa ja Windowsissa, eikä epäonnistumista ohiteta.
+
 ## Tiedot ja julkaiseminen
 
 Pidä oikeat kilpailut, asetukset ja yksityiset avaimet repositorion ulkopuolella.

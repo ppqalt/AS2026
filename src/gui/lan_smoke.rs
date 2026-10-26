@@ -3,6 +3,167 @@ use super::*;
 
 use serde::{Deserialize, Serialize};
 
+use std::{
+    io,
+    net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream},
+    sync::{Arc, Mutex},
+    thread::{self, JoinHandle},
+};
+
+// Vain tämän GUI-kokeen verkkokatko: isäntä ja sen parituskoodi pysyvät elossa.
+// Välitin ei tulkitse tai muuta Noise-liikennettä.
+struct RelayState {
+    enabled: bool,
+    stopped: bool,
+    next: u64,
+    active: BTreeMap<u64, (TcpStream, TcpStream)>,
+}
+
+struct Relay {
+    address: SocketAddr,
+    state: Arc<Mutex<RelayState>>,
+    worker: Option<JoinHandle<()>>,
+}
+
+impl Relay {
+    fn start(destination: SocketAddr) -> io::Result<Self> {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        let address = listener.local_addr()?;
+        listener.set_nonblocking(true)?;
+        let state = Arc::new(Mutex::new(RelayState {
+            enabled: true,
+            stopped: false,
+            next: 0,
+            active: BTreeMap::new(),
+        }));
+        let shared = state.clone();
+        let worker = thread::Builder::new()
+            .name("as2026-lan-koevalitin".into())
+            .spawn(move || {
+                let mut connections: Vec<JoinHandle<()>> = Vec::new();
+                loop {
+                    for index in (0..connections.len()).rev() {
+                        if connections[index].is_finished() {
+                            let _ = connections.swap_remove(index).join();
+                        }
+                    }
+                    if shared.lock().unwrap().stopped {
+                        break;
+                    }
+                    let incoming = match listener.accept() {
+                        Ok((incoming, _)) => incoming,
+                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(5));
+                            continue;
+                        }
+                        Err(_) => break,
+                    };
+                    if incoming.set_nonblocking(false).is_err() {
+                        continue;
+                    }
+                    if !shared.lock().unwrap().enabled {
+                        let _ = incoming.shutdown(Shutdown::Both);
+                        continue;
+                    }
+                    let outgoing = match TcpStream::connect_timeout(
+                        &destination,
+                        Duration::from_millis(200),
+                    ) {
+                        Ok(outgoing) => outgoing,
+                        Err(_) => continue,
+                    };
+                    let pair = match (incoming.try_clone(), outgoing.try_clone()) {
+                        (Ok(incoming), Ok(outgoing)) => (incoming, outgoing),
+                        _ => continue,
+                    };
+                    let id = {
+                        let mut state = shared.lock().unwrap();
+                        // Katkaisu ja uuden yhteyden rekisteröinti käyttävät samaa lukkoa.
+                        if !state.enabled || state.stopped || state.active.len() >= 16 {
+                            let _ = incoming.shutdown(Shutdown::Both);
+                            let _ = outgoing.shutdown(Shutdown::Both);
+                            continue;
+                        }
+                        let id = state.next;
+                        state.next += 1;
+                        state.active.insert(id, pair);
+                        id
+                    };
+                    let connection_state = shared.clone();
+                    match thread::Builder::new()
+                        .name("as2026-lan-koeyhteys".into())
+                        .spawn(move || {
+                            thread::scope(|scope| {
+                                let forward = scope.spawn(|| {
+                                    let _ = io::copy(&mut &incoming, &mut &outgoing);
+                                    let _ = outgoing.shutdown(Shutdown::Write);
+                                });
+                                let _ = io::copy(&mut &outgoing, &mut &incoming);
+                                let _ = incoming.shutdown(Shutdown::Write);
+                                let _ = forward.join();
+                            });
+                            connection_state.lock().unwrap().active.remove(&id);
+                        }) {
+                        Ok(connection) => connections.push(connection),
+                        Err(_) => {
+                            if let Some((incoming, outgoing)) =
+                                shared.lock().unwrap().active.remove(&id)
+                            {
+                                let _ = incoming.shutdown(Shutdown::Both);
+                                let _ = outgoing.shutdown(Shutdown::Both);
+                            }
+                        }
+                    }
+                }
+                {
+                    let mut state = shared.lock().unwrap();
+                    state.enabled = false;
+                    state.stopped = true;
+                    for (incoming, outgoing) in state.active.values() {
+                        let _ = incoming.shutdown(Shutdown::Both);
+                        let _ = outgoing.shutdown(Shutdown::Both);
+                    }
+                }
+                for connection in connections {
+                    let _ = connection.join();
+                }
+            })?;
+        Ok(Self {
+            address,
+            state,
+            worker: Some(worker),
+        })
+    }
+
+    fn set_enabled(&self, enabled: bool) {
+        let mut state = self.state.lock().unwrap();
+        state.enabled = enabled;
+        if !enabled {
+            for (incoming, outgoing) in state.active.values() {
+                let _ = incoming.shutdown(Shutdown::Both);
+                let _ = outgoing.shutdown(Shutdown::Both);
+            }
+        }
+    }
+}
+
+impl Drop for Relay {
+    fn drop(&mut self) {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.stopped = true;
+            state.enabled = false;
+            for (incoming, outgoing) in state.active.values() {
+                let _ = incoming.shutdown(Shutdown::Both);
+                let _ = outgoing.shutdown(Shutdown::Both);
+            }
+        }
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct Pair {
     address: String,
@@ -79,6 +240,8 @@ pub(super) fn start(
     let recovery = std::env::var_os("AS2026_LAN_GUI_RECOVERY").is_some();
 
     let mut phase = 0;
+    let mut relay: Option<Relay> = None;
+    let mut sharing_code = String::new();
 
     let started = std::time::Instant::now();
 
@@ -120,8 +283,16 @@ if app.get_lan_active(){
 if role=="isanta"{
 let s=shared.borrow();
 let host=s.lan_host.as_ref().unwrap();
+sharing_code=host.code.clone();
+let direct=SocketAddr::new(Ipv4Addr::LOCALHOST.into(),host.address.port());
+let address=if recovery {
+let proxy=Relay::start(direct).map_err(|e|invalid(&io_message(&e)))?;
+let address=proxy.address;
+relay=Some(proxy);
+address
+}else{direct};
 std::fs::write(&pair_path,serde_json::to_vec(&Pair{
-address:format!("127.0.0.1:{}",host.address.port()),code:host.code.clone()}
+address:address.to_string(),code:host.code.clone()}
 ).unwrap()).map_err(|e|invalid(&io_message(&e)))?;
 }
 std::fs::write(dir.join(format!("{role}-valmis")),b"valmis").map_err(|e|invalid(&io_message(&e)))?;
@@ -219,10 +390,12 @@ else{
             6=>{
 if role=="isanta" {
 if dir.join("asiakas-onnistui").exists(){
-app.invoke_lan_leave();
-if app.get_lan_active(){
-return Err(invalid(app.get_lan_error().as_str()));
+let s=shared.borrow();
+if !app.get_lan_active()||s.lan_host.as_ref().unwrap().code!=sharing_code {
+return Err(invalid("Isännän jakaminen tai parituskoodi muuttui ennen verkkokatkoa"));
 }
+relay.as_ref().unwrap().set_enabled(false);
+drop(s);
 std::fs::write(dir.join("isanta-katkaistu"),b"katkaistu").map_err(|e|invalid(&io_message(&e)))?;
 phase=7;
 }
@@ -249,7 +422,11 @@ phase=7;
             7=>{
 if role=="isanta"{
 if dir.join("asiakas-jonossa").exists(){
-app.invoke_lan_host();
+let s=shared.borrow();
+if !app.get_lan_active()||s.lan_host.as_ref().unwrap().code!=sharing_code {
+return Err(invalid("Verkkokatko ei saa lopettaa jakamista tai vaihtaa parituskoodia"));
+}
+relay.as_ref().unwrap().set_enabled(true);
 phase=8;
 }
 }
@@ -265,7 +442,10 @@ phase=9;
 ,
             8=>{
 let s=shared.borrow();
-if app.get_lan_active()&&s.workspace.as_ref().unwrap().project().unwrap().leimaluvut.len()==3{
+if !app.get_lan_active()||s.lan_host.as_ref().unwrap().code!=sharing_code {
+return Err(invalid("Palautuminen käyttää samaa jakamisistuntoa ja parituskoodia"));
+}
+if s.workspace.as_ref().unwrap().project().unwrap().leimaluvut.len()==3{
 std::fs::write(dir.join("isanta-palautui"),b"3 alkuperaista lukemaa").map_err(|e|invalid(&io_message(&e)))?;
 phase=9;
 }
