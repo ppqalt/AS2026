@@ -53,7 +53,7 @@ export component FluentGallery inherits Rectangle {
             UiButton { text: "Sulje galleria"; preset-variant: "standard"; clicked => { root.close(); } }
         }
         UiComboBox {
-            model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Dark Spruce"];
+            model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Tumma kuusi", "Hiillos", "Shanghai"];
             current-index <=> root.appearance-index;
             accessible-label: "Gallerian ulkoasu";
         }

@@ -449,3 +449,11 @@ Kaikki tulevat muutokset: animoidut hoverit, siirtymät, easing, fade, shadow, M
 ---
 
 *Lähteet tarkastettu 25.10.2026; tarkista lähteiden versiot uudestaan varsinaisessa komponenttitoteutuksessa. Projektille ehdotetut preset-koot eivät ole valmistuneiden kontrollien luettelo eivätkä Windows 11 -sertifioitu mittataulukko.*
+
+## Hillityt häivytykset (paikallinen beta)
+
+`FadeSurface` häivyttää valintaikkunan tai vaihtuneen päänäkymän esiin 180 millisekunnissa. Näkymän avautuminen ei siirrä kohdistusta eikä viivästytä toimintoja. Sulkeminen tapahtuu heti nykyisillä validointisäännöillä. Sisällön tietopäivitys ei käynnistä häivytystä: vain sivuindeksin vaihtuminen tai uuden ikkunan luominen.
+
+Painikkeiden, valintalistojen, taulukkorivien ja sivupalkin väripalaute käyttää 120 millisekunnin siirtymää. Kohdistuskehys ja virheviestit säilyvät välittöminä. Kaikki nämä siirtymät noudattavat `Theme.effects-enabled`-asetusta (oletus pois); häivytysajastin ei käy pois-tilassa. Pisteisiin tai kilpailuaikoihin ei lisätä numerointerpolointia.
+
+Käännös tarkistetaan erikseen; toiminnallisia tai automaattisia testejä ei ajeta käyttäjän nykyisen testikiellon aikana.

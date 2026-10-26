@@ -19,6 +19,7 @@ export component ComboBox {
     callback selected <=> base.selected;
 
     property <length> popup-padding: 4px;
+    property <length> popup-bottom-padding: Theme.space-3;
     property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * FluentSizeSettings.item-height;
     property <int> visible-items: min(6, model.length);
 
@@ -68,6 +69,7 @@ export component ComboBox {
     background := Rectangle {
         border-radius: Theme.radius;
         background: FluentPalette.control-background;
+        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; easing: ease-out; }
         border-width: 1px;
         border-color: FluentPalette.control-border;
 
@@ -107,7 +109,7 @@ export component ComboBox {
         // Valikko avautuu kentän alapuolelle, ei valitun arvon päälle.
         y: root.height + Theme.space-1;
         width: root.width;
-        height: root.visible-items * FluentSizeSettings.item-height + 2 * root.popup-padding;
+        height: root.visible-items * FluentSizeSettings.item-height + root.popup-padding + root.popup-bottom-padding;
         close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
@@ -121,12 +123,22 @@ export component ComboBox {
             }
 
             MenuBorder {
-                ScrollView {
+                popup-scroll := ScrollView {
+                    // Lista on yksipalstainen: vaakapalkki ei saa viedä riviltä korkeutta.
+                    horizontal-scrollbar-policy: always-off;
+                    min-height: 0px;
+                    content-width: self.visible-width;
+                    content-height: popup-content.min-height;
                     content-y: root.popup-scroll-y;
 
-                    VerticalLayout {
+                    popup-content := VerticalLayout {
+                        x: 0px; y: 0px;
+                        width: popup-scroll.visible-width;
+                        height: self.min-height;
                         alignment: start;
+                        spacing: 0px;
                         padding: root.popup-padding;
+                        padding-bottom: root.popup-bottom-padding;
 
                         for value[index] in root.model : ListItem {
                             height: FluentSizeSettings.item-height;

@@ -1,6 +1,6 @@
 # AS2026:n käyttöliittymän kehitysohje
 
-Fluent 2, suomenkielinen työpöytäsovellus. Beta tarjoaa järjestelmän mukaisen, vaalean, tumman ja Dark Spruce -ulkoasun. Toteutus säilyy Rustissa
+Fluent 2, suomenkielinen työpöytäsovellus. Sovellus tarjoaa järjestelmän mukaisen, vaalean, tumman, Tumma kuusi-, Hiillos- ja Shanghai-ulkoasun. Toteutus säilyy Rustissa
 ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytimen kautta.
 
 > **Fluent 2 -betan kehittäjälle:** uusi [komponenttistandardi ja esiasetuskatalogi](FLUENT2_KOMPONENTTISTANDARDI.md) on beta-haaran ensisijainen lähde mitoille, varianteille ja vuorovaikutusmalleille. Tämä ohje kuvaa betan yhteisiä toimintarajoja; tarkat presetit ja toteutuksen rajaus löytyvät komponenttistandardista. Ristiriidoissa komponenttistandardi voittaa beta-haarassa. `main` ei muutu.
@@ -9,7 +9,7 @@ ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytim
 
 `ui/app.slint` kokoaa sivupalkin, seitsemän pääsivua, Toiminnot-valikot ja
 valintaikkunat. `ui/presets.slint` tarjoaa yhteiset kontrollit. `ui/components.slint` sisältää yhteiset taulukot, editorit ja
-paneelit. `ui/theme.slint` omistaa Fluent 2 / Dark Spruce -mitat ja värit.
+paneelit. `ui/theme.slint` omistaa Fluent 2 / Tumma kuusi -mitat ja värit.
 Paikallinen Fluent-sovitus ja sen lisenssit ovat `ui/fluent`-hakemistossa.
 
 `src/gui` sitoo Slintin tapahtumat yhteiseen Rustin Workspace-, tallennus- ja
@@ -52,8 +52,7 @@ Koko kortin leimat korjataan Emit-sivun **Muokkaa leimauksia** -toiminnolla.
    Uusi valmis tietue tallentuu automaattisesti nykyisen toimintatavan mukaan.
 6. **Typografia ja pinnat:** Theme määrää värit, tekstikoot ja 4 px:n väliasteikon.
    Sivun otsikko 22 px, osion otsikko 16 px, perusteksti 14 px, apu- ja
-   kenttäteksti 12 px. Paneelin sisämarginaali 16 px, sivun 20 px. Ei uusia
-   koristeita, efektejä tai rinnakkaista väripalettia.
+   kenttäteksti 12 px. Paneelin sisämarginaali 16 px, sivun 20 px. Valinnaiset häivytykset ja värisiirtymät noudattavat yhteistä tehosteasetusta. Ei rinnakkaista väripalettia.
 7. **Palaute:** alareunassa yksi tiivis tilatieto. Kenttävirheet kuuluvat kenttään,
    tuontivirheet tuontiin ja tuloksen ongelmat kilpailijan tarkasteluun.
    Koko kilpailun huomautukset avataan tarvittaessa, eikä niitä ladota aina näkyviin.
@@ -141,7 +140,7 @@ säilytetään. Katso [kolmannen osapuolen tiedot](../THIRD_PARTY.md) ja
 
 ## Ulkoasuasetukset ja gallerian eristys
 
-`Preferences.appearance` tallentaa käyttäjän valinnan System/Light/Dark/Spruce. Vanhassa asetustiedostossa puuttuva arvo tarkoittaa järjestelmän mukaista tilaa. Virheellinen arvo tai tallennuskonflikti ei korvaa tiedostoa. UI palauttaa viimeisen tallennetun arvon tallennusvirheessä. `effects_enabled` pysyy erillisenä, oletuksena epätotena.
+`Preferences.appearance` tallentaa käyttäjän valinnan System/Light/Dark/Spruce/Hiillos/Shanghai. Vanhassa asetustiedostossa puuttuva arvo tarkoittaa järjestelmän mukaista tilaa. Virheellinen arvo tai tallennuskonflikti ei korvaa tiedostoa. UI palauttaa viimeisen tallennetun arvon tallennusvirheessä. `effects_enabled` pysyy erillisenä, oletuksena epätotena.
 
 Ainoastaan upstreamin `color-scheme.slint` lukee Slintin sisäistä järjestelmävärimallia. Älä levitä `SlintInternal`-kutsuja näkymiin. Teeman pinnat ovat staattisesti peittäviä. Windowsin alkuperäisiä taustamateriaaleja tai suurikontrastisen tilan täydellistä alustaintegraatiota ei saa kuvata valmiiksi.
 

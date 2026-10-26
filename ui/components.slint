@@ -1,3 +1,5 @@
+import { FadeSurface } from "motion.slint";
+export { FadeSurface }
 import { ListView } from "std-widgets.slint";
 import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView, UiComboBox as ComboBox, UiCheckBox as CheckBox } from "presets.slint";
 import { Theme } from "theme.slint";
@@ -54,7 +56,7 @@ export component Workspace inherits Rectangle {
 }
 
 // Sisällöstä erillinen pinta: kutsuja järjestää vieritettävän sisällön ja alatunnisteen.
-export component DialogSurface inherits Rectangle {
+export component DialogSurface inherits FadeSurface {
     in property <length> preferred-dialog-width: Theme.dialog-width;
     in property <length> preferred-dialog-height: 520px;
     in property <length> available-width;
@@ -95,6 +97,7 @@ export component NavItem inherits Rectangle {
         x: 0px;
         border-radius: self.width / 2;
         background: root.active ? Theme.accent-fill : transparent;
+        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; }
     }
     Text {
         x: 14px;
@@ -102,6 +105,7 @@ export component NavItem inherits Rectangle {
         height: root.height;
         text: root.label;
         color: root.active ? Theme.accent-text : Theme.muted;
+        animate color { enabled: Theme.effects-enabled; duration: Theme.duration-fast; }
         font-size: Theme.body-font-size;
         font-weight: root.active ? 600 : 400;
         vertical-alignment: center;
@@ -326,6 +330,7 @@ export component DataTable inherits Rectangle {
                         width: horizontal.content-width;
                         height: Theme.row-height;
                         background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
+                        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; easing: ease-out; }
                         HorizontalLayout {
                             padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2;
                             for value[i] in row.cells: Text {

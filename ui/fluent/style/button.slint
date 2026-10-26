@@ -68,7 +68,7 @@ export component Button {
     i-background := Rectangle {
         border-radius: Theme.radius;
         background: root.is-danger ? Theme.surface-raised : root.is-primary ? FluentPalette.accent-background : root.is-subtle ? transparent : FluentPalette.control-background;
-        animate background { enabled: Theme.effects-enabled; duration: 120ms; }
+        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; easing: ease-out; }
 
         i-border := Rectangle {
             border-radius: parent.border-radius;
@@ -106,7 +106,7 @@ export component Button {
                 vertical-stretch: 1;
                 accessible-role: none;
                 Image {
-                    y: (parent.height - self.height) / 2;
+                    y: (parent.height - self.height) / 2 + 2px;
                     source: Icons.dropdown;
                     width: 12px;
                     height: 12px;

@@ -24,6 +24,8 @@ pub enum Appearance {
     Light,
     Dark,
     Spruce,
+    Hiillos,
+    Shanghai,
 }
 
 impl Appearance {
@@ -33,6 +35,8 @@ impl Appearance {
             Self::Light => 1,
             Self::Dark => 2,
             Self::Spruce => 3,
+            Self::Hiillos => 4,
+            Self::Shanghai => 5,
         }
     }
 
@@ -42,6 +46,8 @@ impl Appearance {
             1 => Some(Self::Light),
             2 => Some(Self::Dark),
             3 => Some(Self::Spruce),
+            4 => Some(Self::Hiillos),
+            5 => Some(Self::Shanghai),
             _ => None,
         }
     }
@@ -561,6 +567,8 @@ mod tests {
             Appearance::Light,
             Appearance::Dark,
             Appearance::Spruce,
+            Appearance::Hiillos,
+            Appearance::Shanghai,
         ] {
             assert_eq!(Appearance::from_index(appearance.index()), Some(appearance));
             let preferences = Preferences {
@@ -572,7 +580,7 @@ mod tests {
             assert_eq!(reopened.appearance, appearance);
         }
         assert_eq!(Appearance::from_index(-1), None);
-        assert_eq!(Appearance::from_index(4), None);
+        assert_eq!(Appearance::from_index(6), None);
     }
 
     #[test]

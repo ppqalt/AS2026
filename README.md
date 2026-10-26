@@ -1,17 +1,15 @@
 # AS2026
 
-> Tämä on kokeellinen `beta/fluent2-v071`-kehityshaara. Alla oleva latausohje koskee vakaata 0.7.2:tä. Betan [komponenttigalleria](docs/FLUENT2_GALLERIA.md), [käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md) ja [komponenttistandardi](docs/FLUENT2_KOMPONENTTISTANDARDI.md) kuvaavat tämän haaran toteutusta. Betaa ei ole julkaistu vakaana.
-
-**AS2026 0.7.2** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
+**AS2026 0.7.3** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
 tuloslaskentasovellus Linuxille ja Windowsille. Se toimii yhdellä koneella ilman
 internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.7.2 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.2):
+Lataa oma pakettisi [version 0.7.3 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.3):
 
-- Linux x86-64: `AS2026-0.7.2-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.2-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.3-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.3-windows-x86_64.zip`
 
 Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
@@ -72,7 +70,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md)
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
-- [Version 0.7.2 julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.3 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja
@@ -84,5 +82,11 @@ historiallisiin AS2015A-tuloksiin.
 
 Oma koodi, dokumentaatio ja synteettiset esimerkit: [BSD-2-Clause](LICENSE).
 Riippuvuuksilla on omat lisenssinsä: [THIRD_PARTY.md](THIRD_PARTY.md).
-Sovellus on toteutettu Rustilla ja Slintillä, Fluent 2 / Dark Spruce -ulkoasulla.
+Sovellus on toteutettu Rustilla ja Slintillä, Fluent 2 -ulkoasulla.
 Slint-maininta säilyy ohjelman Tietoja-ikkunassa.
+
+## Ulkoasu ja päivitykset
+
+Tietoja → Ulkoasu tarjoaa järjestelmän mukaisen, vaalean, tumman, Tumma kuusi-, Hiillos- ja Shanghai-teeman. Teema koskee vain omaa tietokonetta. Lyhyet häivytykset ja värisiirtymät voi kytkeä erikseen päälle; oletuksena ne ovat pois. Tietoja → Lisenssit sisältää oman lisenssin linkin ja Slint-maininnan.
+
+Ohjelma tarkistaa päivitykset automaattisesti taustalla käynnistyessään. Asennus käynnistetään erikseen sivupalkista. Kilpailun käyttö ei tarvitse internetyhteyttä.

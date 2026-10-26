@@ -1,10 +1,10 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa `beta/fluent2-v071`-haaran käyttöliittymää, jonka toiminnallinen pohja on julkaistu 0.7.2. Beta ei ole uusi vakaa julkaisu. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
+Tämä opas kuvaa AS2026 0.7.3:n käyttöliittymää. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
 
-Tietoja-ikkunan **Ulkoasu**-valinnalla voit käyttää järjestelmän mukaista, vaaleaa, tummaa tai vihreää **Dark Spruce** -ulkoasua. Valinta tallentuu tämän tietokoneen sovellusasetuksiin. Se ei muuta kilpailua tai muiden LAN-koneiden ulkoasua. Järjestelmän mukainen tila seuraa käyttöjärjestelmän Slintille ilmoittamaa vaaleaa/tummaa tilaa; tuntematon tila käyttää vaaleaa.
+Tietoja-ikkunan **Ulkoasu**-valinnalla voit käyttää järjestelmän mukaista, vaaleaa, tummaa tai vihreää **Tumma kuusi**-, puunsävyistä **Hiillos**- tai lohenpunaisella korostettua **Shanghai**-ulkoasua. Valinta tallentuu tämän tietokoneen sovellusasetuksiin. Se ei muuta kilpailua tai muiden LAN-koneiden ulkoasua. Järjestelmän mukainen tila seuraa käyttöjärjestelmän Slintille ilmoittamaa vaaleaa/tummaa tilaa; tuntematon tila käyttää vaaleaa.
 
 **Ota animaatiot ja tehosteet käyttöön** on erillinen valinta samassa ikkunassa. Oletus on pois. Perustoiminnot, valinta ja näppäimistöfokus toimivat myös ilman tehosteita. Windowsin Mica/Acrylic-taustamateriaaleja ei ole toteutettu.
 
@@ -248,3 +248,11 @@ Näytä virhe -painiketta.
 Käyttäjän työvaiheet ovat yllä. Toteuttajalle ensisijainen lähde on [komponenttistandardi](FLUENT2_KOMPONENTTISTANDARDI.md). `ui/presets.slint` kokoaa yhteiset säätimet; varsinaiset sivut tuovat ne myös vanhoilla Button/LineEdit/ComboBox/CheckBox/ScrollView-nimillä, jotta niiden tapahtumasopimukset säilyvät. `ui/components.slint` säilyttää kilpailutaulukot, listan ja tietojen työtilan sekä modaalipinnan. `src/gui` vastaa yhteydestä olemassa olevaan kilpailuytimeen.
 
 [Kehitysgalleria](FLUENT2_GALLERIA.md) käynnistyy erikseen eikä avaa kilpailuja, käyttäjäasetuksia, tulostinta tai Emit-lukijaa. Gallerian ulkoasu- ja tehostevalinnat häviävät sulkemisessa. Tämä poikkeaa varsinaisen sovelluksen tallentuvista valinnoista.
+
+## Päivitystarkistus käynnistyessä
+
+Sovellus tarkistaa saatavilla olevan vakaan version automaattisesti taustalla tavallisen käynnistyksen jälkeen. Tarkistus vastaa sivupalkin Päivitykset-painiketta eikä estä kilpailun käyttöä. Päivitystä ei ladata tai asenneta automaattisesti: saatavilla olevan version asentaminen valitaan erikseen sivupalkista. Ilman verkkoyhteyttä kilpailun paikallinen käyttö jatkuu normaalisti. Päivitykset-painikkeesta tarkistuksen voi uusia myöhemmin.
+
+## Radan ja aseman tiedot
+
+Radat ja asemat -sivulla asemat näkyvät ylhäällä ja radat-lista alhaalla. Valitse rata alalistasta. Aseman rivi avaa aseman muokkauksen keskitettyyn ikkunaan; Valmis tai Esc sulkee sen validoinnin salliessa. Uusi asema avataan + Asema -painikkeesta. Radan tiedot -painike avaa valitun radan nimen omaan ikkunaan.

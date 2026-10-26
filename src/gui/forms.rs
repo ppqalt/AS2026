@@ -644,9 +644,9 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     project.kilpailu.ajanottotapa,
                     "Tavat 0, 1 ja 2 ovat käytettävissä; käsikellot korjataan Tulokset-näkymässä",
                     named(&[
-                        ("Kellonaikapohjainen", "0"),
+                        ("Manuaalinen", "0"),
                         ("Emit", "1"),
-                        ("Emit / tapa 2", "2"),
+                        ("Osittain manuaalinen", "2"),
                     ]),
                 ),
                 text(

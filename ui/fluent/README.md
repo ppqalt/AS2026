@@ -79,3 +79,5 @@ Slintin alkuperäiset Slider-, Switch-, SpinBox-, TextEdit-, RadioGroup-, TabWid
 Buttonin `icon-only` ja `menu-button` ovat pieniä projektisovituksia; jälkimmäinen lisää tekstin jälkeen avausnuolen. Väripaletti on keskitetty: järjestelmän mukana vaihtuva neutraali vaalea/tumma tai käyttäjän valitsema Dark Spruce.
 
 Valikkojen ja yhdistelmäruutujen ulkokehys käyttää `Theme.radius-large`-tokenia (8 px); sisäisten valintojen 4 px:n säde säilyy. Työkaluvihjeen alkuperäinen 4 px:n säde vastaa erillistä tooltip-sääntöä.
+
+Painikkeen ja ComboBoxin taustavärin siirtymä käyttää yhteistä 120 ms:n tehosteporttia sekä ease-out-käyrää. Tehosteiden ollessa pois tila vaihtuu heti; fokus- ja näppäimistölogiikka säilyy Slintin komponentissa.

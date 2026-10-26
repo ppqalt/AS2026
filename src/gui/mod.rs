@@ -3101,7 +3101,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 112 } else { 24 } {
+        if current >= if keyboard_test { 115 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -3397,25 +3397,28 @@ fn capture_views(
                 102 => { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_print_classes_open()); }
                 103 => { app.set_about_open(true); assert!(!app.get_effects_enabled()); }
                 104 | 105 => smoke::key(&app, slint::platform::Key::Tab),
-                106 => {
+                106 => smoke::key(&app, slint::platform::Key::Space),
+                107 | 108 => smoke::key(&app, slint::platform::Key::Tab),
+                109 => {
                     smoke::key(&app, slint::platform::Key::Space);
-                    assert!(app.get_effects_enabled(), "Tietoja-ikkunan tehostevalinta on saavutettava Tabilla");
+                    assert!(app.get_effects_enabled(), "Ulkoasu-välilehden tehostevalinta on saavutettava Tabilla");
                     assert!(state.borrow().preferences.as_ref().unwrap().get().effects_enabled);
                 }
-                107 => { smoke::key(&app, slint::platform::Key::Space); assert!(!app.get_effects_enabled()); }
-                108 => {
+                110 => { smoke::key(&app, slint::platform::Key::Space); assert!(!app.get_effects_enabled()); }
+                111 => {
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() });
                     smoke::key(&app, slint::platform::Key::Tab);
-                    smoke::key(&app, slint::platform::Key::Tab);
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() });
                     smoke::key(&app, slint::platform::Key::DownArrow);
                 }
-                109 => {
+                112 => {
                     assert_eq!(app.get_appearance_index(), 1, "Ulkoasu vaihtuu näppäimistöltä");
                     assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Light);
                     save_view(&app, &directory.join("35-ulkoasuasetukset.png")).unwrap();
                     smoke::key(&app, slint::platform::Key::UpArrow);
                 }
-                110 => { assert_eq!(app.get_appearance_index(), 0); smoke::key(&app, slint::platform::Key::Escape); }
-                111 => { assert!(!app.get_about_open()); println!("GUI-ulkoasukoe hyväksytty: Tab, tehosteportti, tallennettu teema ja Esc."); }
+                113 => { assert_eq!(app.get_appearance_index(), 0); smoke::key(&app, slint::platform::Key::Escape); }
+                114 => { assert!(!app.get_about_open()); println!("GUI-ulkoasukoe hyväksytty: välilehdet, Tab, tehosteportti, tallennettu teema ja Esc."); }
 
                 _ => {}
             }
@@ -3683,6 +3686,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         status(&app, error, true);
     }
     app.show()?;
+    // Sama taustatarkistus kuin Päivitykset-painikkeesta, kerran tavallisessa
+    // käynnistyksessä. Esimerkit, kuvakaappaukset ja asennuksen terveystarkistus
+    // eivät käynnistä ylimääräistä verkkopyyntöä.
+    if !demo && captures.is_none() && health_check.is_none() && !menu_test {
+        let weak = app.as_weak();
+        Timer::single_shot(Duration::from_millis(800), move || {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_check_updates();
+            }
+        });
+    }
     let _lan_smoke = if let Some(role) = std::env::var_os("AS2026_LAN_GUI_ROLE") {
         if !demo {
             return Err("LAN-GUI-koe vaatii --demo-valinnan".into());

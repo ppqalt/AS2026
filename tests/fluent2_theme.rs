@@ -120,7 +120,13 @@ fn effects_preference_is_opt_in_and_is_saved_outside_competition_data() {
 fn ordinary_text_and_primary_action_have_readable_contrast() {
     // Evaluate the actual shared palette rather than freezing every color.
     let theme = include_str!("../ui/theme.slint");
-    for name in ["SpruceColors", "LightColors", "DarkColors"] {
+    for name in [
+        "SpruceColors",
+        "LightColors",
+        "DarkColors",
+        "HiillosColors",
+        "ShanghaiColors",
+    ] {
         let palette = theme
             .split(&format!("export global {name} {{"))
             .nth(1)
@@ -190,6 +196,29 @@ fn editor_widths_do_not_depend_on_window_width() {
         assert!(
             !(declaration.starts_with("width:") && declaration.contains("root.width *")),
             "window-dependent editor width creates a binding loop: {declaration}"
+        );
+    }
+}
+
+#[test]
+fn fade_surface_is_opt_in_and_does_not_change_input_or_data() {
+    let motion = include_str!("../ui/motion.slint");
+    assert_animations_use_effect_gate("motion", motion);
+    assert!(motion.contains("motion-enabled: Theme.effects-enabled"));
+    assert!(motion.contains("opacity: !root.motion-enabled || root.revealed ? 1 : 0"));
+    assert!(motion.contains("running: root.motion-enabled && !root.revealed"));
+    assert!(motion.contains("duration: root.revealed ? Theme.duration-normal : 0ms"));
+    for forbidden in [
+        "TouchArea",
+        "FocusScope",
+        "field-commit",
+        "navigate(",
+        "drop-shadow",
+        "linear-gradient",
+    ] {
+        assert!(
+            !motion.contains(forbidden),
+            "motion layer must not own input or competition state: {forbidden}"
         );
     }
 }
