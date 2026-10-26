@@ -139,37 +139,45 @@ struct Ftp {
     control: BufReader<TcpStream>,
 }
 impl Ftp {
-    fn response(&mut self, expected: &[u16]) -> Result<String, String> {
-        let mut first = String::new();
+    fn response_line(&mut self) -> Result<String, String> {
+        let mut line = String::new();
         self.control
             .by_ref()
             .take(8192)
-            .read_line(&mut first)
+            .read_line(&mut line)
             .map_err(|_| "FTP-palvelin ei vastannut.")?;
-        let code = first
+        if line.is_empty() {
+            return Err("FTP-yhteys katkesi.".into());
+        }
+        if !line.ends_with('\n') {
+            return Err("FTP-vastauksen rivi katkesi tai ylittää kokorajan.".into());
+        }
+        Ok(line)
+    }
+    fn response(&mut self, expected: &[u16]) -> Result<String, String> {
+        let mut reply = self.response_line()?;
+        let code = reply
             .get(..3)
             .and_then(|s| s.parse::<u16>().ok())
             .ok_or("FTP-vastaus on virheellinen.")?;
-        if first.as_bytes().get(3) == Some(&b'-') {
+        if reply.as_bytes().get(3) == Some(&b'-') {
+            let terminal = format!("{code} ");
+            let mut complete = false;
             for _ in 0..100 {
-                let mut line = String::new();
-                self.control
-                    .by_ref()
-                    .take(8192)
-                    .read_line(&mut line)
-                    .map_err(|_| "FTP-vastaus katkesi.")?;
-                if line.starts_with(&format!("{code} ")) {
+                reply = self.response_line()?;
+                if reply.starts_with(&terminal) {
+                    complete = true;
                     break;
                 }
-                if line.is_empty() {
-                    return Err("FTP-yhteys katkesi.".into());
-                }
+            }
+            if !complete {
+                return Err("FTP-vastauksen lopetus puuttuu tai vastaus on liian pitkä.".into());
             }
         }
         if !expected.contains(&code) {
             return Err(format!("FTP-palvelin hylkäsi toiminnon (vastaus {code})."));
         }
-        Ok(first)
+        Ok(reply)
     }
     fn command(&mut self, command: &str, expected: &[u16]) -> Result<String, String> {
         self.control
@@ -406,7 +414,7 @@ struct Latest {
 }
 pub struct Publisher {
     latest: Arc<Mutex<Latest>>,
-    wake: mpsc::Sender<()>,
+    wake: mpsc::SyncSender<()>,
     stop: Arc<AtomicBool>,
     status: Arc<Mutex<String>>,
     finished: Arc<AtomicBool>,
@@ -429,7 +437,8 @@ impl Publisher {
         let cancelled = stop.clone();
         let finished = Arc::new(AtomicBool::new(false));
         let completed = finished.clone();
-        let (wake, rx) = mpsc::channel();
+        // Varsinainen työ on latest-muistipaikassa; yksi odottava heräte riittää.
+        let (wake, rx) = mpsc::sync_channel(1);
         thread::Builder::new()
             .name("as2026-live-julkaisu".into())
             .spawn(move || {
@@ -508,7 +517,7 @@ impl Publisher {
         latest.generation += 1;
         let generation = latest.generation;
         latest.value = Some((generation, project.clone()));
-        let _ = self.wake.send(());
+        let _ = self.wake.try_send(());
     }
     pub fn finish(&self, project: &Project) -> Result<(), String> {
         let archive = crate::application::calculated_project(project)
@@ -539,7 +548,7 @@ impl Publisher {
         latest.generation += 1;
         let generation = latest.generation;
         latest.value = Some((generation, project.clone()));
-        let _ = self.wake.send(());
+        let _ = self.wake.try_send(());
         Ok(())
     }
     pub fn is_finished(&self) -> bool {
@@ -552,6 +561,127 @@ impl Publisher {
 impl Drop for Publisher {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
-        let _ = self.wake.send(());
+        let _ = self.wake.try_send(());
+    }
+}
+
+#[cfg(test)]
+mod ftp_response_tests {
+    use super::*;
+    use std::net::TcpListener;
+
+    fn scripted_reply(bytes: &[u8]) -> Ftp {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let (mut server, _) = listener.accept().unwrap();
+        server.write_all(bytes).unwrap();
+        drop(server);
+        Ftp {
+            control: BufReader::new(stream),
+        }
+    }
+
+    #[test]
+    fn single_line_reply_and_rejection_keep_their_existing_meaning() {
+        let mut ftp = scripted_reply(b"220 Valmis\r\n530 Ei lupaa\r\n");
+        assert_eq!(ftp.response(&[220]).unwrap(), "220 Valmis\r\n");
+        assert!(ftp.response(&[230]).unwrap_err().contains("530"));
+    }
+
+    #[test]
+    fn multiline_pasv_returns_terminal_line_and_preserves_next_reply() {
+        let mut ftp = scripted_reply(
+            b"227-Passiivitila\r\n Lisatietoja\r\n226 Ei ole lopetus\r\n227 Passive (127,0,0,1,12,34)\r\n200 Seuraava\r\n",
+        );
+        assert_eq!(
+            ftp.response(&[227]).unwrap(),
+            "227 Passive (127,0,0,1,12,34)\r\n"
+        );
+        assert_eq!(ftp.response(&[200]).unwrap(), "200 Seuraava\r\n");
+    }
+
+    #[test]
+    fn multiline_reply_must_terminate_within_the_line_limit() {
+        let reply = format!("220-Alku\r\n{}220 Loppu\r\n", " Jatkuu\r\n".repeat(100));
+        let mut ftp = scripted_reply(reply.as_bytes());
+        assert!(ftp.response(&[220]).unwrap_err().contains("lopetus"));
+    }
+
+    #[test]
+    fn truncated_first_or_multiline_reply_cannot_be_successful() {
+        for bytes in [
+            b"220 Valmis".as_slice(),
+            b"220-Alku\r\n Keskenerainen".as_slice(),
+            b"220-Alku\r\n Keskirivi\r\n".as_slice(),
+        ] {
+            assert!(scripted_reply(bytes).response(&[220]).is_err());
+        }
+    }
+
+    #[test]
+    fn complete_line_at_limit_is_valid_but_a_capped_success_prefix_is_not() {
+        let complete = format!("220 {}\r\n", "x".repeat(8186));
+        assert_eq!(complete.len(), 8192);
+        assert_eq!(
+            scripted_reply(complete.as_bytes())
+                .response(&[220])
+                .unwrap(),
+            complete
+        );
+        let oversized = format!("220 {}\r\n", "x".repeat(8188));
+        assert!(
+            scripted_reply(oversized.as_bytes())
+                .response(&[220])
+                .is_err()
+        );
+        let multiline = format!("220-Alku\r\n{}\r\n220 Valmis\r\n", "x".repeat(8192));
+        assert!(
+            scripted_reply(multiline.as_bytes())
+                .response(&[220])
+                .is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod wake_queue_tests {
+    use super::*;
+
+    #[test]
+    fn slow_publisher_keeps_only_one_wake_and_the_latest_competition_snapshot() {
+        let (wake, receiver) = mpsc::sync_channel(1);
+        let publisher = Publisher {
+            latest: Arc::new(Mutex::new(Latest {
+                value: None,
+                generation: 0,
+                final_result: false,
+            })),
+            wake,
+            stop: Arc::new(AtomicBool::new(false)),
+            status: Arc::new(Mutex::new(String::new())),
+            finished: Arc::new(AtomicBool::new(false)),
+            path: PathBuf::new(),
+        };
+        let mut project =
+            Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
+        for update in 0..1000 {
+            project.kilpailu.nimi = format!("Tulostilanne {update}");
+            publisher.offer(&project);
+        }
+        assert_eq!(
+            receiver.try_iter().count(),
+            1,
+            "Hidas siirto ei saa kasvattaa herätejonoa"
+        );
+        let latest = publisher.latest.lock().unwrap();
+        assert_eq!(latest.generation, 1000);
+        assert_eq!(
+            latest.value.as_ref().unwrap().1,
+            project,
+            "Uusin tulostilanne säilyy kaikkien yhdistettyjen herätteiden jälkeen"
+        );
     }
 }
