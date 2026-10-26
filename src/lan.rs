@@ -56,12 +56,21 @@ fn random_id() -> Result<String, CoreError> {
     Ok(b.iter().map(|b| format!("{b:02x}")).collect())
 }
 fn new_code() -> Result<String, CoreError> {
-    let mut b = [0u8; 12];
-    getrandom::fill(&mut b).map_err(|_| err("Parituskoodin luonti epäonnistui"))?;
-    let alphabet = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    Ok(b.into_iter()
-        .map(|b| alphabet[usize::from(b) % alphabet.len()] as char)
-        .collect())
+    loop {
+        let mut bytes = [0u8; 2];
+        getrandom::fill(&mut bytes).map_err(|_| err("Parituskoodin luonti epäonnistui"))?;
+        let value = u16::from_le_bytes(bytes);
+        if value < 60_000 {
+            return Ok(format!("{:04}", value % 10_000));
+        }
+    }
+}
+pub fn validate_pairing_code(code: &str) -> Result<(), CoreError> {
+    if code.len() == 4 && code.bytes().all(|b| b.is_ascii_digit()) {
+        Ok(())
+    } else {
+        Err(err("Anna nelinumeroinen PIN-koodi, esimerkiksi 0427"))
+    }
 }
 fn key(code: &str) -> [u8; 32] {
     Sha256::digest(
@@ -470,6 +479,13 @@ impl Authority {
             }
         };
         let mut journal = journal;
+        let previous_code = journal.code.clone();
+        loop {
+            journal.code = new_code()?;
+            if journal.code != previous_code {
+                break;
+            }
+        }
         journal.previous = journal.project.clone();
         durable_write(&path, &json(&journal)?)?;
         Ok(Self {
@@ -695,9 +711,28 @@ impl Host {
                     // Rajattu määrä kättelyjä; huono asiakas ei saa luoda rajattomasti säikeitä.
                     let active = Arc::new(std::sync::atomic::AtomicUsize::new(0));
                     let mut next_connection = 0u64;
+                    let failures = Arc::new(Mutex::new(
+                        BTreeMap::<std::net::IpAddr, (u32, Instant)>::new(),
+                    ));
                     while !s.load(Ordering::Relaxed) {
                         match listener.accept() {
-                            Ok((stream, _)) => {
+                            Ok((stream, peer)) => {
+                                {
+                                    let mut attempts = failures.lock().unwrap();
+                                    attempts.retain(|_, (_, time)| {
+                                        time.elapsed() < Duration::from_secs(60)
+                                    });
+                                    if attempts
+                                        .get(&peer.ip())
+                                        .is_some_and(|(count, _)| *count >= 5)
+                                    {
+                                        continue;
+                                    }
+                                    // Count in-flight handshakes too, so parallel guesses cannot bypass the limit.
+                                    let attempt =
+                                        attempts.entry(peer.ip()).or_insert((0, Instant::now()));
+                                    attempt.0 += 1;
+                                }
                                 if active.load(Ordering::Relaxed) >= 16 {
                                     continue;
                                 }
@@ -716,9 +751,12 @@ impl Host {
                                 let connection_lock = listener_lock.clone();
                                 let a = a.clone();
                                 let c = c.clone();
+                                let failures = failures.clone();
                                 let connection = thread::spawn(move || {
                                     let _lock = connection_lock;
-                                    let _ = serve(stream, &c, &a);
+                                    if serve(stream, &c, &a).is_ok() {
+                                        failures.lock().unwrap().remove(&peer.ip());
+                                    }
                                     sockets.lock().unwrap().remove(&connection_id);
                                     active.fetch_sub(1, Ordering::Relaxed);
                                 });
@@ -1287,6 +1325,7 @@ impl Client {
 }
 fn rpc(endpoint: SocketAddr, code: &str, request: &Request) -> Result<Response, CoreError> {
     let stream = TcpStream::connect_timeout(&endpoint, Duration::from_millis(600)).map_err(|_|err(format!("Isäntäkoneeseen {endpoint} ei saada yhteyttä. Tarkista osoite, lähiverkko ja palomuuri.")))?;
+    validate_pairing_code(code)?;
     let mut wire = Wire::open(stream, code, true)?;
     wire.send(request)?;
     wire.receive()
@@ -1413,7 +1452,9 @@ mod tests {
         let stored: Outbox = serde_json::from_slice(&fs::read(&queue).unwrap()).unwrap();
         assert!(stored.pending.is_empty());
         let host = Host::start(&path, address).unwrap();
-        assert_eq!(host.code, code);
+        assert_ne!(host.code, code);
+        let mut client = client;
+        client.code = host.code.clone();
         client.tick();
         assert!(client.ready());
         assert_eq!(host.authority.lock().unwrap().journal.revision, 1);
@@ -1503,8 +1544,8 @@ mod tests {
         host.stop();
         drop(host);
         let restarted = Host::start(&path, address).unwrap();
-        assert_eq!(restarted.code, code);
-        let restored = Client::join(address, &code, &queue, false).unwrap();
+        assert_ne!(restarted.code, code);
+        let restored = Client::join(address, &restarted.code, &queue, false).unwrap();
         restored.stop();
     }
     #[test]
@@ -1662,8 +1703,8 @@ mod tests {
         drop(b);
         thread::sleep(Duration::from_millis(250));
         let host = Host::start(&path, address).unwrap();
-        assert_eq!(host.code, code);
-        let restored = Client::join(address, &code, &root.join("a.json"), false).unwrap();
+        assert_ne!(host.code, code);
+        let restored = Client::join(address, &host.code, &root.join("a.json"), false).unwrap();
         wait(|| restored.pending() == 0 && restored.snapshot().unwrap().leimaluvut.len() == 5);
         assert_eq!(
             ProjectStore::open(&path)
@@ -1841,6 +1882,10 @@ mod workflow_tests {
             .find(|r| r.station_type == "M")
             .unwrap()
             .output_index;
+        // The GUI opens a fresh time-entry form after review, synchronizing
+        // and pinning its basis even when review was acknowledged later.
+        wa.synchronize_lan().unwrap();
+        wa.pin_lan_basis();
         let completed = wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25);
         await_edit(&mut wa, &a, completed);
         assert!(wa.result_snapshot(7).unwrap().unwrap().hyvaksytty);
@@ -1852,8 +1897,21 @@ mod workflow_tests {
         }
         wb.set_bc_view(true).unwrap();
         wb.pin_lan_basis();
+        // Exercise the delayed-acknowledgement path deterministically rather
+        // than depending on Windows filesystem speed to trigger it.
+        let authority = host.authority.clone();
+        let (locked, ready) = std::sync::mpsc::channel();
+        let delay = thread::spawn(move || {
+            let _guard = authority.lock().unwrap();
+            locked.send(()).unwrap();
+            thread::sleep(Duration::from_millis(1_200));
+        });
+        ready.recv().unwrap();
         let reviewed = wb.review_results(7);
         await_edit(&mut wb, &b, reviewed);
+        delay.join().unwrap();
+        wb.synchronize_lan().unwrap();
+        wb.pin_lan_basis();
         let completed = wb.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 30);
         await_edit(&mut wb, &b, completed);
         assert!(wb.result_snapshot(7).unwrap().unwrap().hyvaksytty);

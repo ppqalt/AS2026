@@ -125,6 +125,7 @@ pub struct CombinedClassDefinition {
 pub enum TiePolicy {
     #[default]
     KeepSharedAndFlag,
+    PairwiseControlComparison,
     /// Requires 2..=19 tied entries, identical row identities and explicit error
     /// counts. A known zero missing count replaces the legacy retained scratch.
     /// Primary positions change; series-eligible positions remain shared.
@@ -780,6 +781,62 @@ fn apply_ties(
 fn tie_scores(tied: &[&CompetitorInput], policy: TiePolicy) -> Result<Vec<i64>, TieReason> {
     if policy == TiePolicy::KeepSharedAndFlag {
         return Err(TieReason::DefaultPolicy);
+    }
+    if policy == TiePolicy::PairwiseControlComparison {
+        if tied.len() > 256 {
+            return Err(TieReason::UnsupportedSize);
+        }
+        let mut wins = vec![0i64; tied.len()];
+        let mut comparisons = vec![vec![0i64; tied.len()]; tied.len()];
+        for (i, a) in tied.iter().enumerate() {
+            let a_rows = a.tie_rows.as_ref().ok_or(TieReason::MissingRows)?;
+            let a_errors = a.route_errors.ok_or(TieReason::MissingRouteErrorCounts)?;
+            for (j, b) in tied.iter().enumerate().skip(i + 1) {
+                let b_rows = b.tie_rows.as_ref().ok_or(TieReason::MissingRows)?;
+                let b_errors = b.route_errors.ok_or(TieReason::MissingRouteErrorCounts)?;
+                let controls = |rows: &Vec<TieRow>| {
+                    rows.iter()
+                        .filter(|r| {
+                            matches!(
+                                r.kind,
+                                StationKind::At | StationKind::Jat | StationKind::Finish
+                            )
+                        })
+                        .map(|r| (r.station_key.clone(), r.signed_time_penalty.unsigned_abs()))
+                        .collect::<BTreeMap<_, _>>()
+                };
+                let aa = controls(a_rows);
+                let bb = controls(b_rows);
+                if aa.keys().ne(bb.keys()) || aa.is_empty() {
+                    return Err(TieReason::MisalignedRows);
+                }
+                let mut advantage =
+                    i64::from(b_errors.missing_count) - i64::from(a_errors.missing_count);
+                for (key, pa) in aa {
+                    advantage += match pa.cmp(&bb[&key]) {
+                        std::cmp::Ordering::Less => 1,
+                        std::cmp::Ordering::Greater => -1,
+                        std::cmp::Ordering::Equal => 0,
+                    };
+                }
+                comparisons[i][j] = advantage.signum();
+                comparisons[j][i] = -advantage.signum();
+                if advantage > 0 {
+                    wins[i] += 1;
+                } else if advantage < 0 {
+                    wins[j] += 1;
+                }
+            }
+        }
+        // Do not invent a sporting order for a cyclic or ambiguous comparison.
+        for i in 0..tied.len() {
+            for j in i + 1..tied.len() {
+                if comparisons[i][j] != (wins[i] - wins[j]).signum() {
+                    return Err(TieReason::MisalignedRows);
+                }
+            }
+        }
+        return Ok(wins);
     }
     if !(2..=19).contains(&tied.len()) {
         return Err(TieReason::UnsupportedSize);

@@ -67,6 +67,10 @@ pub struct Preferences {
     /// Fluent 2 -betan vapaaehtoiset animaatiot ja tehosteet. Oletus: pois.
     pub effects_enabled: bool,
     pub appearance: Appearance,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pdf_logo_png: Vec<u8>,
+    pub kiti_tilakoodit: String,
+    pub kiti_luokkaryhmat: String,
     /// Paikalliset yhteysasetukset; salasanaa ei koskaan tallenneta.
     pub live_julkaisut: std::collections::BTreeMap<PathBuf, crate::live_publish::Config>,
 }
@@ -158,6 +162,18 @@ impl PreferencesStore {
     pub fn save_appearance(&mut self, appearance: Appearance) -> Result<(), String> {
         let mut candidate = self.preferences.clone();
         candidate.appearance = appearance;
+        self.save(candidate)
+    }
+
+    pub fn save_kiti_codes(&mut self, codes: &str, groups: &str) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.kiti_tilakoodit = codes.into();
+        candidate.kiti_luokkaryhmat = groups.into();
+        self.save(candidate)
+    }
+    pub fn save_logo(&mut self, bytes: Vec<u8>) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.pdf_logo_png = bytes;
         self.save(candidate)
     }
 

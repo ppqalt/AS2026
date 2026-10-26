@@ -170,7 +170,7 @@ fn missing_jat_confirms_interruption_even_while_finish_clock_is_pending() {
     p.radat[0].asemat[1].emit_koodi = 77;
     let r = application::capture_project_result(&p, 7).unwrap();
     assert_eq!(r.tila, "KESK");
-    assert!(r.syy.contains("JAT-asema 2 AT31 puuttuu"));
+    assert!(r.syy.contains("JAT puuttuu"));
     assert!(!r.can_approve());
     assert_eq!(r.pending_manual_clocks().len(), 1);
     p.kilpailijat[0].tallennettu_tulos = Some(r);
@@ -199,7 +199,7 @@ fn section_and_cumulative_limits_preserve_all_reasons_at_exact_seconds() {
     finish_clock(&mut r, [13, 0, 1]);
     let checked = application::recalculate_stored_result(&p, 7, &r).unwrap();
     assert_eq!(checked.tila, "KESK");
-    assert!(checked.syy.contains("JAT-asema 2 AT31 puuttuu"));
+    assert!(checked.syy.contains("JAT puuttuu"));
     assert!(checked.syy.contains("JAT-aseman"));
     assert!(checked.syy.contains("kokonaismyöhästymisraja"));
     let repeated = application::recalculate_stored_result(&p, 7, &r).unwrap();
@@ -241,7 +241,22 @@ fn accepted_row_penalty_edit_is_not_erased_by_approval_or_reread() {
 #[test]
 fn invalid_manual_clock_order_blocks_approval_without_dropping_raw_data() {
     let (p, mut r) = completed();
-    finish_clock(&mut r, [12, 1, 0]);
+    let before = r.clone();
+    let finish = r
+        .rivit
+        .iter()
+        .find(|row| row.station_type == "M")
+        .unwrap()
+        .output_index;
+    assert!(r.set_clock(finish, [12, 1, 0]).is_err());
+    assert_eq!(r, before);
+    // Still reject an invalid snapshot imported from an older version.
+    r.rivit
+        .iter_mut()
+        .find(|row| row.output_index == finish)
+        .unwrap()
+        .clock = [12, 1, 0];
+    r.kasikellot_muuttuneet = true;
     let history = p.leimaluvut.clone();
     let checked = application::recalculate_stored_result(&p, 7, &r).unwrap();
     assert!(!checked.can_approve());
@@ -283,7 +298,7 @@ fn all_confirmed_interruption_conditions_are_retained_in_route_order() {
     let result = application::recalculate_stored_result(&p, 7, &result).unwrap();
     let reasons = result.syy.split("; ").collect::<Vec<_>>();
     assert_eq!(reasons.len(), 4);
-    assert!(reasons[0].contains("JAT-asema 2 AT31 puuttuu"));
+    assert!(reasons[0].contains("JAT puuttuu"));
     assert!(reasons[1].contains("JAT-aseman"));
     assert!(reasons[2].contains("Maalijakson"));
     assert!(reasons[3].contains("kokonaismyöhästymisraja"));

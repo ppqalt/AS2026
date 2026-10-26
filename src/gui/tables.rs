@@ -482,7 +482,7 @@ fn results(
         "Emit",
     ]);
     view.weights = vec![0.05, 0.05, 0.07, 0.20, 0.20, 0.14, 0.19, 0.10];
-    let ranking = application::rank_stored(archive, TiePolicy::KeepSharedAndFlag)?;
+    let ranking = application::rank_stored(archive, TiePolicy::PairwiseControlComparison)?;
     let combined = ranking
         .groups
         .iter()

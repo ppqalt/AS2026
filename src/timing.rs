@@ -941,11 +941,9 @@ fn score_prepared_rows(
                             options.parameters.missing_jat
                         };
                     result.rows[index].note = "JAT puuttuu".into();
-                    let reason = if result.policy == CalculationPolicy::As2026OperationalV1 {
-                        result.rows[index].source.station.as_ref().map_or_else(
-                            || "JAT puuttuu".into(),
-                            |s| format!("JAT-asema {} {} puuttuu", s.sequence, s.label),
-                        )
+                    let reason: String = if result.policy == CalculationPolicy::As2026OperationalV1
+                    {
+                        "JAT puuttuu".into()
                     } else {
                         "*JAT puuttuu".into()
                     };
@@ -958,7 +956,15 @@ fn score_prepared_rows(
                 Some(StationKind::Finish) => {
                     result.rows[index].other_points = 9999;
                     result.rows[index].note = "maali puuttuu".into();
-                    interrupt(result, Some(index + 1), "*Maali puuttuu");
+                    interrupt(
+                        result,
+                        Some(index + 1),
+                        if result.policy == CalculationPolicy::As2026OperationalV1 {
+                            "maali puuttuu"
+                        } else {
+                            "*Maali puuttuu"
+                        },
+                    );
                 }
                 _ => {}
             }
@@ -1115,7 +1121,15 @@ fn score_prepared_rows(
             && !(result.policy == CalculationPolicy::As2026OperationalV1
                 && expected(&result.rows[index]) == 0)
         {
-            interrupt(result, Some(index + 1), "*Maali puuttuu");
+            interrupt(
+                result,
+                Some(index + 1),
+                if result.policy == CalculationPolicy::As2026OperationalV1 {
+                    "maali puuttuu"
+                } else {
+                    "*Maali puuttuu"
+                },
+            );
         }
         result.rows[index].total_points = row_penalty_total(
             result.rows[index].signed_time_points,

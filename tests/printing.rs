@@ -149,7 +149,7 @@ fn terminal_statuses_print_without_emit_and_class_rows_have_sporting_order() {
         assert!(
             texts
                 .iter()
-                .any(|t| t.value.ends_with("luokka Yhteistulos"))
+                .any(|t| t.value.ends_with("luokka: Yhteistulos"))
         );
         assert!(!texts.iter().any(|t| t.value.contains("(alustava)")
             || t.value.contains("Y0:")

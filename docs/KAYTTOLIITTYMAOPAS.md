@@ -1,6 +1,6 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa `beta/fluent2-v071`-haaran käyttöliittymää, jonka pohja on Mikky100:n julkaistu 0.7.1. Beta ei ole uusi vakaa julkaisu. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
+Tämä opas kuvaa `beta/fluent2-v071`-haaran käyttöliittymää, jonka toiminnallinen pohja on julkaistu 0.7.2. Beta ei ole uusi vakaa julkaisu. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
 
@@ -184,7 +184,7 @@ edellyttäviä taulukoita ei näytetä tyhjinä työalueina.
 ### Lähiverkon isäntänäkymä
 
 Parituskoodi on erotettu omaksi selkeäksi pinnakseen. Osoite, tila ja
-lopettaminen ovat erillisiä. Koodin 12 merkin suojaus säilyy; ulkoasu ei
+lopettaminen ovat erillisiä. PIN-koodi on nelinumeroinen ja epäonnistuneita yrityksiä rajoitetaan; ulkoasu ei
 lyhennä yhteyden salaisuutta. Liittymiskenttien Enter tekee saman kuin
 Yhdistä kilpailuun.
 

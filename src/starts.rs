@@ -51,13 +51,13 @@ pub fn draw(project: &Project, seed: u64) -> Result<StartDraw, CoreError> {
         if drivers.is_empty() {
             continue;
         }
-        if class.lahtovali_minuutteina == 0 {
+        if class.start_interval_seconds() == 0 {
             return Err(invalid(format!(
-                "Luokan {} lähtövälin pitää olla vähintään yksi minuutti",
+                "Luokan {} lähtövälin pitää olla vähintään yksi sekunti",
                 class.tunnus
             )));
         }
-        let spacing = u64::from(class.lahtovali_minuutteina) * 60;
+        let spacing = u64::from(class.start_interval_seconds());
         let span = (drivers.len() as u64 - 1)
             .checked_mul(spacing)
             .ok_or(CoreError::ArithmeticOverflow("lähtöaikojen arvonta"))?;

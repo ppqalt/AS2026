@@ -472,7 +472,7 @@ component EditorFields inherits VerticalLayout {
 export component Editor inherits Rectangle {
     min-width: 0px;
     in property <string> record-key;
-    property <length> scroll-offset: 0px;
+    in-out property <length> scroll-offset: 0px;
     changed record-key => { root.scroll-offset = 0px; }
     in property <string> heading;
     in property <string> description;
@@ -487,6 +487,9 @@ export component Editor inherits Rectangle {
     in property <bool> driver-layout: false;
     in property <int> columns: 1;
     in-out property <bool> details-open;
+    in-out property <length> scroll-min;
+    in property <bool> can-edit-emit;
+    callback edit-emit();
     // Ulompi ScrollView vastaa koko paneelista: tämän editorin kenttiä ei rajata.
     in property <bool> fit-content: false;
     min-height: root.fit-content ? editor-content.min-height : 0px;
@@ -499,6 +502,7 @@ export component Editor inherits Rectangle {
     editor-content := VerticalLayout {
         height: root.fit-content ? self.min-height : parent.height;
         padding: Theme.panel-padding; spacing: Theme.space-3;
+        if root.can-edit-emit: Button { text: "Emit-leimat / Luo leimarivi"; clicked => { root.edit-emit(); } }
         Text { text: root.heading; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; wrap: word-wrap; }
         if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; }
         if root.description != "": Note { text: root.description; }
@@ -512,6 +516,14 @@ export component Editor inherits Rectangle {
             field-draft(key, value) => { root.field-draft(key, value); }
         }
         if !root.fit-content: fields-scroll := ScrollView {
+            // Read layout after a frame, never during conditional component initialization.
+            clamp-scroll := Timer {
+                interval: 16ms; running: true;
+                triggered => {
+                    root.scroll-min = min(0px, fields-scroll.visible-height - fields-scroll.content-height);
+                    fields-scroll.content-y = min(0px, max(root.scroll-min, fields-scroll.content-y));
+                }
+            }
             horizontal-scrollbar-policy: always-off;
             content-y <=> root.scroll-offset;
             content-height: scroll-fields.min-height;

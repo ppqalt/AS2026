@@ -2,7 +2,7 @@
 use super::*;
 use slint::platform::{PointerEventButton, WindowEvent};
 
-fn click(app: &AppWindow, x: f32, y: f32) {
+pub(super) fn click(app: &AppWindow, x: f32, y: f32) {
     let position = slint::LogicalPosition::new(x, y);
     app.window()
         .dispatch_event(WindowEvent::PointerMoved { position });
@@ -91,6 +91,7 @@ pub(super) fn start(
         (3, 1, "vienti"),
         (3, 1, "vienti-csv"),
         (3, 1, "vienti-html"),
+        (3, 1, "vienti-pdf"),
         (0, 0, "paivitys"),
         (1, 0, "paivitys"),
         (2, 0, "paivitys"),
@@ -178,15 +179,16 @@ pub(super) fn start(
                             assert!(!app.get_publish_open());
                         }
                         "uusi" => { assert!(app.get_dialog_open()); smoke::key(&app, slint::platform::Key::Escape); }
-                        "vienti" | "vienti-csv" | "vienti-html" => {
-                            let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, _ => 0 };
+                        "vienti" | "vienti-csv" | "vienti-html" | "vienti-pdf" => {
+                            let kind = match expected { "vienti-csv" => 1, "vienti-html" => 2, "vienti-pdf" => 3, _ => 0 };
                             for _ in 0..kind { smoke::key(&app, slint::platform::Key::Tab); }
                             save_view(&app, &directory.join(format!("{stem}-valikko.png"))).unwrap();
                             smoke::key(&app, slint::platform::Key::Return);
                             save_view(&app, &directory.join(format!("{stem}-aktivointi.png"))).unwrap();
                             assert!(app.get_export_open(), "Vienti valikon kautta: {}", app.get_status_text());
                             assert_eq!(app.get_export_kind(), kind);
-                            let extension = ["xlsx", "csv", "html"][kind as usize];
+                            let extension = ["xlsx", "csv", "html", "pdf"][kind as usize];
+                            if kind==3 {app.set_export_stations(true);}
                             let destination = directory.join(format!("tulokset-{method}.{extension}"));
                             app.set_export_path(destination.display().to_string().into());
                             app.invoke_save_export();
@@ -200,6 +202,7 @@ pub(super) fn start(
                                 zip.by_name("xl/worksheets/sheet1.xml").unwrap().read_to_string(&mut xml).unwrap();
                                 assert!(xml.contains("Esimerkkikuljettaja"), "Hyväksytty kilpailija XLSX:ssä");
                             }
+                            else if kind==3 {assert!(bytes.starts_with(b"%PDF-1.7"));}
                             else { let text = String::from_utf8(bytes).unwrap(); assert!(text.contains("Esimerkkikuljettaja"), "Hyväksytty kilpailija viennissä"); assert!(text.contains(if kind == 2 { "<table" } else { ";" })); }
                         }
                         "paivitys" => assert!(!app.get_status_error(), "{}", app.get_status_text()),
@@ -397,7 +400,7 @@ pub(super) fn start(
             } else if step == 98 {
                 app.invoke_open_publish();
                 assert!(app.get_publish_open());
-                assert_eq!(app.get_publish_fields().row_count(), 10);
+                assert_eq!(app.get_publish_fields().row_count(), 11);
                 app.invoke_publish_edited(1, "0".into());
                 app.invoke_publish_test();
                 assert!(!app.get_publish_busy());
@@ -424,9 +427,37 @@ pub(super) fn start(
                 save_view(&app, &directory.join("live-julkaisu-900x600.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
+            } else if step == 103 {
+                use std::io::{Cursor, Read, Write};
+                if app.get_result_entry_open() { app.invoke_result_entry_close(false); }
+                app.set_print_classes_open(false);
+                let class = shared.borrow().workspace.as_ref().unwrap().project().unwrap().luokat[0].tunnus.clone();
+                let bytes = report::xlsx_from_csv(&format!("Luokka / Class;{class}\n")).unwrap();
+                let mut input = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+                let mut output = zip::ZipWriter::new(Cursor::new(Vec::new()));
+                for i in 0..input.len() {
+                    let mut entry = input.by_index(i).unwrap();
+                    let mut data = Vec::new(); entry.read_to_end(&mut data).unwrap();
+                    if entry.name() == "xl/workbook.xml" {data = String::from_utf8(data).unwrap().replace("name=\"Tulokset\"", "name=\"Results\"").into_bytes();}
+                    output.start_file(entry.name(), zip::write::SimpleFileOptions::default()).unwrap();
+                    output.write_all(&data).unwrap();
+                }
+                let path = directory.join("synteettinen-kiti-pohja.xlsx");
+                std::fs::write(&path, output.finish().unwrap().into_inner()).unwrap();
+                app.invoke_export_kiti();
+                shared.borrow_mut().test_file_choice = Some(Some(path));
+                app.invoke_choose_kiti();
+                assert_eq!(app.get_kiti_class_fields().row_count(), 1, "{}", app.get_export_error());
+                assert!(app.get_kiti_class_fields().row_data(0).unwrap().choice >= 0);
+            } else if step == 104 {
+                save_view(&app, &directory.join("kiti-luokkavalinnat.png")).unwrap();
+                app.invoke_kiti_class_selected(0, 0);
+                assert_eq!(app.get_kiti_class_fields().row_data(0).unwrap().choice, 0);
+                smoke::key(&app, slint::platform::Key::Escape);
+                assert!(!app.get_export_open());
             } else {
                 test_complete.set(true);
-                println!("Valikkokoe valmis: 52 oikeaa valikkovalintaa, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
+                println!("Valikkokoe valmis: 54 oikeaa valikkovalintaa, KITI-luokkavalinnat, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");
                 slint::quit_event_loop().unwrap();
             }
         }

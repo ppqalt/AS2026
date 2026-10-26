@@ -1,6 +1,6 @@
 [package]
 name = "as2026"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 rust-version = "1.89"
 default-run = "as2026"
@@ -25,6 +25,7 @@ flate2 = { version = "1", optional = true }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 # Vanhan .xls/.xlsx-pohjan vain luku -tuonti, ei Excel-asennusta tai makroja.
 calamine = { version = "=0.36.1", default-features = false }
+quick-xml = "0.41"
 snow = { version = "0.10", optional = true, default-features = false, features = ["std", "default-resolver", "use-curve25519", "use-chacha20poly1305", "use-sha2", "use-getrandom"] }
 getrandom = { version = "0.3", optional = true }
 
@@ -34,7 +35,11 @@ ssh2 = { version = "0.9", optional = true }
 [features]
 default = []
 desktop = ["dep:libssh2-sys", "dep:ssh2", "dep:directories", "dep:reqwest", "dep:serde_json", "dep:semver", "dep:sha2", "dep:ed25519-dalek", "dep:tar", "dep:flate2", "dep:windows-sys", "dep:snow", "dep:getrandom"]
-gui = ["desktop", "dep:slint", "dep:slint-build", "dep:rfd", "dep:image"]
+gui = ["desktop", "dep:slint", "dep:slint-build", "dep:rfd", "dep:image", "dep:ttf-parser"]
+
+[dependencies.ttf-parser]
+version = "0.25.1"
+optional = true
 
 [target.'cfg(windows)'.dependencies]
 # Vain Windowsin omien rajapintojen Rust-sidokset; ei uutta ajonaikaista kirjastoa.

@@ -1587,7 +1587,8 @@ fn export_destination(input: &str, kind: i32, folder: &Path) -> GuiResult<PathBu
         return Err(invalid("Anna tiedoston nimi"));
     }
     let extension = match kind {
-        0 => "xlsx",
+        0 | 4 => "xlsx",
+        3 => "pdf",
         1 => "csv",
         _ => "html",
     };
@@ -1625,6 +1626,8 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
         .ok_or_else(|| invalid("Avaa ensin kilpailu"))?;
     let (extension, label) = match kind {
         0 => ("xlsx", "Excel (XLSX)"),
+        3 => ("pdf", "PDF"),
+        4 => ("xlsx", "KITI Excel-pohjaan"),
         1 => ("csv", "CSV"),
         _ => ("html", "HTML"),
     };
@@ -1639,6 +1642,42 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
         }
         path = folder.join(format!("tulokset-{index}.{extension}"));
     }
+    let mut options = Vec::new();
+    let mut sources = vec![("N", ws.results()?)];
+    if let Some(project) = ws.project().filter(|p| p.beginners_cup.is_some()) {
+        sources.push(("B", as2026::beginners::results(project)?));
+    }
+    for (scope, archive) in sources {
+        for code in as2026::printing::class_choices(&archive)? {
+            options.push(DrawClassOption {
+                label: as2026::printing::class_label(&code).into(),
+                code: format!("{scope}:{code}").into(),
+                selected: true,
+            });
+        }
+    }
+    app.set_export_classes(model(options));
+    app.set_export_stations(false);
+    app.set_kiti_template("".into());
+    app.set_kiti_class_fields(model(Vec::<EditorField>::new()));
+    app.set_kiti_advanced(false);
+    app.set_kiti_codes(
+        state
+            .preferences
+            .as_ref()
+            .map_or("", |p| p.get().kiti_tilakoodit.as_str())
+            .into(),
+    );
+    app.set_kiti_groups(
+        state
+            .preferences
+            .as_ref()
+            .map_or("", |p| p.get().kiti_luokkaryhmat.as_str())
+            .into(),
+    );
+    if app.get_kiti_codes().trim().is_empty() {
+        app.set_kiti_codes(as2026::kiti::DEFAULT_CODES.into());
+    }
     app.set_export_kind(kind);
     app.set_export_label(label.into());
     app.set_export_path(path.display().to_string().into());
@@ -1647,8 +1686,52 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
     Ok(())
 }
 
+fn selected_export(ws: &Workspace, app: &AppWindow) -> GuiResult<as2026::printing::Document> {
+    let choices = app
+        .get_export_classes()
+        .iter()
+        .filter(|c| c.selected)
+        .map(|c| c.code.to_string())
+        .collect::<Vec<_>>();
+    if choices.is_empty() {
+        return Err(invalid("Valitse vähintään yksi vietävä luokka"));
+    }
+    let mut sources = vec![("N", ws.results()?)];
+    if let Some(project) = ws.project().filter(|p| p.beginners_cup.is_some()) {
+        sources.push(("B", as2026::beginners::results(project)?));
+    }
+    let mut document = as2026::printing::Document {
+        title: "Tulokset".into(),
+        landscape: app.get_export_stations(),
+        pages: Vec::new(),
+    };
+    for (scope, archive) in sources {
+        let selected = choices
+            .iter()
+            .filter_map(|c| c.strip_prefix(&format!("{scope}:")))
+            .map(String::from)
+            .collect::<Vec<_>>();
+        if !selected.is_empty() {
+            let part = as2026::printing::classes(
+                &archive,
+                &selected,
+                if app.get_export_stations() {
+                    as2026::printing::Kind::Stations
+                } else {
+                    as2026::printing::Kind::Classes
+                },
+                document.landscape,
+                false,
+            )?;
+            document.pages.extend(part.pages);
+        }
+    }
+    Ok(document)
+}
+
+#[cfg(test)]
 fn export_bytes(ws: &Workspace, kind: i32) -> GuiResult<Vec<u8>> {
-    let policy = as2026::ranking::TiePolicy::KeepSharedAndFlag;
+    let policy = as2026::ranking::TiePolicy::PairwiseControlComparison;
     if let Some(project) = ws.project() {
         return Ok(match kind {
             0 => report::xlsx_from_csv(&report::competition_ranking_csv(project, policy)?)?,
@@ -1719,7 +1802,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_navigate, |s, a, page| navigate(s, &a, page));
+    action!(on_emit_edit_select_driver, |s, a, index| {
+        emit_correction::select_driver(s, &a, index)
+    });
     action!(on_open_emit_edit, |s, a| emit_correction::open(s, &a));
+    action!(on_emit_edit_insert, |s, a, index| emit_correction::insert(
+        s, &a, index
+    ));
+    action!(on_emit_edit_template, |s, a, index| {
+        emit_correction::template(s, &a, index)
+    });
     action!(on_emit_edit_edited, |s, a, key, value| {
         emit_correction::edit(s, &a, key, &value)
     });
@@ -2601,6 +2693,79 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         Ok(())
     });
+    action!(on_export_pdf, |s, a| begin_export(s, &a, 3));
+    action!(on_export_kiti, |s, a| begin_export(s, &a, 4));
+    action!(on_export_class_toggled, |_s, a, index, selected| {
+        let options = a.get_export_classes();
+        if let Some(mut row) = options.row_data(index as usize) {
+            row.selected = selected;
+            options.set_row_data(index as usize, row);
+        }
+        Ok(())
+    });
+    action!(on_choose_logo, |s, a| {
+        if let Some(path) = choose_file(s, || {
+            rfd::FileDialog::new()
+                .add_filter("PNG-logo", &["png"])
+                .pick_file()
+        }) {
+            let bytes = std::fs::read(path).map_err(|e| invalid(&io_message(&e)))?;
+            as2026::export::validate_logo(&bytes)?;
+            s.preferences
+                .as_mut()
+                .ok_or_else(|| invalid("Asetukset puuttuvat"))?
+                .save_logo(bytes)
+                .map_err(|e| invalid(&e))?;
+            status(&a, "PDF-logo tallennettu.", false);
+        }
+        Ok(())
+    });
+    action!(on_clear_logo, |s, a| {
+        s.preferences
+            .as_mut()
+            .ok_or_else(|| invalid("Asetukset puuttuvat"))?
+            .save_logo(Vec::new())
+            .map_err(|e| invalid(&e))?;
+        status(&a, "PDF-logo poistettu.", false);
+        Ok(())
+    });
+    action!(on_choose_kiti, |s, a| {
+        if let Some(path) = choose_file(s, || {
+            rfd::FileDialog::new()
+                .add_filter("KITI Excel-pohja", &["xlsx"])
+                .pick_file()
+        }) {
+            let project = s
+                .workspace
+                .as_ref()
+                .and_then(|ws| ws.project())
+                .ok_or_else(|| invalid("KITI-vienti tarvitsee AS2026-kilpailun"))?;
+            match forms::kiti_fields(project, &path, a.get_kiti_groups().as_str()) {
+                Ok(fields) => {
+                    a.set_kiti_class_fields(model(fields));
+                    a.set_export_error("".into());
+                }
+                Err(error) => {
+                    a.set_export_error(error_text(&error).into());
+                    return Ok(());
+                }
+            }
+            a.set_kiti_template(path.display().to_string().into());
+        }
+        Ok(())
+    });
+    action!(on_kiti_class_selected, |_s, a, index, selected| {
+        let fields = a.get_kiti_class_fields();
+        if let Some(mut field) = fields.row_data(index as usize)
+            && let Some(value) = field.values.row_data(selected as usize)
+        {
+            field.choice = selected;
+            field.value = value;
+            fields.set_row_data(index as usize, field);
+            a.set_export_error("".into());
+        }
+        Ok(())
+    });
     action!(on_export_report, |s, a| begin_export(s, &a, 2));
     action!(on_export_csv, |s, a| begin_export(s, &a, 1));
     action!(on_export_xlsx, |s, a| begin_export(s, &a, 0));
@@ -2618,7 +2783,58 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             let path =
                 export_destination(a.get_export_path().as_str(), a.get_export_kind(), folder)?;
             a.set_export_path(path.display().to_string().into());
-            report::save_new_bytes(&path, &export_bytes(ws, a.get_export_kind())?)?;
+            let bytes = if a.get_export_kind() == 4 {
+                let project = ws
+                    .project()
+                    .ok_or_else(|| invalid("KITI-vienti tarvitsee AS2026-kilpailun"))?;
+                let groups = a
+                    .get_kiti_class_fields()
+                    .iter()
+                    .map(|field| {
+                        if field.choice < 0 {
+                            return Err(invalid(&format!(
+                                "Valitse luokan {} tulosluokka",
+                                field.label
+                            )));
+                        }
+                        Ok((field.label.to_string(), field.value.to_string()))
+                    })
+                    .collect::<GuiResult<BTreeMap<_, _>>>()?;
+                a.set_kiti_groups(
+                    groups
+                        .iter()
+                        .map(|(key, value)| format!("{key}={value}"))
+                        .collect::<Vec<_>>()
+                        .join(";")
+                        .into(),
+                );
+                as2026::kiti::fill_with_groups(
+                    project,
+                    Path::new(a.get_kiti_template().as_str()),
+                    &as2026::kiti::parse_codes(a.get_kiti_codes().as_str())?,
+                    &groups,
+                )?
+            } else {
+                let document = selected_export(ws, &a)?;
+                match a.get_export_kind() {
+                    0 => report::xlsx_from_csv(&as2026::export::csv(&document))?,
+                    1 => as2026::export::csv(&document).into_bytes(),
+                    3 => as2026::export::pdf(
+                        &document,
+                        s.preferences
+                            .as_ref()
+                            .map_or(&[], |p| p.get().pdf_logo_png.as_slice()),
+                    )?,
+                    _ => as2026::export::html(&document).into_bytes(),
+                }
+            };
+            report::save_new_bytes(&path, &bytes)?;
+            if a.get_export_kind() == 4
+                && let Some(p) = s.preferences.as_mut()
+            {
+                p.save_kiti_codes(a.get_kiti_codes().as_str(), a.get_kiti_groups().as_str())
+                    .map_err(|e| invalid(&e))?;
+            }
             a.set_export_open(false);
             status(
                 &a,

@@ -72,7 +72,9 @@ tilannetta yritetään uudelleen kymmenen sekunnin välein.
 Tulossivu on itsenäinen mobiilissa toimiva HTML-sivu. Siinä näkyvät kilpailu,
 päivitysaika, epävirallinen tila sekä tavallisten, yhdistettyjen ja Beginners
 Cup -luokkien tulokset nykyisten hyväksyntäsääntöjen mukaan. Selaimen
-päivitysväli on **60 sekuntia**; lähetys ei odota tätä minuutin ajastinta.
+päivitys- ja sivukiertoväli määritetään julkaisuikkunassa sekunteina (oletus 60).
+Lähetys ei odota selaimen ajastinta. Tarkastamattomat kilpailijat näkyvät
+hyväksyttyjen ja keskeyttäneiden välissä, tuloksena **AJAA**.
 
 Palvelimen/CDN:n pitää ohittaa välimuisti tulostiedoston osalta tai käyttää
 `Cache-Control: no-store, max-age=0` -otsaketta. HTML:n välimuistimetatiedot

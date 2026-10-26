@@ -34,11 +34,11 @@ pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .filter(|r| !terminal && r.expected_code == 0 && r.station_type != "L")
         .map(|r| ResultEntryInput {
             key: r.output_index as i32,
-            label: format!("{} · {} · kellonaika", r.sequence, r.name).into(),
+            label: format!("{} · {} · kellonaika (hhmmss)", r.sequence, r.name).into(),
             value: if pending.contains(&r.output_index) {
                 String::new()
             } else {
-                format!("{:02}:{:02}:{:02}", r.clock[0], r.clock[1], r.clock[2])
+                format!("{:02}{:02}{:02}", r.clock[0], r.clock[1], r.clock[2])
             }
             .into(),
         })
@@ -87,7 +87,7 @@ fn parse_clock(value: &str) -> GuiResult<[i64; 3]> {
         .split(':')
         .map(str::parse::<i64>)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| invalid("Anna kellonaika muodossa hh:mm:ss, esimerkiksi 18:03:25"))?;
+        .map_err(|_| invalid("Anna kellonaika muodossa hhmmss, esimerkiksi 180325"))?;
     let clock: [i64; 3] = values
         .try_into()
         .map_err(|_| invalid("Anna tunnit, minuutit ja sekunnit"))?;
@@ -466,9 +466,20 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow) {
                             app.set_printer_index(
                                 names.iter().position(|n| n == &current).unwrap_or(0) as i32,
                             );
+                            let count = names.len().saturating_sub(1);
+                            app.set_printer_name(if current.is_empty() {
+                                "Käyttöjärjestelmän oletus".into()
+                            } else {
+                                current.into()
+                            });
                             app.set_printers(model(
                                 names.into_iter().map(SharedString::from).collect(),
                             ));
+                            status(
+                                &app,
+                                format!("Tulostinluettelo päivitetty: {count} tulostinta."),
+                                false,
+                            );
                         }
                         Err(error) => status(&app, error, true),
                     }

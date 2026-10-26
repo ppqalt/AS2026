@@ -416,7 +416,7 @@ pub fn competitor(
 
 pub fn class_choices(archive: &Archive) -> Result<Vec<String>, CoreError> {
     Ok(
-        application::rank_stored(archive, ranking::TiePolicy::default())?
+        application::rank_stored(archive, ranking::TiePolicy::PairwiseControlComparison)?
             .groups
             .into_iter()
             .map(|g| g.code)
@@ -434,7 +434,7 @@ pub fn classes(
         return Err(invalid("Valitse vähintään yksi tulostettava luokka"));
     }
     let publication = archive;
-    let ranked = application::rank_stored(archive, ranking::TiePolicy::default())?;
+    let ranked = application::rank_stored(archive, ranking::TiePolicy::PairwiseControlComparison)?;
     if selected
         .iter()
         .any(|code| !ranked.groups.iter().any(|g| &g.code == code))
@@ -667,13 +667,13 @@ pub fn classes(
                 &mut page,
                 &name,
                 &format!(
-                    "{} - luokka {}",
-                    if kind == Kind::Stations {
-                        "Asemakohtaiset tulokset"
-                    } else {
-                        "Tulokset"
-                    },
-                    class_label(&group.code),
+                    "luokka: {}",
+                    archive
+                        .basic
+                        .classes
+                        .iter()
+                        .find(|c| c.code == group.code)
+                        .map_or_else(|| class_label(&group.code), |c| c.name.as_str())
                 ),
                 landscape,
             );

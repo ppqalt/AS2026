@@ -84,7 +84,7 @@ export component ResultEntryDialog inherits Rectangle {
             preferred-dialog-height: 720px;
             Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: "Täydennä tulos"; }
             Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: root.identity; }
-            Note { x: Theme.dialog-padding; y: 84px; width: parent.width - 2 * Theme.dialog-padding; height: root.queued == "" ? 24px : 52px; text: root.queued == "" ? "Kellonajat muodossa h:min:s. Siirry kentästä toiseen Tab-näppäimellä." : root.queued; }
+            Note { x: Theme.dialog-padding; y: 84px; width: parent.width - 2 * Theme.dialog-padding; height: root.queued == "" ? 24px : 52px; text: root.queued == "" ? "Kellonajat muodossa hhmmss (esim. 180325). Siirry Tab-näppäimellä." : root.queued; }
             Rectangle {
                 x: Theme.dialog-padding; y: root.queued == "" ? 120px : 148px; width: parent.width - 2 * Theme.dialog-padding;
                 height: max(0px, parent.height - self.y - Theme.dialog-padding - Theme.control-height - Theme.space-3 - (root.error == "" ? 0px : 48px));

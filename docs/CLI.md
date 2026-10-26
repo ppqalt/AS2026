@@ -163,7 +163,7 @@ Tulosluettelossa ovat luokka- ja ratakohtainen järjestys, yhdistetyt luokat sek
 
 `--live 8765` avaa tulosnäkymän vain samalla koneella osoitteessa `http://127.0.0.1:8765/`. Kilpailu luetaan uudelleen selaimen pyynnöillä ja näkymä päivittyy viiden sekunnin välein. Ctrl+C lopettaa palvelimen. Se ei ole usean koneen synkronointi.
 
-Tasapisteet säilyvät oletuksena jaettuina. Asematietoihin perustuvan ratkaisun voi pyytää erikseen, mutta se tehdään vain riittävillä, samoihin asemiin kohdistetuilla tiedoilla. Avoimet tarkastustulokset estävät nousu- ja sarjapisteiden vahvistamisen.
+Versiosta 0.7.2 alkaen tasapisteet ratkaistaan RT-määrän ja aika-asemien parivertailulla, kun tiedot ovat riittävät ja kohdistuvat samoihin asemiin. Tasainen, puutteellinen tai ristiriitainen vertailu jää jaetuksi. Valitsin `--ratkaise-tasatulokset` käyttää yhteensopivuuden vuoksi vaihtoehtoista vanhaa parhaiden rivien vertailua. Avoimet tarkastustulokset estävät nousu- ja sarjapisteiden vahvistamisen.
 
 ## Käsikellot, Excel-tuonti ja lähtöjärjestelyt
 

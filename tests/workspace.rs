@@ -313,7 +313,7 @@ fn complete_new_rows_and_station_order_are_saved_together() {
             route: "2".into(),
             first_number: "10".into(),
             start_time: "13:00:00".into(),
-            interval_minutes: "2".into(),
+            interval_seconds: "120".into(),
             lateness_minutes: "60".into(),
             np_enabled: "0".into(),
             series_method: "0".into(),

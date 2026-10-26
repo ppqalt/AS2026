@@ -29,6 +29,7 @@ pub struct Config {
     pub fingerprint: String,
     pub classes: Vec<String>,
     pub local_directory: String,
+    pub refresh_seconds: u32,
     #[serde(skip)]
     pub local_only: bool,
     #[serde(skip)]
@@ -457,7 +458,7 @@ impl Publisher {
                         let outcome = (|| {
                             let classes = if config.classes.is_empty() { crate::live_pages::class_choices(&project).map_err(|e|e.to_string())? } else { config.classes.clone() };
                             let base=if config.local_directory.is_empty() {PathBuf::from(&config.filename)} else {PathBuf::from(&config.local_directory).join(&config.filename)};
-                            let mut pages=crate::live_pages::pages(&project,&crate::live_pages::Settings{base,classes}).map_err(|e|e.to_string())?;
+                            let mut pages=crate::live_pages::pages_with_interval(&project,&crate::live_pages::Settings{base,classes}, if config.refresh_seconds == 0 { 60 } else { config.refresh_seconds }).map_err(|e|e.to_string())?;
                             if final_result { for (_,body) in &mut pages {*body=body.replace("Epäviralliset tulokset","Lopulliset tulokset");} }
                             if !config.local_directory.is_empty() {crate::live_pages::write_pages_with_cancel(&pages, Some(&cancelled)).map_err(|e|e.to_string())?;}
                             if !config.local_only { for (name,body) in pages.iter().rev() {

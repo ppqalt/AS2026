@@ -4,6 +4,12 @@
 >
 > **Tila:** kokeellinen ja keskeneräinen. Tämä tiedosto on tavoitemäärittely ja tarkastuslista, ei väite siitä, että kaikki kohdat olisi jo toteutettu. Älä julkaise vakaana versiona tai yhdistä `main`-haaraan ilman arviointia.
 
+## 0.7.2-integraatio (26.10.2026)
+
+Beta sisältää julkaistun `v0.7.2`:n (`1694e0d1456d5638b94eb6bbf61c9bfc032a8572`) toiminnalliset muutokset. Haaran historiallinen nimi säilyy `beta/fluent2-v071`. Slint 1.18.1, yhteiset Fluent-presetit, nykyiset neljä teemaa ja eristetty galleria säilyvät. Ember ei kuulu tähän integraatioon.
+
+Yhdistetyn sovelluksen Rust- ja Slint-käynnistyskäännös onnistui. Integraation jälkeisiä testejä tai CI:tä ei ole ajettu käyttäjän ohjeen mukaisesti; aiemmat testitulokset eivät todista tämän yhdistelmän työnkulkuja. Alla oleva tavoite- ja ominaisuuskuvaus ei muuta tätä rajausta.
+
 ## Komponenttistandardin ensisijainen lähde
 
 **[FLUENT2_KOMPONENTTISTANDARDI.md](FLUENT2_KOMPONENTTISTANDARDI.md)** on tämän beta-haaran kaikkia `ui/**/*.slint`-muutoksia ohjaava mittojen, varianttien, saavutettavuuden, tilojen, suunnittelulähteiden ja tiedostokohtaisten komponenttien normatiivinen preset-katalogi. Älä tee uutta rinnakkaista mittataulukkoa tähän tiedostoon. Osa katalogin nimistä on tulevia toteutuksia, ei vielä importoitavia Slint-komponentteja.

@@ -121,6 +121,8 @@ pub struct Class {
     pub lahtoaika: String,
     #[serde(default = "one")]
     pub lahtovali_minuutteina: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lahtovali_sekuntia: Option<u32>,
     #[serde(default = "default_lateness")]
     pub myohastymisraja_minuutteina: u32,
     /// AS2015A:n Np-valinta (0/1).
@@ -142,6 +144,13 @@ pub struct CombinedClass {
     pub nousupisteet: u8,
     #[serde(default)]
     pub sarjapistetapa: u8,
+}
+
+impl Class {
+    pub fn start_interval_seconds(&self) -> u32 {
+        self.lahtovali_sekuntia
+            .unwrap_or_else(|| self.lahtovali_minuutteina.saturating_mul(60))
+    }
 }
 
 fn one() -> u32 {
@@ -346,6 +355,8 @@ impl AdditionalPenalties {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Readout {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lahde: Option<String>,
     pub emit: u32,
     pub lukukello: String,
     pub leimat: Vec<ReadPunch>,
@@ -742,6 +753,7 @@ impl Project {
                 ensimmainen_numero: 1,
                 lahtoaika: "15:00:00".into(),
                 lahtovali_minuutteina: 2,
+                lahtovali_sekuntia: None,
                 myohastymisraja_minuutteina: default_lateness(),
                 nousupisteet: 0,
                 sarjapistetapa: 0,
@@ -867,6 +879,7 @@ impl Project {
     ) -> Result<ReadOutcome, CoreError> {
         let accepted = frame.accepted_readout(clock)?;
         let read = Readout {
+            lahde: None,
             emit: frame.card_number,
             lukukello: format!("{:02}:{:02}:{:02}", clock.hour, clock.minute, clock.second),
             leimat: frame.records[..=accepted.marker_index]

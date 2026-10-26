@@ -81,6 +81,7 @@ fn read(card: u32, marker_time: u32, finish_time: u32) -> native::Readout {
             },
         ],
         luettu_unix_ms: None,
+        lahde: None,
     }
 }
 
