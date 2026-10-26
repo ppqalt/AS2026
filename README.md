@@ -1,17 +1,15 @@
 # AS2026
 
-> Main-haara sisältää seuraavan 0.7.3-version käyttöliittymäparannukset. Ladattava vakaa julkaisu on edelleen 0.7.2. Alla kuvattu käyttöliittymä vastaa main-haaran toteutusta.
-
 **AS2026** on suomenkielinen autosuunnistuskilpailujen hallinta- ja
 tuloslaskentasovellus Linuxille ja Windowsille. Se toimii yhdellä koneella ilman
 internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [vakaan version 0.7.2 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.2):
+Lataa oma pakettisi [version 0.7.3 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.3):
 
-- Linux x86-64: `AS2026-0.7.2-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.2-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.3-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.3-windows-x86_64.zip`
 
 Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
@@ -72,7 +70,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md)
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
-- [Seuraavan version 0.7.3 muutokset](RELEASE_NOTES.md)
+- [Version 0.7.3 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja
