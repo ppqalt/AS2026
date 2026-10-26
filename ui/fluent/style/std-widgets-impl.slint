@@ -7,3 +7,8 @@ export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
 export { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
 export { StyleMetrics, Palette } from "style-base.slint";
+// Slint 1.18 lowers both menu bars and text-field context menus through this file.
+export { MenuBarImpl, PopupMenuImpl } from "../common/menus.slint";
+export { RadioButtonImpl, RadioGroupImpl } from "radiogroup.slint";
+export { TabWidgetImpl, TabImpl, TabBarHorizontalImpl, TabBarVerticalImpl } from "tabwidget.slint";
+export { ToolTipImpl } from "../common/tooltip-base.slint";

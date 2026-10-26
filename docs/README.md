@@ -1,7 +1,9 @@
-# AS2026 0.7.0:n ohjeet
+# AS2026 0.7.1:n pohjalta kehitetyn Fluent 2 -betan ohjeet
 
 Lataus ja asennus: [projektin etusivu](../README.md) ·
-[version 0.7.0 julkaisutiedot](../RELEASE_NOTES.md).
+[version 0.7.1 julkaisutiedot](../RELEASE_NOTES.md).
+
+> **Fluent 2 -beta on keskeneräinen.** Tällä haaralla oleva [beta-suunnitelma ja koko käyttöliittymän tarkastuslista](FLUENT2_BETA.md) kertoo suunnan ja todetut puutteet. Käyttöliittymäopas ja yhteiset periaatteet on päivitetty betan nykyisten teemojen, presettien ja valintaikkunoiden mukaisiksi. Suunniteltujen materiaalien ja WinUI-vertailun keskeneräisyys on erotettu toteutetuista ominaisuuksista.
 
 ## Kilpailun järjestäjälle
 
@@ -19,6 +21,14 @@ Lataus ja asennus: [projektin etusivu](../README.md) ·
 | [Palomuuriohje](PALOMUURI.md) | Windowsin ja UFW:n rajatut LAN-säännöt |
 | [Livetulokset](LIVE_JULKAISU.md) | Paikallinen live, SFTP/FTP ja lopullinen julkaisu |
 | [Komentorivi](CLI.md) | Kilpailutiedostot, komennot ja turvallinen tallennus |
+
+## Fluent 2 -betan testattava komponenttigalleria
+
+**[FLUENT2_GALLERIA.md](FLUENT2_GALLERIA.md)** dokumentoi `ui/presets.slint`-kirjaston tämänhetkiset kontrollit ja sen oman `--fluent-gallery`-käynnistysvalinnan. Galleria toimii erillään kilpailudatasta. Ohje erottaa vielä toteuttamattomat ominaisuudet jo lähdekoodiin lisätyistä preseteistä.
+
+## Fluent 2 -betan komponenttistandardi
+
+**[Fluent 2 / Windows 11 -komponenttistandardi ja preset-katalogi](FLUENT2_KOMPONENTTISTANDARDI.md)** on tämän beta-haaran ensisijainen ohje kaikille `ui/**/*.slint`-muutoksille. Se sisältää Microsoftin lähdeviitteet, painike-, slider-, scrollbar-, dialogi- ja muiden kontrollien variantit, ulkoasun mitoista ja behaviorista tehtävät projektipäätökset sekä tiedostokohtaiset toteutussäännöt. **Huom.: kaikki katalogin komponentit eivät ole vielä toteutettuja.** Vakaalla `main`-haaralla ei ole näitä muutoksia.
 
 ## Kehittäjälle ja ylläpitäjälle
 

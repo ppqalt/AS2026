@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-// AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
+// AS2026: yhteinen teema- ja tehosteporttisovitus; ks. ../README.md.
 
 import { FluentFontSettings, FluentPalette, Icons, FluentSizeSettings } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
@@ -9,6 +9,7 @@ import { ScrollView } from "./scrollview.slint";
 import { Theme } from "../../theme.slint";
 
 export component ComboBox {
+    in property <length> control-height: Theme.control-height;
     in property <[string]> model <=> base.model;
     in property <bool> enabled <=> base.enabled;
     out property <bool> has-focus <=> base.has-focus;
@@ -18,12 +19,12 @@ export component ComboBox {
     callback selected <=> base.selected;
 
     property <length> popup-padding: 4px;
+    property <length> popup-bottom-padding: Theme.space-3;
     property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * FluentSizeSettings.item-height;
     property <int> visible-items: min(6, model.length);
 
-    min-width: max(160px, layout.min-height);
-    min-height: max(Theme.control-height, layout.min-height);
-    preferred-height: Theme.control-height;
+    min-width: max(160px, layout.min-width);
+    min-height: max(32px, layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: base;
@@ -68,6 +69,7 @@ export component ComboBox {
     background := Rectangle {
         border-radius: Theme.radius;
         background: FluentPalette.control-background;
+        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; easing: ease-out; }
         border-width: 1px;
         border-color: FluentPalette.control-border;
 
@@ -77,12 +79,12 @@ export component ComboBox {
             spacing: Theme.space-2;
 
             text := Text {
+                horizontal-stretch: 1;
                 horizontal-alignment: left;
                 vertical-alignment: center;
-                font-size: FluentFontSettings.body.font-size;
-                font-weight: FluentFontSettings.body.font-weight;
                 color: FluentPalette.control-foreground;
                 text: root.current-value;
+                overflow: elide;
                 accessible-role: none;
             }
 
@@ -107,7 +109,7 @@ export component ComboBox {
         // Valikko avautuu kentän alapuolelle, ei valitun arvon päälle.
         y: root.height + Theme.space-1;
         width: root.width;
-        height: root.visible-items * FluentSizeSettings.item-height + 2 * root.popup-padding;
+        height: root.visible-items * FluentSizeSettings.item-height + root.popup-padding + root.popup-bottom-padding;
         close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
@@ -121,16 +123,22 @@ export component ComboBox {
             }
 
             MenuBorder {
-                ScrollView {
+                popup-scroll := ScrollView {
+                    // Lista on yksipalstainen: vaakapalkki ei saa viedä riviltä korkeutta.
                     horizontal-scrollbar-policy: always-off;
-                    vertical-scrollbar-policy: root.model.length > root.visible-items ? as-needed : always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: root.model.length * FluentSizeSettings.item-height + 2 * root.popup-padding;
-                    viewport-y: root.popup-scroll-y;
+                    min-height: 0px;
+                    content-width: self.visible-width;
+                    content-height: popup-content.min-height;
+                    content-y: root.popup-scroll-y;
 
-                    VerticalLayout {
+                    popup-content := VerticalLayout {
+                        x: 0px; y: 0px;
+                        width: popup-scroll.visible-width;
+                        height: self.min-height;
                         alignment: start;
+                        spacing: 0px;
                         padding: root.popup-padding;
+                        padding-bottom: root.popup-bottom-padding;
 
                         for value[index] in root.model : ListItem {
                             height: FluentSizeSettings.item-height;

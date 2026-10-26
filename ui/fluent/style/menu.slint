@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-// AS2026: paikallinen efektitön Dark Spruce -sovitus; ks. ../README.md.
+// AS2026: yhteinen teema- ja tehosteporttisovitus; ks. ../README.md.
 
+import { Theme } from "../../theme.slint";
 import { FluentPalette, FluentFontSettings } from "styling.slint";
 import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../common/menu-base.slint";
 
@@ -23,9 +24,7 @@ export component MenuBarItem {
         pressed-foreground: FluentPalette.text-secondary;
         hover-background: FluentPalette.subtle-secondary;
         pressed-background: FluentPalette.control-alt-tertiary;
-        font-size: FluentFontSettings.body.font-size;
-        font-weight: FluentFontSettings.body.font-weight;
-        border-radius: 3px;
+        border-radius: Theme.radius;
     }
 }
 
@@ -36,7 +35,7 @@ export component MenuBar inherits MenuBarBase {
 
 export component MenuFrame inherits MenuFrameBase {
     background: FluentPalette.background;
-    border-radius: 7px;
+    border-radius: Theme.radius-large;
     border-width: 1px;
     border-color: FluentPalette.border;
 
@@ -68,8 +67,6 @@ export component MenuItem {
             current-foreground: FluentPalette.foreground;
             current-background: FluentPalette.subtle-secondary;
             separator-color: FluentPalette.border;
-            font-size: FluentFontSettings.body.font-size;
-            font-weight: FluentFontSettings.body.font-weight;
             border-radius: 4px;
             horizontal-padding: 11px;
             spacing: 8px;

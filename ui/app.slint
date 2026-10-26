@@ -1,8 +1,11 @@
-import { Button, LineEdit, Palette, AboutSlint, ScrollView, ComboBox, CheckBox } from "std-widgets.slint";
+import { Palette, AboutSlint } from "std-widgets.slint";
+import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView, UiComboBox as ComboBox, UiCheckBox as CheckBox } from "presets.slint";
 import { Theme } from "theme.slint";
+export { Theme }
 import { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption } from "types.slint";
-import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton, DialogSurface, DialogActions, Workspace } from "components.slint";
+import { Heading, Note, NavItem, DataTable, Editor, Metric, AccentButton, DialogSurface, DialogActions, Workspace, FadeSurface } from "components.slint";
 import { ResultSummary } from "results.slint";
+export { GalleryWindow } from "fluent-gallery.slint";
 import { StartColumnsDialog } from "start-columns.slint";
 import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
@@ -17,6 +20,11 @@ export { TableRow, EditorField, ResultOverview, DrawClassOption, BcStationOption
 
 export component AppWindow inherits Window {
     init => { Palette.color-scheme = Theme.color-scheme; }
+    private property <ColorScheme> resolved-color-scheme: Theme.color-scheme;
+    changed resolved-color-scheme => { Palette.color-scheme = root.resolved-color-scheme; }
+    in-out property <int> appearance-index: 0;
+    callback set-appearance(int);
+    changed appearance-index => { Theme.appearance-index = root.appearance-index; }
     title: "AS2026 — " + root.competition-name;
     preferred-width: 1480px; preferred-height: 960px;
     min-width: 900px; min-height: 600px;
@@ -24,6 +32,12 @@ export component AppWindow inherits Window {
     default-font-size: Theme.body-font-size;
     default-font-family: Theme.font-family;
     forward-focus: keyboard;
+    private property <bool> route-info-open: false;
+    private property <bool> station-info-open: false;
+    function close-station-info() {
+        if root.new-record { root.cancel-edit(); }
+        if !root.form-blocked { root.station-info-open = false; }
+    }
     in-out property <int> page: 0;
     in-out property <bool> opened;
     in-out property <bool> editable;
@@ -182,6 +196,14 @@ export component AppWindow inherits Window {
     }
     in-out property <bool> dialog-open;
     in-out property <bool> about-open;
+    private property <int> about-page: 0;
+    // User-selected optional UI animations/effects; persisted by Rust.
+    in-out property <bool> effects-enabled: false;
+    callback set-effects-enabled(bool);
+    changed effects-enabled => {
+        Theme.effects-enabled = root.effects-enabled;
+        if !root.effects-enabled { root.tung-active = false; }
+    }
     property <string> tung-keys;
     in-out property <bool> tung-active;
     in-out property <[int]> tung-speeds;
@@ -189,7 +211,7 @@ export component AppWindow inherits Window {
     callback tung-start();
     Timer {
         interval: 5s;
-        running: root.tung-active;
+        running: root.effects-enabled && root.tung-active;
         triggered => { root.tung-active = false; }
     }
     Timer {
@@ -210,7 +232,7 @@ export component AppWindow inherits Window {
     }
     changed notes-open => { root.note-details-open = false; if !root.notes-open { root.focus-page(); } }
     changed dialog-open => { if !root.dialog-open { root.focus-page(); } }
-    changed about-open => { root.tung-keys = ""; if !root.about-open { root.tung-active = false; root.focus-page(); } }
+    changed about-open => { root.about-page = 0; root.tung-keys = ""; if !root.about-open { root.tung-active = false; root.focus-page(); } }
     changed confirm-open => { if !root.confirm-open { root.focus-page(); } }
     changed draw-classes-open => { if !root.draw-classes-open { root.focus-page(); } }
     changed bc-open => { if !root.bc-open { root.focus-page(); } }
@@ -251,10 +273,11 @@ export component AppWindow inherits Window {
     in-out property <bool> status-details-open;
     callback show-export-menu();
     show-export-menu => { export-menu.show(); }
+    private property<bool> extras-export-mode: false;
     function export-from-extras() {
-        // Kutsu elää pääikkunassa: ensimmäisen popupin sulkeminen ei katkaise sitä.
-        extras-menu.close();
-        export-menu.show();
+        // Pidetään sama popup auki: alkuperäisen ikkunan sulkeminen ja uuden
+        // avaaminen samassa syötteessä voi hävittää Waylandin popup-kohdistuksen.
+        root.extras-export-mode = true;
     }
     export-menu := PopupWindow {
         close-policy: close-on-click-outside;
@@ -262,7 +285,7 @@ export component AppWindow inherits Window {
         y: Theme.gutter + Theme.control-height + Theme.space-2;
         width: 220px; height: 5 * Theme.control-height + 6 * Theme.space-2;
         Rectangle {
-            background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+            background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
             VerticalLayout {
                 padding: Theme.space-2; spacing: Theme.space-2;
                 export-excel := Button { text: "Excel (XLSX)"; clicked => { root.export-xlsx(); export-menu.close(); } }
@@ -305,7 +328,7 @@ export component AppWindow inherits Window {
     in-out property <bool> details-open;
     changed page => { root.details-open = false; root.result-stations = false; root.notes-open = false; root.editor-scroll-offset = 0px; root.editor-scroll-min = 0px; }
     callback show-extras-menu();
-    show-extras-menu => { extras-menu.show(); }
+    show-extras-menu => { root.extras-export-mode = false; extras-menu.show(); }
     callback approve-results();
     in-out property <bool> result-approvable: false;
     in-out property <bool> result-interrupted: false;
@@ -375,12 +398,13 @@ export component AppWindow inherits Window {
 
     // Pikanäppäimet toimivat myös kentän tai taulukon ollessa kohdistettuna.
     keyboard := FocusScope {
-    enabled: !root.competitor-edit-open;
+    enabled: !root.competitor-edit-open && !root.station-info-open;
     focus-on-click: false;
     focus-on-tab-navigation: false;
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
         if event.text == Key.Escape {
+            if root.route-info-open { root.route-info-open = false; return accept; }
             if root.start-columns-open { root.start-columns-close(false); return accept; }
             if root.emit-edit-open { root.emit-edit-close(false); return accept; }
             if root.lan-open { root.lan-open = false; return accept; }
@@ -443,7 +467,7 @@ export component AppWindow inherits Window {
                         width: parent.width - 2 * Theme.space-2;
                         text: root.competition-name;
                         color: Theme.ink; font-size: Theme.section-font-size;
-                        font-weight: 700; overflow: elide;
+                        font-weight: Theme.strong-font-weight; overflow: elide;
                     }
                 }
                 Rectangle {
@@ -465,8 +489,8 @@ export component AppWindow inherits Window {
                     vertical-stretch: 1;
                     horizontal-stretch: 1;
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: nav-items.min-height;
+                    content-width: self.visible-width;
+                    content-height: nav-items.min-height;
                     nav-items := VerticalLayout {
                         x: 0px; y: 0px;
                         width: nav-scroll.visible-width;
@@ -506,6 +530,9 @@ export component AppWindow inherits Window {
         VerticalLayout {
             horizontal-stretch: 1;
             spacing: 0px;
+            FadeSurface {
+                horizontal-stretch: 1; vertical-stretch: 1;
+                content-key: root.page;
             VerticalLayout {
                 horizontal-stretch: 1;
                 padding: Theme.gutter; spacing: Theme.space-4;
@@ -525,15 +552,28 @@ export component AppWindow inherits Window {
                     Rectangle {
                         visible: root.opened || root.page == 0;
                         width: 106px; height: Theme.control-height;
-                        Button { width: 100%; height: 100%; text: "Toiminnot"; accessible-label: "Lisätoiminnot"; clicked => { root.show-extras-menu(); } }
+                        Button { width: 100%; height: 100%; text: "Toiminnot"; menu-button: true; accessible-expandable: true; accessible-expanded: extras-menu.is-open; accessible-label: "Lisätoiminnot"; clicked => { root.show-extras-menu(); } }
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
-                            width: 280px; height: root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
+                            width: 280px; height: root.extras-export-mode ? 232px : root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
-                                background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
-                                VerticalLayout {
-                                    padding: Theme.space-2; spacing: Theme.space-2;
+                                background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
+                                if root.extras-export-mode: Rectangle {
+                                    VerticalLayout {
+                                        padding: Theme.space-2; spacing: Theme.space-2;
+                                        nested-excel := Button { text: "Excel (XLSX)"; clicked => { root.export-xlsx(); extras-menu.close(); } }
+                                        Button { text: "CSV"; clicked => { root.export-csv(); extras-menu.close(); } }
+                                        Button { text: "HTML"; clicked => { root.export-report(); extras-menu.close(); } }
+                                        Button { text: "PDF"; clicked => { root.export-pdf(); extras-menu.close(); } }
+                                        Button { text: "KITI Excel-pohjaan"; clicked => { root.export-kiti(); extras-menu.close(); } }
+                                    }
+                                    FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { nested-excel.focus(); } }
+                                }
+                                Rectangle {
+                                    visible: !root.extras-export-mode;
+                                    VerticalLayout {
+                                        padding: Theme.space-2; spacing: Theme.space-2;
                                     refresh-menu := Button { text: "Päivitä tiedot"; enabled: true; clicked => { root.focus-page(); root.reload(); extras-menu.close(); } }
                                     if root.page == 0: Button { text: "Avaa"; clicked => { root.open-file(); extras-menu.close(); } }
                                     if root.page == 0: Button { text: "+ Uusi"; clicked => { root.begin-new(); extras-menu.close(); } }
@@ -551,15 +591,16 @@ export component AppWindow inherits Window {
                                     if root.page == 3: Button { text: "Tulosta asematulokset"; enabled: !root.print-busy; clicked => { root.open-print-classes(true); extras-menu.close(); } }
                                     if root.page == 2: Button { text: "Lue kehystiedosto"; enabled: root.editable; clicked => { root.focus-page(); root.import-frame(); extras-menu.close(); } }
                                     if root.page == 3: Button { text: "Live-tulosten julkaisu"; enabled: root.editable; clicked => { root.open-publish(); extras-menu.close(); } }
+                                    }
+                                    FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                                 }
-                                FocusScope { width: 0px; height: 0px; focus-on-click: false; focus-on-tab-navigation: false; init => { refresh-menu.focus(); } }
                             }
                         }
                     }
                 }
                 if root.page == 0: overview-scroll := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width; viewport-height: overview-content.min-height;
+                    content-width: self.visible-width; content-height: overview-content.min-height;
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
                     overview-content := VerticalLayout {
@@ -646,7 +687,7 @@ export component AppWindow inherits Window {
                             VerticalLayout {
                                 min-width: 0px; horizontal-stretch: 1; alignment: start;
                                 spacing: Theme.space-1;
-                                Text { text: root.reader-running ? "●  Lukija odottaa korttia" : "Kortinluku"; color: root.reader-running ? Theme.success : Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                Text { text: root.reader-running ? "●  Lukija odottaa korttia" : "Kortinluku"; color: root.reader-running ? Theme.success : Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
                                 Note { text: root.reader-status; }
                             }
                             Rectangle { horizontal-stretch: 1; }
@@ -669,7 +710,7 @@ export component AppWindow inherits Window {
                             x: 0px; y: 0px; alignment: start;
                             width: reader-workspace.list-width; height: parent.height;
                             spacing: Theme.space-3;
-                            Text { text: "Lukuhistoria"; horizontal-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; vertical-alignment: center; }
+                            Text { text: "Lukuhistoria"; horizontal-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; vertical-alignment: center; }
                             Text { text: root.read-notice-visible ? root.read-notice : ""; color: Theme.success; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; }
                         }
                         if !reader-workspace.compact && reader-workspace.details-visible: HorizontalLayout {
@@ -758,7 +799,7 @@ export component AppWindow inherits Window {
                                 vertical-stretch: 1;
                                 spacing: Theme.space-3;
                                 HorizontalLayout {
-                                    Text { text: root.detail-title; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
+                                    Text { text: root.detail-title; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
                                     Rectangle { horizontal-stretch: 1; }
                                 }
                                 DataTable { horizontal-stretch: 1; vertical-stretch: 1; table-min-height: Theme.table-min-height; rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights; selected-key: root.detail-key; empty-text: "Asematuloksia ei vielä ole. Lue Emit-kortti tai tarkista kilpailijan korttiluku."; selected(key) => { root.select-detail(key); } }
@@ -774,8 +815,8 @@ export component AppWindow inherits Window {
                         if root.page == 3 && root.result-overview.selected: result-panel := ScrollView {
                             horizontal-stretch: 0;
                             vertical-stretch: 1;
-                            viewport-width: self.visible-width;
-                            viewport-height: result-content.min-height;
+                            content-width: self.visible-width;
+                            content-height: result-content.min-height;
                             horizontal-scrollbar-policy: always-off;
                             result-content := VerticalLayout {
                                 x: 0px; y: 0px;
@@ -849,7 +890,7 @@ export component AppWindow inherits Window {
                         property <length> route-panel-height: min(210px, max(160px, min(194px, Theme.control-height + root.rows.length * Theme.row-height) + Theme.scrollbar-width + 2px));
                         horizontal-stretch: 1; vertical-stretch: 1;
                         show-details <=> root.details-open;
-                        has-details: root.route-editor-visible || root.editor-visible;
+                        has-details: root.editor-visible && root.editor-title == "Uusi rata";
                         list-label: "Radat ja asemat";
                         Rectangle {
                             x: 0px; y: route-workspace.content-y; width: route-workspace.list-width; height: route-workspace.content-height;
@@ -857,36 +898,6 @@ export component AppWindow inherits Window {
                         VerticalLayout {
                             horizontal-stretch: 1;
                             spacing: Theme.space-2;
-                            if route-workspace.compact: Rectangle {
-                                height: Theme.control-height; vertical-stretch: 0;
-                                Button { width: parent.width; height: parent.height;
-                                text: root.route-fields.length > 0 ? "Rata: " + root.route-fields[0].value : "Valitse rata";
-                                clicked => { route-menu.show(); }
-                                }
-                                route-menu := PopupWindow {
-                                    y: Theme.control-height + Theme.space-2;
-                                    width: min(560px, route-workspace.list-width);
-                                    height: min(350px, max(100px, Theme.control-height + root.rows.length * Theme.row-height + Theme.scrollbar-width + 2px));
-                                    DataTable {
-                                        rows: root.rows; headers: root.headers; weights: root.weights;
-                                        selected-key: root.selected-key;
-                                        selected(key) => { root.select-row(key); route-menu.close(); route-details.viewport-y = 0px; }
-                                    }
-                                }
-                            }
-                            if !route-workspace.compact: Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
-                            if !route-workspace.compact: DataTable {
-                                horizontal-stretch: 1;
-                                vertical-stretch: 0;
-                                table-min-height: 84px;
-                                // Taulukko varaa myös vaakavierityspalkin kaistan ja reunukset.
-                                preferred-height: route-workspace.route-panel-height;
-                                max-height: 210px;
-                                rows: root.rows; headers: root.headers; weights: root.weights;
-                                selected-key: root.selected-key;
-                                empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
-                                selected(key) => { root.select-row(key); route-details.viewport-y = 0px; }
-                            }
                             HorizontalLayout {
                                 vertical-stretch: 0;
                                 height: Theme.control-height;
@@ -895,14 +906,19 @@ export component AppWindow inherits Window {
                                     text: "Asemat";
                                     accessible-label: root.detail-title;
                                     min-width: 0px;
-                                    color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700;
+                                    color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight;
                                     vertical-alignment: center;
                                     horizontal-stretch: 1;
                                 }
                                 Button {
+                                    text: "Radan tiedot";
+                                    enabled: root.route-editor-visible;
+                                    clicked => { root.route-info-open = true; }
+                                }
+                                Button {
                                     height: Theme.control-height; text: "+ Asema";
                                     enabled: root.editable && root.selected-key >= 0 && !root.new-record;
-                                    clicked => { root.add-station(); route-workspace.show-details = true; }
+                                    clicked => { root.add-station(); root.station-info-open = true; }
                                 }
                                 Button {
                                     height: Theme.control-height; min-width: Theme.control-height; max-width: Theme.control-height; text: "↑";
@@ -923,38 +939,35 @@ export component AppWindow inherits Window {
                                 table-min-height: Theme.table-min-height;
                                 rows: root.detail-rows; headers: root.detail-headers; weights: root.detail-weights;
                                 selected-key: root.detail-key;
-                                empty-text: "Valitse rata yllä olevasta luettelosta.";
-                                selected(key) => { root.select-detail(key); route-workspace.show-details = true; route-details.viewport-y = 0px; }
+                                empty-text: "Valitse rata alla olevasta luettelosta.";
+                                selected(key) => { root.select-detail(key); root.station-info-open = true; }
+                            }
+                            Text { text: "Radat"; height: 22px; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
+                            DataTable {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 0;
+                                table-min-height: 84px;
+                                // Taulukko varaa myös vaakavierityspalkin kaistan ja reunukset.
+                                preferred-height: route-workspace.route-panel-height;
+                                max-height: 210px;
+                                rows: root.rows; headers: root.headers; weights: root.weights;
+                                selected-key: root.selected-key;
+                                empty-text: root.filter != "" ? "Haulla ei löytynyt ratoja." : "Ei vielä ratoja. Lisää ensimmäinen rata.";
+                                selected(key) => { root.select-row(key); route-details.content-y = 0px; }
                             }
                         }
                         }
                         route-details := ScrollView {
                             x: route-workspace.details-x;
-                            y: route-workspace.content-y + (route-workspace.compact ? 0px : 22px + Theme.space-2);
+                            y: route-workspace.content-y + (route-workspace.compact ? 0px : Theme.control-height + Theme.space-2);
                             width: route-workspace.details-width;
-                            height: route-workspace.content-height - (route-workspace.compact ? 0px : 22px + Theme.space-2);
+                            height: route-workspace.content-height - (route-workspace.compact ? 0px : Theme.control-height + Theme.space-2);
                             visible: route-workspace.details-visible;
                             horizontal-scrollbar-policy: always-off;
-                            viewport-width: self.visible-width; viewport-height: route-content.min-height;
+                            content-width: self.visible-width; content-height: route-content.min-height;
                         route-content := VerticalLayout {
                             x: 0px; y: 0px; width: route-details.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
-                            if route-workspace.compact && root.editor-visible && (root.editor-title == "Aseman tiedot" || root.editor-title == "Uusi asema"): HorizontalLayout {
-                                height: Theme.control-height; vertical-stretch: 0; spacing: Theme.space-2; alignment: start;
-                                Button { text: "Radan tiedot"; checkable: true; checked: !root.station-editor-focused; clicked => { root.station-editor-focused = false; route-details.viewport-y = 0px; } }
-                                Button { text: "Aseman tiedot"; checkable: true; checked: root.station-editor-focused; clicked => { root.station-editor-focused = true; route-details.viewport-y = 0px; } }
-                            }
-                            if root.route-editor-visible && (!route-workspace.compact || !root.station-editor-focused): Editor {
-                                horizontal-stretch: 1;
-                                vertical-stretch: 0;
-                                fit-content: true;
-                                min-height: route-workspace.compact ? self.preferred-height : max(self.preferred-height, route-workspace.route-panel-height);
-                                heading: "Radan tiedot";
-                                description: "";
-                                fields: root.route-fields; writable: root.editable;
-                                field-commit(key, value) => { root.route-field-commit(key, value) }
-                                field-draft(key, value) => { root.route-field-draft(key, value); }
-                            }
                             if root.editor-visible && root.editor-title == "Uusi rata": Editor {
                                 horizontal-stretch: 1;
                                 vertical-stretch: 0;
@@ -968,28 +981,14 @@ export component AppWindow inherits Window {
                                 field-draft(key, value) => { root.field-draft(key, value); }
                                 add => { root.add-commit(); } cancel => { root.cancel-edit(); }
                             }
-                            if root.editor-visible && (root.editor-title == "Aseman tiedot" || root.editor-title == "Uusi asema") && (!route-workspace.compact || root.station-editor-focused): Editor {
-                                horizontal-stretch: 1;
-                                vertical-stretch: 0;
-                                fit-content: true;
-                                station-layout: route-workspace.compact;
-                                record-key: root.selected-key + "/" + root.detail-key;
 
-                            heading: root.editor-title; description: root.editor-description;
-                                fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
-                            deletable: root.page == 4 && root.editable && !root.new-record;
-                            delete => { root.delete-class(); }
-                                field-commit(key, value) => { root.field-commit(key, value) }
-                                field-draft(key, value) => { root.field-draft(key, value); }
-                                add => { root.add-commit(); } cancel => { root.cancel-edit(); }
-                            }
                         }
                         }
                     }
                 }
                 if root.page == 6: settings-scroll := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width; viewport-height: settings-content.height;
+                    content-width: self.visible-width; content-height: settings-content.height;
                     settings-content := Rectangle {
                         x: 0px; y: 0px;
                         width: min(Theme.settings-max-width, settings-scroll.visible-width);
@@ -1018,7 +1017,7 @@ export component AppWindow inherits Window {
                                     x: 0px; y: 0px; width: parent.width; height: self.min-height; alignment: start;
                                     padding: Theme.panel-padding; spacing: Theme.space-3;
                                     if root.opened: Button { text: "Valitse lähtöluettelon kentät ja järjestys"; enabled: root.editable; clicked => { root.configure-start-columns(); } }
-                                    Text { text: "Kilpailujen tallennuspaikka"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                    Text { text: "Kilpailujen tallennuspaikka"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
                                     Note { text: "Uusi kilpailu tallennetaan omaan kansioonsa tämän sijainnin alle."; }
                                     Text { text: root.default-root; color: Theme.ink; wrap: word-wrap; }
                                     HorizontalLayout {
@@ -1028,13 +1027,16 @@ export component AppWindow inherits Window {
                                         Rectangle { horizontal-stretch: 1; }
                                     }
                                     Note { text: "Sijainnin vaihtaminen koskee uusia kilpailuja. Aiemmat kilpailut säilyvät paikoillaan."; }
-                                    Text { text: "PDF-tulosten logo"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                    Text { text: "PDF-tulosten logo"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
                                     HorizontalLayout {
+                                        spacing: Theme.space-2;
+                                        alignment: start;
+                                        vertical-stretch: 0;
                                         Button { text: "Tallenna PNG-logo"; clicked => { root.choose-logo(); } }
                                         Button { text: "Poista logo"; clicked => { root.clear-logo(); } }
                                     }
                                     Note { text: "Logo tulostuu PDF:n vasempaan ylänurkkaan 2 cm korkeana."; }
-                                    Text { text: "Tulostin"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; }
+                                    Text { text: "Tulostin"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
                                     ComboBox { model: root.printers; current-index <=> root.printer-index; selected => { root.select-printer(self.current-index); } }
                                     Button { text: "Päivitä tulostinluettelo"; clicked => { root.refresh-printers(); } }
                                     Note { text: "Valinta koskee kilpailijaparin tulosta sekä luokka- ja asematuloksia. Tyhjä oletus käyttää käyttöjärjestelmän oletustulostinta."; }
@@ -1043,13 +1045,89 @@ export component AppWindow inherits Window {
                     }
                 }
             }
+            }
             Rectangle {
                 height: Theme.control-height + Theme.space-2;
                 background: root.status-error ? Theme.danger-soft : Theme.surface;
                 HorizontalLayout {
                     padding-left: Theme.gutter; padding-right: Theme.gutter; padding-top: Theme.space-1; padding-bottom: Theme.space-1; spacing: Theme.space-3;
-                    Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.accent; font-weight: 700; width: 14px; vertical-alignment: center; }
+                    Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.accent; font-weight: Theme.strong-font-weight; width: 14px; vertical-alignment: center; }
                     Text { text: root.status-summary; color: root.status-error ? Theme.danger : Theme.muted; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
+                }
+            }
+        }
+    }
+    if root.station-info-open && root.page == 5: Rectangle {
+        background: Theme.modal-backdrop;
+        TouchArea { }
+        FocusScope {
+            width: parent.width; height: parent.height;
+            init => { station-info-close.focus(); }
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { root.close-station-info(); return accept; }
+                reject
+            }
+            DialogSurface {
+                available-width: root.width; available-height: root.height;
+                preferred-dialog-width: 800px; preferred-dialog-height: 720px;
+                VerticalLayout {
+                    padding: Theme.dialog-padding; spacing: Theme.space-3;
+                    station-info-scroll := ScrollView {
+                        horizontal-scrollbar-policy: always-off;
+                        content-width: self.visible-width;
+                        content-height: station-info-content.min-height;
+                        station-info-content := VerticalLayout {
+                            width: station-info-scroll.visible-width;
+                            height: self.min-height;
+                            Editor {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 0;
+                                fit-content: true;
+                                station-layout: true;
+                                record-key: root.selected-key + "/" + root.detail-key;
+
+                            heading: root.editor-title; description: root.editor-description;
+                                fields: root.fields; error: root.editor-error; writable: root.editable; new-record: root.new-record; blocked: root.form-blocked;
+                            deletable: root.page == 4 && root.editable && !root.new-record;
+                            delete => { root.delete-class(); }
+                                field-commit(key, value) => { root.field-commit(key, value) }
+                                field-draft(key, value) => { root.field-draft(key, value); }
+                                add => { root.add-commit(); if !root.new-record && !root.form-blocked { root.station-info-open = false; } } cancel => { root.cancel-edit(); if !root.form-blocked { root.station-info-open = false; } }
+                            }
+                        }
+                    }
+                    DialogActions {
+                        station-info-close := Button { text: "Valmis"; clicked => { root.close-station-info(); } }
+                    }
+                }
+            }
+        }
+    }
+    if root.route-info-open: Rectangle {
+        background: Theme.modal-backdrop;
+        TouchArea { }
+        FocusScope {
+            width: parent.width; height: parent.height;
+            init => { route-info-close.focus(); }
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape { root.route-info-open = false; return accept; }
+                reject
+            }
+            DialogSurface {
+                available-width: root.width; available-height: root.height;
+                preferred-dialog-width: 560px; preferred-dialog-height: 300px;
+                VerticalLayout {
+                    padding: Theme.dialog-padding; spacing: Theme.space-3;
+                    Editor {
+                        fit-content: true;
+                        heading: "Radan tiedot"; description: "";
+                        fields: root.route-fields; writable: root.editable;
+                        field-commit(key, value) => { root.route-field-commit(key, value); }
+                        field-draft(key, value) => { root.route-field-draft(key, value); }
+                    }
+                    DialogActions {
+                        route-info-close := Button { text: "Sulje"; clicked => { root.route-info-open = false; } }
+                    }
                 }
             }
         }
@@ -1075,11 +1153,11 @@ export component AppWindow inherits Window {
                         scroll-clamp := Timer {
                             interval: 16ms; running: true;
                             triggered => {
-                                competitor-scroll.viewport-y = min(0px, max(competitor-scroll.viewport-y, competitor-scroll.visible-height - competitor-scroll.viewport-height));
+                                competitor-scroll.content-y = min(0px, max(competitor-scroll.content-y, competitor-scroll.visible-height - competitor-scroll.content-height));
                             }
                         }
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width; viewport-height: competitor-editor.min-height;
+                        content-width: self.visible-width; content-height: competitor-editor.min-height;
                         competitor-editor := Editor {
                             width: competitor-scroll.visible-width;
                             fit-content: true;
@@ -1133,7 +1211,7 @@ export component AppWindow inherits Window {
                     lan-dialog-scroll := ScrollView {
                         horizontal-stretch: 1; vertical-stretch: 1;
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width; viewport-height: lan-dialog-body.min-height;
+                        content-width: self.visible-width; content-height: lan-dialog-body.min-height;
                         lan-dialog-body := VerticalLayout {
                             width: lan-dialog-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3; alignment: start;
@@ -1144,7 +1222,7 @@ export component AppWindow inherits Window {
                                 VerticalLayout {
                                     padding: Theme.panel-padding; spacing: Theme.space-2;
                                     Text { text: "Parituskoodi"; color: Theme.muted; font-size: Theme.label-font-size; }
-                                    Text { text: root.lan-code; color: Theme.ink; font-size: 26px; font-weight: 700; letter-spacing: 2px; }
+                                    Text { text: root.lan-code; color: Theme.ink; font-size: 26px; font-weight: Theme.strong-font-weight; letter-spacing: 2px; }
                                     Text { text: "Isäntäosoite  " + root.lan-host-address; color: Theme.muted; font-size: Theme.body-font-size; }
                                 }
                             }
@@ -1248,17 +1326,35 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 760px; preferred-dialog-height: 560px;
+                preferred-dialog-width: 880px; preferred-dialog-height: 680px;
                 VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-4;
                     Heading { text: "Tulosten huomautukset"; vertical-stretch: 0; }
-                    notes-scroll := ScrollView {
-                        horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width; viewport-height: notes-text.preferred-height;
-                        notes-text := Note { width: notes-scroll.visible-width; height: self.preferred-height; text: root.note-details-open ? root.calculation-note-details : (root.calculation-notes != "" ? root.calculation-notes : "Ei huomautuksia."); }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: Theme.canvas;
+                        border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
+                        notes-scroll := ScrollView {
+                            x: Theme.space-3; y: Theme.space-3;
+                            width: parent.width - 2 * Theme.space-3;
+                            height: parent.height - 2 * Theme.space-3;
+                            horizontal-scrollbar-policy: always-off;
+                            content-width: self.visible-width; content-height: notes-text.preferred-height;
+                            notes-text := Text {
+                                x: 0px; y: 0px;
+                                width: notes-scroll.visible-width; height: self.preferred-height;
+                                color: Theme.ink; font-size: Theme.body-font-size + 1px;
+                                line-height-factor: 1.4; wrap: word-wrap;
+                                text: root.note-details-open ? root.calculation-note-details : (root.calculation-notes != "" ? root.calculation-notes : "Ei huomautuksia.");
+                            }
+                        }
                     }
-                    HorizontalLayout { alignment: start; notes-toggle := Button { text: root.note-details-open ? "Näytä yhteenveto" : "Näytä lisätiedot"; clicked => { root.note-details-open = !root.note-details-open; } } }
-                    DialogActions { notes-close := Button { text: "Sulje"; clicked => { root.notes-open = false; } } }
+                    HorizontalLayout {
+                        vertical-stretch: 0; spacing: Theme.space-2;
+                        notes-toggle := Button { text: root.note-details-open ? "Näytä yhteenveto" : "Näytä lisätiedot"; clicked => { root.note-details-open = !root.note-details-open; notes-scroll.content-y = 0px; } }
+                        Rectangle { horizontal-stretch: 1; }
+                        notes-close := Button { text: "Sulje"; clicked => { root.notes-open = false; } }
+                    }
                 }
             }
         }
@@ -1300,8 +1396,8 @@ export component AppWindow inherits Window {
                 Heading { text: "Uusi kilpailu"; }
                 new-scroll := ScrollView {
                 horizontal-scrollbar-policy: always-off;
-                viewport-width: self.visible-width;
-                viewport-height: new-content.min-height;
+                content-width: self.visible-width;
+                content-height: new-content.min-height;
                 new-content := VerticalLayout {
                 x: 0px; y: 0px; width: new-scroll.visible-width; height: self.min-height;
                 spacing: Theme.space-3;
@@ -1359,33 +1455,91 @@ export component AppWindow inherits Window {
                         root.tung-start();
                     } else { root.tung-keys = ""; }
                 }
-                if event.text == Key.Tab { about-close.focus(); return accept; }
+                if event.text == Key.Tab {
+                    if event.modifiers.shift {
+                        if about-close.has-focus { if root.about-page == 1 { about-effects.focus(); } else { about-appearance-tab.focus(); } }
+                        else if about-effects.has-focus { about-appearance.focus(); }
+                        else if about-appearance.has-focus { about-appearance-tab.focus(); }
+                        else if about-appearance-tab.has-focus { about-licenses-tab.focus(); }
+                        else { about-close.focus(); }
+                    } else {
+                        if about-close.has-focus { about-licenses-tab.focus(); }
+                        else if about-licenses-tab.has-focus { about-appearance-tab.focus(); }
+                        else if about-appearance-tab.has-focus { if root.about-page == 1 { about-appearance.focus(); } else { about-close.focus(); } }
+                        else if about-appearance.has-focus { about-effects.focus(); }
+                        else { about-close.focus(); }
+                    }
+                    return accept;
+                }
                 reject
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-height: 480px;
+                preferred-dialog-height: 560px;
                 VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-4;
-                    Heading { text: "Tietoja AS2026:sta"; }
-                    about-scroll := ScrollView {
-                    horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: about-content.min-height;
-                    about-content := VerticalLayout {
-                    x: 0px; y: 0px; width: about-scroll.visible-width; height: self.min-height;
-                    spacing: Theme.space-3;
-                    Note { text: "Versio " + root.app-version + " · autosuunnistuksen kilpailunhallinta"; }
-                    Text { text: "AS2026:n oma koodi: BSD-2-Clause-lisenssi"; color: Theme.ink; font-size: Theme.body-font-size; }
-                    Note { text: "Käyttö, muokkaus ja jakelu on sallittu lisenssin ehdoin. Tekijänoikeusilmoitus ja lisenssiehdot säilytetään jaettaessa. Ei takuuta."; }
-                    AboutSlint { horizontal-stretch: 1; height: 170px; }
+                    HorizontalLayout {
+                        spacing: Theme.space-2; vertical-stretch: 0;
+                        Heading { text: "Tietoja AS2026:sta"; vertical-stretch: 0; }
+                        Rectangle { horizontal-stretch: 1; }
+                        about-licenses-tab := Button {
+                            text: "Lisenssit"; accessible-checkable: true; checked: root.about-page == 0;
+                            clicked => { root.about-page = 0; self.focus(); }
+                        }
+                        about-appearance-tab := Button {
+                            text: "Ulkoasu"; accessible-checkable: true; checked: root.about-page == 1;
+                            clicked => { root.about-page = 1; self.focus(); }
+                        }
                     }
+                    Note { text: "Versio " + root.app-version + " · autosuunnistuksen kilpailunhallinta"; vertical-stretch: 0; }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        Rectangle {
+                            visible: root.about-page == 0;
+                            VerticalLayout {
+                                spacing: Theme.space-3; alignment: start;
+                                Text {
+                                    text: "AS2026:n oma koodi: BSD-2-Clause-lisenssi";
+                                    color: Theme.accent; font-size: Theme.body-font-size;
+                                    wrap: word-wrap; height: self.preferred-height;
+                                    accessible-role: button;
+                                    accessible-action-default => { Platform.open-url("https://github.com/ppqalt/AS2026/blob/main/LICENSE"); }
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { Platform.open-url("https://github.com/ppqalt/AS2026/blob/main/LICENSE"); }
+                                    }
+                                }
+                                Note { text: "Käyttö, muokkaus ja jakelu on sallittu lisenssin ehdoin. Tekijänoikeusilmoitus ja lisenssiehdot säilytetään jaettaessa. Ei takuuta."; height: self.preferred-height; }
+                                AboutSlint { horizontal-stretch: 1; height: 230px; }
+                            }
+                        }
+                        Rectangle {
+                            visible: root.about-page == 1;
+                            VerticalLayout {
+                                spacing: Theme.space-3; alignment: start;
+                                Text { text: "Sovelluksen ulkoasu"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
+                                about-appearance := ComboBox {
+                                    model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Tumma kuusi", "Hiillos", "Shanghai"];
+                                    current-index <=> root.appearance-index;
+                                    accessible-label: "Sovelluksen ulkoasu";
+                                    selected(value) => { root.set-appearance(self.current-index); }
+                                }
+                                Note { text: root.appearance-index == 5 ? "Shanghai yhdistää lämpimän tumman pohjan, pehmeän vaalean tekstin ja lohenpunaisen korostuksen." : root.appearance-index == 4 ? "Hiillos yhdistää tummat puunsävyt ja hillityn meripihkakorostuksen." : "Valitse sovelluksen väriteema."; height: self.preferred-height; }
+                                about-effects := CheckBox {
+                                    text: "Ota animaatiot ja tehosteet käyttöön";
+                                    checked <=> root.effects-enabled;
+                                    toggled => { root.set-effects-enabled(self.checked); }
+                                }
+                                Note { text: "Tehosteet ovat oletuksena pois. Valinta ohjaa kaikkia valinnaisia animaatioita ja tehosteita."; height: self.preferred-height; }
+                            }
+                        }
                     }
                     DialogActions { about-close := Button { text: "Sulje"; clicked => { root.about-open = false; } } }
                 }
             }
         }
     }
+
     if root.setup-open || root.install-busy: Rectangle {
         background: Theme.modal-backdrop;
         TouchArea { }
@@ -1409,8 +1563,8 @@ export component AppWindow inherits Window {
                 Heading { text: root.install-busy ? "Asennetaan AS2026:ta" : "Asenna AS2026"; }
                 setup-scroll := ScrollView {
                 horizontal-scrollbar-policy: always-off;
-                viewport-width: self.visible-width;
-                viewport-height: setup-content.min-height;
+                content-width: self.visible-width;
+                content-height: setup-content.min-height;
                 setup-content := VerticalLayout {
                 x: 0px; y: 0px; width: setup-scroll.visible-width; height: self.min-height;
                 spacing: Theme.space-3;
@@ -1454,14 +1608,14 @@ export component AppWindow inherits Window {
                     Heading { text: root.confirm-title; }
                     if !root.import-open: confirm-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: confirm-note.preferred-height;
+                        content-width: self.visible-width;
+                        content-height: confirm-note.preferred-height;
                         confirm-note := Note { x: 0px; y: 0px; width: confirm-scroll.visible-width; height: self.preferred-height; text: root.confirm-text; }
                     }
                     if root.import-open: import-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: import-content.min-height;
+                        content-width: self.visible-width;
+                        content-height: import-content.min-height;
                         import-content := VerticalLayout {
                             x: 0px; y: 0px; width: import-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
@@ -1530,8 +1684,8 @@ export component AppWindow inherits Window {
                     Heading { text: "Toiminnon tiedot"; }
                     status-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
-                        viewport-width: self.visible-width;
-                        viewport-height: status-note.preferred-height;
+                        content-width: self.visible-width;
+                        content-height: status-note.preferred-height;
                         status-note := Note { x: 0px; y: 0px; width: status-scroll.visible-width; height: self.preferred-height; text: root.status-text; }
                     }
                     DialogActions { status-close := Button { text: "Sulje"; clicked => { root.status-details-open = false; } } }
@@ -1619,7 +1773,7 @@ export component AppWindow inherits Window {
         close(accepted) => { root.print-classes-close(accepted); }
     }
     // Paikallinen yllätys: sama kuva 16 kertaa, kukin omalla pyörimisnopeudella.
-    if root.tung-active: Rectangle {
+    if root.effects-enabled && root.tung-active: Rectangle {
         width: root.width; height: root.height;
         background: transparent;
         for speed[index] in root.tung-speeds: Image {
@@ -1632,5 +1786,6 @@ export component AppWindow inherits Window {
             transform-rotation: root.tung-frame * speed * 0.048deg;
         }
     }
+
 
 }

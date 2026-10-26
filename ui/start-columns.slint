@@ -1,4 +1,4 @@
-import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { UiButton as Button, UiCheckBox as CheckBox, UiScrollView as ScrollView } from "presets.slint";
 import { Theme } from "theme.slint";
 import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { DrawClassOption } from "types.slint";
@@ -31,7 +31,7 @@ export component StartColumnsDialog inherits Rectangle {
                 Note { text: "Valitse näytettävät kentät ja muuta järjestystä nuolilla. Valinta koskee kilpailijataulukkoa sekä HTML- ja CSV-lähtöluetteloa."; }
                 body := ScrollView {
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width; viewport-height: content.min-height;
+                    content-width: self.visible-width; content-height: content.min-height;
                     content := VerticalLayout {
                         x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
                         spacing: Theme.space-2;

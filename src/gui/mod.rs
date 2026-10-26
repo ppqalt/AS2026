@@ -1,4 +1,5 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
+mod gallery;
 slint::include_modules!();
 mod desktop;
 mod emit_correction;
@@ -15,7 +16,7 @@ use as2026::{
     ClockTime, CoreError, application, emit, installation, io_message,
     live_reader::{ReaderEvent, ReaderWorker},
     native::{self, Project},
-    preferences::PreferencesStore,
+    preferences::{Appearance, PreferencesStore},
     report,
     storage::ProjectStore,
     updates,
@@ -1773,6 +1774,33 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             });
         }}
     }
+    action!(on_set_appearance, |s, a, index| {
+        let appearance =
+            Appearance::from_index(index).ok_or_else(|| invalid("Tuntematon ulkoasu"))?;
+        let Some(preferences) = s.preferences.as_mut() else {
+            a.set_appearance_index(0);
+            return Err(invalid("Sovellusasetuksia ei voitu avata"));
+        };
+        if let Err(error) = preferences.save_appearance(appearance) {
+            a.set_appearance_index(preferences.get().appearance.index());
+            return Err(invalid(&error));
+        }
+        a.set_appearance_index(appearance.index());
+        Ok(())
+    });
+    action!(on_set_effects_enabled, |s, a, enabled| {
+        let Some(preferences) = s.preferences.as_mut() else {
+            a.set_effects_enabled(false);
+            return Err(invalid("Sovellusasetuksia ei voitu avata"));
+        };
+        if let Err(error) = preferences.save_effects_enabled(enabled) {
+            // Revert the checkbox and visual gate if the preference was not saved.
+            a.set_effects_enabled(preferences.get().effects_enabled);
+            return Err(invalid(&error));
+        }
+        a.set_effects_enabled(enabled);
+        Ok(())
+    });
     action!(on_navigate, |s, a, page| navigate(s, &a, page));
     action!(on_emit_edit_select_driver, |s, a, index| {
         emit_correction::select_driver(s, &a, index)
@@ -3073,7 +3101,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 103 } else { 24 } {
+        if current >= if keyboard_test { 115 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -3367,6 +3395,31 @@ fn capture_views(
                 100 => app.invoke_open_print_classes(true),
                 101 => save_view(&app, &directory.join("34-asematulosten-luokkavalinta.png")).unwrap(),
                 102 => { smoke::key(&app, slint::platform::Key::Escape); assert!(!app.get_print_classes_open()); }
+                103 => { app.set_about_open(true); assert!(!app.get_effects_enabled()); }
+                104 | 105 => smoke::key(&app, slint::platform::Key::Tab),
+                106 => smoke::key(&app, slint::platform::Key::Space),
+                107 | 108 => smoke::key(&app, slint::platform::Key::Tab),
+                109 => {
+                    smoke::key(&app, slint::platform::Key::Space);
+                    assert!(app.get_effects_enabled(), "Ulkoasu-välilehden tehostevalinta on saavutettava Tabilla");
+                    assert!(state.borrow().preferences.as_ref().unwrap().get().effects_enabled);
+                }
+                110 => { smoke::key(&app, slint::platform::Key::Space); assert!(!app.get_effects_enabled()); }
+                111 => {
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() });
+                    smoke::key(&app, slint::platform::Key::Tab);
+                    app.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() });
+                    smoke::key(&app, slint::platform::Key::DownArrow);
+                }
+                112 => {
+                    assert_eq!(app.get_appearance_index(), 1, "Ulkoasu vaihtuu näppäimistöltä");
+                    assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Light);
+                    save_view(&app, &directory.join("35-ulkoasuasetukset.png")).unwrap();
+                    smoke::key(&app, slint::platform::Key::UpArrow);
+                }
+                113 => { assert_eq!(app.get_appearance_index(), 0); smoke::key(&app, slint::platform::Key::Escape); }
+                114 => { assert!(!app.get_about_open()); println!("GUI-ulkoasukoe hyväksytty: välilehdet, Tab, tehosteportti, tallennettu teema ja Esc."); }
+
                 _ => {}
             }
             *phase.borrow_mut() += 1;
@@ -3457,6 +3510,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let emit_correction_test = std::env::var_os("AS2026_EMIT_CORRECTION_TEST").is_some();
     let mut initial_path = None;
     let mut demo = false;
+    let mut fluent_gallery = false;
+    let mut gallery_smoke = false;
     let mut portable = false;
     let mut smoke_test = false;
     let mut captures = None;
@@ -3466,6 +3521,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--demo") => demo = true,
+            Some("--fluent-gallery") => fluent_gallery = true,
+            Some("--gallery-smoke-test") => {
+                fluent_gallery = true;
+                gallery_smoke = true;
+            }
             Some("--portable") => portable = true,
             Some("--install") => install_requested = true,
             Some("--health-check") => {
@@ -3484,7 +3544,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             Some("--help" | "ohje") => {
                 println!(
-                    "AS2026-käyttöliittymä\n  as2026-gui [kilpailu.toml tai kilpailukansio]\n  as2026-gui --demo\n  as2026-gui --demo --capture-dir KANSIO"
+                    "AS2026-käyttöliittymä\n  as2026-gui [kilpailu.toml tai kilpailukansio]\n  as2026-gui --demo\n  as2026-gui --demo --capture-dir KANSIO\n  as2026-gui --fluent-gallery [--capture-dir KANSIO]"
                 );
                 return Ok(());
             }
@@ -3501,6 +3561,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     if emit_correction_test && (!demo || captures.is_none()) {
         return Err("Emit-korjauksen GUI-koe tarvitsee --demo- ja --capture-dir-valinnat".into());
     }
+    if gallery_smoke && captures.is_none() {
+        return Err("Gallerian GUI-koe tarvitsee --capture-dir-valinnan".into());
+    }
     if captures.is_some() {
         // Kuvataan nykyinen näkymä suoraan ohjelmistorenderöinnistä, ei edellistä GL-puskuria.
         slint::BackendSelector::new()
@@ -3508,12 +3571,30 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             .renderer_name("software".into())
             .select()?;
     }
+    if fluent_gallery {
+        if demo
+            || initial_path.is_some()
+            || portable
+            || install_requested
+            || health_check.is_some()
+            || menu_test
+            || emit_correction_test
+        {
+            return Err(
+                "Galleria avataan erikseen ilman kilpailu-, asennus- tai laitevalintoja".into(),
+            );
+        }
+        return gallery::run(captures, gallery_smoke);
+    }
     let app = AppWindow::new()?;
     let tung_weak = app.as_weak();
     app.on_tung_start(move || {
         let Some(app) = tung_weak.upgrade() else {
             return;
         };
+        if !app.get_effects_enabled() {
+            return;
+        }
         let mut random = [0u8; 16];
         if getrandom::fill(&mut random).is_err() {
             return;
@@ -3551,6 +3632,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
     let preferences = match preferences {
         Ok(preferences) => {
+            app.set_effects_enabled(preferences.get().effects_enabled);
+            app.set_appearance_index(preferences.get().appearance.index());
             if let Ok(root) = preferences.competition_root() {
                 app.set_default_root(root.display().to_string().into());
             }
@@ -3603,6 +3686,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         status(&app, error, true);
     }
     app.show()?;
+    // Sama taustatarkistus kuin Päivitykset-painikkeesta, kerran tavallisessa
+    // käynnistyksessä. Esimerkit, kuvakaappaukset ja asennuksen terveystarkistus
+    // eivät käynnistä ylimääräistä verkkopyyntöä.
+    if !demo && captures.is_none() && health_check.is_none() && !menu_test {
+        let weak = app.as_weak();
+        Timer::single_shot(Duration::from_millis(800), move || {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_check_updates();
+            }
+        });
+    }
     let _lan_smoke = if let Some(role) = std::env::var_os("AS2026_LAN_GUI_ROLE") {
         if !demo {
             return Err("LAN-GUI-koe vaatii --demo-valinnan".into());
@@ -3656,6 +3750,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     slint::run_event_loop()?;
+    if let Some(test) = &_menu_timer {
+        test.verify_complete()?;
+    }
     lan_timer.stop();
     publish_timer.stop();
     if let Some(client) = state

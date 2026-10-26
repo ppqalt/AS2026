@@ -1,11 +1,14 @@
-import { Button, LineEdit, ScrollView, ComboBox, ListView, CheckBox } from "std-widgets.slint";
+import { FadeSurface } from "motion.slint";
+export { FadeSurface }
+import { ListView } from "std-widgets.slint";
+import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView, UiComboBox as ComboBox, UiCheckBox as CheckBox } from "presets.slint";
 import { Theme } from "theme.slint";
 import { TableRow, EditorField } from "types.slint";
 
 export component Heading inherits Text {
     color: Theme.ink;
     font-size: Theme.heading-font-size;
-    font-weight: 700;
+    font-weight: Theme.strong-font-weight;
 }
 
 export component Note inherits Text {
@@ -53,7 +56,7 @@ export component Workspace inherits Rectangle {
 }
 
 // Sisällöstä erillinen pinta: kutsuja järjestää vieritettävän sisällön ja alatunnisteen.
-export component DialogSurface inherits Rectangle {
+export component DialogSurface inherits FadeSurface {
     in property <length> preferred-dialog-width: Theme.dialog-width;
     in property <length> preferred-dialog-height: 520px;
     in property <length> available-width;
@@ -82,6 +85,7 @@ export component NavItem inherits Rectangle {
     vertical-stretch: 0;
     border-radius: Theme.radius;
     background: root.active ? Theme.accent-soft : touch.has-hover ? Theme.sidebar-hover : transparent;
+    animate background { enabled: Theme.effects-enabled; duration: 120ms; }
     border-width: focus.has-focus ? 2px : 0px;
     border-color: Theme.accent;
     forward-focus: focus;
@@ -93,6 +97,7 @@ export component NavItem inherits Rectangle {
         x: 0px;
         border-radius: self.width / 2;
         background: root.active ? Theme.accent-fill : transparent;
+        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; }
     }
     Text {
         x: 14px;
@@ -100,6 +105,7 @@ export component NavItem inherits Rectangle {
         height: root.height;
         text: root.label;
         color: root.active ? Theme.accent-text : Theme.muted;
+        animate color { enabled: Theme.effects-enabled; duration: Theme.duration-fast; }
         font-size: Theme.body-font-size;
         font-weight: root.active ? 600 : 400;
         vertical-alignment: center;
@@ -291,11 +297,11 @@ export component DataTable inherits Rectangle {
         width: root.width - 2px; height: root.height - 2px;
         horizontal-scrollbar-policy: as-needed;
         vertical-scrollbar-policy: always-off;
-        viewport-width: max(self.visible-width, root.content-min-width);
-        viewport-height: self.visible-height;
+        content-width: max(self.visible-width, root.content-min-width);
+        content-height: self.visible-height;
         VerticalLayout {
             x: 0px; y: 0px;
-            width: horizontal.viewport-width;
+            width: horizontal.content-width;
             height: horizontal.visible-height;
             spacing: 0px;
             Rectangle {
@@ -305,7 +311,7 @@ export component DataTable inherits Rectangle {
                     for title[i] in root.headers: Text {
                         text: title; horizontal-stretch: root.weights[i];
                         min-width: 0px; preferred-width: 0px;
-                        font-size: Theme.caption-font-size; font-weight: 700; color: Theme.muted;
+                        font-size: Theme.caption-font-size; font-weight: Theme.strong-font-weight; color: Theme.muted;
                         vertical-alignment: center;
                     }
                 }
@@ -314,16 +320,17 @@ export component DataTable inherits Rectangle {
                 vertical-stretch: 1;
                 list := ListView {
                     // Pystyvieritys pysyy ikkunan reunassa myös vaakavierityksen aikana.
-                    x: -horizontal.viewport-x;
+                    x: -horizontal.content-x;
                     width: horizontal.visible-width;
-                    viewport-width: horizontal.viewport-width;
-                    viewport-x <=> horizontal.viewport-x;
+                    content-width: horizontal.content-width;
+                    content-x <=> horizontal.content-x;
                     horizontal-scrollbar-policy: always-off;
                     for row[index] in root.rows: Rectangle {
                         property <bool> active: row.key == root.selected-key;
-                        width: horizontal.viewport-width;
+                        width: horizontal.content-width;
                         height: Theme.row-height;
                         background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
+                        animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; easing: ease-out; }
                         HorizontalLayout {
                             padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2;
                             for value[i] in row.cells: Text {
@@ -343,7 +350,7 @@ export component DataTable inherits Rectangle {
                 }
                 if root.rows.length == 0: Text {
                     text: root.empty-text; color: Theme.muted; font-size: Theme.body-font-size;
-                    x: 20px - horizontal.viewport-x; y: 0px;
+                    x: 20px - horizontal.content-x; y: 0px;
                     width: horizontal.visible-width - 40px; height: parent.height;
                     horizontal-alignment: center; vertical-alignment: center; wrap: word-wrap;
                 }
@@ -501,7 +508,7 @@ export component Editor inherits Rectangle {
         height: root.fit-content ? self.min-height : parent.height;
         padding: Theme.panel-padding; spacing: Theme.space-3;
         if root.can-edit-emit: Button { text: "Emit-leimat / Luo leimarivi"; clicked => { root.edit-emit(); } }
-        Text { text: root.heading; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: 700; wrap: word-wrap; }
+        Text { text: root.heading; vertical-stretch: 0; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; wrap: word-wrap; }
         if root.error != "": Text { text: root.error; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; }
         if root.description != "": Note { text: root.description; }
         if root.fit-content: EditorFields {
@@ -518,13 +525,13 @@ export component Editor inherits Rectangle {
             clamp-scroll := Timer {
                 interval: 16ms; running: true;
                 triggered => {
-                    root.scroll-min = min(0px, fields-scroll.visible-height - fields-scroll.viewport-height);
-                    fields-scroll.viewport-y = min(0px, max(root.scroll-min, fields-scroll.viewport-y));
+                    root.scroll-min = min(0px, fields-scroll.visible-height - fields-scroll.content-height);
+                    fields-scroll.content-y = min(0px, max(root.scroll-min, fields-scroll.content-y));
                 }
             }
             horizontal-scrollbar-policy: always-off;
-            viewport-y <=> root.scroll-offset;
-            viewport-height: scroll-fields.min-height;
+            content-y <=> root.scroll-offset;
+            content-height: scroll-fields.min-height;
             scroll-fields := EditorFields {
                 x: 0px; y: 0px;
                 width: fields-scroll.visible-width;
@@ -537,7 +544,7 @@ export component Editor inherits Rectangle {
                 field-draft(key, value) => { root.field-draft(key, value); }
             }
         }
-        if root.deletable: Button { text: "Poista luokka"; clicked => { root.delete(); } }
+        if root.deletable: Button { text: "Poista luokka"; preset-variant: "danger"; clicked => { root.delete(); } }
         if root.new-record: HorizontalLayout {
             spacing: Theme.space-2;
             Rectangle { horizontal-stretch: 1; }
@@ -554,7 +561,7 @@ export component Metric inherits VerticalLayout {
     in property <string> label;
     in property <int> count;
     spacing: Theme.space-1;
-    Text { text: root.count; color: Theme.ink; font-size: 26px; font-weight: 700; }
+    Text { text: root.count; color: Theme.ink; font-size: 26px; font-weight: Theme.strong-font-weight; }
     Note { text: root.label; }
 }
 

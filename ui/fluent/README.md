@@ -1,72 +1,83 @@
-# Slintin Fluent-komponentit — paikallinen sovitus
+# Slintin Fluent-komponentit — AS2026:n beta-sovitus
 
-Lähde: Slint **1.16.0**, paketti `i-slint-compiler`, hakemisto `widgets`.
-AS2026 käyttää saman version `slint`- ja `slint-build`-paketteja tarkasti
-lukittuina. Alkuperäisten tiedostojen nimet ja tiivisteet ovat tiedostossa
-`UPSTREAM.sha256`.
+## Lähde ja rajaus
 
-Tässä on vain sovelluksen tarvitsemien Fluent-komponenttien riippuvuudet:
-Button, LineEdit, ComboBox, CheckBox, ScrollView, ListView, tekstikentän valikko ja
-AboutSlint. Käyttämättömiä säätimiä, päivämäärävalitsimia tai taulukoita ei
-ole kopioitu. Käyttöliittymän varsinainen taulukko säilyy AS2026:n omana
-hiirellä valittavana komponenttina.
+Lähde on **Slint 1.18.1**, virallinen commit
+`372cf0ee5577c3dfec309a45e7b778ba4e81b734`, paketin `i-slint-compiler`
+hakemisto `widgets`. Jokaisen kopioidun Slint- ja SVG-tiedoston alkuperäisen
+1.18.1-lähteen SHA-256 on `UPSTREAM.sha256`:ssä. Lähdetavut on verrattu myös
+virallisen Git-tagin Git-puuhun. Hashit kuvaavat alkuperäisiä, eivät muokattuja tiedostoja.
 
-`build.rs` lisää `style`-hakemiston Slint-kääntäjän julkiseen hakemistopolkuun.
-Tällöin `std-widgets.slint` ja sen riippuvuudet löytyvät tästä ennen
-sisäänrakennettua oletustyyliä. `.with_style("fluent")` säilytetään.
-Kuvakkeet ja Slint-tunnus sisällytetään ohjelmatiedostoon; erillistä
-teemakansiota ei tarvita käyttäjän koneella.
+Beta käyttää samaa 1.18.1-versiota runtimessa ja kääntäjässä. Vanhaa 1.16.0-
+pohjaa on verrattu tiedosto kerrallaan ja projektin sovitukset siirretty uuteen
+lähteeseen. `style-base.slint` on versioiden välillä muuttumaton; sekin on
+verrattu 1.18.1-lähteeseen. Tämä ei ole pelkkä versionumeron vaihto.
 
-## Paikalliset muutokset
+`build.rs` lisää `style`-hakemiston hakupolkuun ja säilyttää Fluent-tyylin.
+Näin sovellus käyttää samaa kontrollia kaikilla sivuilla. Paikallinen kopio
+on tarpeen yhteiselle tehosteportille, suomenkieliselle tekstivalikolle,
+sovelluksen preset-mitoille ja vakaalle vierityskaistalle. Standardin
+käyttölogiikka kopioidaan mahdollisimman muuttamattomana upstreamista.
 
-- Kaikki komponenttien `animate`-lohkot on poistettu.
-- Varjojen määritykset on poistettu, myös valikoiden ponnahduspinnoista.
-- FluentPalette käyttää pelkästään `ui/theme.slint`-tiedoston peittäviä
-  Dark Spruce -värejä. Ei järjestelmän sinistä korostusta, läpikuultavia
-  täyttöjä tai reunojen liukuvärejä.
-- Button, LineEdit ja ComboBox käyttävät yhteistä 36 pikselin säätimen
-  korkeutta, tekstikokoa, kulmasädettä ja sisennyksiä. Korostettu toiminto
-  on saman Fluent-painikkeen `primary`-tila: myös sen näppäimistökohdistus,
-  käytöstä poistaminen ja esteettömyystiedot säilyvät samoina.
-- ComboBoxin valikko avautuu kentän alapuolelle. Näkyvissä on enintään kuusi
-  tasakorkuista vaihtoehtoa; pidempi lista vierii pystysuunnassa. Vaakasuuntaa
-  ei käytetä, ja sisällön leveys seuraa valikon leveyttä.
-- Vierityspalkin nuolten piilotus käyttää välitöntä `visible`-tilaa.
-  Käytöstä poistetun valikkorivin teksti saa peittävän vaimennetun värin.
-- ScrollView varaa vierityspalkeille oman `Theme.scrollbar-width`-kaistan
-  (14 pikseliä). Pystykaista on oikealla ja vaakakaista alhaalla. Kentät eivät
-  jää palkkien alle; `always-off` vapauttaa kyseisen kaistan sisällölle.
-  Varattu tila ei riipu palkin hetkellisestä näkyvyydestä, jotta sisällön
-  koko ja vieritystarve eivät muodosta asettelun takaisinkytkentää.
-- Nuolikuvakkeiden läpikuultavat maskit on muutettu peittäviksi;
-  lopullinen kuvakeväri tulee yhteisestä paletista.
-- LineEditin sisäinen `interface`/`uses`-syntaksi on korvattu samoja
-  ominaisuuksia, kutsuja ja tapahtumia välittävillä tavallisilla
-  Slint-määrityksillä. Tekstikentän käytös on säilytetty.
-- Tekstikentän valikon tekstit ovat suomeksi. AboutSlintin version
-  otsikko on `Versio`; Slint-tunnuskuvat säilyvät muuttamattomina.
+## Sovitukset ja 1.18.1-migraatio
 
-Tekstikentän valikko käyttää Slint 1.16:n sisäistä
-`ContextMenuInternal`-tyyppiä. Siksi rakennusskripti asettaa vain omaan
-prosessiinsa `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` ennen kääntäjän luontia.
-Tämä ei aseta käyttäjän ympäristömuuttujia eikä tuo uusia kirjastoja.
+- `std-widgets-impl.slint` vie nyt `MenuBarImpl`- ja `PopupMenuImpl`-toteutukset
+  kääntäjän 1.18.1:n edellyttämästä paikasta. `common/menus.slint` käyttää
+  uutta eriytettyä tuontia ja `close-popup`-callbackia; rekursiivista tuontia ei ole.
+- `LineEdit` ja `LineEditBase` käyttävät upstreamin varsinaista
+  `LineEditInterface`-rajapintaa. Vanhaa käsin kopioitua välitysrajapintaa
+  ei ylläpidetä rinnalla. Mukana ovat kumoa/tee uudelleen sekä saavutettava
+  tekstivalinnan asetus. Tekstivalikon komennot ovat suomeksi.
+- `ComboBoxBase` sisältää 1.18.1:n `current-value`/`current-index`-synkronoinnin.
+  Valittu teksti katkeaa hallitusti. Ponnahduslista avautuu AS2026:ssa
+  säätimen alapuolelle ja näyttää enintään kuusi riviä.
+- `ScrollView` tarjoaa 1.18.1:n `content-*`-rajapinnan. Sovelluksen kutsut
+  käyttävät sitä; upstreamin vanhat `viewport-*`-yhteensopivuusaliakset
+  ovat edelleen tarjolla. Palkille varataan oma 14 px kaista. Kaistan varaus
+  ei riipu vieritystarpeesta, jotta asettelu ei muodosta takaisinkytkentää.
+  `maximum`-muutos sekä ScrollView:n sisältö- ja näkyvän alueen muutokset rajaavat nykyisen vierityskohdan sallitulle alueelle myös palkin ollessa piirtoalueen ulkopuolella. Sisällön
+  laajentuminen säilyttää kelvollisen kohdan; nollapituinen alue ei jaa nollalla.
+- `Button`, `CheckBox`, `ListItem` ja valikkopohjat sisältävät uudemmat
+  näppäin-, saavutettavuus- ja rajapintakorjaukset. Buttonin
+  `control-height` ja `visual-variant` sekä syötteiden `control-height`
+  ovat dokumentoituja AS2026-lisäyksiä. Vanhojen kutsujen oletuskoko säilyy.
+- Värien ja mittojen projektisovitus tehdään `ui/theme.slint`-tokeneilla ja
+  `styling.slint`-kartoituksella. Valinnaiset animaatiot käyttävät aina
+  `Theme.effects-enabled`-porttia, jonka oletus on pois.
+- SVG-kuvakkeet ja Slintin tunnuskuvat ovat muuttamattomia 1.18.1-resursseja.
+  Lopullinen kuvakkeen väri määräytyy kontrollin tilasta. AboutSlint kertoo
+  oikean kirjastoversion ja säilyttää alkuperäisen tunnuksen ja linkin.
 
-## Ylläpito
+## Päivittäminen ja tarkistus
 
-Paikallinen kopio lisää ylläpidettävää lähdekoodia. Slint-versiota
-päivitettäessä vertaa jokainen tässä lueteltu tiedosto uuden version
-alkuperäiseen: sisäisten valikkojen, kohdistuksen ja tekstikentän rajapinnat
-voivat muuttua. Säilytä omat efektittömyysmuutokset, käännä käyttöliittymä,
-aja `fluent2_theme`-testit ja GUI-työnkulkukoe sekä tarkista valikot,
-leikepöytä, vieritys ja näyttöskaalaus Linuxissa ja Windowsissa.
+Päivitä runtime ja kääntäjä yhdessä. Vertaa jokaista SHA-luettelon tiedostoa
+uuteen lähteeseen, siirrä vain yllä kuvatut projektisovitukset ja päivitä
+alkuperäislähteiden hashit. Tarkista erityisesti impl-viennit, tekstivalikot,
+interface-rajapinnat, saavutettavuus ja popupin sulkemisjärjestys.
+
+Aja Rust- ja Slint-käännös, regressiot, Clippy sekä galleria ja oikeat
+GUI-työnkulut Linuxissa ja Windowsissa. Testaa 100/150 % skaalaus, hiiri,
+Tab/Shift+Tab, Enter/Space/Esc, leikepöytä ja sisällön kutistuva vieritys.
+Käännös tai lähdetekstin tarkistus ei yksin todista visuaalista oikeellisuutta.
 
 ## Lisenssit
 
-Alkuperäiset tekijänoikeus- ja SPDX-merkinnät on säilytetty. Muokattuihin
-Slint-tiedostoihin on lisätty AS2026-merkintä. Tämä hakemisto **ei muutu
-AS2026:n BSD-2-Clause-lisenssin alaiseksi**.
+Alkuperäiset tekijänoikeus- ja SPDX-merkinnät säilyvät. Nämä tiedostot eivät
+muutu AS2026:n BSD-2-Clause-lisenssin alaisiksi. Alkuperäiset lisenssivaihtoehdot
+ovat `licenses`-hakemistossa: GPL-3.0-only, LicenseRef-Slint-Royalty-free-2.0 ja
+LicenseRef-Slint-Software-3.0. MadeWithSlint-tunnusten CC-BY-ND-4.0 säilyy.
 
-Slint-lähteiden tarjoamat lisenssivaihtoehdot ovat hakemistossa `licenses`:
-GPL-3.0-only, LicenseRef-Slint-Royalty-free-2.0 ja
-LicenseRef-Slint-Software-3.0. Muuttamattomiin MadeWithSlint-tunnuksiin
-liittyvä CC-BY-ND-4.0-teksti on samassa hakemistossa.
+Betan komponenttien käyttö: [preset-katalogi](../../docs/FLUENT2_KOMPONENTTISTANDARDI.md)
+ja [kehitysgalleria](../../docs/FLUENT2_GALLERIA.md).
+
+## Laajennettu perusvalikoima ja järjestelmätila
+
+Slintin alkuperäiset Slider-, Switch-, SpinBox-, TextEdit-, RadioGroup-, TabWidget-, ProgressIndicator- ja ToolTip-pohjat on lisätty samasta 1.18.1-tagista. Animaatioiden `enabled` käyttää yhteistä tehosteporttia; indeterminaattinen etenemispalkki ei lue `animation-tick`-arvoa portin ollessa pois. Sliderin askel pyöristyy suhteessa minimiin, disabled estää muutokset ja pelkkä hiiren liike ei muuta arvoa. Nollapituiset liukualueet on suojattu. Sliderillä on näkyvä fokusreunus.
+
+`color-scheme.slint` on muuttamaton upstream-silta käyttöjärjestelmän värimalliin. Vain tämä tiedosto lukee `SlintInternal.color-scheme`-arvoa. `build.rs`:n kokeellisten rajapintojen lippu on tarpeen sekä tälle sillalle että `LineEditInterface`-rajapinnalle. Se ei ota käyttöön valinnaisia visuaalisia tehosteita.
+
+Buttonin `icon-only` ja `menu-button` ovat pieniä projektisovituksia; jälkimmäinen lisää tekstin jälkeen avausnuolen. Väripaletti on keskitetty: järjestelmän mukana vaihtuva neutraali vaalea/tumma tai käyttäjän valitsema Dark Spruce.
+
+Valikkojen ja yhdistelmäruutujen ulkokehys käyttää `Theme.radius-large`-tokenia (8 px); sisäisten valintojen 4 px:n säde säilyy. Työkaluvihjeen alkuperäinen 4 px:n säde vastaa erillistä tooltip-sääntöä.
+
+Painikkeen ja ComboBoxin taustavärin siirtymä käyttää yhteistä 120 ms:n tehosteporttia sekä ease-out-käyrää. Tehosteiden ollessa pois tila vaihtuu heti; fokus- ja näppäimistölogiikka säilyy Slintin komponentissa.

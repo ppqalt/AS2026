@@ -15,6 +15,44 @@ use std::{
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(1);
 
+/// Sovelluksen ulkoasu; ei muuta kilpailun tietoja.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Appearance {
+    #[default]
+    System,
+    Light,
+    Dark,
+    Spruce,
+    Hiillos,
+    Shanghai,
+}
+
+impl Appearance {
+    pub fn index(self) -> i32 {
+        match self {
+            Self::System => 0,
+            Self::Light => 1,
+            Self::Dark => 2,
+            Self::Spruce => 3,
+            Self::Hiillos => 4,
+            Self::Shanghai => 5,
+        }
+    }
+
+    pub fn from_index(index: i32) -> Option<Self> {
+        match index {
+            0 => Some(Self::System),
+            1 => Some(Self::Light),
+            2 => Some(Self::Dark),
+            3 => Some(Self::Spruce),
+            4 => Some(Self::Hiillos),
+            5 => Some(Self::Shanghai),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
@@ -32,6 +70,9 @@ pub struct Preferences {
     pub last_competition: Option<PathBuf>,
     /// Tyhjä arvo käyttää käyttöjärjestelmän oletustulostinta.
     pub tulostin: String,
+    /// Fluent 2 -betan vapaaehtoiset animaatiot ja tehosteet. Oletus: pois.
+    pub effects_enabled: bool,
+    pub appearance: Appearance,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub pdf_logo_png: Vec<u8>,
     pub kiti_tilakoodit: String,
@@ -114,6 +155,19 @@ impl PreferencesStore {
         let mut candidate = self.preferences.clone();
         config.password.clear();
         candidate.live_julkaisut.insert(path, config);
+        self.save(candidate)
+    }
+
+    /// Käyttäjäkohtainen ja kilpailusta riippumaton ulkoasuasetus.
+    pub fn save_effects_enabled(&mut self, enabled: bool) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.effects_enabled = enabled;
+        self.save(candidate)
+    }
+
+    pub fn save_appearance(&mut self, appearance: Appearance) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.appearance = appearance;
         self.save(candidate)
     }
 
@@ -502,6 +556,77 @@ mod tests {
         assert!(store.save_root(Some(root.clone())).is_err());
         assert!(store.create_competition("Ei tilapäiskansioon").is_err());
         assert!(!root.exists());
+    }
+
+    #[test]
+    fn appearance_preserves_old_preferences_and_round_trips() {
+        let old: Preferences = toml::from_str("effects_enabled = false").unwrap();
+        assert_eq!(old.appearance, Appearance::System);
+        for appearance in [
+            Appearance::System,
+            Appearance::Light,
+            Appearance::Dark,
+            Appearance::Spruce,
+            Appearance::Hiillos,
+            Appearance::Shanghai,
+        ] {
+            assert_eq!(Appearance::from_index(appearance.index()), Some(appearance));
+            let preferences = Preferences {
+                appearance,
+                ..Preferences::default()
+            };
+            let reopened: Preferences =
+                toml::from_str(&toml::to_string(&preferences).unwrap()).unwrap();
+            assert_eq!(reopened.appearance, appearance);
+        }
+        assert_eq!(Appearance::from_index(-1), None);
+        assert_eq!(Appearance::from_index(6), None);
+    }
+
+    #[test]
+    fn appearance_save_is_persistent_and_conflict_does_not_change_memory() {
+        let root = std::env::temp_dir().join(format!(
+            "as2026-appearance-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        let path = root.join("asetukset.toml");
+        let mut store = PreferencesStore::open_at(&path, &root.join("Kilpailut")).unwrap();
+        store.save_appearance(Appearance::Dark).unwrap();
+        let reopened = PreferencesStore::open_at(&path, &root.join("Kilpailut")).unwrap();
+        assert_eq!(reopened.get().appearance, Appearance::Dark);
+        fs::write(&path, "appearance = \"light\"\n").unwrap();
+        assert!(store.save_appearance(Appearance::Spruce).is_err());
+        assert_eq!(store.get().appearance, Appearance::Dark);
+        let reopened = PreferencesStore::open_at(&path, &root.join("Kilpailut")).unwrap();
+        assert_eq!(reopened.get().appearance, Appearance::Light);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn effects_are_off_by_default_and_persist() {
+        let root = std::env::temp_dir().join(format!(
+            "as2026-effects-{}-{}",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        let path = root.join("asetukset.toml");
+        let default_root = root.join("Kilpailut");
+        let mut store = PreferencesStore::open_at(&path, &default_root).unwrap();
+        assert!(!store.get().effects_enabled);
+        store.save_effects_enabled(true).unwrap();
+        drop(store);
+        let mut reopened = PreferencesStore::open_at(&path, &default_root).unwrap();
+        assert!(reopened.get().effects_enabled);
+        reopened.save_effects_enabled(false).unwrap();
+        drop(reopened);
+        assert!(
+            !PreferencesStore::open_at(&path, &default_root)
+                .unwrap()
+                .get()
+                .effects_enabled
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]

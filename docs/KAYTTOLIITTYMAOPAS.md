@@ -1,21 +1,16 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa AS2026 0.7.0:n, jonka pohjana on Mikky100:n 0.6.11-toteutus. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja
-Emit-editorin toiminta tulevat Mikky100:n toteutuksesta. Opas ei määrittele niitä
-uudelleen. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja
-[yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
+Tämä opas kuvaa AS2026 0.7.3:n käyttöliittymää. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
 
-Lähde on [ui/theme.slint](../ui/theme.slint): tumma Dark Spruce -tausta,
-vaaleat tekstit ja vihreät toiminto- ja valintakorostukset. Säätimen korkeus
-on 36 loogista pikseliä, taulukkorivin 38, sivumarginaali 20 ja paneelin
-sisämarginaali 16. Välit seuraavat neljän pikselin asteikkoa. Otsikko on 22,
-osion otsikko 16, perusteksti 14 ja kenttäteksti 12 pikseliä.
+Tietoja-ikkunan **Ulkoasu**-valinnalla voit käyttää järjestelmän mukaista, vaaleaa, tummaa tai vihreää **Tumma kuusi**-, puunsävyistä **Hiillos**- tai lohenpunaisella korostettua **Shanghai**-ulkoasua. Valinta tallentuu tämän tietokoneen sovellusasetuksiin. Se ei muuta kilpailua tai muiden LAN-koneiden ulkoasua. Järjestelmän mukainen tila seuraa käyttöjärjestelmän Slintille ilmoittamaa vaaleaa/tummaa tilaa; tuntematon tila käyttää vaaleaa.
 
-Valintaikkunan alla näkyy neutraali 50-prosenttinen musta peite. Taustasta ei
-oteta tilannekuvaa eikä sitä sumenneta. Varsinaiset paneelit ja kentät ovat
-peittäviä; työpöydän väri ei muuta niiden kontrastia.
+**Ota animaatiot ja tehosteet käyttöön** on erillinen valinta samassa ikkunassa. Oletus on pois. Perustoiminnot, valinta ja näppäimistöfokus toimivat myös ilman tehosteita. Windowsin Mica/Acrylic-taustamateriaaleja ei ole toteutettu.
+
+Säätimen oletuskorkeus on 36 loogista pikseliä, taulukkorivin 38, sivumarginaali 20 ja paneelin sisämarginaali 16. Välit seuraavat neljän pikselin asteikkoa. Otsikko on 22, osion otsikko 16, perusteksti 14 ja pienet tekstit vähintään 12 pikseliä. Värit ja mitat tulevat yhdestä [teemasta](../ui/theme.slint).
+
+Valintaikkunan alla näkyy neutraali musta peite. Taustasta ei oteta tilannekuvaa eikä sitä sumenneta. Varsinaiset paneelit ja kentät ovat peittäviä; työpöydän väri ei muuta niiden kontrastia. Pitkät lomakkeet vierivät oman sisältöalueensa sisällä. **Seurat ja lisenssit** -osion sulkeminen rajaa vierityskohdan sisällön uusiin rajoihin; avaaminen ei vieritä itsestään.
 
 ## Sivut ja niiden tarkoitus
 
@@ -135,7 +130,9 @@ todista koko testimatriisin, fyysisen Emit-lukijan tai paperitulostimen toiminta
 LAN-ohje: [yhteiskäyttö ja palautuminen](LAHIVERKKO.md),
 [Windowsin ja UFW:n palomuuri](PALOMUURI.md).
 
-## Todelliset tarkistuskuvat
+## Todelliset betan tarkistuskuvat
+
+Kuvat on tuotettu 25.10.2026 Linuxin eristetyssä Slint-ohjelmistorenderöinnissä synteettisellä kilpailulla. Ne eivät ole WinUI 3 -referenssikuvia eikä niiden perusteella väitetä Windowsin pikselivastaavuutta.
 
 ### Luokan lisääminen
 
@@ -145,11 +142,11 @@ oma ikkuna säilyy Mikky100:n toteutuksena.
 
 ### Rataluettelo ja radan tiedot
 
-Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta. Versiossa
-0.7.0 myös tietokortin ja luettelon alareunat ovat rinnakkaisnäkymässä samalla
+Tietokortti alkaa samalta korkeudelta kuin rataluettelon pinta.
+Tietokortin ja luettelon alareunat ovat rinnakkaisnäkymässä samalla
 korkeudella. Otsikko kuuluu luettelon yläpuolelle; asemien oma toimintorivi säilyy erillisenä.
 
-![AS2026 0.7.0: Radat ja asemat, samankorkuiset rinnakkaispaneelit 1920 × 1080](kuvat/070-radat-1920x1080.png)
+![AS2026 Fluent 2 -beta: Radat ja asemat, samankorkuiset rinnakkaispaneelit 1920 × 1080](kuvat/fluent2-radat-1920x1080.png)
 
 ### Emit-historia ja luettu sisältö
 
@@ -157,7 +154,7 @@ Yhteinen otsikkorivi pitää molemmat taulukot samalla korkeudella.
 Muokkaa leimauksia avaa Mikky100:n koko kortin editorin. Alkuperäiset
 lukemat ja korjaukset säilyvät hänen tietomallissaan.
 
-![AS2026 0.7.0: Emit-historia ja leimat 1366 × 768](kuvat/070-emit-1366x768.png)
+![AS2026 Fluent 2 -beta: Emit-historia ja leimat 1366 × 768](kuvat/fluent2-emit-1366x768.png)
 
 ### Kilpailijan muokkaus
 
@@ -166,7 +163,7 @@ pysyvä Valmis-painike ja vierivä sisältö. Valmis, Esc ja sama muokkauskutsu
 sulkevat ikkunan vain, kun nykyinen validointi sallii sen. Tausta on näkyvissä
 neutraalisti tummennettuna. Mikky100:n Emit-korjauksen sekuntiyksikkö säilyy.
 
-![AS2026 0.7.0: Kilpailijan muokkaus ja neutraali taustapeite](kuvat/070-kilpailijan-muokkaus.png)
+![AS2026 Fluent 2 -beta: Kilpailijan muokkaus ja neutraali taustapeite](kuvat/fluent2-kilpailijan-muokkaus.png)
 
 ### Asetukset leveässä ja pienessä ikkunassa
 
@@ -175,9 +172,9 @@ sovellusasetukset. Pienessä ikkunassa sivu vierii; kaikkia asetuksia ei
 puristeta yhdelle ruudulle. Tab-järjestys etenee palstan alusta loppuun
 ja seuraavan palstan alkuun.
 
-![AS2026 0.7.0: Asetukset leveässä 2560 × 1440 -ikkunassa](kuvat/070-asetukset-2560x1440.png)
+![AS2026 Fluent 2 -beta: Asetukset leveässä 2560 × 1440 -ikkunassa](kuvat/fluent2-asetukset-2560x1440.png)
 
-![AS2026 0.7.0: Asetukset vierivät 900 × 600 -ikkunassa](kuvat/070-asetukset-900x600.png)
+![AS2026 Fluent 2 -beta: Asetukset vierivät 900 × 600 -ikkunassa](kuvat/fluent2-asetukset-900x600.png)
 
 ### Aloitus ilman kilpailua
 
@@ -197,7 +194,7 @@ Luokkavalinnat ja palvelinkentät vierivät, mutta julkaisutila ja alapainikkeet
 pysyvät näkyvissä. Paikallinen live ja palvelinjulkaisu ovat erillisiä toimintoja.
 Yhteyskoe ei kirjoita tuloksia palvelimelle.
 
-![AS2026 0.7.0: Livejulkaisu ja luokkavalinnat 900 × 600 -ikkunassa](kuvat/070-live-900x600.png)
+![AS2026 Fluent 2 -beta: Livejulkaisu ja luokkavalinnat 900 × 600 -ikkunassa](kuvat/fluent2-live-900x600.png)
 
 ## Kokeiden toistaminen
 
@@ -245,3 +242,17 @@ Sivupalkin yhteystila on tavallinen Fluent-painike. Sen leveys ja korkeus
 seuraavat navigoinnin mittoja. Pitkä tila lyhenee painikkeessa, ja koko tila
 on luettavissa yhteysikkunasta. Alareunan virhetekstillä ei ole erillistä
 Näytä virhe -painiketta.
+
+## Kehittäjän komponenttikartta
+
+Käyttäjän työvaiheet ovat yllä. Toteuttajalle ensisijainen lähde on [komponenttistandardi](FLUENT2_KOMPONENTTISTANDARDI.md). `ui/presets.slint` kokoaa yhteiset säätimet; varsinaiset sivut tuovat ne myös vanhoilla Button/LineEdit/ComboBox/CheckBox/ScrollView-nimillä, jotta niiden tapahtumasopimukset säilyvät. `ui/components.slint` säilyttää kilpailutaulukot, listan ja tietojen työtilan sekä modaalipinnan. `src/gui` vastaa yhteydestä olemassa olevaan kilpailuytimeen.
+
+[Kehitysgalleria](FLUENT2_GALLERIA.md) käynnistyy erikseen eikä avaa kilpailuja, käyttäjäasetuksia, tulostinta tai Emit-lukijaa. Gallerian ulkoasu- ja tehostevalinnat häviävät sulkemisessa. Tämä poikkeaa varsinaisen sovelluksen tallentuvista valinnoista.
+
+## Päivitystarkistus käynnistyessä
+
+Sovellus tarkistaa saatavilla olevan vakaan version automaattisesti taustalla tavallisen käynnistyksen jälkeen. Tarkistus vastaa sivupalkin Päivitykset-painiketta eikä estä kilpailun käyttöä. Päivitystä ei ladata tai asenneta automaattisesti: saatavilla olevan version asentaminen valitaan erikseen sivupalkista. Ilman verkkoyhteyttä kilpailun paikallinen käyttö jatkuu normaalisti. Päivitykset-painikkeesta tarkistuksen voi uusia myöhemmin.
+
+## Radan ja aseman tiedot
+
+Radat ja asemat -sivulla asemat näkyvät ylhäällä ja radat-lista alhaalla. Valitse rata alalistasta. Aseman rivi avaa aseman muokkauksen keskitettyyn ikkunaan; Valmis tai Esc sulkee sen validoinnin salliessa. Uusi asema avataan + Asema -painikkeesta. Radan tiedot -painike avaa valitun radan nimen omaan ikkunaan.

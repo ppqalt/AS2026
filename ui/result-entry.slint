@@ -1,4 +1,4 @@
-import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView } from "presets.slint";
 import { Theme } from "theme.slint";
 import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { ResultEntryInput } from "types.slint";
@@ -92,8 +92,8 @@ export component ResultEntryDialog inherits Rectangle {
                 body := ScrollView {
                     width: parent.width; height: parent.height;
                     horizontal-scrollbar-policy: always-off;
-                    viewport-width: self.visible-width;
-                    viewport-height: entry-content.min-height;
+                    content-width: self.visible-width;
+                    content-height: entry-content.min-height;
                     entry-content := VerticalLayout {
                         x: 0px; y: 0px;
                         width: body.visible-width; height: self.min-height;
@@ -105,8 +105,8 @@ export component ResultEntryDialog inherits Rectangle {
                                 root.focus-index = index;
                                 let top = index * (Theme.control-height + 24px + Theme.space-3);
                                 let bottom = top + Theme.control-height + 24px;
-                                if top < -body.viewport-y { body.viewport-y = -top; }
-                                else if bottom > -body.viewport-y + body.visible-height { body.viewport-y = min(0px, body.visible-height - bottom); }
+                                if top < -body.content-y { body.content-y = -top; }
+                                else if bottom > -body.content-y + body.visible-height { body.content-y = min(0px, body.visible-height - bottom); }
                             }
                             next(index) => {
                                 if index < 0 { root.focus-index = -1; print.focus(); }

@@ -180,5 +180,91 @@
     "version": "0.2.54",
     "file": "zune-inflate-0.2.54.txt",
     "source": "https://raw.githubusercontent.com/etemesi254/zune-image/69502ce83fdfecdd0beefd677e2abb3781b29d98/LICENSE.md"
+  },
+  {
+    "name": "accesskit",
+    "version": "0.24.1",
+    "file": "accesskit-0.24.1.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/a55d3e1a18bb9ef0e4bccc9083fb13c3e0ad8969/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_atspi_common",
+    "version": "0.19.1",
+    "file": "accesskit_atspi_common-0.19.1.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/c88605b96d04431f9c3c792464a0f2f253480e94/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_consumer",
+    "version": "0.38.0",
+    "file": "accesskit_consumer-0.38.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/c88605b96d04431f9c3c792464a0f2f253480e94/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_unix",
+    "version": "0.22.1",
+    "file": "accesskit_unix-0.22.1.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/c88605b96d04431f9c3c792464a0f2f253480e94/LICENSE-APACHE"
+  },
+  {
+    "name": "accesskit_winit",
+    "version": "0.33.2",
+    "file": "accesskit_winit-0.33.2.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/c88605b96d04431f9c3c792464a0f2f253480e94/LICENSE-APACHE"
+  },
+  {
+    "name": "skia-bindings",
+    "version": "0.153.3",
+    "file": "skia-bindings-0.153.3.txt",
+    "source": "https://raw.githubusercontent.com/rust-skia/rust-skia/b7f043e0b1e2a850e702245de811f01df1f6b0ff/LICENSE"
+  },
+  {
+    "name": "skia-safe",
+    "version": "0.153.3",
+    "file": "skia-safe-0.153.3.txt",
+    "source": "https://raw.githubusercontent.com/rust-skia/rust-skia/b7f043e0b1e2a850e702245de811f01df1f6b0ff/LICENSE"
+  },
+  {
+    "name": "spirv",
+    "version": "0.4.0+sdk-1.4.341.0",
+    "file": "spirv-0.4.0+sdk-1.4.341.0.txt",
+    "source": "https://raw.githubusercontent.com/gfx-rs/rspirv/8afc3d0ac8e158128cd1410bb2e4b4c26ab11bb4/LICENSE"
+  },
+  {
+    "name": "taffy",
+    "version": "0.10.1",
+    "file": "taffy-0.10.1.txt",
+    "source": "https://raw.githubusercontent.com/DioxusLabs/taffy/639f0acdd20f914f847abffbeaa903d66cae4882/LICENSE.md"
+  },
+  {
+    "name": "vtable",
+    "version": "0.5.0",
+    "file": "vtable-0.5.0.txt",
+    "source": "https://raw.githubusercontent.com/slint-ui/slint/b0fc6a7287a062fefb30133e6aecf0303f76357d/LICENSES/MIT.txt"
+  },
+  {
+    "name": "vtable-macro",
+    "version": "0.5.0",
+    "file": "vtable-macro-0.5.0.txt",
+    "source": "https://raw.githubusercontent.com/slint-ui/slint/b0fc6a7287a062fefb30133e6aecf0303f76357d/LICENSES/MIT.txt"
+  },
+  {
+    "name": "accesskit_windows",
+    "version": "0.34.0",
+    "file": "accesskit_windows-0.34.0.txt",
+    "source": "https://raw.githubusercontent.com/AccessKit/accesskit/c88605b96d04431f9c3c792464a0f2f253480e94/LICENSE-APACHE"
+  },
+  {
+    "name": "libseat",
+    "version": "0.2.4",
+    "file": "libseat-0.2.4.txt",
+    "source": "https://raw.githubusercontent.com/PolyMeilex/libseat-rs/00a7f14ae1cac8e475ec90bfdfb05884f53e1d0c/Cargo.toml",
+    "notice": "Alkuperäpaketti ilmoittaa MIT-lisenssin ilman erillistä lisenssitiedostoa; vakioehdot ja Cargo-tekijämaininnat."
+  },
+  {
+    "name": "libseat-sys",
+    "version": "0.2.0",
+    "file": "libseat-sys-0.2.0.txt",
+    "source": "https://raw.githubusercontent.com/PolyMeilex/libseat-rs/cfc67eeb449b5a034a192a2fa8d23ca44d59832d/libseat-sys/Cargo.toml",
+    "notice": "Alkuperäpaketti ilmoittaa MIT-lisenssin ilman erillistä lisenssitiedostoa; vakioehdot ja Cargo-tekijämaininnat."
   }
 ]

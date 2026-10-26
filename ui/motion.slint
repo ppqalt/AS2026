@@ -1,0 +1,24 @@
+import { Theme } from "theme.slint";
+
+// Lyhyt sisääntulohäivytys. Ei ajastinta tai peittävää kerrosta tehosteiden ollessa pois.
+// Sisältö ja kohdistus ovat heti käytettävissä; vain piirron peittävyys muuttuu.
+export component FadeSurface inherits Rectangle {
+    in property <int> content-key: 0;
+    private property <bool> revealed: false;
+    private property <bool> motion-enabled: Theme.effects-enabled;
+    changed content-key => { root.revealed = false; }
+    changed motion-enabled => { if !root.motion-enabled { root.revealed = true; } }
+    opacity: !root.motion-enabled || root.revealed ? 1 : 0;
+    animate opacity {
+        enabled: Theme.effects-enabled;
+        duration: root.revealed ? Theme.duration-normal : 0ms;
+        easing: ease-out;
+    }
+    Timer {
+        interval: 16ms;
+        running: root.motion-enabled && !root.revealed;
+        triggered => { root.revealed = true; }
+    }
+    @children
+}
+
