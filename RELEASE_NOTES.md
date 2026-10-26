@@ -1,4 +1,4 @@
-# AS2026 0.7.3
+# AS2026 0.7.3 (valmistelussa)
 
 Päivitys yhdistää uusimman 0.7.2-kilpailutoiminnallisuuden Fluent 2 -käyttöliittymään. Kilpailusäännöt, AT/JAT-laskenta, Emit-historia, hyväksynnät, tulostus, vienti ja LAN-yhteiskäyttö säilyvät Mikky100:n toteutuksen pohjalta.
 
