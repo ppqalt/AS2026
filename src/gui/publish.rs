@@ -172,9 +172,10 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
     timer.start(TimerMode::Repeated, Duration::from_millis(500), move || {
         if let Some(app) = weak.upgrade() {
             let mut s = shared.borrow_mut();
-            if let Some(rx) = &s.publish_test
-                && let Ok(result) = rx.try_recv()
-            {
+            if let Some(outcome) = s.publish_test.as_ref().and_then(background::poll) {
+                let result = outcome.unwrap_or_else(|_| {
+                    Err("Julkaisun yhteyskoe keskeytyi. Yritä uudelleen.".into())
+                });
                 app.set_publish_busy(false);
                 app.set_publish_status(
                     result

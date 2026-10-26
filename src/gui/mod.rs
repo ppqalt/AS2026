@@ -1,6 +1,7 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
 mod gallery;
 slint::include_modules!();
+mod background;
 mod desktop;
 mod emit_correction;
 mod forms;

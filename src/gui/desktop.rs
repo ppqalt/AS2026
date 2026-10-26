@@ -64,18 +64,40 @@ fn failed(app: &AppWindow, error: String) {
     app.set_update_status(error.clone().into());
     status(app, error, true);
 }
-fn poll(state: &SharedState, app: &AppWindow, timer: &Rc<Timer>, reader_timer: &Rc<Timer>) {
-    let event = state
+
+pub(super) fn poll(
+    state: &SharedState,
+    app: &AppWindow,
+    timer: &Rc<Timer>,
+    reader_timer: &Rc<Timer>,
+) {
+    let outcome = state
         .borrow()
         .update_receiver
         .as_ref()
-        .and_then(|receiver| receiver.try_recv().ok());
-    let Some(event) = event else {
+        .and_then(background::poll);
+    let Some(outcome) = outcome else {
         return;
     };
     timer.stop();
     state.borrow_mut().update_receiver = None;
     app.set_update_busy(false);
+    let event = match outcome {
+        Ok(event) => event,
+        Err(_) => {
+            // Päättynyt työntekijä ei voi enää lähettää tulosta. Vapautetaan myös
+            // asennuksen muokkauslukitus, jotta kilpailun käyttö voi jatkua.
+            if app.get_install_busy() {
+                app.set_install_busy(false);
+                let _ = update_header(&state.borrow(), app);
+            }
+            failed(
+                app,
+                "Päivityksen taustatyö päättyi odottamattomasti. Voit yrittää uudelleen.".into(),
+            );
+            return;
+        }
+    };
     match event {
         UpdateEvent::Checked(Ok(updates::UpdateCheck::NoRelease)) => {
             state.borrow_mut().update = None;
@@ -123,6 +145,7 @@ fn poll(state: &SharedState, app: &AppWindow, timer: &Rc<Timer>, reader_timer: &
         }
     }
 }
+
 pub(super) fn bind(
     state: &SharedState,
     app: &AppWindow,

@@ -63,6 +63,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
             ws.project().ok_or("Muokattava esimerkki puuttuu")?.clone(),
         )
     };
+    update_worker_recovery(app, state)?;
     competition_settings_068(app, state, &path, &original)?;
     combined_classes(app, state, &path, &original)?;
     beginners_cup(app, state, &path, &original)?;
@@ -702,6 +703,117 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, manuaaliset ajat, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
+}
+
+fn update_worker_recovery(
+    app: &AppWindow,
+    state: &SharedState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::sync::mpsc;
+
+    assert!(
+        app.get_demo(),
+        "Taustatyökoe käyttää vain esimerkkikilpailua"
+    );
+    assert!(app.get_opened());
+    assert!(app.get_editable());
+    assert!(!app.get_update_busy());
+    assert!(!app.get_install_busy());
+    assert!(state.borrow().update_receiver.is_none());
+    let path = state.borrow().workspace.as_ref().unwrap().path().to_owned();
+    let competition = std::fs::read(&path)?;
+    let previous_status = app.get_status_text();
+    let previous_summary = app.get_status_summary();
+    let previous_error = app.get_status_error();
+    let previous_update_status = app.get_update_status();
+    let previous_version = app.get_available_version();
+    let previous_update = state.borrow_mut().update.take();
+    let previous_bundle = state.borrow_mut().update_bundle.take();
+    let timer = Rc::new(Timer::default());
+    let reader_timer = Rc::new(Timer::default());
+
+    let (sender, receiver) = mpsc::sync_channel::<UpdateEvent>(1);
+    state.borrow_mut().update_receiver = Some(receiver);
+    app.set_update_busy(true);
+    app.set_install_busy(true);
+    app.set_editable(false);
+    timer.start(TimerMode::Repeated, Duration::from_secs(60), || {});
+    desktop::poll(state, app, &timer, &reader_timer);
+    assert!(state.borrow().update_receiver.is_some());
+    assert!(
+        app.get_update_busy(),
+        "Keskeneräinen taustatyö pysyy varattuna"
+    );
+    assert!(app.get_install_busy());
+    assert!(!app.get_editable());
+    assert!(timer.running());
+
+    drop(sender);
+    desktop::poll(state, app, &timer, &reader_timer);
+    assert!(state.borrow().update_receiver.is_none());
+    assert!(
+        !app.get_update_busy(),
+        "Katkennut taustatyö vapauttaa päivityspainikkeen"
+    );
+    assert!(
+        !app.get_install_busy(),
+        "Katkennut asennustyö vapauttaa asennuslukon"
+    );
+    assert!(
+        app.get_editable(),
+        "Kilpailun muokkausoikeus palautuu asennustyön katkettua"
+    );
+    assert!(!timer.running(), "Päättyneen työn ajastin pysähtyy");
+    assert!(app.get_status_error());
+    assert!(app.get_update_status().contains("päättyi odottamattomasti"));
+
+    let (sender, receiver) = mpsc::sync_channel(1);
+    sender.send(UpdateEvent::Checked(Ok(updates::UpdateCheck::Current)))?;
+    drop(sender);
+    state.borrow_mut().update_receiver = Some(receiver);
+    app.set_update_busy(true);
+    timer.start(TimerMode::Repeated, Duration::from_secs(60), || {});
+    desktop::poll(state, app, &timer, &reader_timer);
+    assert!(state.borrow().update_receiver.is_none());
+    assert!(!app.get_update_busy());
+    assert!(!timer.running());
+    assert!(
+        !app.get_status_error(),
+        "Jonoon tullut vastaus käsitellään ennen katkeamista"
+    );
+    assert_eq!(app.get_update_status(), "Ohjelma on ajan tasalla.");
+
+    let (sender, receiver) = mpsc::sync_channel(1);
+    sender.send(UpdateEvent::Checked(Err(
+        "Simuloitu päivityspalvelimen virhe.".into(),
+    )))?;
+    drop(sender);
+    state.borrow_mut().update_receiver = Some(receiver);
+    app.set_update_busy(true);
+    desktop::poll(state, app, &timer, &reader_timer);
+    assert!(state.borrow().update_receiver.is_none());
+    assert!(!app.get_update_busy());
+    assert!(app.get_status_error());
+    assert_eq!(
+        app.get_update_status(),
+        "Simuloitu päivityspalvelimen virhe."
+    );
+    assert_eq!(
+        std::fs::read(&path)?,
+        competition,
+        "Päivityksen virhepolut eivät muuta kilpailua"
+    );
+
+    state.borrow_mut().update = previous_update;
+    state.borrow_mut().update_bundle = previous_bundle;
+    app.set_available_version(previous_version);
+    app.set_update_status(previous_update_status);
+    status(app, previous_status, previous_error);
+    app.set_status_summary(previous_summary);
+    println!(
+        "GUI-taustatyökoe hyväksytty: keskeneräinen päivitys, katkenneen asennuksen lukituksen palautuminen sekä jonotettu vastaus ja palvelinvirhe työn päätyttyä."
+    );
+    Ok(())
 }
 
 fn workflow_069(

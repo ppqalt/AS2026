@@ -39,27 +39,35 @@ fn start_host(s: &mut State, app: &AppWindow) -> GuiResult<()> {
         .path()
         .to_owned();
     let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::Builder::new()
+        .name("as2026-lan-isanta".into())
+        .spawn(move || {
+            let result = (|| {
+                let host = Host::start(&path, SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), PORT))?;
+                let address = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), host.address.port());
+                let client = Client::join(
+                    address,
+                    &host.code,
+                    &path.with_extension("lan-jono.json"),
+                    true,
+                )?;
+                Ok(Joined {
+                    host: Some(host),
+                    client,
+                    path,
+                })
+            })();
+            let _ = tx.send(result);
+        })
+        .map_err(|error| {
+            invalid(&format!(
+                "Lähiverkkotyön käynnistys epäonnistui: {}",
+                io_message(&error)
+            ))
+        })?;
     s.lan_pending = Some(rx);
     app.set_lan_busy(true);
     app.set_lan_error("".into());
-    std::thread::spawn(move || {
-        let result = (|| {
-            let host = Host::start(&path, SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), PORT))?;
-            let address = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), host.address.port());
-            let client = Client::join(
-                address,
-                &host.code,
-                &path.with_extension("lan-jono.json"),
-                true,
-            )?;
-            Ok(Joined {
-                host: Some(host),
-                client,
-                path,
-            })
-        })();
-        let _ = tx.send(result);
-    });
     Ok(())
 }
 fn join(s: &mut State, app: &AppWindow) -> GuiResult<()> {
@@ -84,7 +92,7 @@ fn join(s: &mut State, app: &AppWindow) -> GuiResult<()> {
         return Err(invalid("Katkaise nykyinen LAN-yhteys ensin"));
     }
     let address = endpoint(app.get_lan_address().as_str())?;
-    let code = app.get_lan_code().to_string();
+    let code = app.get_lan_code().trim().to_owned();
     as2026::lan::validate_pairing_code(&code)?;
     let root = s
         .preferences
@@ -93,24 +101,32 @@ fn join(s: &mut State, app: &AppWindow) -> GuiResult<()> {
         .competition_root()
         .map_err(|e| invalid(&e))?;
     let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::Builder::new()
+        .name("as2026-lan-liittyminen".into())
+        .spawn(move || {
+            let result = (|| {
+                let id = Client::identify(address, &code)?;
+                let cache = root.join("LAN-kopiot").join(id);
+                std::fs::create_dir_all(&cache).map_err(|e| invalid(&io_message(&e)))?;
+                let path = cache.join(native::FILE_NAME);
+                let client = Client::join(address, &code, &cache.join("lahetysjono.json"), false)?;
+                Ok(Joined {
+                    host: None,
+                    client,
+                    path,
+                })
+            })();
+            let _ = tx.send(result);
+        })
+        .map_err(|error| {
+            invalid(&format!(
+                "Lähiverkkotyön käynnistys epäonnistui: {}",
+                io_message(&error)
+            ))
+        })?;
     s.lan_pending = Some(rx);
     app.set_lan_busy(true);
     app.set_lan_error("".into());
-    std::thread::spawn(move || {
-        let result = (|| {
-            let id = Client::identify(address, &code)?;
-            let cache = root.join("LAN-kopiot").join(id);
-            std::fs::create_dir_all(&cache).map_err(|e| invalid(&io_message(&e)))?;
-            let path = cache.join(native::FILE_NAME);
-            let client = Client::join(address, &code, &cache.join("lahetysjono.json"), false)?;
-            Ok(Joined {
-                host: None,
-                client,
-                path,
-            })
-        })();
-        let _ = tx.send(result);
-    });
     Ok(())
 }
 fn leave(s: &mut State, app: &AppWindow) -> GuiResult<()> {
@@ -195,7 +211,17 @@ fn accept_join(s: &mut State, app: &AppWindow, joined: Joined) -> GuiResult<()> 
     Ok(())
 }
 fn poll(s: &mut State, app: &AppWindow) {
-    let outcome = s.lan_pending.as_ref().and_then(|rx| rx.try_recv().ok());
+    let outcome = s
+        .lan_pending
+        .as_ref()
+        .and_then(background::poll)
+        .map(|result| {
+            result.unwrap_or_else(|_| {
+                Err(invalid(
+                    "Lähiverkkoyhteyden muodostus keskeytyi. Yritä uudelleen.",
+                ))
+            })
+        });
     if let Some(result) = outcome {
         s.lan_pending = None;
         app.set_lan_busy(false);
