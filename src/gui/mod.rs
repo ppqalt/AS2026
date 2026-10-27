@@ -2827,11 +2827,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     .project()
                     .ok_or_else(|| invalid("KITI-vienti tarvitsee AS2026-kilpailun"))?;
                 let fields = a.get_kiti_class_fields().iter().collect::<Vec<_>>();
-                if fields.is_empty() || fields.len() % 2 != 0 {
+                let (pairs, remainder) = fields.as_chunks::<2>();
+                if pairs.is_empty() || !remainder.is_empty() {
                     return Err(invalid("Valitse KITI-Excel-pohja ja sen perusluokat"));
                 }
-                let groups = fields
-                    .chunks_exact(2)
+                let groups = pairs
+                    .iter()
                     .map(|pair| {
                         let field = &pair[0];
                         if field.choice < 0 || field.value.is_empty() || pair[1].choice < 0 {
