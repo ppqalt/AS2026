@@ -1,4 +1,4 @@
-# AS2026 0.7.6
+# AS2026 0.7.5
 
 Versio yhdistää 0.7.4:n korjaukset aiemmin valmisteltuihin käyttöliittymä- ja luotettavuusparannuksiin sekä rajattuun teemavalikoimaan. Kaikki 0.7.4:n kilpailu-, KITI-, PDF-, Emit- ja livetuloskorjaukset säilyvät.
 

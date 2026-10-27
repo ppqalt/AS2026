@@ -6,10 +6,10 @@ internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.7.4 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.4):
+Lataa oma pakettisi [version 0.7.5 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.5):
 
-- Linux x86-64: `AS2026-0.7.4-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.4-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.5-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.5-windows-x86_64.zip`
 
 Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
@@ -71,7 +71,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
 - [Version 0.7.4 julkaisutiedot](docs/julkaisut/0.7.4.md)
-- [Valmisteilla olevan 0.7.6:n julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.5 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja
