@@ -202,6 +202,14 @@ pub(super) fn start(
                             assert!(app.get_export_open(), "Vienti valikon kautta: {}", app.get_status_text());
                             assert_eq!(app.get_export_kind(), kind);
                             let extension = ["xlsx", "csv", "html", "pdf"][kind as usize];
+                            let expected = competition_export_filename(shared.borrow().workspace.as_ref().unwrap().name(), "tulokset", extension);
+                            assert_eq!(Path::new(app.get_export_path().as_str()).file_name().unwrap().to_str().unwrap(), expected);
+                            let original_options: Vec<_> = app.get_export_classes().iter().collect();
+                            app.invoke_export_select_all(false);
+                            assert!(app.get_export_classes().iter().all(|row| !row.selected));
+                            app.invoke_export_select_all(true);
+                            assert!(app.get_export_classes().iter().all(|row| row.selected));
+                            assert_eq!(app.get_export_classes().iter().map(|row| row.order).collect::<Vec<_>>(), original_options.iter().map(|row| row.order.clone()).collect::<Vec<_>>());
                             if kind==3 {app.set_export_stations(true);}
                             let destination = directory.join(format!("tulokset-{method}.{extension}"));
                             app.set_export_path(destination.display().to_string().into());

@@ -73,3 +73,7 @@ GUI-koe käyttää oikeita Tab- ja Enter-tapahtumia AT → JAT → RT → muut �
 -järjestyksessä. Windowsin testit renderöivät kilpailija-, luokka- ja asematulosteet
 samalla Rust/GDI-piirtäjällä PNG-kuviksi lähettämättä niitä tulostusjonoon.
 Fyysisen tulostimen ja Emit-lukijan yhteiskoe tehdään erikseen.
+
+Tulosviennin luokat valitaan samalla kahden sarakkeen korttivalitsimella kuin tulostuksessa ja live-julkaisussa. Haku ja Vain valitut rajaavat näkyvää listaa; piilossa olevat valinnat säilyvät. PDF:n luokkajärjestys annetaan korttien järjestysnumerokentissä.
+
+HTML-, CSV-, Excel- ja PDF-vientien oletusnimissä on kilpailun nimi, esimerkiksi `testieksytys-tulokset.pdf`. Sama etuliite lisätään HTML-lähtöluetteloon ja KITI-pohjan tulostiedostoon. Oman tiedostonimen voi edelleen valita.

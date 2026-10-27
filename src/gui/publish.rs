@@ -42,7 +42,7 @@ fn configuration(app: &AppWindow, local_only: bool) -> GuiResult<Config> {
     config.validate().map_err(|e| invalid(&e))?;
     Ok(config)
 }
-fn default_output_filename(name: &str) -> String {
+pub(super) fn default_output_filename(name: &str) -> String {
     legacy_output_filename(&name.to_lowercase())
 }
 

@@ -1627,6 +1627,12 @@ fn export_destination(input: &str, kind: i32, folder: &Path) -> GuiResult<PathBu
     })
 }
 
+fn competition_export_filename(name: &str, suffix: &str, extension: &str) -> String {
+    let html = publish::default_output_filename(name);
+    let stem = html.strip_suffix("-tulokset.html").unwrap_or("kisa");
+    format!("{stem}-{suffix}.{extension}")
+}
+
 fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> {
     if !can_leave(state, app) {
         return Ok(());
@@ -1646,12 +1652,14 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
         .path()
         .parent()
         .ok_or_else(|| invalid("Kilpailun kansiota ei löydy"))?;
-    let mut path = folder.join(format!("tulokset.{extension}"));
+    let filename = competition_export_filename(ws.name(), "tulokset", extension);
+    let stem = filename.strip_suffix(&format!(".{extension}")).unwrap();
+    let mut path = folder.join(format!("{stem}.{extension}"));
     for index in 2.. {
         if !path.exists() {
             break;
         }
-        path = folder.join(format!("tulokset-{index}.{extension}"));
+        path = folder.join(format!("{stem}-{index}.{extension}"));
     }
     let mut options = Vec::new();
     let mut sources = vec![("N", ws.results()?)];
@@ -2289,6 +2297,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .len();
         open_combined_class(s, &a, count)
     });
+    action!(on_combined_select_all, |_s, a, selected| {
+        let options = a.get_combined_classes();
+        for index in 0..options.row_count() {
+            if let Some(mut row) = options.row_data(index) {
+                row.selected = selected;
+                options.set_row_data(index, row);
+            }
+        }
+        Ok(())
+    });
     action!(on_combined_class_toggled, |_s, a, index, selected| {
         let classes = a.get_combined_classes();
         if let Ok(index) = usize::try_from(index)
@@ -2718,11 +2736,13 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .project()
             .ok_or_else(|| invalid("Lähtöluettelo edellyttää AS2026-kilpailua"))?;
         let html = as2026::starts::start_list_html(project)?;
+        let filename =
+            competition_export_filename(current_workspace(s)?.name(), "lahtoluettelo", "html");
         if let Some(path) = choose_file(s, || {
             rfd::FileDialog::new()
                 .set_title("Tallenna lähtöluettelo")
                 .add_filter("HTML-lähtöluettelo", &["html"])
-                .set_file_name("lahtoluettelo.html")
+                .set_file_name(&filename)
                 .save_file()
         }) {
             report::save_new(&path, &html)?;
@@ -2736,6 +2756,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     });
     action!(on_export_pdf, |s, a| begin_export(s, &a, 3));
     action!(on_export_kiti, |s, a| begin_export(s, &a, 4));
+    action!(on_export_select_all, |_s, a, selected| {
+        let options = a.get_export_classes();
+        for index in 0..options.row_count() {
+            if let Some(mut row) = options.row_data(index) {
+                row.selected = selected;
+                options.set_row_data(index, row);
+            }
+        }
+        Ok(())
+    });
     action!(on_export_class_toggled, |_s, a, index, selected| {
         let options = a.get_export_classes();
         if let Some(mut row) = options.row_data(index as usize) {
@@ -2801,8 +2831,16 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 }
             }
             a.set_kiti_template(path.display().to_string().into());
+            let destination = as2026::kiti::destination(&path)?;
+            let template_name = destination
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or("kiti-tulokset");
+            let filename =
+                competition_export_filename(current_workspace(s)?.name(), template_name, "xlsx");
             a.set_export_path(
-                as2026::kiti::destination(&path)?
+                destination
+                    .with_file_name(filename)
                     .display()
                     .to_string()
                     .into(),
@@ -3218,7 +3256,9 @@ fn capture_views(
                 36 => save_view(&app, &directory.join("12-arvonnan-luokat.png")).unwrap(),
                 37 => {
                     let before = app.get_draw_classes().row_data(0).unwrap().selected;
-                    for _ in 0..4 {
+                    let other_choices: Vec<_> = app.get_draw_classes().iter().skip(1).map(|row| row.selected).collect();
+                    // Peruuta → Arvo → haku → kaikki → tyhjennä → vain valitut → kortti.
+                    for _ in 0..6 {
                         smoke::key(&app, slint::platform::Key::Tab);
                     }
                     smoke::key(&app, slint::platform::Key::Space);
@@ -3227,6 +3267,7 @@ fn capture_views(
                         before,
                         "Luokan valintaruutu toimii Tabilla ja välilyönnillä"
                     );
+                    assert_eq!(app.get_draw_classes().iter().skip(1).map(|row| row.selected).collect::<Vec<_>>(), other_choices, "Space vaihtaa vain kohdistetun kortin");
                     smoke::key(&app, slint::platform::Key::Escape);
                     assert!(!app.get_draw_classes_open());
                     println!(
@@ -3410,7 +3451,8 @@ fn capture_views(
                 82 => {
                     smoke::key(&app, "Kokeilu");
                     assert_eq!(app.get_combined_name(), "Kokeilu");
-                    smoke::key(&app, slint::platform::Key::Tab);
+                    // Nimi → haku → Valitse kaikki → Tyhjennä → Vain valitut → ensimmäinen kortti.
+                    for _ in 0..5 { smoke::key(&app, slint::platform::Key::Tab); }
                     let before = app.get_combined_classes().row_data(0).unwrap().selected;
                     smoke::key(&app, slint::platform::Key::Space);
                     assert_ne!(app.get_combined_classes().row_data(0).unwrap().selected, before);
@@ -3875,6 +3917,28 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod export_path_tests {
     use super::*;
+
+    #[test]
+    fn all_export_defaults_use_actual_competition_name() {
+        for extension in ["html", "csv", "xlsx", "pdf"] {
+            assert_eq!(
+                competition_export_filename("Testieksytys", "tulokset", extension),
+                format!("testieksytys-tulokset.{extension}")
+            );
+        }
+        assert_eq!(
+            competition_export_filename("Kesä / kisa", "lahtoluettelo", "html"),
+            "kesä-kisa-lahtoluettelo.html"
+        );
+        assert_eq!(
+            competition_export_filename("Testieksytys", "kiti-pohja-tulokset", "xlsx"),
+            "testieksytys-kiti-pohja-tulokset.xlsx"
+        );
+        assert_eq!(
+            competition_export_filename("...", "tulokset", "pdf"),
+            "kisa-tulokset.pdf"
+        );
+    }
 
     #[test]
     fn export_names_use_competition_folder_and_selected_format() {

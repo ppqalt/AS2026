@@ -2,10 +2,11 @@ import { Theme } from "theme.slint";
 import { FocusBorder } from "fluent/style/components.slint";
 import { UiButton, UiTextField, UiCheckBox, UiScrollView } from "presets.slint";
 import { Note } from "components.slint";
-import { DrawClassOption } from "types.slint";
+import { DrawClassOption, ExportClassOption } from "types.slint";
 
 // Suodatettu näkymä säilyttää aina alkuperäisen mallin indeksit.
 export global ClassSelectionLogic {
+    pure callback export-options([ExportClassOption]) -> [DrawClassOption];
     pure callback indices([DrawClassOption], string, bool) -> [int];
     pure callback count([DrawClassOption]) -> int;
 }
@@ -13,6 +14,9 @@ export global ClassSelectionLogic {
 export component ClassSelection inherits Rectangle {
     in property <[DrawClassOption]> classes;
     in property <bool> writable: true;
+    in property <bool> ordered;
+    in property <[ExportClassOption]> export-classes;
+    callback order-changed(int, string);
     callback toggle(int, bool);
     callback select-all(bool);
     in-out property <string> query;
@@ -67,7 +71,7 @@ export component ClassSelection inherits Rectangle {
                         choice := UiCheckBox {
                             show-focus-border: false;
                             x: Theme.space-3; y: (parent.height - Theme.control-height) / 2;
-                            width: parent.width - 2 * Theme.space-3; height: Theme.control-height;
+                            width: parent.width - 2 * Theme.space-3 - (root.ordered ? 76px : 0px); height: Theme.control-height;
                             text: root.classes[source].label; checked: root.classes[source].selected;
                             enabled: root.writable;
                             toggled => {
@@ -89,12 +93,19 @@ export component ClassSelection inherits Rectangle {
                             border-radius: parent.border-radius;
                         }
                         touch := TouchArea {
-                            width: parent.width; height: parent.height;
+                            width: parent.width - (root.ordered ? 88px : 0px); height: parent.height;
                             enabled: root.writable;
                             clicked => {
                                 if root.selected-only { search.focus(); } else { choice.focus(); }
                                 root.toggle(source, !root.classes[source].selected);
                             }
+                        }
+                        if root.ordered: UiTextField {
+                            x: parent.width - 80px; y: (parent.height - Theme.control-height) / 2;
+                            width: 68px; height: Theme.control-height;
+                            text: root.export-classes[source].order; enabled: root.classes[source].selected;
+                            accessible-label: root.classes[source].label + " · järjestysnumero";
+                            edited => { root.order-changed(source, self.text); }
                         }
                     }
                 }

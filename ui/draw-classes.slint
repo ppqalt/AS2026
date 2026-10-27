@@ -1,12 +1,13 @@
-import { UiButton as Button, UiScrollView as ScrollView } from "presets.slint";
+import { ClassSelection } from "class-selection.slint";
+import { UiButton as Button } from "presets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { DrawClassOption } from "types.slint";
 
 export component DrawClassDialog inherits Rectangle {
     in property <[DrawClassOption]> classes;
     in property <string> summary;
-    private property <int> focus-index: -1;
+
     callback toggle(int, bool);
     callback select-all(bool);
     callback close(bool);
@@ -19,31 +20,9 @@ export component DrawClassDialog inherits Rectangle {
         focus-on-tab-navigation: false;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
-            // Looginen kohde päivittyy heti, vaikka ChoiceRow:n kohdistus odottaa ajastinta.
-            if root.focus-index >= 0 && root.focus-index < root.classes.length {
-                if event.text == Key.Space {
-                    root.toggle(root.focus-index, !root.classes[root.focus-index].selected);
-                    return accept;
-                }
-                if event.text == Key.Tab {
-                    let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
-                    if next < 0 { root.focus-index = -1; clear.focus(); }
-                    else if next >= root.classes.length { root.focus-index = -1; cancel.focus(); }
-                    else { root.focus-index = next; }
-                    return accept;
-                }
-            }
             if event.text == Key.Tab {
-                if save.has-focus && !event.modifiers.shift { all.focus(); return accept; }
-                if all.has-focus && event.modifiers.shift { save.focus(); return accept; }
-                if clear.has-focus && !event.modifiers.shift {
-                    if root.classes.length > 0 { root.focus-index = 0; } else { cancel.focus(); }
-                    return accept;
-                }
-                if cancel.has-focus && event.modifiers.shift {
-                    if root.classes.length > 0 { root.focus-index = root.classes.length - 1; } else { clear.focus(); }
-                    return accept;
-                }
+                if save.has-focus && !event.modifiers.shift { choices.focus-search(); return accept; }
+                if choices.search-focused && event.modifiers.shift { save.focus(); return accept; }
             }
             reject
         }
@@ -51,48 +30,22 @@ export component DrawClassDialog inherits Rectangle {
             available-width: root.width;
             available-height: root.height;
             minimum-dialog-height: 340px; maximum-dialog-height: 1000px;
-            content-dialog-height: form-layout.min-height - body.min-height + entries.min-height;
+            preferred-dialog-width: 760px;
+            content-dialog-height: form-layout.min-height - choices.min-height + 124px + ceil(root.classes.length / 2) * 48px + 24px;
             form-layout := VerticalLayout {
                 padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
                 Heading { text: "Lähtöarvonnan luokat"; }
-                HorizontalLayout {
-                    height: Theme.control-height; vertical-stretch: 0;
-                    spacing: Theme.space-2;
-                    all := Button { text: "Valitse kaikki"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.select-all(true); } }
-                    clear := Button { text: "Tyhjennä valinta"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.select-all(false); } }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                body := ScrollView {
-                    vertical-stretch: 1;
-                    horizontal-scrollbar-policy: always-off;
-                    content-width: self.visible-width;
-                    content-height: entries.min-height;
-                    entries := VerticalLayout {
-                        width: body.visible-width; height: self.min-height;
-                        alignment: start; spacing: Theme.space-2;
-                        for entry[i] in root.classes: ChoiceRow {
-                            text: entry.label; checked: entry.selected; index: i; focus-index: root.focus-index;
-                            toggle(selected) => { root.toggle(i, selected); }
-                            move(index) => {
-                                if index < 0 { root.focus-index = -1; clear.focus(); }
-                                else if index >= root.classes.length { root.focus-index = -1; cancel.focus(); }
-                                else { root.focus-index = index; }
-                            }
-                            focused(index) => {
-                                root.focus-index = index;
-                                let top = index * (Theme.control-height + Theme.space-2);
-                                let bottom = top + Theme.control-height;
-                                if top < -body.content-y { body.content-y = -top; }
-                                else if bottom > -body.content-y + body.visible-height { body.content-y = min(0px, body.visible-height - bottom); }
-                            }
-                        }
-                    }
+                choices := ClassSelection {
+                    min-height: 200px; vertical-stretch: 1;
+                    classes: root.classes;
+                    toggle(index, selected) => { root.toggle(index, selected); }
+                    select-all(selected) => { root.select-all(selected); }
                 }
                 if root.summary != "": Note { text: root.summary; }
                 DialogActions {
-                    cancel := Button { text: "Peruuta"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(false); } }
-                    save := AccentButton { text: "Arvo lähtöajat"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(true); } }
+                    cancel := Button { text: "Peruuta";  clicked => { root.close(false); } }
+                    save := AccentButton { text: "Arvo lähtöajat";  clicked => { root.close(true); } }
                 }
             }
         }

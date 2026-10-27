@@ -21,6 +21,19 @@ fn indices(classes: ModelRc<DrawClassOption>, query: &str, selected_only: bool) 
 }
 
 pub(super) fn register(logic: ClassSelectionLogic<'_>) {
+    logic.on_export_options(|classes| {
+        classes.model_tracker().track_row_count_changes();
+        ModelRc::new(VecModel::from(
+            (0..classes.row_count())
+                .filter_map(|i| classes.row_data_tracked(i))
+                .map(|row| DrawClassOption {
+                    code: row.code,
+                    label: row.label,
+                    selected: row.selected,
+                })
+                .collect::<Vec<_>>(),
+        ))
+    });
     logic.on_indices(|classes, query, selected_only| {
         ModelRc::new(VecModel::from(indices(classes, &query, selected_only)))
     });

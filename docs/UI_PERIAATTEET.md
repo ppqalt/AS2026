@@ -95,7 +95,7 @@ Tulostuksen luokkavalinnassa käytetään samoja joukkovalintoja kuin lähtöarv
 Pitkän luokkalistan kaikki rivit ovat saavutettavissa näppäimistöllä myös
 vieritysalueen ulkopuolelta; kohdistus vierittää rivin näkyviin.
 
-Arvonnan luokkalista käyttää ChoiceRow-riviä. Tulostuksen ja live-julkaisun
+Lähtöarvonnan, yhdistettyjen luokkien, tulosviennin, tulostuksen ja live-julkaisun
 luokkavalinta käyttää yhteistä ClassSelection-komponenttia: kaksi koko alaltaan
 klikattavaa korttia rivillä, haku, valittujen määrä ja Vain valitut -rajaus.
 Suodatus säilyttää alkuperäisen valintamallin indeksit eikä muuta piilossa olevia valintoja.
@@ -154,3 +154,5 @@ Ainoastaan upstreamin `color-scheme.slint` lukee Slintin sisäistä järjestelm�
 Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).
 
 Kohdistuskehys näkyy vain Tabilla aloitetussa näppäimistönavigoinnissa. Hiiren painallus tai kosketus piilottaa kehyksen, mutta ei poista todellista kohdistusta tai estä näppäimistökäyttöä. Kehys vastaa koko klikattavaa aluetta: luokkakortissa koko korttia, kytkimessä myös tekstiä. Tekstikenttien aktiivisen muokkauksen palaute säilyy.
+
+PDF-viennin luokkakorteissa järjestysnumero on erillinen muokkauskenttä; suodatus ei muuta valintaa tai järjestystä. KITI-kohdistukset ja BC:n osallistujavalinta säilyvät omiin tehtäviinsä sopivina kontrolleina.

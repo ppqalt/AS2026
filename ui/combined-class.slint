@@ -1,6 +1,7 @@
-import { UiButton as Button, UiComboBox as ComboBox, UiTextField as LineEdit, UiScrollView as ScrollView } from "presets.slint";
+import { ClassSelection } from "class-selection.slint";
+import { UiButton as Button, UiComboBox as ComboBox, UiTextField as LineEdit } from "presets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { DrawClassOption } from "types.slint";
 
 export component CombinedClassDialog inherits Rectangle {
@@ -10,8 +11,9 @@ export component CombinedClassDialog inherits Rectangle {
     in-out property <int> np;
     in-out property <int> sp;
     in property <string> error;
-    private property <int> focus-index: -1;
+
     callback toggle(int, bool);
+    callback select-all(bool);
     callback close(bool);
     background: Theme.modal-backdrop;
     TouchArea { }
@@ -23,31 +25,9 @@ export component CombinedClassDialog inherits Rectangle {
         focus-on-tab-navigation: false;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
-            // Looginen kohde päivittyy heti, vaikka ChoiceRow:n kohdistus odottaa ajastinta.
-            if root.focus-index >= 0 && root.focus-index < root.classes.length {
-                if event.text == Key.Space {
-                    root.toggle(root.focus-index, !root.classes[root.focus-index].selected);
-                    return accept;
-                }
-                if event.text == Key.Tab {
-                    let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
-                    if next < 0 { root.focus-index = -1; name-input.focus(); }
-                    else if next >= root.classes.length { root.focus-index = -1; np-choice.focus(); }
-                    else { root.focus-index = next; }
-                    return accept;
-                }
-            }
             if event.text == Key.Tab {
                 if save.has-focus && !event.modifiers.shift { name-input.focus(); return accept; }
                 if name-input.has-focus && event.modifiers.shift { save.focus(); return accept; }
-                if name-input.has-focus && !event.modifiers.shift {
-                    if root.classes.length > 0 { root.focus-index = 0; } else { np-choice.focus(); }
-                    return accept;
-                }
-                if np-choice.has-focus && event.modifiers.shift {
-                    if root.classes.length > 0 { root.focus-index = root.classes.length - 1; } else { name-input.focus(); }
-                    return accept;
-                }
             }
             reject
         }
@@ -55,7 +35,8 @@ export component CombinedClassDialog inherits Rectangle {
             available-width: root.width;
             available-height: root.height;
             minimum-dialog-height: 460px; maximum-dialog-height: 1100px;
-            content-dialog-height: form-layout.min-height - body.min-height + entries.min-height;
+            preferred-dialog-width: 760px;
+            content-dialog-height: form-layout.min-height - choices.min-height + 124px + ceil(root.classes.length / 2) * 48px + 24px;
             form-layout := VerticalLayout {
                 padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
@@ -63,35 +44,14 @@ export component CombinedClassDialog inherits Rectangle {
                 Note { text: "Luokan nimi"; }
                 name-input := LineEdit {
                     text <=> root.name; placeholder-text: "Esimerkiksi A + B";
-                    changed has-focus => { if self.has-focus { root.focus-index = -1; } }
+
                 }
                 Note { text: "Valitse luokat yhteiseen tulosluetteloon. Kilpailijat säilyvät omissa luokissaan."; }
-                body := ScrollView {
-                    min-height: 0px;
-                    vertical-stretch: 1;
-                    horizontal-scrollbar-policy: always-off;
-                    content-width: self.visible-width;
-                    content-height: entries.min-height;
-                    entries := VerticalLayout {
-                        width: body.visible-width; height: self.min-height;
-                        alignment: start; spacing: Theme.space-2;
-                        for entry[i] in root.classes: ChoiceRow {
-                            text: entry.label; checked: entry.selected; index: i; focus-index: root.focus-index;
-                            toggle(selected) => { root.toggle(i, selected); }
-                            move(index) => {
-                                if index < 0 { root.focus-index = -1; name-input.focus(); }
-                                else if index >= root.classes.length { root.focus-index = -1; np-choice.focus(); }
-                                else { root.focus-index = index; }
-                            }
-                            focused(index) => {
-                                root.focus-index = index;
-                                let top = index * (Theme.control-height + Theme.space-2);
-                                let bottom = top + Theme.control-height;
-                                if top < -body.content-y { body.content-y = -top; }
-                                else if bottom > -body.content-y + body.visible-height { body.content-y = min(0px, body.visible-height - bottom); }
-                            }
-                        }
-                    }
+                choices := ClassSelection {
+                    min-height: 200px; vertical-stretch: 1;
+                    classes: root.classes;
+                    toggle(index, selected) => { root.toggle(index, selected); }
+                    select-all(selected) => { root.select-all(selected); }
                 }
                 HorizontalLayout {
                     spacing: Theme.space-3;
@@ -100,7 +60,7 @@ export component CombinedClassDialog inherits Rectangle {
                         Note { text: "Nousupisteet (Np)"; }
                         np-choice := ComboBox {
                             model: ["Ei", "Kyllä"]; current-index <=> root.np;
-                            changed has-focus => { if self.has-focus { root.focus-index = -1; } }
+
                         }
                     }
                     VerticalLayout {
@@ -109,15 +69,15 @@ export component CombinedClassDialog inherits Rectangle {
                         ComboBox {
                             model: ["Ei", "100 pisteen taulukko", "60 pisteen taulukko", "16 pisteen taulukko", "Oma pistetaulukko", "100 pisteen perintä", "60 pisteen perintä"];
                             current-index <=> root.sp;
-                            changed has-focus => { if self.has-focus { root.focus-index = -1; } }
+
                         }
                     }
                 }
                 if root.sp == 4: Note { text: "Oma pistetaulukko määritetään kilpailun asetuksissa."; }
                 if root.error != "": Note { text: root.error; color: Theme.danger; }
                 DialogActions {
-                    Button { text: "Peruuta"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(false); } }
-                    save := AccentButton { text: root.creating ? "Lisää luokka" : "Tallenna"; changed has-focus => { if self.has-focus { root.focus-index = -1; } } clicked => { root.close(true); } }
+                    Button { text: "Peruuta";  clicked => { root.close(false); } }
+                    save := AccentButton { text: root.creating ? "Lisää luokka" : "Tallenna";  clicked => { root.close(true); } }
                 }
             }
         }

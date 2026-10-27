@@ -15,6 +15,7 @@ import { ResultEntryDialog } from "result-entry.slint";
 import { EmitCorrectionDialog } from "emit-correction.slint";
 import { PrintClassesDialog } from "print-classes.slint";
 import { ResultEntryInput } from "types.slint";
+import { ClassSelection, ClassSelectionLogic } from "class-selection.slint";
 export { ClassSelectionLogic } from "class-selection.slint";
 export { ResultEntryInput }
 export { TableRow, EditorField, ResultOverview, DrawClassOption, ExportClassOption, BcStationOption }
@@ -312,6 +313,7 @@ export component AppWindow inherits Window {
     in-out property <[EditorField]> kiti-class-fields;
     in-out property <bool> kiti-advanced: false;
     callback kiti-class-selected(int, int);
+    callback export-select-all(bool);
     callback export-class-toggled(int, bool);
     callback export-pdf();
     callback export-kiti();
@@ -373,6 +375,7 @@ export component AppWindow inherits Window {
     in-out property <string> combined-error;
     callback add-combined-class();
     callback combined-class-toggled(int, bool);
+    callback combined-select-all(bool);
     callback combined-close(bool);
     in-out property <bool> bc-open;
     in-out property <bool> bc-configured;
@@ -1279,10 +1282,6 @@ export component AppWindow inherits Window {
             init => { export-save.focus(); }
             capture-key-pressed(event) => {
                 if event.text == Key.Escape { root.export-open = false; return accept; }
-                if event.text == Key.Tab {
-                    if export-save.has-focus && !event.modifiers.shift { export-path-field.focus(); return accept; }
-                    if export-path-field.has-focus && event.modifiers.shift { export-save.focus(); return accept; }
-                }
                 reject
             }
             DialogSurface {
@@ -1293,14 +1292,13 @@ export component AppWindow inherits Window {
                     Heading { text: "Vie tulokset · " + root.export-label; }
                     if root.export-kind != 4: CheckBox { text: "Asemakohtaiset tulokset"; checked <=> root.export-stations; }
                     if root.export-kind == 3: Note { text: "Järjestysnumero määrää luokan paikan PDF:ssä. Anna valituille luokille eri positiiviset numerot."; }
-                    if root.export-kind != 4: ScrollView {
-                        height: 240px;
-                        VerticalLayout {
-                            for item[i] in root.export-classes: HorizontalLayout {
-                                CheckBox { horizontal-stretch: 1; text: item.label; checked: item.selected; toggled => { root.export-class-toggled(i, self.checked); } }
-                                if root.export-kind == 3: LineEdit { preferred-width: 80px; text: item.order; enabled: item.selected; accessible-label: item.label + " · järjestysnumero"; edited => { root.export-class-order(i, self.text); } }
-                            }
-                        }
+                    if root.export-kind != 4: export-choices := ClassSelection {
+                        vertical-stretch: 1; min-height: 200px;
+                        classes: ClassSelectionLogic.export-options(root.export-classes);
+                        ordered: root.export-kind == 3; export-classes: root.export-classes;
+                        toggle(index, selected) => { root.export-class-toggled(index, selected); }
+                        select-all(selected) => { root.export-select-all(selected); }
+                        order-changed(index, value) => { root.export-class-order(index, value); }
                     }
                     if root.export-kind == 4: VerticalLayout {
                         Note { text: "Valitse pohjan luokille perusluokka ja tarvittaessa yhdistetty luokka. Sij. = yhdistetty luokka, Lkasij. = perusluokka. Ilman yhdistettyä luokkaa molemmat sijat tulevat perusluokasta."; }
@@ -1744,6 +1742,7 @@ export component AppWindow inherits Window {
         sp <=> root.combined-sp;
         error: root.combined-error;
         toggle(index, selected) => { root.combined-class-toggled(index, selected); }
+        select-all(selected) => { root.combined-select-all(selected); }
         close(accepted) => { root.combined-close(accepted); }
     }
     if root.bc-open: BeginnersCupDialog {
