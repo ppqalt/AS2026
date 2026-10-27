@@ -4,7 +4,7 @@ Tämä opas kuvaa AS2026 0.7.3:n käyttöliittymää. Kilpailusäännöt, ajanot
 
 ## Ulkoasun yhteiset arvot
 
-Tietoja-ikkunan **Ulkoasu**-valinnalla voit käyttää järjestelmän mukaista, vaaleaa, tummaa tai vihreää **Tumma kuusi**-, puunsävyistä **Hiillos**- tai lohenpunaisella korostettua **Shanghai**-ulkoasua. Valinta tallentuu tämän tietokoneen sovellusasetuksiin. Se ei muuta kilpailua tai muiden LAN-koneiden ulkoasua. Järjestelmän mukainen tila seuraa käyttöjärjestelmän Slintille ilmoittamaa vaaleaa/tummaa tilaa; tuntematon tila käyttää vaaleaa.
+Tietoja-ikkunan **Ulkoasu** tarjoaa järjestelmän mukaisen, vaalean ja tumman perusulkoasun sekä 17 hillittyä tummaa väriteemaa. Kaikki vaihtoehdot ja sävyt ovat [teemaluettelossa](TEEMAT.md). Valinta tallentuu tämän tietokoneen sovellusasetuksiin. Se ei muuta kilpailua tai muiden LAN-koneiden ulkoasua. Järjestelmän mukainen tila seuraa käyttöjärjestelmän Slintille ilmoittamaa vaaleaa/tummaa tilaa; tuntematon tila käyttää vaaleaa.
 
 **Ota animaatiot ja tehosteet käyttöön** on erillinen valinta samassa ikkunassa. Oletus on pois. Perustoiminnot, valinta ja näppäimistöfokus toimivat myös ilman tehosteita. Windowsin Mica/Acrylic-taustamateriaaleja ei ole toteutettu.
 
@@ -256,3 +256,5 @@ Sovellus tarkistaa saatavilla olevan vakaan version automaattisesti taustalla ta
 ## Radan ja aseman tiedot
 
 Radat ja asemat -sivulla asemat näkyvät ylhäällä ja radat-lista alhaalla. Valitse rata alalistasta. Aseman rivi avaa aseman muokkauksen keskitettyyn ikkunaan; Valmis tai Esc sulkee sen validoinnin salliessa. Uusi asema avataan + Asema -painikkeesta. Radan tiedot -painike avaa valitun radan nimen omaan ikkunaan.
+
+Nykyinen ulkoasuvalikoima: [20 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).

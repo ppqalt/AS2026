@@ -320,3 +320,37 @@ fn corrupt_settings_are_reported_without_replacing_the_file() {
         "kilpailukansio = [\n"
     );
 }
+
+#[test]
+fn new_dark_themes_persist_without_changing_other_preferences() {
+    use as2026::preferences::Appearance;
+    let directory = Directory::new();
+    directory.open().save_printer("Testitulostin").unwrap();
+    for (appearance, name) in [
+        (Appearance::Yomeri, "yomeri"),
+        (Appearance::Kanerva, "kanerva"),
+        (Appearance::Savu, "savu"),
+        (Appearance::Muste, "muste"),
+        (Appearance::Petrooli, "petrooli"),
+        (Appearance::Salvia, "salvia"),
+        (Appearance::Oliivi, "oliivi"),
+        (Appearance::Hiekka, "hiekka"),
+        (Appearance::Kupari, "kupari"),
+        (Appearance::Ruusu, "ruusu"),
+        (Appearance::Kirsikka, "kirsikka"),
+        (Appearance::Luumu, "luumu"),
+        (Appearance::Revontuli, "revontuli"),
+        (Appearance::Jaatikko, "jaatikko"),
+    ] {
+        let mut store = directory.open();
+        store.save_appearance(appearance).unwrap();
+        drop(store);
+        let reopened = directory.open();
+        assert_eq!(reopened.get().appearance, appearance);
+        assert_eq!(reopened.get().tulostin, "Testitulostin");
+        assert!(!reopened.get().effects_enabled);
+        let saved: toml::Value =
+            toml::from_str(&fs::read_to_string(directory.settings()).unwrap()).unwrap();
+        assert_eq!(saved["appearance"].as_str(), Some(name));
+    }
+}

@@ -84,7 +84,7 @@ pub(super) fn run(
                         assert_eq!(app.get_internal_scroll_offset(), 0., "Laajentuminen ei saa vierittää itsestään");
                         app.set_internal_scroll_offset(-40.); app.set_scroll_rows(20);
                     }
-                    12..=35 => {
+                    12..=91 => {
                         if current == 12 { assert_eq!(app.get_internal_scroll_offset(), -40., "Laajentuminen säilyttää myös nollasta poikkeavan vierityskohdan"); }
                         let index = (current - 12) / 2;
                         if current % 2 == 0 {
@@ -94,7 +94,16 @@ pub(super) fn run(
                             capture(&app, &directory.join(format!("teema-{}-tehosteet-{}.png", index / 2, index % 2)))?;
                         }
                     }
-                    36 => {
+                    92 => { app.invoke_focus_appearance(); key(&app, Key::Return); }
+                    93 => {
+                        assert_eq!(app.get_appearance_index(), 19);
+                        key(&app, Key::UpArrow); assert_eq!(app.get_appearance_index(), 18);
+                        key(&app, Key::DownArrow); key(&app, Key::DownArrow);
+                        assert_eq!(app.get_appearance_index(), 19, "Pitkän teemavalikon viimeinen rivi toimii ja valinta pysyy rajoissa");
+                        capture(&app, &directory.join("teemavalikon-loppu.png"))?;
+                    }
+                    94 => { key(&app, Key::Escape); }
+                    95 => {
                         app.invoke_show_slider();
                         let p = app.get_slider_position();
                         let x = p.x + app.get_slider_width() * 0.35;
@@ -104,13 +113,13 @@ pub(super) fn run(
                         assert_eq!(app.get_slider_value() % 5., 0.);
                         app.invoke_show_additional(); app.invoke_focus_switch();
                     }
-                    37 => { key(&app, " "); assert!(app.get_sample_switch()); app.invoke_focus_number(); }
-                    38 => { key(&app, Key::UpArrow); assert_eq!(app.get_sample_number(), 10); }
-                    39 => { key(&app, Key::DownArrow); assert_eq!(app.get_sample_number(), 5); capture(&app, &directory.join("lisakomponentit.png"))?; app.invoke_focus_menu(); key(&app, Key::Return); }
-                    40 => { assert!(app.get_popup_open(), "Valikkopainikkeen Enter avaa popupin"); capture(&app, &directory.join("valikko.png"))?; key(&app, Key::Escape); }
-                    41 => { assert!(!app.get_popup_open(), "Esc sulkee popupin ja päivittää laajentumistilan"); let scale = app.window().scale_factor(); app.window().set_size(slint::PhysicalSize::new((900. * scale) as u32, (600. * scale) as u32)); }
-                    42 => { app.invoke_reset_scroll(); }
-                    43 => {
+                    96 => { key(&app, " "); assert!(app.get_sample_switch()); app.invoke_focus_number(); }
+                    97 => { key(&app, Key::UpArrow); assert_eq!(app.get_sample_number(), 10); }
+                    98 => { key(&app, Key::DownArrow); assert_eq!(app.get_sample_number(), 5); capture(&app, &directory.join("lisakomponentit.png"))?; app.invoke_focus_menu(); key(&app, Key::Return); }
+                    99 => { assert!(app.get_popup_open(), "Valikkopainikkeen Enter avaa popupin"); capture(&app, &directory.join("valikko.png"))?; key(&app, Key::Escape); }
+                    100 => { assert!(!app.get_popup_open(), "Esc sulkee popupin ja päivittää laajentumistilan"); let scale = app.window().scale_factor(); app.window().set_size(slint::PhysicalSize::new((900. * scale) as u32, (600. * scale) as u32)); }
+                    101 => { app.invoke_reset_scroll(); }
+                    102 => {
                         let size = app.window().size();
                         let scale = app.window().scale_factor();
                         assert!((size.width as f32 / scale - 900.).abs() <= 2. && (size.height as f32 / scale - 600.).abs() <= 2., "Gallerian todellinen koko: {size:?}, skaala {scale}");
@@ -119,7 +128,7 @@ pub(super) fn run(
                     _ => {
                         app.set_effects_enabled(false);
                         capture(&app, &directory.join("fluent-gallery.png"))?;
-                        println!("Gallerian GUI-koe hyväksytty: liukusäätimen näppäimet ja hiiren liike, valintaruutu, tekstisyöttö, kuusi ulkoasua ja tehosteportti.");
+                        println!("Gallerian GUI-koe hyväksytty: liukusäätimen näppäimet ja hiiren liike, valintaruutu, tekstisyöttö, kaksikymmentä ulkoasua ja tehosteportti.");
                         if let Some(timer) = weak_timer.upgrade() { timer.stop(); }
                         slint::quit_event_loop()?;
                     }

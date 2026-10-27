@@ -28,6 +28,7 @@ export component FluentGallery inherits Rectangle {
     out property<string> sample-radio: sample-radio-control.current-value;
     out property<bool> popup-open: gallery-popup.is-open;
     public function focus-menu() { sample-menu.focus(); }
+    public function focus-appearance() { appearance-choice.focus(); }
     public function focus-switch() { sample-switch-control.focus(); }
     public function focus-number() { sample-spin.focus(); }
     public function show-additional() { gallery-scroll.content-y = min(0px, gallery-scroll.content-y + 170px - extra-controls.absolute-position.y); }
@@ -52,8 +53,8 @@ export component FluentGallery inherits Rectangle {
             }
             UiButton { text: "Sulje galleria"; preset-variant: "standard"; clicked => { root.close(); } }
         }
-        UiComboBox {
-            model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Tumma kuusi", "Hiillos", "Shanghai"];
+        appearance-choice := UiComboBox {
+            model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Tumma kuusi", "Hiillos", "Shanghai", "Yömeri", "Kanerva", "Savu", "Muste", "Petrooli", "Salvia", "Oliivi", "Hiekka", "Kupari", "Ruusu", "Kirsikka", "Luumu", "Revontuli", "Jäätikkö"];
             current-index <=> root.appearance-index;
             accessible-label: "Gallerian ulkoasu";
         }
@@ -287,6 +288,7 @@ export component GalleryWindow inherits Window {
     out property<length> internal-scroll-minimum: gallery.internal-scroll-minimum;
     out property<bool> popup-open: gallery.popup-open;
     public function focus-menu() { gallery.focus-menu(); }
+    public function focus-appearance() { gallery.focus-appearance(); }
     out property<bool> sample-switch <=> gallery.sample-switch;
     out property<int> sample-number <=> gallery.sample-number;
     out property<string> sample-radio: gallery.sample-radio;

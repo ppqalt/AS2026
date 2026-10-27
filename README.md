@@ -87,6 +87,6 @@ Slint-maininta säilyy ohjelman Tietoja-ikkunassa.
 
 ## Ulkoasu ja päivitykset
 
-Tietoja → Ulkoasu tarjoaa järjestelmän mukaisen, vaalean, tumman, Tumma kuusi-, Hiillos- ja Shanghai-teeman. Teema koskee vain omaa tietokonetta. Lyhyet häivytykset ja värisiirtymät voi kytkeä erikseen päälle; oletuksena ne ovat pois. Tietoja → Lisenssit sisältää oman lisenssin linkin ja Slint-maininnan.
+Tietoja → Ulkoasu tarjoaa 20 ulkoasuvaihtoehtoa: järjestelmätilan, vaalean ja tumman perusulkoasun sekä 17 hillittyä tummaa väriteemaa. [Teemaluettelo](docs/TEEMAT.md). Teema koskee vain omaa tietokonetta. Lyhyet häivytykset ja värisiirtymät voi kytkeä erikseen päälle; oletuksena ne ovat pois. Tietoja → Lisenssit sisältää oman lisenssin linkin ja Slint-maininnan.
 
 Ohjelma tarkistaa päivitykset automaattisesti taustalla käynnistyessään. Asennus käynnistetään erikseen sivupalkista. Kilpailun käyttö ei tarvitse internetyhteyttä.

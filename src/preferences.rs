@@ -26,6 +26,20 @@ pub enum Appearance {
     Spruce,
     Hiillos,
     Shanghai,
+    Yomeri,
+    Kanerva,
+    Savu,
+    Muste,
+    Petrooli,
+    Salvia,
+    Oliivi,
+    Hiekka,
+    Kupari,
+    Ruusu,
+    Kirsikka,
+    Luumu,
+    Revontuli,
+    Jaatikko,
 }
 
 impl Appearance {
@@ -37,6 +51,20 @@ impl Appearance {
             Self::Spruce => 3,
             Self::Hiillos => 4,
             Self::Shanghai => 5,
+            Self::Yomeri => 6,
+            Self::Kanerva => 7,
+            Self::Savu => 8,
+            Self::Muste => 9,
+            Self::Petrooli => 10,
+            Self::Salvia => 11,
+            Self::Oliivi => 12,
+            Self::Hiekka => 13,
+            Self::Kupari => 14,
+            Self::Ruusu => 15,
+            Self::Kirsikka => 16,
+            Self::Luumu => 17,
+            Self::Revontuli => 18,
+            Self::Jaatikko => 19,
         }
     }
 
@@ -48,6 +76,20 @@ impl Appearance {
             3 => Some(Self::Spruce),
             4 => Some(Self::Hiillos),
             5 => Some(Self::Shanghai),
+            6 => Some(Self::Yomeri),
+            7 => Some(Self::Kanerva),
+            8 => Some(Self::Savu),
+            9 => Some(Self::Muste),
+            10 => Some(Self::Petrooli),
+            11 => Some(Self::Salvia),
+            12 => Some(Self::Oliivi),
+            13 => Some(Self::Hiekka),
+            14 => Some(Self::Kupari),
+            15 => Some(Self::Ruusu),
+            16 => Some(Self::Kirsikka),
+            17 => Some(Self::Luumu),
+            18 => Some(Self::Revontuli),
+            19 => Some(Self::Jaatikko),
             _ => None,
         }
     }
@@ -562,14 +604,32 @@ mod tests {
     fn appearance_preserves_old_preferences_and_round_trips() {
         let old: Preferences = toml::from_str("effects_enabled = false").unwrap();
         assert_eq!(old.appearance, Appearance::System);
-        for appearance in [
+        for (index, appearance) in [
             Appearance::System,
             Appearance::Light,
             Appearance::Dark,
             Appearance::Spruce,
             Appearance::Hiillos,
             Appearance::Shanghai,
-        ] {
+            Appearance::Yomeri,
+            Appearance::Kanerva,
+            Appearance::Savu,
+            Appearance::Muste,
+            Appearance::Petrooli,
+            Appearance::Salvia,
+            Appearance::Oliivi,
+            Appearance::Hiekka,
+            Appearance::Kupari,
+            Appearance::Ruusu,
+            Appearance::Kirsikka,
+            Appearance::Luumu,
+            Appearance::Revontuli,
+            Appearance::Jaatikko,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert_eq!(appearance.index(), index as i32);
             assert_eq!(Appearance::from_index(appearance.index()), Some(appearance));
             let preferences = Preferences {
                 appearance,
@@ -580,7 +640,7 @@ mod tests {
             assert_eq!(reopened.appearance, appearance);
         }
         assert_eq!(Appearance::from_index(-1), None);
-        assert_eq!(Appearance::from_index(6), None);
+        assert_eq!(Appearance::from_index(20), None);
     }
 
     #[test]
