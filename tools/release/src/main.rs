@@ -69,10 +69,16 @@ fn pretty_json(value: &Value) -> Result<Vec<u8>> {
 }
 fn root() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("../..") }
 fn canonical_version(value: &str) -> Result<&str> {
-    let parts: Vec<_> = value.split('.').collect();
+    let (base, revision) = value.split_once('-').map_or((value, None), |(base, revision)| (base, Some(revision)));
+    if let Some(revision) = revision {
+        if revision.is_empty() || revision.starts_with('0') || !revision.bytes().all(|byte| byte.is_ascii_digit()) || revision.parse::<u64>().is_err() {
+            return Err(fail("Korjausversion pitää olla positiivinen numero ilman etunollia."));
+        }
+    }
+    let parts: Vec<_> = base.split('.').collect();
     if parts.len() != 3 || parts.iter().any(|p| p.is_empty() ||
         (p.len() > 1 && p.starts_with('0')) || !p.bytes().all(|c| c.is_ascii_digit())) {
-        return Err(fail("Julkaisuversion pitää olla vakaa numeroitu versio, esimerkiksi 0.5.0."));
+        return Err(fail("Julkaisuversion pitää olla vakaa numeroitu versio, esimerkiksi 0.5.0 tai 0.5.0-1."));
     }
     Ok(value)
 }
@@ -552,6 +558,8 @@ mod tests {
             assert!(canonical_version(version).is_err(), "{version}");
         }
         assert!(canonical_version("0.5.4").is_ok());
+        assert!(canonical_version("0.7.5-1").is_ok());
+        for version in ["0.7.5-0", "0.7.5-01", "0.7.5-1.2", "0.7.5--1", "0.7.5-+1", "0.7.5-1+meta"] { assert!(canonical_version(version).is_err()); }
         for name in ["", ".", "..", "../evil", "a/../b", "/root", "a//b", "a\\b", "C:/x", "file.", "a\nb"] {
             assert!(safe_relative(name).is_err(), "{name:?}");
         }

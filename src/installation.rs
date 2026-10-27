@@ -527,10 +527,10 @@ fn recover_interrupted(root: &Path, current: Current) -> Result<Current, String>
 }
 
 fn require_upgrade(verified: &VerifiedBundle, current: Option<&Current>) -> Result<(), String> {
-    let candidate = semver::Version::parse(&verified.version)
+    let candidate = crate::updates::stable_version(&verified.version)
         .map_err(|_| "Päivityspaketin versionumero on virheellinen".to_owned())?;
     if let Some(current) = current {
-        let active = semver::Version::parse(&current.active)
+        let active = crate::updates::stable_version(&current.active)
             .map_err(|_| "Asennetun ohjelman versionumero on virheellinen".to_owned())?;
         if candidate < active {
             return Err("Vanhempaa ohjelmaversiota ei voi asentaa päivityksenä. Aiemman version palautus tehdään erillisellä palautustoiminnolla".into());
@@ -1067,6 +1067,22 @@ mod tests {
         let current = read_current(&folder.0).unwrap().unwrap();
         assert_eq!(current.active, "0.5.0");
         assert!(current.pending.is_none());
+    }
+
+    #[test]
+    fn numbered_revision_upgrade_preserves_downgrade_protection() {
+        let mut current = Current {
+            format: 1,
+            active: "0.7.5".into(),
+            previous: None,
+            rollback_previous: None,
+            pending: None,
+        };
+        assert!(require_upgrade(&bundle("0.7.5-1"), Some(&current)).is_ok());
+        current.active = "0.7.5-1".into();
+        assert!(require_upgrade(&bundle("0.7.5"), Some(&current)).is_err());
+        assert!(require_upgrade(&bundle("0.7.5-2"), Some(&current)).is_ok());
+        assert!(require_upgrade(&bundle("0.7.6"), Some(&current)).is_ok());
     }
 
     #[test]

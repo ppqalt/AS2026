@@ -77,12 +77,26 @@ fn asset_name(version: &str, target: &str) -> String {
         format!("AS2026-{version}-linux-x86_64.tar.gz")
     }
 }
-fn stable_version(value: &str) -> Result<Version, String> {
-    let version = Version::parse(value).map_err(|_| "Julkaisun versionumero on virheellinen")?;
-    if !version.pre.is_empty() || !version.build.is_empty() {
+// Numeroitu korjausversio on tämän sovelluksen julkaisukäytännössä kantaversiota uudempi.
+pub(crate) fn stable_version(value: &str) -> Result<(Version, u64), String> {
+    let mut version =
+        Version::parse(value).map_err(|_| "Julkaisun versionumero on virheellinen")?;
+    if !version.build.is_empty() {
         return Err("Päivityksen pitää olla vakaa julkaisu".into());
     }
-    Ok(version)
+    let revision = if version.pre.is_empty() {
+        0
+    } else {
+        let suffix = version.pre.as_str();
+        if suffix.starts_with('0') || !suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err("Päivityksen pitää olla vakaa julkaisu tai numeroitu korjausversio".into());
+        }
+        suffix
+            .parse::<u64>()
+            .map_err(|_| "Korjausversion numero on virheellinen")?
+    };
+    version.pre = semver::Prerelease::EMPTY;
+    Ok((version, revision))
 }
 fn public_key() -> Result<VerifyingKey, String> {
     let key: [u8; 32] = hex_bytes(include_str!("../release-public-key.hex").trim())?
@@ -798,6 +812,22 @@ mod tests {
         let sig = key.sign(&raw).to_bytes().to_vec();
         (key, raw, sig, files)
     }
+    #[test]
+    fn numbered_revisions_sort_after_base_and_before_next_patch() {
+        assert!(stable_version("0.7.5").unwrap() < stable_version("0.7.5-1").unwrap());
+        assert!(stable_version("0.7.5-2").unwrap() < stable_version("0.7.5-10").unwrap());
+        assert!(stable_version("0.7.5-10").unwrap() < stable_version("0.7.6").unwrap());
+        for version in [
+            "0.7.5-rc1",
+            "0.7.5-0",
+            "0.7.5-01",
+            "0.7.5-1.2",
+            "0.7.5-1+meta",
+        ] {
+            assert!(stable_version(version).is_err());
+        }
+    }
+
     #[test]
     fn offline_and_no_new_version_are_distinct() {
         let key = SigningKey::from_bytes(&[7; 32]).verifying_key();
