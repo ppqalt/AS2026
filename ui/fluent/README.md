@@ -83,3 +83,5 @@ Valikkojen ja yhdistelmäruutujen ulkokehys käyttää `Theme.radius-large`-toke
 Painikkeen ja ComboBoxin taustavärin siirtymä käyttää yhteistä 120 ms:n tehosteporttia sekä ease-out-käyrää. Tehosteiden ollessa pois tila vaihtuu heti; fokus- ja näppäimistölogiikka säilyy Slintin komponentissa.
 
 Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](../../docs/TEEMAT.md).
+
+Yhteinen FocusBorder noudattaa Theme.keyboard-focus-visible-tilaa. Rustin src/gui/input_mode.rs seuraa Winitin Tab-, hiiri-, kosketus- ja kohdistustapahtumia kuluttamatta niitä. Slintin versioon 1.18.1 sidottu unstable-winit-030-ominaisuus avaa jo käytössä olevan Winit-taustan tapahtumarajapinnan; se ei lisää uutta ikkunointitaustaa. Slint-päivityksessä rajapinta ja hiiri/Tab-kokeet on tarkistettava. Luokkakortti omistaa koko hiirialueensa kehyksen, sisäinen CheckBox ei piirrä toista kehystä.

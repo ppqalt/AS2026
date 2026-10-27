@@ -9,8 +9,9 @@ Versio yhdistää 0.7.4:n korjaukset aiemmin valmisteltuihin käyttöliittymä- 
 
 - **Luokkavalinta:** tulostuksessa ja live-julkaisussa kaksi koko alaltaan klikattavaa korttia rivillä, haku, valittujen määrä ja joukkovalinnat. PDF-viennin järjestysnumerot säilyvät 0.7.4:n mukaisina.
 - **Tulosten numerohaku:** pieni Nro-kenttä hakee vain täsmällistä kilpailunumeroa muun haun ja luokkarajauksen rinnalla.
+- **Kohdistuskehys:** näkyy vain Tabilla aloitetussa näppäimistönavigoinnissa. Hiiriklikkaus piilottaa sen. Kehys vastaa koko klikattavaa aluetta, myös luokkakorteissa ja kytkimissä.
 - **Valintaikkunat:** korkeus mukautuu sisältöön ja ikkunan kokoon; otsikko ja toiminnot pysyvät näkyvissä.
-- **Live-julkaisun asetukset:** harvemmin tarvittavat asetukset on koottu lisäasetuksiin. Yhteystavan vaihto vaihtaa myös oletusportin, ja tulostiedoston oletusnimi muodostetaan kilpailun nimestä. FTP-vastausten käsittelyä ja julkaisun herätejonoa on vahvistettu.
+- **Live-julkaisun asetukset:** harvemmin tarvittavat asetukset on koottu lisäasetuksiin. Yhteystavan vaihto vaihtaa myös oletusportin, ja tulostiedoston oletusnimi muodostetaan kilpailun oikeasta nimestä pienaakkosilla. FTP-vastausten käsittelyä ja julkaisun herätejonoa on vahvistettu.
 - **Tallennus ja päivitykset:** tuntemattomat sovellusasetukset säilyvät, tilapäistiedostot luodaan suojattuina, päivityspakettien nimet ja tarkistussummat validoidaan tarkasti. Windowsin asennuksen hetkellisiä tiedostolukkoja yritetään uudelleen.
 - **Lähiverkon palautuminen:** taustatöiden virhetilat ja LAN-liittymisen aloitus käsitellään turvallisemmin. Kahden GUI:n palautumiskoe varmistaa Emit-lukujen, korjausten ja hyväksyntöjen säilymisen yhteyskatkossa.
 

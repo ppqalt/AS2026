@@ -3,6 +3,7 @@ use super::*;
 use slint::platform::{PointerEventButton, WindowEvent};
 
 pub(super) fn click(app: &AppWindow, x: f32, y: f32) {
+    app.global::<Theme>().set_keyboard_focus_visible(false);
     let position = slint::LogicalPosition::new(x, y);
     app.window()
         .dispatch_event(WindowEvent::PointerMoved { position });
@@ -185,7 +186,7 @@ pub(super) fn start(
                             smoke::key(&app, slint::platform::Key::UpArrow);
                             assert_eq!(app.get_publish_protocol(), 0);
                             assert_eq!(app.get_publish_fields().iter().find(|f| f.key == 1).unwrap().value, "22");
-                            let expected_name = format!("{}-tulokset.html", shared.borrow().workspace.as_ref().unwrap().name());
+                            let expected_name = format!("{}-tulokset.html", shared.borrow().workspace.as_ref().unwrap().name().to_lowercase());
                             assert_eq!(app.get_publish_fields().iter().find(|f| f.key == 7).unwrap().value.as_str(), expected_name);
                             save_view(&app, &directory.join(format!("{stem}.png"))).unwrap();
                             smoke::key(&app, slint::platform::Key::Escape);

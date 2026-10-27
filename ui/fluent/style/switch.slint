@@ -99,10 +99,6 @@ export component Switch {
                     animate background, width { enabled: Theme.effects-enabled; duration: 150ms; easing: linear; }
                 }
 
-                // focus border
-                if root.has-focus && root.enabled : FocusBorder {
-                    border-radius: rail.border-radius;
-                }
             }
         }
 
@@ -113,6 +109,11 @@ export component Switch {
             horizontal-alignment: left;
             accessible-role: none;
         }
+    }
+
+    if root.has-focus && root.enabled: FocusBorder {
+        width: root.width; height: root.height;
+        border-radius: Theme.radius;
     }
 
     touch-area := TouchArea {

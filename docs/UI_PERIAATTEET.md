@@ -152,3 +152,5 @@ Ainoastaan upstreamin `color-scheme.slint` lukee Slintin sisäistä järjestelm�
 `--fluent-gallery` palaa erilliseen `GalleryWindow`-ajoon ennen AppWindow-, PreferencesStore-, tulostin-, lukija- ja päivityspalvelujen alustusta. Galleria ei käytä demo-kilpailua eikä oikeita käyttäjäasetuksia. Kaappaus- ja testiajastimet ovat vain erikseen pyydettyä QA-ajoa varten; tavallinen galleria ei käynnistä niitä.
 
 Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).
+
+Kohdistuskehys näkyy vain Tabilla aloitetussa näppäimistönavigoinnissa. Hiiren painallus tai kosketus piilottaa kehyksen, mutta ei poista todellista kohdistusta tai estä näppäimistökäyttöä. Kehys vastaa koko klikattavaa aluetta: luokkakortissa koko korttia, kytkimessä myös tekstiä. Tekstikenttien aktiivisen muokkauksen palaute säilyy.

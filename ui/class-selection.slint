@@ -1,4 +1,5 @@
 import { Theme } from "theme.slint";
+import { FocusBorder } from "fluent/style/components.slint";
 import { UiButton, UiTextField, UiCheckBox, UiScrollView } from "presets.slint";
 import { Note } from "components.slint";
 import { DrawClassOption } from "types.slint";
@@ -64,6 +65,7 @@ export component ClassSelection inherits Rectangle {
                         background: root.classes[source].selected ? Theme.accent-soft : touch.has-hover && root.writable ? Theme.surface-hover : Theme.surface;
                         border-radius: Theme.radius; border-width: 1px; border-color: Theme.line;
                         choice := UiCheckBox {
+                            show-focus-border: false;
                             x: Theme.space-3; y: (parent.height - Theme.control-height) / 2;
                             width: parent.width - 2 * Theme.space-3; height: Theme.control-height;
                             text: root.classes[source].label; checked: root.classes[source].selected;
@@ -81,6 +83,10 @@ export component ClassSelection inherits Rectangle {
                                 }
                             }
                             Tooltip { text: @markdown("\{root.classes[source].label}"); }
+                        }
+                        if choice.has-focus && root.writable: FocusBorder {
+                            width: parent.width; height: parent.height;
+                            border-radius: parent.border-radius;
                         }
                         touch := TouchArea {
                             width: parent.width; height: parent.height;

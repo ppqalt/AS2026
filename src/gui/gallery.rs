@@ -13,6 +13,11 @@ use std::{
 
 fn key(app: &GalleryWindow, text: impl Into<slint::SharedString>) {
     let text = text.into();
+    let tab: slint::SharedString = Key::Tab.into();
+    if text == tab {
+        app.global::<super::Theme>()
+            .set_keyboard_focus_visible(true);
+    }
     app.window()
         .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
     app.window()
@@ -20,6 +25,8 @@ fn key(app: &GalleryWindow, text: impl Into<slint::SharedString>) {
 }
 
 fn pointer(app: &GalleryWindow, pressed: bool, x: f32, y: f32) {
+    app.global::<super::Theme>()
+        .set_keyboard_focus_visible(false);
     let position = slint::LogicalPosition::new(x, y);
     let button = slint::platform::PointerEventButton::Left;
     app.window().dispatch_event(if pressed {
@@ -46,6 +53,14 @@ pub(super) fn run(
     smoke: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let gallery = GalleryWindow::new()?;
+    let focus_weak = gallery.as_weak();
+    super::input_mode::bind(gallery.window(), move |visible| {
+        if let Some(gallery) = focus_weak.upgrade() {
+            gallery
+                .global::<super::Theme>()
+                .set_keyboard_focus_visible(visible);
+        }
+    });
     super::class_selection::register(gallery.global::<super::ClassSelectionLogic>());
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
     gallery.show()?;
@@ -135,10 +150,15 @@ pub(super) fn run(
                         let y = p.y + 34.;
                         pointer(&app, true, x, y); pointer(&app, false, x, y);
                         assert_eq!(app.get_preview_count(), 5, "Kortin alakulma vaihtaa valinnan tasan kerran");
+                        assert!(!app.global::<super::Theme>().get_keyboard_focus_visible());
+                        capture(&app, &directory.join("luokkavalitsin-hiiri.png"))?;
                     }
                     65 => {
                         key(&app, " ");
                         assert_eq!(app.get_preview_count(), 6, "Kortin klikkaus säilyttää valintaruudun näppäimistökohdistuksen");
+                        key(&app, Key::Tab);
+                        assert!(app.global::<super::Theme>().get_keyboard_focus_visible());
+                        capture(&app, &directory.join("luokkavalitsin-tab.png"))?;
                         app.set_preview_query(" cup ".into());
                     }
                     66 => {

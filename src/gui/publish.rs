@@ -43,6 +43,10 @@ fn configuration(app: &AppWindow, local_only: bool) -> GuiResult<Config> {
     Ok(config)
 }
 fn default_output_filename(name: &str) -> String {
+    legacy_output_filename(&name.to_lowercase())
+}
+
+fn legacy_output_filename(name: &str) -> String {
     let mut stem = String::new();
     for character in name.trim().chars() {
         let character = if character.is_alphanumeric() || matches!(character, '-' | '_' | '.') {
@@ -72,7 +76,7 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
         let s=shared.borrow();
         let Some(ws)=s.workspace.as_ref().filter(|w|w.project().is_some()) else {status(&app,"Avaa ensin AS2026-kilpailu.",true);return};
         let mut config=s.preferences.as_ref().and_then(|p|p.get().live_julkaisut.get(ws.path())).cloned().unwrap_or(Config {port:22,..Default::default()});
-        if config.filename.trim().is_empty() || config.filename == "tulokset.html" { config.filename = default_output_filename(ws.name()); }
+        if config.filename.trim().is_empty() || config.filename == "tulokset.html" || config.filename == legacy_output_filename(ws.name()) { config.filename = default_output_filename(ws.name()); }
         if config.local_directory.is_empty(){config.local_directory=ws.path().parent().unwrap().join("livetulokset").display().to_string();}
         let choices=as2026::live_pages::class_choices(ws.project().unwrap()).unwrap_or_default();
         app.set_publish_classes(model(choices.into_iter().map(|code|DrawClassOption{label:code.clone().into(),selected:config.classes.is_empty()||config.classes.contains(&code),code:code.into()}).collect()));
@@ -260,9 +264,10 @@ mod tests {
         for (name, expected) in [
             (
                 "Testieksytys-23.10.2026",
-                "Testieksytys-23.10.2026-tulokset.html",
+                "testieksytys-23.10.2026-tulokset.html",
             ),
-            ("Kesä kisa / 2026", "Kesä-kisa-2026-tulokset.html"),
+            ("Kesä kisa / 2026", "kesä-kisa-2026-tulokset.html"),
+            ("Testieksytys", "testieksytys-tulokset.html"),
             ("", "kisa-tulokset.html"),
             ("... / \\ ", "kisa-tulokset.html"),
         ] {

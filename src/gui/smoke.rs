@@ -24,6 +24,10 @@ fn print_current(app: &AppWindow) {
 
 pub fn key(app: &AppWindow, text: impl Into<SharedString>) {
     let text = text.into();
+    let tab: SharedString = slint::platform::Key::Tab.into();
+    if text == tab {
+        app.global::<Theme>().set_keyboard_focus_visible(true);
+    }
     app.window()
         .dispatch_event(slint::platform::WindowEvent::KeyPressed { text: text.clone() });
     app.window()

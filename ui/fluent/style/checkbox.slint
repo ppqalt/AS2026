@@ -7,6 +7,7 @@ import { FocusBorder } from "components.slint";
 
 export component CheckBox {
     in property <string> text;
+    in property <bool> show-focus-border: true;
     in property <bool> enabled <=> touch-area.enabled;
     in property <length> font-size;
     in property <int> font-weight;
@@ -119,7 +120,7 @@ export component CheckBox {
     }
 
     // focus border
-    if root.has-focus && root.enabled : FocusBorder {
+    if root.has-focus && root.enabled && root.show-focus-border : FocusBorder {
         border-radius: 4px;
     }
 }

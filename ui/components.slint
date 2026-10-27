@@ -92,7 +92,7 @@ export component NavItem inherits Rectangle {
     border-radius: Theme.radius;
     background: root.active ? Theme.accent-soft : touch.has-hover ? Theme.sidebar-hover : transparent;
     animate background { enabled: Theme.effects-enabled; duration: 120ms; }
-    border-width: focus.has-focus ? 2px : 0px;
+    border-width: focus.has-focus && Theme.keyboard-focus-visible ? 2px : 0px;
     border-color: Theme.accent;
     forward-focus: focus;
     // Keskitys sidotaan rivin todelliseen korkeuteen, myös skaalattaessa.

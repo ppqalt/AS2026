@@ -1,6 +1,7 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
 mod class_selection;
 mod gallery;
+mod input_mode;
 slint::include_modules!();
 mod background;
 mod desktop;
@@ -3682,6 +3683,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         return gallery::run(captures, gallery_smoke);
     }
     let app = AppWindow::new()?;
+    let focus_weak = app.as_weak();
+    input_mode::bind(app.window(), move |visible| {
+        if let Some(app) = focus_weak.upgrade() {
+            app.global::<Theme>().set_keyboard_focus_visible(visible);
+        }
+    });
     class_selection::register(app.global::<ClassSelectionLogic>());
     let tung_weak = app.as_weak();
     app.on_tung_start(move || {

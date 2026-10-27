@@ -6,6 +6,7 @@ import { Theme } from "../../theme.slint";
 import { FluentPalette, FluentFontSettings, FluentSizeSettings } from "styling.slint";
 
 export component FocusBorder inherits Rectangle {
+    visible: Theme.keyboard-focus-visible;
     border-width: 2px;
     border-color: FluentPalette.focus-stroke-outer;
 

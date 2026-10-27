@@ -49,7 +49,7 @@ windows-sys = { version = "0.61.2", optional = true, features = ["Win32_Foundati
 version = "=1.18.1"
 optional = true
 default-features = false
-features = ["std", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+features = ["std", "backend-winit", "unstable-winit-030", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
 
 [dependencies.rfd]
 version = "0.15"
