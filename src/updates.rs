@@ -243,12 +243,17 @@ fn check_tree(root: &Path, path: &Path, allowed: &BTreeSet<String>) -> Result<()
     for entry in fs::read_dir(path).map_err(|e| crate::io_message(&e))? {
         let entry = entry.map_err(|e| crate::io_message(&e))?;
         let metadata = fs::symlink_metadata(entry.path()).map_err(|e| crate::io_message(&e))?;
-        let relative = entry
-            .path()
+        // Normalisoi vain alustan erottimet; häviöllinen teksti voisi saada
+        // ylimääräisen tiedoston näyttämään allekirjoitetulta polulta.
+        let entry_path = entry.path();
+        let relative = entry_path
             .strip_prefix(root)
             .map_err(|_| "Päivityspaketin polku on virheellinen")?
-            .to_string_lossy()
-            .replace('\\', "/");
+            .components()
+            .map(|component| component.as_os_str().to_str())
+            .collect::<Option<Vec<_>>>()
+            .ok_or("Päivityspaketin tiedostonimi ei ole kelvollista Unicode-tekstiä")?
+            .join("/");
         safe_relative(&relative)?;
         if metadata.file_type().is_symlink() {
             return Err("Päivityspaketti ei saa sisältää symbolisia linkkejä".into());
@@ -844,6 +849,54 @@ mod tests {
         assert!(verify_bundle_key(&dir, &key.verifying_key()).is_err());
         fs::remove_dir_all(dir).unwrap();
     }
+
+    #[cfg(unix)]
+    fn signed_bundle_with_named_file(name: &str) -> (TestDirectory, SigningKey) {
+        let (key, raw, _, mut files) = payload();
+        let bytes = b"synteettinen lisenssi".to_vec();
+        let mut manifest: Manifest = serde_json::from_slice(&raw).unwrap();
+        manifest
+            .targets
+            .get_mut(target_name().unwrap())
+            .unwrap()
+            .files
+            .push(BundleFile {
+                name: name.into(),
+                size: bytes.len() as u64,
+                sha256: format!("{:x}", Sha256::digest(&bytes)),
+            });
+        files.push((name.into(), bytes));
+        let raw = serde_json::to_vec(&manifest).unwrap();
+        let directory = TestDirectory::new();
+        directory.prepared(&raw, &key.sign(&raw).to_bytes());
+        for (name, bytes) in files {
+            let path = directory.0.join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        assert!(verify_bundle_key(&directory.0, &key.verifying_key()).is_ok());
+        (directory, key)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unsigned_backslash_filename_cannot_alias_a_signed_subdirectory_file() {
+        let (directory, key) = signed_bundle_with_named_file("licenses/NOTICE");
+        fs::write(directory.0.join("licenses\\NOTICE"), b"allekirjoittamaton").unwrap();
+        assert!(verify_bundle_key(&directory.0, &key.verifying_key()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unsigned_non_utf8_filename_cannot_alias_a_signed_unicode_file() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let (directory, key) = signed_bundle_with_named_file("notice\u{fffd}.txt");
+        let name = std::ffi::OsString::from_vec(b"notice\xff.txt".to_vec());
+        fs::write(directory.0.join(name), b"allekirjoittamaton").unwrap();
+        assert!(verify_bundle_key(&directory.0, &key.verifying_key()).is_err());
+    }
+
     #[test]
     fn unsafe_package_paths_are_never_accepted() {
         for bad in [
