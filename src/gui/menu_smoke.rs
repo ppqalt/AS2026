@@ -446,14 +446,18 @@ pub(super) fn start(
                 std::fs::write(&path, output.finish().unwrap().into_inner()).unwrap();
                 {
                     let state = shared.borrow();
-                    let project = state.workspace.as_ref().unwrap().project().unwrap();
-                    let combined = as2026::kiti::group_choices(project).into_iter().find(|(_, id)| as2026::printing::class_label(id) != id).unwrap().1;
+                    let mut project = state.workspace.as_ref().unwrap().project().unwrap().clone();
+                    project.yhdistetyt_luokat.push(as2026::native::CombinedClass {
+                        nimi: "KITI-asetusten testiyhdistelmä".into(), luokat: vec![class.clone()],
+                        nousupisteet: 0, sarjapistetapa: 0,
+                    });
+                    let combined = as2026::kiti::group_choices(&project).into_iter().find(|(_, id)| as2026::printing::class_label(id) != id).unwrap().1;
                     let saved = format!("{class}={combined};{class}|combined={class}");
-                    let fields = forms::kiti_fields(project, &path, &saved).unwrap();
+                    let fields = forms::kiti_fields(&project, &path, &saved).unwrap();
                     assert_eq!(fields[0].value, combined);
                     assert_eq!(fields[1].value, class);
                     assert_eq!(fields[1].options.row_count(), fields[0].options.row_count() + 1);
-                    let legacy = forms::kiti_fields(project, &path, &format!("{class}={combined}")).unwrap();
+                    let legacy = forms::kiti_fields(&project, &path, &format!("{class}={combined}")).unwrap();
                     assert_eq!(legacy[0].value, class);
                     assert_eq!(legacy[1].value, combined);
                 }

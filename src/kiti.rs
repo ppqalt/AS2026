@@ -388,7 +388,7 @@ pub fn fill_with_class_mappings(
                     let other_driver = other_archive
                         .competitors
                         .iter()
-                        .position(|d| d.number == number && d.class_code == driver.class_code);
+                        .position(|d| d.number == number);
                     if let Some(index) = other_driver
                         && let Some(other) = other_group
                             .entries
