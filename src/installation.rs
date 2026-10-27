@@ -215,10 +215,14 @@ fn replace(source: &Path, destination: &Path) -> Result<(), String> {
         .chain(Some(0))
         .collect();
     // REPLACE_EXISTING | WRITE_THROUGH: current.toml vaihtuu yhdellä operaatiolla.
-    if unsafe { MoveFileExW(source.as_ptr(), destination_wide.as_ptr(), 1 | 8) } == 0 {
-        return Err(io_error(destination, &std::io::Error::last_os_error()));
-    }
-    Ok(())
+    crate::storage::file_operation(|| {
+        if unsafe { MoveFileExW(source.as_ptr(), destination_wide.as_ptr(), 1 | 8) } == 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    })
+    .map_err(|error| io_error(destination, &error))
 }
 
 struct Temporary(PathBuf);
@@ -988,6 +992,50 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn atomic_write_survives_a_transient_destination_sharing_lock() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let folder = Folder::new();
+        let path = folder.0.join("current.toml");
+        fs::write(&path, b"vanha versiotieto").unwrap();
+        // Salli luku ja kirjoitus mutta kiellä poisto/atominen vaihto.
+        let held = OpenOptions::new()
+            .read(true)
+            .share_mode(1 | 2)
+            .open(&path)
+            .unwrap();
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            drop(held);
+        });
+        let result = atomic_write(&path, b"uusi versiotieto");
+        release.join().unwrap();
+        result.unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"uusi versiotieto");
+        assert_eq!(fs::read_dir(&folder.0).unwrap().count(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn persistent_sharing_lock_keeps_the_previous_file_and_removes_the_temporary() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let folder = Folder::new();
+        let path = folder.0.join("current.toml");
+        fs::write(&path, b"vanha versiotieto").unwrap();
+        let held = OpenOptions::new()
+            .read(true)
+            .share_mode(1 | 2)
+            .open(&path)
+            .unwrap();
+        assert!(atomic_write(&path, b"uusi versiotieto").is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"vanha versiotieto");
+        assert_eq!(fs::read_dir(&folder.0).unwrap().count(), 1);
+        drop(held);
     }
 
     fn bundle(version: &str) -> VerifiedBundle {
