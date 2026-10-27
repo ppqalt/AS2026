@@ -30,7 +30,7 @@ julkaisijoita samaan palvelintiedostoon.
   salaamatta. FTP ei käytä SFTP:n avaintiedostoa tai sormenjälkeä.
 - **Kohdehakemisto:** palvelimen valmiiksi luoma hakemisto. Ohjelma ei luo
   hakemistopuuta eikä muuta muiden sivujen tiedostoja.
-- **Tiedostonimi:** esimerkiksi `tulokset.html`, ilman hakemistopolkua.
+- **Tiedostonimi:** `.html`-päätteinen nimi, esimerkiksi `tulokset.html`, ilman hakemistopolkua. Virheellinen nimi hylätään ennen julkaisun käynnistymistä.
   Samanniminen palvelintiedosto korvataan.
 - **Julkinen tulososoite:** ylläpitäjän antama HTTP/HTTPS-osoite linkittämistä
   varten. Tallennettu osoite ei ole tiedostosiirron osoite.

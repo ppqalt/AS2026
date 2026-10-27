@@ -55,8 +55,13 @@ impl Config {
         if self.filename.is_empty()
             || self.filename.starts_with('.')
             || self.filename.contains(['/', '\\', '\r', '\n', '\0'])
+            || !self.filename.ends_with(".html")
+            || self.filename.chars().any(char::is_control)
         {
-            return Err("Anna pelkkä tulostiedoston nimi, esimerkiksi tulokset.html.".into());
+            return Err(
+                "Anna pelkkä .html-päätteinen tulostiedoston nimi, esimerkiksi tulokset.html."
+                    .into(),
+            );
         }
         if [
             &self.host,
@@ -468,7 +473,16 @@ impl Publisher {
                             let classes = if config.classes.is_empty() { crate::live_pages::class_choices(&project).map_err(|e|e.to_string())? } else { config.classes.clone() };
                             let base=if config.local_directory.is_empty() {PathBuf::from(&config.filename)} else {PathBuf::from(&config.local_directory).join(&config.filename)};
                             let mut pages=crate::live_pages::pages_with_interval(&project,&crate::live_pages::Settings{base,classes}, if config.refresh_seconds == 0 { 60 } else { config.refresh_seconds }).map_err(|e|e.to_string())?;
-                            if final_result { for (_,body) in &mut pages {*body=body.replace("Epäviralliset tulokset","Lopulliset tulokset");} }
+                            if final_result {
+                                for (_, body) in &mut pages {
+                                    // Vain sivun tilamerkintä muuttuu; sama teksti nimissä säilyy.
+                                    *body = body.replacen(
+                                        "<p class=\"subtitle\">Epäviralliset tulokset · Päivitetty ",
+                                        "<p class=\"subtitle\">Lopulliset tulokset · Päivitetty ",
+                                        1,
+                                    );
+                                }
+                            }
                             if !config.local_directory.is_empty() {crate::live_pages::write_pages_with_cancel(&pages, Some(&cancelled)).map_err(|e|e.to_string())?;}
                             if !config.local_only { for (name,body) in pages.iter().rev() {
                                 let mut target=config.clone();target.filename=name.file_name().unwrap().to_string_lossy().into_owned();

@@ -171,6 +171,84 @@ fn credentials_are_not_serialized_and_commands_reject_injection() {
     unsafe_config.directory = "/tulokset\r\nDELE kilpailu.html".into();
     assert!(unsafe_config.validate().is_err());
 }
+
+#[test]
+fn invalid_html_filenames_are_rejected_before_starting_a_local_publisher() {
+    let directory = std::env::temp_dir().join(format!(
+        "as2026-live-nimivirheet-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut config = Config {
+        local_only: true,
+        local_directory: directory.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    for filename in [
+        "tulokset.txt",
+        "tulokset.HTML",
+        "tulos\t.html",
+        "tulos\u{1f}.html",
+        "",
+        ".html",
+        ".piilotettu.html",
+        "../tulokset.html",
+        "/tulokset.html",
+        "hakemisto/tulokset.html",
+        "hakemisto\\tulokset.html",
+        "C:\\tulokset.html",
+        "tulos\r.html",
+        "tulos\n.html",
+        "tulos\0.html",
+    ] {
+        config.filename = filename.into();
+        assert!(
+            config.validate().is_err(),
+            "Virheellinen nimi hyväksyttiin: {filename:?}"
+        );
+        assert!(Publisher::start(config.clone(), "synteettinen.toml".into()).is_err());
+    }
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn local_publisher_accepts_html_filenames_with_spaces_and_finnish_letters() {
+    let directory = std::env::temp_dir().join(format!(
+        "as2026-live-kelvollinen-nimi-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&directory).unwrap();
+    let filename = "omat tulokset ää.html";
+    let config = Config {
+        local_only: true,
+        local_directory: directory.to_string_lossy().into_owned(),
+        filename: filename.into(),
+        ..Default::default()
+    };
+    config.validate().unwrap();
+    let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
+    publisher.offer(&fixture());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !publisher.status().contains("Viimeisin lähetys") {
+        assert!(Instant::now() < deadline, "{}", publisher.status());
+        thread::sleep(Duration::from_millis(30));
+    }
+    drop(publisher);
+    let html = std::fs::read_to_string(directory.join(filename)).unwrap();
+    assert!(html.contains("Esimerkkikilpailu"));
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
 #[test]
 fn sftp_real_isolated_server_when_configured() {
     // Erillinen paikallinen sshd-koe Linuxissa; ei käyttäjän palvelimeen eikä fyysiseen laitteeseen.
@@ -220,6 +298,44 @@ fn final_publication_requires_complete_results_and_stops_only_after_success() {
             .unwrap()
             .contains("Lopulliset tulokset")
     );
+}
+
+#[test]
+fn final_publication_changes_only_the_status_banner_and_preserves_names() {
+    let (config, published, _, handle) = server(1, false, false);
+    let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
+    let mut project = fixture();
+    project.kilpailu.nimi = "Epäviralliset tulokset & kilpailu".into();
+    project.luokat[0].tunnus = "Epäviralliset tulokset".into();
+    let driver = &mut project.kilpailijat[0];
+    driver.luokka = "Epäviralliset tulokset".into();
+    driver.kuljettaja = "Epäviralliset tulokset <kuljettaja>".into();
+    driver.kartanlukija = "Epäviralliset tulokset <kartanlukija>".into();
+    driver.tila = Some(as2026::native::ManualStatus {
+        tunnus: "PER".into(),
+        syy: "Synteettinen peruutus".into(),
+    });
+    publisher.finish(&project).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !publisher.is_finished() {
+        assert!(Instant::now() < deadline, "{}", publisher.status());
+        thread::sleep(Duration::from_millis(30));
+    }
+    handle.join().unwrap();
+    let values = published.lock().unwrap();
+    assert_eq!(values.len(), 1);
+    let html = String::from_utf8(values[0].clone()).unwrap();
+    assert!(html.contains("<h1>Epäviralliset tulokset &amp; kilpailu</h1>"));
+    assert!(
+        html.contains(
+            "<title>Epäviralliset tulokset &amp; kilpailu · Epäviralliset tulokset</title>"
+        )
+    );
+    assert!(html.contains("<h2>Luokka: Epäviralliset tulokset</h2>"));
+    assert!(html.contains("<td>Epäviralliset tulokset &lt;kuljettaja&gt;</td>"));
+    assert!(html.contains("<td>Epäviralliset tulokset &lt;kartanlukija&gt;</td>"));
+    assert!(html.contains("<p class=\"subtitle\">Lopulliset tulokset · Päivitetty "));
+    assert_eq!(html.matches("Lopulliset tulokset").count(), 1);
 }
 
 #[test]
