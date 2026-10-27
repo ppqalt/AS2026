@@ -344,3 +344,70 @@ fn new_dark_themes_persist_without_changing_other_preferences() {
         assert_eq!(saved["appearance"].as_str(), Some(name));
     }
 }
+
+#[test]
+fn unknown_settings_survive_known_setting_changes_and_reopening() {
+    let directory = Directory::new();
+    fs::create_dir_all(directory.settings().parent().unwrap()).unwrap();
+    let source = r#"
+competition_root = "Tallennetut kilpailut"
+last_competition = "aiempi/kilpailu.toml"
+appearance = "dark"
+uusi_asetus = "Mikky100:n tuleva asetus säilyy"
+uusi_lista = ["Å", "Ä", "Ö"]
+
+[uusi_taulu]
+kerroin = 1.25
+omat = { "käytössä" = true, tunnus = 42 }
+
+[[uudet_kohteet]]
+nimi = "Ensimmäinen"
+
+[[uudet_kohteet]]
+nimi = "Toinen"
+"#;
+    fs::write(directory.settings(), source).unwrap();
+    let original: toml::Value = toml::from_str(source).unwrap();
+    let mut store = directory.open();
+    assert_eq!(
+        store.get().competition_root,
+        Some(PathBuf::from("Tallennetut kilpailut"))
+    );
+    assert_eq!(
+        store.get().last_competition,
+        Some(PathBuf::from("aiempi/kilpailu.toml"))
+    );
+    store.save_printer("Testitulostin").unwrap();
+    let mut reopened = directory.open();
+    assert_eq!(reopened.get().tulostin, "Testitulostin");
+    reopened
+        .save_appearance(as2026::preferences::Appearance::Spruce)
+        .unwrap();
+    let saved: toml::Value =
+        toml::from_str(&fs::read_to_string(directory.settings()).unwrap()).unwrap();
+    for key in ["uusi_asetus", "uusi_lista", "uusi_taulu", "uudet_kohteet"] {
+        assert_eq!(saved.get(key), original.get(key), "{key}");
+    }
+    assert_eq!(saved["appearance"].as_str(), Some("spruce"));
+    assert_eq!(saved["tulostin"].as_str(), Some("Testitulostin"));
+    assert_eq!(
+        saved["kilpailukansio"].as_str(),
+        Some("Tallennetut kilpailut")
+    );
+    assert!(saved.get("competition_root").is_none());
+    assert_eq!(
+        saved["viimeisin_kilpailu"].as_str(),
+        Some("aiempi/kilpailu.toml")
+    );
+    assert!(saved.get("last_competition").is_none());
+}
+
+#[test]
+fn duplicate_known_setting_alias_does_not_become_an_unknown_setting() {
+    let directory = Directory::new();
+    fs::create_dir_all(directory.settings().parent().unwrap()).unwrap();
+    let source = "competition_root = 'Vanha'\nkilpailukansio = 'Uusi'\nuusi_asetus = 'säilytä'\n";
+    fs::write(directory.settings(), source).unwrap();
+    assert!(PreferencesStore::open_at(&directory.settings(), &directory.root()).is_err());
+    assert_eq!(fs::read_to_string(directory.settings()).unwrap(), source);
+}

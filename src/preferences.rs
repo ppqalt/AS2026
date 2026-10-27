@@ -7,6 +7,7 @@ use crate::{native::Project, workspace::Workspace};
 use directories::{ProjectDirs, UserDirs};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     fs::{self, OpenOptions, TryLockError},
     io::{self, Write},
     path::{Path, PathBuf},
@@ -99,10 +100,21 @@ pub struct Preferences {
     pub live_julkaisut: std::collections::BTreeMap<PathBuf, crate::live_publish::Config>,
 }
 
+// Vanhempi sovellusversio ei saa hukata uudemman version omia asetuksia.
+// Tiedostokerros säilyttää ne muuttamatta julkista Preferences-rajapintaa.
+#[derive(Default, Serialize, Deserialize)]
+struct PreferencesDocument {
+    #[serde(flatten)]
+    preferences: Preferences,
+    #[serde(flatten)]
+    unknown: BTreeMap<String, toml::Value>,
+}
+
 pub struct PreferencesStore {
     path: PathBuf,
     default_root: PathBuf,
     preferences: Preferences,
+    unknown: BTreeMap<String, toml::Value>,
     expected: Option<Vec<u8>>,
     allow_temporary_root: bool,
 }
@@ -128,7 +140,7 @@ impl PreferencesStore {
         let path = resolve_existing_ancestors(path)?;
         let default_root = absolute(default_competition_root)?;
         let expected = read_optional(&path)?;
-        let preferences = match &expected {
+        let document: PreferencesDocument = match &expected {
             Some(bytes) => {
                 let source = std::str::from_utf8(bytes)
                     .map_err(|_| "Asetustiedoston pitää käyttää UTF-8-merkistöä".to_owned())?;
@@ -146,12 +158,13 @@ impl PreferencesStore {
                     )
                 })?
             }
-            None => Preferences::default(),
+            None => PreferencesDocument::default(),
         };
         Ok(Self {
             path,
             default_root,
-            preferences,
+            preferences: document.preferences,
+            unknown: document.unknown,
             expected,
             allow_temporary_root: true,
         })
@@ -310,6 +323,10 @@ impl PreferencesStore {
     }
 
     fn save(&mut self, candidate: Preferences) -> Result<(), String> {
+        let candidate = PreferencesDocument {
+            preferences: candidate,
+            unknown: self.unknown.clone(),
+        };
         let content = toml::to_string_pretty(&candidate)
             .map_err(|_| "Asetuksia ei voitu muuntaa TOML-muotoon".to_owned())?
             .into_bytes();
@@ -332,7 +349,7 @@ impl PreferencesStore {
             Err(TryLockError::Error(error)) => return Err(file_error(&lock_path, &error)),
         }
         self.check_unchanged()?;
-        if candidate == self.preferences {
+        if candidate.preferences == self.preferences {
             return Ok(());
         }
         let permissions = if self.expected.is_some() {
@@ -362,7 +379,7 @@ impl PreferencesStore {
                 .map_err(|error| file_error(&self.path, &error))?;
         }
         sync_parent(&self.path).map_err(|_| "Asetukset kirjoitettiin, mutta tallennuksen pysyvyyttä ei voitu varmistaa. Avaa sovellus uudelleen ja tarkista asetukset".to_owned())?;
-        self.preferences = candidate;
+        self.preferences = candidate.preferences;
         self.expected = Some(content);
         Ok(())
     }
