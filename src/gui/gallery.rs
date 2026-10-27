@@ -132,7 +132,7 @@ pub(super) fn run(
                         assert_eq!(app.get_preview_visible_count(), 12);
                         let p = app.get_preview_card_position();
                         let x = p.x + app.get_preview_card_width() - 8.;
-                        let y = p.y + 62.;
+                        let y = p.y + 34.;
                         pointer(&app, true, x, y); pointer(&app, false, x, y);
                         assert_eq!(app.get_preview_count(), 5, "Kortin alakulma vaihtaa valinnan tasan kerran");
                     }

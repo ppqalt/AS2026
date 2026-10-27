@@ -51,16 +51,16 @@ export component ClassSelection inherits Rectangle {
                 content-width: self.visible-width; content-height: entries.height;
                 entries := Rectangle {
                     width: list.visible-width;
-                    height: max(88px, ceil(root.indices.length / 2) * (72px + Theme.space-2) + Theme.space-2);
+                    height: max(56px, ceil(root.indices.length / 2) * (40px + Theme.space-2) + Theme.space-2);
                     if root.indices.length == 0: Note {
-                        width: parent.width; height: 72px;
+                        width: parent.width; height: 40px;
                         text: root.classes.length == 0 ? "Ei valittavia luokkia." : "Ei luokkia tällä rajauksella.";
                         horizontal-alignment: center; vertical-alignment: center;
                     }
                     for source[i] in root.indices: card := Rectangle {
                         x: Theme.space-2 + Math.mod(i, 2) * (self.width + Theme.space-2);
-                        y: Theme.space-2 + floor(i / 2) * (72px + Theme.space-2);
-                        width: (entries.width - 3 * Theme.space-2) / 2; height: 72px;
+                        y: Theme.space-2 + floor(i / 2) * (40px + Theme.space-2);
+                        width: (entries.width - 3 * Theme.space-2) / 2; height: 40px;
                         background: root.classes[source].selected ? Theme.accent-soft : touch.has-hover && root.writable ? Theme.surface-hover : Theme.surface;
                         border-radius: Theme.radius; border-width: 1px; border-color: Theme.line;
                         choice := UiCheckBox {

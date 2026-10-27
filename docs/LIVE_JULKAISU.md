@@ -22,6 +22,8 @@ julkaisijoita samaan palvelintiedostoon.
 
 ## Yhteysasetukset
 
+Yhteystavan vaihtaminen asettaa portiksi automaattisesti SFTP:llä 22 ja FTP:llä 21. Erikoisportin voi kirjoittaa tämän jälkeen käsin.
+
 - **SFTP (salattu):** tavallisesti portti 22. Tunnistautuminen salasanalla tai
   paikallisella yksityisellä avaintiedostolla. Avainpolun ollessa täytettynä
   salasanakenttä tarkoittaa avaimen mahdollista salasanaa.
@@ -30,7 +32,7 @@ julkaisijoita samaan palvelintiedostoon.
   salaamatta. FTP ei käytä SFTP:n avaintiedostoa tai sormenjälkeä.
 - **Kohdehakemisto:** palvelimen valmiiksi luoma hakemisto. Ohjelma ei luo
   hakemistopuuta eikä muuta muiden sivujen tiedostoja.
-- **Tiedostonimi:** `.html`-päätteinen nimi, esimerkiksi `tulokset.html`, ilman hakemistopolkua. Virheellinen nimi hylätään ennen julkaisun käynnistymistä.
+- **Tiedostonimi:** oletuksena kilpailun nimestä muodostettu `kilpailun-nimi-tulokset.html`, ilman hakemistopolkua. Välilyönnit ja tiedostonimeen sopimattomat merkit korvataan yhdysmerkeillä. Oman nimen voi kirjoittaa käsin. Virheellinen nimi hylätään ennen julkaisun käynnistymistä.
   Samanniminen palvelintiedosto korvataan.
 - **Julkinen tulososoite:** ylläpitäjän antama HTTP/HTTPS-osoite linkittämistä
   varten. Tallennettu osoite ei ole tiedostosiirron osoite.

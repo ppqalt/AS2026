@@ -35,7 +35,7 @@ export component PrintClassesDialog inherits Rectangle {
             available-width: root.width; available-height: root.height;
             preferred-dialog-width: 760px;
             minimum-dialog-height: 480px; maximum-dialog-height: 1120px;
-            content-dialog-height: form-layout.min-height - choices.min-height + max(200px, 124px + ceil(root.classes.length / 2) * 80px + 24px);
+            content-dialog-height: form-layout.min-height - choices.min-height + max(200px, 124px + ceil(root.classes.length / 2) * 48px + 24px);
             form-layout := VerticalLayout {
                 padding: Theme.dialog-padding; spacing: Theme.space-2;
                 Heading { text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; }

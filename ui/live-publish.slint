@@ -56,7 +56,7 @@ export component LivePublishDialog inherits Rectangle {
                     spacing: Theme.space-2; padding-right: 12px;
                     Note { text: "Julkaistavat luokat – jokainen omalla kiertävällä sivullaan"; }
                     ClassSelection {
-                        height: max(220px, min(500px, 124px + ceil(root.classes.length / 2) * 80px + 24px)); vertical-stretch: 0;
+                        height: max(220px, 124px + ceil(root.classes.length / 2) * 48px + 24px); vertical-stretch: 0;
                         classes: root.classes; writable: !root.running && !root.busy;
                         toggle(index, selected) => { root.class-toggled(index, selected); }
                         select-all(selected) => { root.classes-all(selected); }
@@ -66,9 +66,7 @@ export component LivePublishDialog inherits Rectangle {
                         current-index <=> root.protocol;
                         enabled: !root.running && !root.busy;
                         selected(index) => {
-                            if root.fields[1].value == "22" || root.fields[1].value == "21" {
-                                root.edited(1, index == 1 ? "21" : "22");
-                            }
+                            root.edited(1, self.current-index == 1 ? "21" : "22");
                         }
                     }
                     if root.protocol == 1: Note { text: "FTP lähettää salasanan ja tulokset salaamatta. Käytä vain harkitusti."; }

@@ -42,13 +42,37 @@ fn configuration(app: &AppWindow, local_only: bool) -> GuiResult<Config> {
     config.validate().map_err(|e| invalid(&e))?;
     Ok(config)
 }
+fn default_output_filename(name: &str) -> String {
+    let mut stem = String::new();
+    for character in name.trim().chars() {
+        let character = if character.is_alphanumeric() || matches!(character, '-' | '_' | '.') {
+            character
+        } else {
+            '-'
+        };
+        if character == '-' && (stem.is_empty() || stem.ends_with('-')) {
+            continue;
+        }
+        if stem.len() + character.len_utf8() > 160 {
+            break;
+        }
+        stem.push(character);
+    }
+    let stem = stem.trim_matches(['.', '-', '_']);
+    format!(
+        "{}-tulokset.html",
+        if stem.is_empty() { "kisa" } else { stem }
+    )
+}
+
 pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
     let shared = state.clone();
     let weak = app.as_weak();
     app.on_open_publish(move || {if let Some(app)=weak.upgrade(){
         let s=shared.borrow();
         let Some(ws)=s.workspace.as_ref().filter(|w|w.project().is_some()) else {status(&app,"Avaa ensin AS2026-kilpailu.",true);return};
-        let mut config=s.preferences.as_ref().and_then(|p|p.get().live_julkaisut.get(ws.path())).cloned().unwrap_or(Config {port:22,filename:"tulokset.html".into(),..Default::default()});
+        let mut config=s.preferences.as_ref().and_then(|p|p.get().live_julkaisut.get(ws.path())).cloned().unwrap_or(Config {port:22,..Default::default()});
+        if config.filename.trim().is_empty() || config.filename == "tulokset.html" { config.filename = default_output_filename(ws.name()); }
         if config.local_directory.is_empty(){config.local_directory=ws.path().parent().unwrap().join("livetulokset").display().to_string();}
         let choices=as2026::live_pages::class_choices(ws.project().unwrap()).unwrap_or_default();
         app.set_publish_classes(model(choices.into_iter().map(|code|DrawClassOption{label:code.clone().into(),selected:config.classes.is_empty()||config.classes.contains(&code),code:code.into()}).collect()));
@@ -225,4 +249,33 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn competition_name_produces_a_safe_result_filename() {
+        for (name, expected) in [
+            (
+                "Testieksytys-23.10.2026",
+                "Testieksytys-23.10.2026-tulokset.html",
+            ),
+            ("Kesä kisa / 2026", "Kesä-kisa-2026-tulokset.html"),
+            ("", "kisa-tulokset.html"),
+            ("... / \\ ", "kisa-tulokset.html"),
+        ] {
+            assert_eq!(default_output_filename(name), expected);
+        }
+        let filename = default_output_filename(&"Ä".repeat(300));
+        assert!(filename.len() <= 174);
+        let config = Config {
+            filename,
+            local_only: true,
+            local_directory: "esimerkkitulokset".into(),
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
+    }
 }

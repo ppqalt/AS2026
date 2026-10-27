@@ -43,7 +43,7 @@ export component GalleryClassPicker inherits Rectangle {
             available-width: root.width; available-height: root.height;
             preferred-dialog-width: 760px;
             minimum-dialog-height: 460px; maximum-dialog-height: 1120px;
-            content-dialog-height: picker-layout.min-height - choices.min-height + max(200px, 148px + ceil(root.rows.length / 2) * 80px);
+            content-dialog-height: picker-layout.min-height - choices.min-height + max(200px, 148px + ceil(root.rows.length / 2) * 48px);
             picker-layout := VerticalLayout {
                 padding: Theme.dialog-padding; spacing: Theme.space-3;
                 Heading { text: "Valitse luokat"; }

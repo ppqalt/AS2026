@@ -174,6 +174,19 @@ pub(super) fn start(
                             assert_eq!(shared.borrow().last_print.as_ref().unwrap().landscape, expected == "asematuloste"); }
                         "live" => {
                             assert!(app.get_publish_open(), "Live-julkaisu avautuu Toiminnot-valikosta ({method})");
+                            assert_eq!(app.get_publish_protocol(), 0);
+                            for _ in 0..64 {
+                                if app.get_publish_protocol() == 1 { break; }
+                                smoke::key(&app, slint::platform::Key::Tab);
+                                smoke::key(&app, slint::platform::Key::DownArrow);
+                            }
+                            assert_eq!(app.get_publish_protocol(), 1, "FTP on saavutettava näppäimistöllä");
+                            assert_eq!(app.get_publish_fields().iter().find(|f| f.key == 1).unwrap().value, "21");
+                            smoke::key(&app, slint::platform::Key::UpArrow);
+                            assert_eq!(app.get_publish_protocol(), 0);
+                            assert_eq!(app.get_publish_fields().iter().find(|f| f.key == 1).unwrap().value, "22");
+                            let expected_name = format!("{}-tulokset.html", shared.borrow().workspace.as_ref().unwrap().name());
+                            assert_eq!(app.get_publish_fields().iter().find(|f| f.key == 7).unwrap().value.as_str(), expected_name);
                             save_view(&app, &directory.join(format!("{stem}.png"))).unwrap();
                             smoke::key(&app, slint::platform::Key::Escape);
                             assert!(!app.get_publish_open());
