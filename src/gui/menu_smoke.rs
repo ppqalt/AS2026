@@ -447,14 +447,39 @@ pub(super) fn start(
                 app.invoke_export_kiti();
                 shared.borrow_mut().test_file_choice = Some(Some(path));
                 app.invoke_choose_kiti();
-                assert_eq!(app.get_kiti_class_fields().row_count(), 1, "{}", app.get_export_error());
+                assert_eq!(app.get_kiti_class_fields().row_count(), 2, "{}", app.get_export_error());
                 assert!(app.get_kiti_class_fields().row_data(0).unwrap().choice >= 0);
+                assert_eq!(app.get_kiti_class_fields().row_data(1).unwrap().choice, 0);
+                assert!(app.get_export_path().ends_with("synteettinen-kiti-pohja-valmis.xlsx"));
             } else if step == 104 {
                 save_view(&app, &directory.join("kiti-luokkavalinnat.png")).unwrap();
                 app.invoke_kiti_class_selected(0, 0);
                 assert_eq!(app.get_kiti_class_fields().row_data(0).unwrap().choice, 0);
+                app.invoke_kiti_class_selected(1, 1);
+                assert_eq!(app.get_kiti_class_fields().row_data(1).unwrap().choice, 1);
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_export_open());
+            } else if step == 105 {
+                app.invoke_export_pdf();
+                let choices = app.get_export_classes();
+                assert!(choices.row_count() > 1);
+                // An invalid or duplicate number must stop export before writing a file.
+                app.invoke_export_class_order(0, "0".into());
+                assert!(selected_export(shared.borrow().workspace.as_ref().unwrap(), &app).is_err());
+                app.invoke_export_class_order(0, "2".into());
+                assert!(selected_export(shared.borrow().workspace.as_ref().unwrap(), &app).is_err());
+                let count = choices.row_count();
+                for i in 0..count { app.invoke_export_class_order(i as i32, (count - i).to_string().into()); }
+                let state = shared.borrow();
+                let ws = state.workspace.as_ref().unwrap();
+                let document = selected_export(ws, &app).unwrap();
+                let last = choices.row_data(count - 1).unwrap();
+                let (scope, code) = last.code.split_once(':').unwrap();
+                let archive = if scope == "B" { as2026::beginners::results(ws.project().unwrap()).unwrap() } else { ws.results().unwrap() };
+                let first = as2026::printing::classes(&archive, &[code.into()], as2026::printing::Kind::Classes, false, false).unwrap();
+                assert_eq!(document.pages[0].texts[1].value, first.pages[0].texts[1].value);
+                save_view(&app, &directory.join("pdf-luokkajarjestys.png")).unwrap();
+                app.set_export_open(false);
             } else {
                 test_complete.set(true);
                 println!("Valikkokoe valmis: 54 oikeaa valikkovalintaa, KITI-luokkavalinnat, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");

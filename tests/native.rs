@@ -328,7 +328,7 @@ fn calculated_native_results_write_consistent_clocks_status_and_header_fields() 
     let driver = &pending.competitors[0];
     assert_eq!(driver.status, "ILM");
     assert_eq!(driver.header_fields[28], "ILM");
-    assert!(driver.header_fields[29].contains("käsikello puuttuu"));
+    assert!(driver.header_fields[29].contains("manuaalinen aika puuttuu"));
     assert_eq!(
         &driver.header_fields[13..=18],
         ["0", "0", "0", "0", "0", "0"]

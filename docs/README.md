@@ -10,7 +10,7 @@ Lataus ja asennus: [projektin etusivu](../README.md) ·
 | Ohje | Sisältö |
 |---|---|
 | [Kilpailupäivän tarkistuslista](KILPAILUPAIVA.md) | Varmuuskopio, kalusto, verkko ja lopulliset tulokset |
-| [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md) | Käsikellot, pisteet, hyväksynnät ja lähtöarvonta |
+| [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md) | Manuaaliset ajat, pisteet, hyväksynnät ja lähtöarvonta |
 | [Kuvallinen käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md) | Sivut, valintaikkunat ja Slint-komponentit |
 | [Excel-tuonti](EXCEL_TUONTI.md) | RATA/KILP-kentät, esikatselu ja puuttuvat tiedot |
 | [Luokat ja Beginners Cup](LUOKAT_JA_BEGINNERS_CUP.md) | Perusluokat, yhdistetyt luokat ja BC:n erillinen tulos |

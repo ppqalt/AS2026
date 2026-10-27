@@ -8,21 +8,21 @@ Tunnetun kilpailijaparin onnistunut korttiluku tallentuu alkuperäisine leimauks
 
 Keskeneräistä lomakemuokkausta ei keskeytetä: korttiluku tallentuu, ja siirtyminen odottaa muokkauksen hyväksymistä tai peruuttamista. Tuntematon kortti säilyy lukuhistoriassa eikä kohdistu toiseen kilpailijaan.
 
-Uusintaluku ei tee kaksoistulosta. Aiemmat tallennetut käsikellot, pistekorjaukset ja hyväksyntä säilyvät. Uuden korttiluvun ottaminen niiden tilalle tapahtuu erikseen **Tarkista…**-toiminnolla ja sen vahvistuksella.
+Uusintaluku ei tee kaksoistulosta. Aiemmat tallennetut manuaaliset ajat, pistekorjaukset ja hyväksyntä säilyvät. Uuden korttiluvun ottaminen niiden tilalle tapahtuu erikseen **Tarkista…**-toiminnolla ja sen vahvistuksella.
 
-## Käsikellot, tarkastus ja hyväksyntä
+## Manuaaliset ajat, tarkastus ja hyväksyntä
 
-Radalla Emit-numerolla **0** merkityt asemat kellotetaan käsin. Lähtökello tulee kilpailijan lähtöajasta; muiden käsiaika-asemien kellot syötetään Tulokset-näkymässä muodossa **hh:mm:ss**. Käsiaika-asemia voi olla useita. Myös käsimaalin kello syötetään erikseen: sitä ei arvata viimeisestä leimasta. Puuttuva käsikello näkyy tyhjänä, ei valmiina nollakellona.
+Radalla Emit-numerolla **0** merkityt asemat kellotetaan käsin. Lähtökello tulee kilpailijan lähtöajasta; muiden käsiaika-asemien kellot syötetään Tulokset-näkymässä muodossa **hh:mm:ss**. Käsiaika-asemia voi olla useita. Myös käsimaalin kello syötetään erikseen: sitä ei arvata viimeisestä leimasta. Puuttuva manuaalinen aika näkyy tyhjänä, ei valmiina nollakellona.
 
-1. Valitse kilpailijapari ja asemarivi. Tarkasta automaattisesti täytetyt leimaukset ja syötä puuttuvat käsikellot.
-2. Valitse **Tutki**. Se laskee tallennetuista asemariveistä ja käsikelloista. Kellon muuttaminen tallentuu heti, mutta ei vielä muuta laskettuja aikoja tai pisteitä.
+1. Valitse kilpailijapari ja asemarivi. Tarkasta automaattisesti täytetyt leimaukset ja syötä puuttuvat manuaaliset ajat.
+2. Valitse **Tutki**. Se laskee tallennetuista asemariveistä ja manuaalisista ajoista. Kellon muuttaminen tallentuu heti, mutta ei vielä muuta laskettuja aikoja tai pisteitä.
 3. Tee tarvittavat asemakohtaiset pistekorjaukset laskennan jälkeen. Pistekorjaus päivittää rivin ja summan. Aikavirheen ennakko on positiivinen ja myöhä negatiivinen; kokonaispisteisiin tulee itseisarvo.
 4. Täydennä kilpailijakohtaiset lisävirheet ja tarkasta tila sekä Syy.
 5. Valitse **Hyväksy tulos**. Hyväksyntä tallentaa tarkastuksen eikä laske käsin korjattuja pisteitä uudelleen.
 
-**Tutki** korvaa aiemmat asemarivien pistekorjaukset uudella laskennalla. **Tarkista…** puolestaan muodostaa asemarivit uudelleen viimeisestä aktiivisesta korttiluvusta ja korvaa niiden käsikellot sekä pistekorjaukset. Sen vahvistus kertoo korvattavista tiedoista. Erilliset RT-lisävirheet, muut kilpailijakohtaiset virheet ja käsin valittu tila säilyvät.
+**Tutki** korvaa aiemmat asemarivien pistekorjaukset uudella laskennalla. **Tarkista…** puolestaan muodostaa asemarivit uudelleen viimeisestä aktiivisesta korttiluvusta ja korvaa niiden manuaaliset ajat sekä pistekorjaukset. Sen vahvistus kertoo korvattavista tiedoista. Erilliset RT-lisävirheet, muut kilpailijakohtaiset virheet ja käsin valittu tila säilyvät.
 
-Puuttuva käsikello, virheellinen aika, muuttuneeseen rataan kuuluva tulos tai ristiriitaiset pistesummat estävät hyväksymisen. Kellon, pisteiden ja muiden tulokseen vaikuttavien tietojen muutos poistaa aiemman hyväksynnän. Radan muuttaminen ei kohdista vanhoja käsikorjauksia uusiin asemiin automaattisesti: muodosta rivit uudelleen Tarkista-toiminnolla ja tarkasta ne.
+Puuttuva manuaalinen aika, virheellinen aika, muuttuneeseen rataan kuuluva tulos tai ristiriitaiset pistesummat estävät hyväksymisen. Kellon, pisteiden ja muiden tulokseen vaikuttavien tietojen muutos poistaa aiemman hyväksynnän. Radan muuttaminen ei kohdista vanhoja käsikorjauksia uusiin asemiin automaattisesti: muodosta rivit uudelleen Tarkista-toiminnolla ja tarkasta ne.
 
 ## Pisteet ja tila
 

@@ -113,6 +113,12 @@ fn kiti_template_keeps_identity_cells_and_writes_numeric_results() {
     let mut result = application::recalculate_stored_result(&p, 8, &result).unwrap();
     result.hyvaksytty = true;
     p.kilpailijat[1].tallennettu_tulos = Some(result);
+    p.yhdistetyt_luokat.push(as2026::native::CombinedClass {
+        nimi: "Yhteistulos".into(),
+        luokat: vec!["A".into(), "B".into()],
+        nousupisteet: 0,
+        sarjapistetapa: 0,
+    });
     let labels = [
         "EnrollID",
         "Kilpailunumero / Competition number",
@@ -193,7 +199,7 @@ fn kiti_template_keeps_identity_cells_and_writes_numeric_results() {
     );
     assert_eq!(
         range.get_value((4, 19)).and_then(DataType::as_f64),
-        Some(2.0)
+        Some(1.0)
     );
     assert_eq!(
         range.get_value((4, 20)).and_then(DataType::as_f64),
@@ -203,6 +209,40 @@ fn kiti_template_keeps_identity_cells_and_writes_numeric_results() {
         range.get_value((4, 23)),
         Some(calamine::Data::Int(_) | calamine::Data::Float(_))
     ));
+    let mut mappings = std::collections::BTreeMap::from([(
+        "A".into(),
+        as2026::kiti::ClassMapping {
+            base: "A".into(),
+            combined: "Y1: Yhteistulos".into(),
+        },
+    )]);
+    let mapped = as2026::kiti::fill_with_class_mappings(&p, &path, &codes, &mappings).unwrap();
+    let mut workbook = calamine::Xlsx::new(Cursor::new(mapped)).unwrap();
+    let mapped = workbook.worksheet_range("Results").unwrap();
+    assert_eq!(
+        mapped.get_value((4, 19)).and_then(DataType::as_f64),
+        Some(2.0)
+    );
+    assert_eq!(
+        mapped.get_value((4, 20)).and_then(DataType::as_f64),
+        Some(1.0)
+    );
+    // Both selectors accept every result class, including a combined base.
+    mappings.get_mut("A").unwrap().base = "Y1: Yhteistulos".into();
+    mappings.get_mut("A").unwrap().combined = "A".into();
+    let mapped = as2026::kiti::fill_with_class_mappings(&p, &path, &codes, &mappings).unwrap();
+    let mut workbook = calamine::Xlsx::new(Cursor::new(mapped)).unwrap();
+    let mapped = workbook.worksheet_range("Results").unwrap();
+    assert_eq!(
+        mapped.get_value((4, 19)).and_then(DataType::as_f64),
+        Some(1.0)
+    );
+    assert_eq!(
+        mapped.get_value((4, 20)).and_then(DataType::as_f64),
+        Some(2.0)
+    );
+    mappings.get_mut("A").unwrap().combined = "B".into();
+    assert!(as2026::kiti::fill_with_class_mappings(&p, &path, &codes, &mappings).is_err());
     let mut before = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
     let mut after = zip::ZipArchive::new(Cursor::new(filled.clone())).unwrap();
     for i in 0..before.len() {

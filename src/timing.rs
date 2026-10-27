@@ -29,7 +29,7 @@ pub enum CalculationPolicy {
     RecoveredLiveV1,
     /// AS2015A:n live-korttipolusta staattisesti palautettu käytäntö.
     RecoveredAs2015aStaticV2,
-    /// AS2026:n toimitsijakäyttö: käsikellot syötetään, positiiviset myöhästymisrajat toimivat.
+    /// AS2026:n toimitsijakäyttö: manuaaliset ajat syötetään, positiiviset myöhästymisrajat toimivat.
     As2026OperationalV1,
 }
 
@@ -251,17 +251,17 @@ fn stored_clock_seconds(parts: [i64; 3]) -> Result<i64, CoreError> {
     let hours = parts[0]
         .checked_mul(3600)
         .ok_or(CoreError::ArithmeticOverflow(
-            "tallennetun käsikellon tunnit",
+            "tallennetun manuaalisen ajan tunnit",
         ))?;
     let minutes = parts[1]
         .checked_mul(60)
         .ok_or(CoreError::ArithmeticOverflow(
-            "tallennetun käsikellon minuutit",
+            "tallennetun manuaalisen ajan minuutit",
         ))?;
     add(
-        add(hours, minutes, "tallennettu käsikello")?,
+        add(hours, minutes, "tallennettu manuaalinen aika")?,
         parts[2],
-        "tallennettu käsikello",
+        "tallennettu manuaalinen aika",
     )
 }
 
@@ -305,7 +305,9 @@ pub fn prepare_stored_station_times(
                 .clock
                 .iter()
                 .try_fold(0_i64, |a, value| a.checked_add(*value))
-                .ok_or(CoreError::ArithmeticOverflow("käsikellon komponentit"))?;
+                .ok_or(CoreError::ArithmeticOverflow(
+                    "manuaalisen ajan komponentit",
+                ))?;
             if components_sum == 0 {
                 row.elapsed_seconds = 0;
             } else {
@@ -313,19 +315,19 @@ pub fn prepare_stored_station_times(
                 if sub(
                     clock,
                     prepared.finish_clock_seconds,
-                    "käsikellon vuorokausiraja",
+                    "manuaalisen ajan vuorokausiraja",
                 )? < -50_000
                 {
-                    clock = add(clock, 86_400, "käsikellon vuorokausikorjaus")?;
+                    clock = add(clock, 86_400, "manuaalisen ajan vuorokausikorjaus")?;
                 }
                 row.elapsed_seconds = sub(
                     prepared.last_row_elapsed_seconds,
                     sub(
                         prepared.finish_clock_seconds,
                         clock,
-                        "käsikellon ero maalista",
+                        "manuaalisen ajan ero maalista",
                     )?,
-                    "käsikellon aikakoordinaatti",
+                    "manuaalisen ajan aikakoordinaatti",
                 )?;
                 if row.elapsed_seconds == 0 || row.elapsed_seconds >= next_elapsed {
                     warnings.push(format!(
@@ -1240,7 +1242,7 @@ pub(crate) fn section_difference(
     Ok(Some(sub(seconds, actual_seconds, "jakson aikatauluero")?))
 }
 
-/// Tutki: pisteyttää tallennetut P-rivit ja käsikellot uudelleen ilman kohdistusta
+/// Tutki: pisteyttää tallennetut P-rivit ja manuaaliset ajat uudelleen ilman kohdistusta
 /// tai korttilokin lukemista. Ajanvalmistelu on tehtävä samalla menetelmällä ensin.
 /// Epämääräisiä AS2015A:n työmuistipaluun tuloksia ei hyväksytä viralliseksi tulokseksi.
 pub fn calculate_stored(
@@ -1446,14 +1448,14 @@ pub fn calculate_stored(
         &mut result,
         None,
         "stored-result-recalculation",
-        "Tutki: tallennetut asemarivit ja käsikellot; korttilokin kohdistusta ei tehty",
+        "Tutki: tallennetut asemarivit ja manuaaliset ajat; korttilokin kohdistusta ei tehty",
     );
     score_prepared_rows(&mut result, options, cumulative_limit, true, None)?;
     Ok(result)
 }
 
 /// AS2026:n toimitsijalaskenta. Emitin nollauskoordinaatti ja virallinen lähtö
-/// sitovat leimat kellonaikaan. Käsikellon K koordinaatti on lähtöankkuri + K−S:
+/// sitovat leimat kellonaikaan. Manuaalisen ajan K koordinaatti on lähtöankkuri + K−S:
 /// sama kaava kuin palautettu e[n]−(F−K), kun F=S+e[n]−lähtöankkuri.
 /// Käsimaalin kelloa ei päätellä viimeisestä korttileimasta. Alkuperäisen
 /// ohjelman alustamatonta käsimaalipolkua ei käytetä tässä uudessa käytännössä.
@@ -1592,21 +1594,21 @@ pub fn calculate_operational(
         if station.expected_code == 0 {
             if let Some(mut clock) = row.clock_seconds {
                 if clock < official {
-                    clock = add(clock, 86_400, "käsikellon vuorokaudenvaihto")?;
+                    clock = add(clock, 86_400, "manuaalisen ajan vuorokaudenvaihto")?;
                 }
                 row.clock_seconds = Some(clock);
                 row.derived_elapsed_seconds = add(
                     anchor,
-                    sub(clock, official, "käsikellon ero lähdöstä")?,
-                    "käsikellon aikakoordinaatti",
+                    sub(clock, official, "manuaalisen ajan ero lähdöstä")?,
+                    "manuaalisen ajan aikakoordinaatti",
                 )?;
                 known[index] = known[0];
             } else {
                 pending.push(format!(
-                    "Aseman {} {} käsikello puuttuu",
+                    "Aseman {} {} manuaalinen aika puuttuu",
                     station.sequence, station.label
                 ));
-                row.note = "Käsikello puuttuu".into();
+                row.note = "Manuaalinen aika puuttuu".into();
             }
         } else if row.received_code == station.expected_code {
             row.clock_seconds = Some(add(
@@ -1701,7 +1703,7 @@ pub fn calculate_operational(
         result.total_duration_seconds =
             sub(result.finish_clock_seconds, official, "kilpailun kesto")?;
     }
-    // Puuttuvat käsikellot eivät ole puuttuvia leimattuja asemia. Niitä ei sakoteta
+    // Puuttuvat manuaaliset ajat eivät ole puuttuvia leimattuja asemia. Niitä ei sakoteta
     // ennen syöttöä. Varmat JAT- ja myöhästymisehdot saavat silti KESK-tilan.
     score_prepared_rows(&mut result, options, cumulative_limit, false, Some(&known))?;
     for message in &pending {
@@ -1734,7 +1736,7 @@ pub fn calculate_operational(
         &mut result,
         None,
         "as2026-operational",
-        "AS2026:n toimitsijalaskenta: käsikellot ovat erikseen syötettyjä; myöhästymisrajat toimivat nykyisen kilpailun asetusten mukaan.",
+        "AS2026:n toimitsijalaskenta: manuaaliset ajat ovat erikseen syötettyjä; myöhästymisrajat toimivat nykyisen kilpailun asetusten mukaan.",
     );
     Ok(result)
 }

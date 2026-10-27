@@ -150,20 +150,47 @@ pub fn kiti_fields(
     Ok(as2026::kiti::template_classes(path)?
         .into_iter()
         .enumerate()
-        .map(|(i, source)| {
-            let suggested = as2026::kiti::suggested_group(project, &source);
+        .flat_map(|(i, source)| {
+            let suggested = as2026::kiti::suggested_base_group(project, &source);
+            let combined_key = format!("{source}|combined");
             let selected = mappings
                 .get(source.as_str())
                 .copied()
-                .filter(|value| options.iter().any(|(_, id)| id == value))
+                .filter(|value| {
+                    (mappings.contains_key(combined_key.as_str())
+                        || as2026::printing::class_label(value) == *value)
+                        && options.iter().any(|(_, id)| id == value)
+                })
                 .unwrap_or(&suggested);
-            choice(
-                i as i32,
-                &source,
-                selected,
-                "Valitse pohjan luokalle tulosluokka",
-                options.clone(),
-            )
+            let combined = mappings
+                .get(combined_key.as_str())
+                .copied()
+                .or_else(|| {
+                    mappings
+                        .get(source.as_str())
+                        .copied()
+                        .filter(|v| as2026::printing::class_label(v) != *v)
+                })
+                .filter(|value| options.iter().any(|(_, id)| id == value))
+                .unwrap_or("");
+            let mut optional = vec![("Ei yhdistettyä luokkaa".into(), String::new())];
+            optional.extend(options.clone());
+            [
+                choice(
+                    (i * 2) as i32,
+                    &source,
+                    selected,
+                    "Perusluokka (pakollinen)",
+                    options.clone(),
+                ),
+                choice(
+                    (i * 2 + 1) as i32,
+                    &source,
+                    combined,
+                    "Yhdistetty luokka (vapaaehtoinen)",
+                    optional,
+                ),
+            ]
         })
         .collect())
 }
@@ -632,7 +659,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     &project.kilpailu.nimi,
                     "Nimi näkyy tulosluetteloissa",
                 ),
-                text(4, "Maksimi kokonaismyöhästymisraja (min)",
+                text(4, "Kokonaismyöhästymisraja (min)",
                     project.virhepisteet.kokonaismyohastymisraja_minuutteina.map_or_else(String::new, |v| v.to_string()),
                     "Tyhjä kenttä käyttää oletusta 60 min; raja koskee kaikkia luokkia"),
                 text(5, "Oletus Emit-korjaus (s)",
@@ -642,7 +669,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     2,
                     "Ajanottotapa",
                     project.kilpailu.ajanottotapa,
-                    "Tavat 0, 1 ja 2 ovat käytettävissä; käsikellot korjataan Tulokset-näkymässä",
+                    "Tavat 0, 1 ja 2 ovat käytettävissä; manuaaliset ajat korjataan Tulokset-näkymässä",
                     named(&[
                         ("Manuaalinen", "0"),
                         ("Emit", "1"),
@@ -672,7 +699,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                 defaults.extra_rt,
             ];
             for (index, (label, value)) in [
-                ("Aikavirheen toleranssi (s)", settings.vapaa_aika_sekunteina),
+                ("Virhevapaa aika (s)", settings.vapaa_aika_sekunteina),
                 ("Ennakon pisteet / s", settings.ennakon_pisteet_sekunnilta),
                 (
                     "Myöhästymisen pisteet / s",
@@ -681,7 +708,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                 ("Puuttuvan AT:n pisteet", settings.puuttuva_at),
                 ("Ylimääräisen AT:n pisteet", settings.ylimaarainen_at),
                 ("Puuttuvan JAT:n pisteet", settings.puuttuva_jat),
-                ("Maksimi jaksomyöhästymisraja (min)", settings.jakson_raja_minuutteina),
+                ("Jaksomyöhästymisraja (min)", settings.jakson_raja_minuutteina),
                 ("AT:n enimmäispisteet", settings.at_enimmaispisteet),
                 ("JAT:n enimmäispisteet", settings.jat_enimmaispisteet),
                 ("Puuttuvan RT:n pisteet", settings.puuttuva_rt),
@@ -731,7 +758,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     let pending = project.kilpailijat.iter().find(|d| d.numero == *number)
                         .and_then(|d| d.tallennettu_tulos.as_ref()).is_none_or(|r| r.pending_manual_clocks().contains(row));
                     let value = if pending { String::new() } else { format!("{:02}:{:02}:{:02}", station.clock[0], station.clock[1], station.clock[2]) };
-                    fields.push(text(100, "Käsikello (hhmmss)", value.replace(':', ""), "Kuusi numeroa, esimerkiksi 123456"));
+                    fields.push(text(100, "Manuaalinen aika (hhmmss)", value.replace(':', ""), "Kuusi numeroa, esimerkiksi 123456"));
                 }
                 fields.extend([
                 text(101, "Aikavirhe (p)", station.signed_time_penalty, "Ennakko positiivisena, myöhä negatiivisena; summaan tulee itseisarvo"),

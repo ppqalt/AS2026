@@ -148,7 +148,7 @@ fn recheck_does_not_keep_old_automatic_reason_as_current_outcome() {
     let checked = application::recalculate_stored_result(&p, 7, &result).unwrap();
     assert_eq!(checked.tila, "ILM");
     assert!(!checked.syy.contains("Vanha syy"));
-    assert!(checked.syy.contains("käsikello puuttuu"));
+    assert!(checked.syy.contains("manuaalinen aika puuttuu"));
 }
 #[test]
 fn operational_emit_and_mode_two_use_the_live_coordinate_reference() {
@@ -174,7 +174,7 @@ fn missing_manual_station_waits_for_operator_clock_without_missing_punch_penalty
     assert_eq!(stored.rivit[1].other_penalty, 0);
     let checked = application::recalculate_stored_result(&p, 7, &stored).unwrap();
     assert_eq!(checked.rivit[1].other_penalty, 0);
-    assert_eq!(checked.rivit[1].note, "Käsikello puuttuu");
+    assert_eq!(checked.rivit[1].note, "Manuaalinen aika puuttuu");
     assert_eq!(checked.tila, "ILM");
 }
 struct Directory(std::path::PathBuf);

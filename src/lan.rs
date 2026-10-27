@@ -211,7 +211,7 @@ fn validate_approvals(project: &Project, changes: &[Change]) -> Result<(), CoreE
             });
         if !same {
             return Err(err(
-                "Emit-lukema on muuttunut. Valitse Tarkista ja varmista käsikellot ennen tuloksen hyväksymistä. Aiemmat tiedot ovat edelleen näkyvissä.",
+                "Emit-lukema on muuttunut. Valitse Tarkista ja varmista manuaaliset ajat ennen tuloksen hyväksymistä. Aiemmat tiedot ovat edelleen näkyvissä.",
             ));
         }
         Ok(())

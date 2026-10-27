@@ -1219,7 +1219,7 @@ fn handle_event(state: &mut State, app: &AppWindow, event: ReaderEvent) -> bool 
                         let note = if preserved {
                             "Aiempi tarkastustulos säilyi. Tarkista muodostaa asemarivit uudesta korttiluvusta."
                         } else {
-                            "Täydennä käsikellot ja tarkasta tulos."
+                            "Täydennä manuaaliset ajat ja tarkasta tulos."
                         };
                         let mut notice = format!(
                             "Emit {} tallennettu · {identity}. {note}",
@@ -1415,7 +1415,7 @@ fn ask_route_recalculation(state: &mut State, app: &AppWindow, before: Option<&P
             PendingAction::RebuildRoutes(tracks),
             "Päivitetäänkö lasketut tulokset?",
             format!(
-                "Ratatiedot on tallennettu. Lasketaanko muokattuja ratoja käyttävien kilpailijoiden ({count} kpl) tulokset uudelleen? Käsikellot säilytetään vastaaville asemille. Tulokset pitää tarkistaa uudelleen. Peruuta säilyttää aiemmat pisteet."
+                "Ratatiedot on tallennettu. Lasketaanko muokattuja ratoja käyttävien kilpailijoiden ({count} kpl) tulokset uudelleen? Manuaaliset ajat säilytetään vastaaville asemille. Tulokset pitää tarkistaa uudelleen. Peruuta säilyttää aiemmat pisteet."
             ),
         );
     }
@@ -1649,10 +1649,11 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
     }
     for (scope, archive) in sources {
         for code in as2026::printing::class_choices(&archive)? {
-            options.push(DrawClassOption {
+            options.push(ExportClassOption {
                 label: as2026::printing::class_label(&code).into(),
                 code: format!("{scope}:{code}").into(),
                 selected: true,
+                order: (options.len() + 1).to_string().into(),
             });
         }
     }
@@ -1687,11 +1688,36 @@ fn begin_export(state: &mut State, app: &AppWindow, kind: i32) -> GuiResult<()> 
 }
 
 fn selected_export(ws: &Workspace, app: &AppWindow) -> GuiResult<as2026::printing::Document> {
-    let choices = app
+    let mut choices = app
         .get_export_classes()
         .iter()
         .filter(|c| c.selected)
-        .map(|c| c.code.to_string())
+        .map(|c| {
+            let order = if app.get_export_kind() == 3 {
+                c.order
+                    .trim()
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|n| *n > 0)
+                    .ok_or_else(|| {
+                        invalid(&format!(
+                            "Anna luokalle {} positiivinen järjestysnumero",
+                            c.label
+                        ))
+                    })?
+            } else {
+                1
+            };
+            Ok((order, c.code.to_string()))
+        })
+        .collect::<GuiResult<Vec<_>>>()?;
+    choices.sort_by_key(|(order, _)| *order);
+    if app.get_export_kind() == 3 && choices.windows(2).any(|c| c[0].0 == c[1].0) {
+        return Err(invalid("Anna valituille luokille eri järjestysnumerot"));
+    }
+    let choices = choices
+        .into_iter()
+        .map(|(_, code)| code)
         .collect::<Vec<_>>();
     if choices.is_empty() {
         return Err(invalid("Valitse vähintään yksi vietävä luokka"));
@@ -1705,16 +1731,14 @@ fn selected_export(ws: &Workspace, app: &AppWindow) -> GuiResult<as2026::printin
         landscape: app.get_export_stations(),
         pages: Vec::new(),
     };
-    for (scope, archive) in sources {
-        let selected = choices
-            .iter()
-            .filter_map(|c| c.strip_prefix(&format!("{scope}:")))
-            .map(String::from)
-            .collect::<Vec<_>>();
-        if !selected.is_empty() {
+    for choice in choices {
+        let (scope, code) = choice
+            .split_once(':')
+            .ok_or_else(|| invalid("Virheellinen luokkavalinta"))?;
+        if let Some((_, archive)) = sources.iter().find(|(s, _)| *s == scope) {
             let part = as2026::printing::classes(
-                &archive,
-                &selected,
+                archive,
+                &[code.into()],
                 if app.get_export_stations() {
                     as2026::printing::Kind::Stations
                 } else {
@@ -2141,7 +2165,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             PendingAction::Review(number),
             "Tarkista leimaukset",
             format!(
-                "Kilpailijan {number} asemarivit muodostetaan uudelleen tallennetusta korttiluvusta. Asemien käsikellot ja pistekorjaukset korvataan. Erilliset lisävirheet ja käsin valittu tila säilyvät."
+                "Kilpailijan {number} asemarivit muodostetaan uudelleen tallennetusta korttiluvusta. Asemien manuaaliset ajat ja pistekorjaukset korvataan. Erilliset lisävirheet ja käsin valittu tila säilyvät."
             ),
         );
         Ok(())
@@ -2234,7 +2258,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         update_form(s, &a);
         status(
             &a,
-            "Tutki: tallennetut asemarivit ja käsikellot laskettu. Asemarivien pistekorjaukset korvattiin laskennalla.",
+            "Tutki: tallennetut asemarivit ja manuaaliset ajat laskettu. Asemarivien pistekorjaukset korvattiin laskennalla.",
             false,
         );
         Ok(())
@@ -2703,6 +2727,15 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         }
         Ok(())
     });
+    action!(on_export_class_order, |_s, a, index, value| {
+        let options = a.get_export_classes();
+        if let Some(mut row) = options.row_data(index as usize) {
+            row.order = value;
+            options.set_row_data(index as usize, row);
+            a.set_export_error("".into());
+        }
+        Ok(())
+    });
     action!(on_choose_logo, |s, a| {
         if let Some(path) = choose_file(s, || {
             rfd::FileDialog::new()
@@ -2751,6 +2784,12 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 }
             }
             a.set_kiti_template(path.display().to_string().into());
+            a.set_export_path(
+                as2026::kiti::destination(&path)?
+                    .display()
+                    .to_string()
+                    .into(),
+            );
         }
         Ok(())
     });
@@ -2787,28 +2826,40 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                 let project = ws
                     .project()
                     .ok_or_else(|| invalid("KITI-vienti tarvitsee AS2026-kilpailun"))?;
-                let groups = a
-                    .get_kiti_class_fields()
-                    .iter()
-                    .map(|field| {
-                        if field.choice < 0 {
+                let fields = a.get_kiti_class_fields().iter().collect::<Vec<_>>();
+                if fields.is_empty() || fields.len() % 2 != 0 {
+                    return Err(invalid("Valitse KITI-Excel-pohja ja sen perusluokat"));
+                }
+                let groups = fields
+                    .chunks_exact(2)
+                    .map(|pair| {
+                        let field = &pair[0];
+                        if field.choice < 0 || field.value.is_empty() || pair[1].choice < 0 {
                             return Err(invalid(&format!(
-                                "Valitse luokan {} tulosluokka",
+                                "Valitse luokan {} perusluokka ja tarkista yhdistetty luokka",
                                 field.label
                             )));
                         }
-                        Ok((field.label.to_string(), field.value.to_string()))
+                        Ok((
+                            field.label.to_string(),
+                            as2026::kiti::ClassMapping {
+                                base: field.value.to_string(),
+                                combined: pair[1].value.to_string(),
+                            },
+                        ))
                     })
                     .collect::<GuiResult<BTreeMap<_, _>>>()?;
                 a.set_kiti_groups(
                     groups
                         .iter()
-                        .map(|(key, value)| format!("{key}={value}"))
+                        .map(|(key, value)| {
+                            format!("{key}={};{key}|combined={}", value.base, value.combined)
+                        })
                         .collect::<Vec<_>>()
                         .join(";")
                         .into(),
                 );
-                as2026::kiti::fill_with_groups(
+                as2026::kiti::fill_with_class_mappings(
                     project,
                     Path::new(a.get_kiti_template().as_str()),
                     &as2026::kiti::parse_codes(a.get_kiti_codes().as_str())?,

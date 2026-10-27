@@ -239,9 +239,6 @@ pub(super) fn template(state: &mut State, app: &AppWindow, index: i32) -> GuiRes
         .emit_edit_basis
         .as_ref()
         .ok_or_else(|| invalid("Avaa editori uudelleen"))?;
-    if !basis.new {
-        return Ok(());
-    }
     let project = state
         .workspace
         .as_ref()
@@ -422,6 +419,15 @@ pub(super) fn capture(app: &AppWindow, state: SharedState, directory: PathBuf) -
             }
             3 => {
                 app.invoke_open_emit_edit(); assert!(app.get_emit_edit_open());
+                assert!(!app.get_emit_edit_new());
+                app.invoke_emit_edit_template(0);
+                assert_eq!(app.get_emit_edit_fields().row_count(), 6);
+                assert_eq!(app.get_emit_edit_fields().row_data(0).unwrap().value, "31");
+                assert!(app.get_emit_edit_fields().row_data(1).unwrap().value.is_empty());
+                assert!(app.get_emit_edit_fields().row_data(4).unwrap().value.is_empty());
+                app.invoke_emit_edit_close(true);
+                assert!(app.get_emit_edit_open(), "Ratapohjan ajat on täydennettävä");
+                assert_eq!(state.borrow().workspace.as_ref().unwrap().project().unwrap().leimaluvut, raw);
                 app.invoke_emit_edit_add(true); assert_eq!(app.get_emit_edit_fields().row_data(1).unwrap().value,"12:04:35");
                 app.invoke_emit_edit_close(false);
                 app.invoke_open_emit_edit();

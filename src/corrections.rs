@@ -1,5 +1,5 @@
 //! Virallinen asematulos säilyy erillään muuttumattomasta kortinlukuhistoriasta.
-//! Käsikellon muuttaminen ei käynnistä laskentaa. Tutki ja Tarkista ovat eri toimintoja.
+//! Manuaalisen ajan muuttaminen ei käynnistä laskentaa. Tutki ja Tarkista ovat eri toimintoja.
 use crate::{CoreError, RouteStation, legacy::StationResult, scoring};
 use serde::{Deserialize, Serialize};
 
@@ -171,7 +171,7 @@ impl StoredResult {
             .sum()
     }
 
-    /// Puuttuva käsikello tunnistetaan syötön alkuperästä: myös 00:00:00 on kelvollinen syöte.
+    /// Puuttuva manuaalinen aika tunnistetaan syötön alkuperästä: myös 00:00:00 on kelvollinen syöte.
     pub fn pending_manual_clocks(&self) -> Vec<u32> {
         self.rivit
             .iter()

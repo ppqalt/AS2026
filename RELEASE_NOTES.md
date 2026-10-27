@@ -1,24 +1,17 @@
-# AS2026 0.7.3
+# AS2026 0.7.4
 
-Päivitys yhdistää uusimman 0.7.2-kilpailutoiminnallisuuden Fluent 2 -käyttöliittymään. Kilpailusäännöt, AT/JAT-laskenta, Emit-historia, hyväksynnät, tulostus, vienti ja LAN-yhteiskäyttö säilyvät Mikky100:n toteutuksen pohjalta.
+Versio toteuttaa issuet #45–#52 ja säilyttää 0.7.3:n Fluent 2 -käyttöliittymän.
 
-## Käyttöliittymä
+- **KITI-vienti:** jokaiselle pohjan luokalle valitaan pakollinen perusluokka ja vapaaehtoinen yhdistetty luokka. Molemmissa listoissa ovat kaikki tulosluokat. Perusluokan sija menee aina Lkasij.-sarakkeeseen, yhdistetyn luokan sija Sij.-sarakkeeseen. Ilman yhdistettyä valintaa molemmat sijoitukset tulevat perusluokasta. Valinnat muistetaan.
+- **KITI-tiedostonimi:** pohjan nimi + `-valmis.xlsx`, samassa kansiossa. Alkuperäistä pohjaa ja olemassa olevia tulostiedostoja ei korvata.
+- **PDF-vienti:** valittujen luokkien järjestyksen voi määrätä järjestysnumeroilla. Järjestys koskee myös Beginners Cupia ja asemakohtaisia tuloksia.
+- **PDF-logo:** logo sijoittuu 10 mm:n marginaalien sisälle kuvasuhteensa säilyttäen. Otsikot väistävät logoa myös vaakatulosteessa ja leveällä logolla.
+- **Emit-korjaus:** radan Emit-numerot voi tuoda pohjaksi myös olemassa olevaa korttilukua korjattaessa. Kellonajat täydennetään kilpailukortista; alkuperäinen lukema säilyy historiassa.
+- **Termit:** Manuaalinen aika, Kokonaismyöhästymisraja, Jaksomyöhästymisraja ja Virhevapaa aika ovat käytössä käyttöliittymässä ja ajantasaisissa ohjeissa.
+- **Livetulokset:** yhdistettyjen luokkien otsikoissa näkyy luokan nimi ilman sisäistä Y1-/Y2-tunnistetta.
 
-- Yhtenäiset painikkeet, valikot, lomakkeet ja valintaikkunat sekä selkeämmät virhe- ja huomautusnäkymät.
-- Kilpailijan ja aseman muokkaus avautuu keskitettyyn ikkunaan. Radan tiedot avataan omasta painikkeesta; radat-lista on asemien alapuolella.
-- Emit-editorin kenttien ja painikkeiden välit sekä tulosyhteenvedon pitkien tekstien tilankäyttö on korjattu. Valintalistojen sisältö ei leikkaudu alareunasta.
-- Tietoja-ikkunassa on erilliset Lisenssit- ja Ulkoasu-näkymät. Oma lisenssi avautuu linkistä ja Slint-maininta säilyy näkyvissä.
-- Teemat: järjestelmän mukainen, vaalea, tumma, Tumma kuusi, Hiillos ja Shanghai. Valinta tallentuu vain tämän koneen sovellusasetuksiin.
-- Valinnaiset lyhyet häivytykset ja värisiirtymät. Animaatiot ovat oletuksena pois, eivätkä ne viivästytä kilpailutietojen päivityksiä.
-- Ajanottotapojen selitteitä on selkeytetty: Manuaalinen, Emit ja Osittain manuaalinen. Tallennetut arvot ja laskentatavat säilyvät ennallaan.
-
-## Päivitykset ja paketointi
-
-- Päivitykset tarkistetaan taustalla käynnistyksen jälkeen. Päivitystä ei ladata tai asenneta automaattisesti.
-- Uusien riippuvuusversioiden lisenssit ja tekijämaininnat toimitetaan molempien käyttöjärjestelmien paketeissa.
-
-Pura koko käyttöjärjestelmäsi paketti. Käynnistä **as2026-gui** tai **as2026-gui.exe** ja valitse asennustoiminto. Pakettiin kuuluvat varmennettava manifesti, käynnistin ja lisenssit.
+Pura koko käyttöjärjestelmäsi paketti ja käynnistä **as2026-gui** tai **as2026-gui.exe**. Pakettiin kuuluvat varmennettava manifesti, käynnistin ja lisenssit.
 
 Fyysinen Emit-lukija, paperitulostin ja kilpailupaikan verkko on tarkistettava käytettävällä kalustolla. Automaattiset testit käyttävät erillisiä esimerkkikilpailuja.
 
-[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Lähiverkko](docs/LAHIVERKKO.md) · [Version 0.7.2 muutokset](docs/julkaisut/0.7.2.md)
+[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Vienti](docs/VIENTI_JA_HUOMAUTUKSET.md) · [Emit-korjaus](docs/EMIT_RIVIN_KORJAUS.md) · [Version 0.7.3 muutokset](docs/julkaisut/0.7.3.md)

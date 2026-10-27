@@ -253,7 +253,7 @@ pub(crate) fn recapture(
                 .iter()
                 .zip(&result.rata)
                 .all(|(a, b)| a.tyyppi == b.tyyppi && a.emit_koodi == b.emit_koodi);
-        // Käsikellot tunnistetaan rata-asemasta, eivät muuttuvasta rivinumerosta.
+        // Manuaaliset ajat tunnistetaan rata-asemasta, eivät muuttuvasta rivinumerosta.
         for row in &old.rivit {
             if row.sequence != 0
                 && row.expected_code == 0
@@ -320,7 +320,7 @@ pub fn apply(project: &mut Project, number: u32, request: &Request) -> Result<()
         .ok_or_else(|| invalid("Valitse asemarivi uudelleen"))?;
     if request.action != Action::Restore && (row.expected_code == 0 || row.shared) {
         return Err(invalid(
-            "Käsikello korjataan asematuloksen kellokentässä. Jaettu ULA-leima korjataan sitä edeltävän aseman kautta",
+            "Manuaalinen aika korjataan asematuloksen kellokentässä. Jaettu ULA-leima korjataan sitä edeltävän aseman kautta",
         ));
     }
     match request.action {

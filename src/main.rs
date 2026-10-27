@@ -371,7 +371,7 @@ fn calculate(directory: &Path, encoding: Encoding, show_trace: bool) -> Result<S
                     competitor.total_penalties
                 );
             } else {
-                println!("Tulos odottaa käsikellojen täydentämistä tai tarkastusta.");
+                println!("Tulos odottaa manuaalisten aikojen täydentämistä tai tarkastusta.");
             }
             println!(
                 "Asema | Koodi odotettu/luettu | Kello | Tavoite s | Aika s | Aikavirhe p | Muut p | Yhteensä p"

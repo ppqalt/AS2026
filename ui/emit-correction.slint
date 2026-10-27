@@ -41,7 +41,11 @@ export component EmitCorrectionDialog inherits Rectangle {
                     Text { text: "Emit-numero"; color: Theme.muted; font-size: Theme.label-font-size; }
                     LineEdit { text <=> root.card; accessible-label: "Emit-numero"; }
                 }
-                if root.new-card: ComboBox { model: root.routes; current-index <=> root.route; selected => { root.template(self.current-index); } }
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    ComboBox { model: root.routes; current-index <=> root.route; accessible-label: "Emit-pohjan rata"; }
+                    Button { text: "Tuo radan Emit-numerot"; enabled: root.route >= 0; clicked => { root.template(root.route); } }
+                }
                 HorizontalLayout {
                     spacing: Theme.space-2;
                     vertical-stretch: 0;

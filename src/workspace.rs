@@ -421,7 +421,7 @@ impl Workspace {
             .ok_or_else(|| invalid("Lue ensin kilpailijan kortti"))?;
         if !snapshot.can_approve() {
             return Err(invalid(
-                "Täydennä puuttuvat käsikellot ja valitse Tutki ennen hyväksymistä",
+                "Täydennä puuttuvat manuaaliset ajat ja valitse Tutki ennen hyväksymistä",
             ));
         }
         snapshot.hyvaksytty = true;
@@ -642,8 +642,8 @@ impl Workspace {
         })
     }
 
-    /// Tutki käyttää tallennettuja asemarivejä ja mahdollisia käsikelloja.
-    /// Kortinluvun jälkeinen syöttö: käsikellot ja lisävirheet yhtenä muutoksena,
+    /// Tutki käyttää tallennettuja asemarivejä ja mahdollisia manuaalisia aikoja.
+    /// Kortinluvun jälkeinen syöttö: manuaaliset ajat ja lisävirheet yhtenä muutoksena,
     /// laskenta automaattisesti. Tulostaminen ei tarvitse erillistä hyväksymistä.
     pub fn complete_result_entry(
         &mut self,
@@ -695,7 +695,7 @@ impl Workspace {
                 .collect::<std::collections::BTreeSet<_>>();
             if expected != supplied || supplied.len() != clocks.len() {
                 return Err(invalid(
-                    "Täydennä kaikki käsikellot; asemavalinta on muuttunut",
+                    "Täydennä kaikki manuaaliset ajat; asemavalinta on muuttunut",
                 ));
             }
             let mut changed = result.kasikellot_muuttuneet;

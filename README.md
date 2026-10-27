@@ -26,7 +26,7 @@ ennen kilpailua; ohjelmapäivitys ei siirrä tai poista kilpailutiedostoja.
 2. Tarkista kilpailijat, luokkien radat, asemat, Emit-kortit ja kilpailuasetukset.
    Excel-tuonnissa kilpailijat ja radat voi valita erikseen.
 3. Valitse Kilpailijat → **Toiminnot → Arvo lähtöajat** ja tarkista lähtöluettelo.
-4. Lue kortit Emit-sivulla. Täydennä käsikellot ja virhepisteet, tarkasta ja hyväksy
+4. Lue kortit Emit-sivulla. Täydennä manuaaliset ajat ja virhepisteet, tarkasta ja hyväksy
    tulokset. BC-osallistujan NAC-tallennusta seuraa erillinen Beginners Cupin syöttö.
 5. Tulosta tai vie luokka- ja asematulokset Tulokset-sivun toiminnoista. Tarkista
    lopullinen luettelo ja julkaise livetulokset lopullisina vasta kilpailun valmistuttua.
@@ -42,7 +42,7 @@ varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 - RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla ja erillisillä tuontivalinnoilla.
 - Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten korjaus.
   Alkuperäiset leimat säilyvät jäljitettävinä.
-- Käsikellot, kilpailijan tilat, AT/JAT, NAC ja Beginners Cup sekä erilliset hyväksynnät.
+- Manuaaliset ajat, kilpailijan tilat, AT/JAT, NAC ja Beginners Cup sekä erilliset hyväksynnät.
 - Luokka-, asema- ja kilpailijatulosteet sekä HTML-, CSV- ja XLSX-tulosvienti.
 - Lähiverkon yhteiskäyttö, paikallinen live-esikatselu ja SFTP/FTP-livetulokset.
 

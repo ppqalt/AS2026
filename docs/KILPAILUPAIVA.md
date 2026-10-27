@@ -41,10 +41,10 @@ kilpailuun. Isäntäkoneen automaattista vaihtoa ei ole.
 
 ## Kortinluvusta hyväksyttyyn tulokseen
 
-- Tarkista kilpailijan tiedot, kortti ja lähtöaika. Täydennä pyydetyt käsikellot
+- Tarkista kilpailijan tiedot, kortti ja lähtöaika. Täydennä pyydetyt manuaaliset ajat
   sekä RT- ja muut virheet. Aloitettu lomake säilyy uuden kortin saapuessa.
 - Tarkasta asemarivit ja automaattinen tila. Puuttuva JAT tai myöhästymisrajan
-  ylitys voi aiheuttaa KESK-tilan; puuttuva käsikello jätetään tyhjäksi.
+  ylitys voi aiheuttaa KESK-tilan; puuttuva manuaalinen aika jätetään tyhjäksi.
 - Korjaa tarvittaessa aktiivisen Emit-luvun leimaukset Emit-sivulla.
   Alkuperäinen lukema säilyy. Korjauksen jälkeen tarkista laskenta ja hyväksy tulos uudelleen.
 - BC-osallistujan NAC-tallennusta seuraa BC:n oma syöttö. Syötä sen RT:t ja muut

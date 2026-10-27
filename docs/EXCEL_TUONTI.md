@@ -53,7 +53,7 @@ Muita välilehtiä ei tulkita eikä niiden sisältöä siirretä kilpailuun. VBA
 `tests/excel_preparation.rs` tarkistaa valmistelurivien palautumisen, tyhjän
 ratapohjan, ratavalinnan lykkäämisen ja poistamisen, ristiriitaiset kellot sekä sen, etteivät puuttuvat lähtötiedot kaada
 tuloslistaa tai muodosta hyväksyttyjä tuloksia. GUI:n `--smoke-test --capture-dir`
-käy synteettisen kilpailun läpi tuonnista lähtöarvontaan, leimoihin, käsikelloihin,
+käy synteettisen kilpailun läpi tuonnista lähtöarvontaan, leimoihin, manuaalisiin aikoihin,
 pistekorjauksiin, hyväksymiseen, vientiin ja uudelleenavaukseen. Lisäksi se
 testaa pelkät radat, ratavalinnan, tuonnin tallennusvirheen sekä perustellun
 KESK-päätöksen ilman korttia tai aikoja. Sarjalaitetta ei käytetä.
