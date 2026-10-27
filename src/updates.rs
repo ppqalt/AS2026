@@ -91,7 +91,7 @@ fn public_key() -> Result<VerifyingKey, String> {
     VerifyingKey::from_bytes(&key).map_err(|_| "Julkaisun varmennusavain on virheellinen".into())
 }
 fn hex_bytes(value: &str) -> Result<Vec<u8>, String> {
-    if !value.len().is_multiple_of(2) || !value.is_ascii() {
+    if !value.len().is_multiple_of(2) || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err("Tarkistussumman muoto on virheellinen".into());
     }
     (0..value.len())
@@ -102,14 +102,40 @@ fn hex_bytes(value: &str) -> Result<Vec<u8>, String> {
         })
         .collect()
 }
+// Sama konservatiivinen laitenimipolitiikka kuin kilpailukansioiden nimissä.
+// Päivityspolkuja ei korjata hiljaisesti, koska manifesti allekirjoittaa nimet.
+fn reserved_windows_component(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim_end_matches(' ')
+        .to_ascii_uppercase();
+    matches!(
+        stem.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+    ) || ["COM", "LPT"].iter().any(|prefix| {
+        stem.strip_prefix(prefix).is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        })
+    })
+}
+
 pub fn safe_relative(name: &str) -> Result<PathBuf, String> {
     if name.is_empty()
         || name.len() > 512
-        || name.contains(['\\', ':'])
+        || name.contains(['\\', ':', '<', '>', '"', '|', '?', '*'])
         || name.chars().any(char::is_control)
-        || name
-            .split('/')
-            .any(|p| p.is_empty() || p == "." || p == ".." || p.ends_with(['.', ' ']))
+        || name.split('/').any(|p| {
+            p.is_empty()
+                || p == "."
+                || p == ".."
+                || p.ends_with(['.', ' '])
+                || reserved_windows_component(p)
+        })
     {
         return Err("Päivityspaketissa on turvaton tiedostonimi".into());
     }
@@ -227,7 +253,9 @@ fn verify_bundle_key(path: &Path, key: &VerifyingKey) -> Result<VerifiedBundle, 
             }
             hash.update(&buffer[..count]);
         }
-        if format!("{:x}", hash.finalize()) != file.sha256 {
+        // Heksakirjainten koko ei muuta allekirjoitettua tarkistussummaa.
+        // Vertailu tehdään tavuina; allekirjoitusta ja sisältöä tarkistetaan yhä.
+        if hash.finalize().to_vec() != hex_bytes(&file.sha256)? {
             return Err(format!(
                 "Latauksen eheystarkistus epäonnistui: {}",
                 file.name
@@ -898,6 +926,89 @@ mod tests {
     }
 
     #[test]
+    fn hex_decoder_accepts_only_ascii_hexadecimal_pairs() {
+        assert_eq!(hex_bytes("0aAF12").unwrap(), vec![10, 175, 18]);
+        for invalid in ["+A", "-A", "a", "00 1", "G0", "Ää"] {
+            assert!(hex_bytes(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn valid_signed_hashes_accept_uppercase_without_accepting_changed_contents() {
+        let (key, raw, _, files) = payload();
+        let mut manifest: Manifest = serde_json::from_slice(&raw).unwrap();
+        for file in &mut manifest
+            .targets
+            .get_mut(target_name().unwrap())
+            .unwrap()
+            .files
+        {
+            file.sha256.make_ascii_uppercase();
+        }
+        let raw = serde_json::to_vec(&manifest).unwrap();
+        let signature = key.sign(&raw).to_bytes();
+        let directory = TestDirectory::new();
+        directory.prepared(&raw, &signature);
+        for (name, bytes) in &files {
+            fs::write(directory.0.join(name), bytes).unwrap();
+        }
+        verify_bundle_key(&directory.0, &key.verifying_key()).unwrap();
+        let mut changed = files[0].1.clone();
+        changed[0] ^= 1;
+        fs::write(directory.0.join(&files[0].0), changed).unwrap();
+        assert!(
+            verify_bundle_key(&directory.0, &key.verifying_key())
+                .unwrap_err()
+                .contains("eheystarkistus")
+        );
+    }
+
+    #[test]
+    fn windows_device_names_cannot_appear_in_package_components() {
+        for name in [
+            "CON",
+            "PrN.txt",
+            "aux",
+            "NUL.tar.gz",
+            "COM1",
+            "COM9.log",
+            "LPT1",
+            "LPT9.txt",
+            "COM¹.txt",
+            "COM²",
+            "LPT³",
+            "CONIN$",
+            "CONOUT$",
+            "NUL .txt",
+        ] {
+            for path in [
+                name.to_owned(),
+                format!("licenses/{name}"),
+                format!("{name}/LICENSE"),
+            ] {
+                assert!(safe_relative(&path).is_err(), "{path}");
+            }
+        }
+        for path in [
+            "auxiliary/LICENSE",
+            "com10.txt",
+            "com0.txt",
+            "null.txt",
+            "components/com1_notes.txt",
+            "LICENSE",
+            "ääkköset.txt",
+            "CONSOLE",
+            "_NUL",
+            ".CON",
+            "COM１",
+            "LPT10",
+            "LPT0",
+        ] {
+            assert!(safe_relative(path).is_ok(), "{path}");
+        }
+    }
+
+    #[test]
     fn unsafe_package_paths_are_never_accepted() {
         for bad in [
             "../x",
@@ -909,6 +1020,12 @@ mod tests {
             "a//b",
             "x ",
             "x.",
+            "invalid?.txt",
+            "invalid*.txt",
+            "invalid|name",
+            "invalid<name",
+            "invalid>name",
+            "invalid\"name",
         ] {
             assert!(safe_relative(bad).is_err(), "{bad}");
         }
