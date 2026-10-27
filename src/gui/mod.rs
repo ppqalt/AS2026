@@ -3153,7 +3153,7 @@ fn capture_views(
         {
             eprintln!("Kuvakaappaus epäonnistui: {error}");
         }
-        if current >= if keyboard_test { 115 } else { 24 } {
+        if current >= if keyboard_test { 122 } else { 24 } {
             if keyboard_test && app.get_about_open() {
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_about_open(), "Esc sulkee Tietoja-ikkunan");
@@ -3467,10 +3467,37 @@ fn capture_views(
                     assert_eq!(app.get_appearance_index(), 1, "Ulkoasu vaihtuu näppäimistöltä");
                     assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Light);
                     save_view(&app, &directory.join("35-ulkoasuasetukset.png")).unwrap();
-                    smoke::key(&app, slint::platform::Key::UpArrow);
+                    for _ in 1..9 { smoke::key(&app, slint::platform::Key::DownArrow); }
+                    assert_eq!(app.get_appearance_index(), 9, "Teemavalikon viimeinen vaihtoehto on saavutettava näppäimistöllä");
+                    assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Revontuli);
+                    for _ in 0..9 { smoke::key(&app, slint::platform::Key::UpArrow); }
                 }
                 113 => { assert_eq!(app.get_appearance_index(), 0); smoke::key(&app, slint::platform::Key::Escape); }
                 114 => { assert!(!app.get_about_open()); println!("GUI-ulkoasukoe hyväksytty: välilehdet, Tab, tehosteportti, tallennettu teema ja Esc."); }
+                115 => { app.invoke_navigate(6); app.invoke_set_appearance(6); }
+                116 => {
+                    assert_eq!(app.get_appearance_index(), 6);
+                    assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Yomeri);
+                    save_view(&app, &directory.join("36-teema-yomeri.png")).unwrap();
+                    app.invoke_set_appearance(7);
+                }
+                117 => {
+                    assert_eq!(app.get_appearance_index(), 7);
+                    assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::Kanerva);
+                    save_view(&app, &directory.join("37-teema-kanerva.png")).unwrap();
+                }
+                118..=120 => {
+                    if current > 118 {
+                        let index = current as i32 - 111;
+                        assert_eq!(app.get_appearance_index(), index);
+                        assert_eq!(state.borrow().preferences.as_ref().unwrap().get().appearance, Appearance::from_index(index).unwrap());
+                        assert!(!app.get_effects_enabled());
+                        save_view(&app, &directory.join(format!("teema-{index}.png"))).unwrap();
+                    }
+                    if current < 120 { app.invoke_set_appearance(current as i32 - 110); }
+                }
+                121 => { app.invoke_set_appearance(0); println!("GUI-teemakoe hyväksytty: kaikki uudet teemat, näppäimistö ja ulkoasuvalinnan tallennus."); }
+
 
                 _ => {}
             }

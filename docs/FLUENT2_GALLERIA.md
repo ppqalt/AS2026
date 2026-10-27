@@ -66,3 +66,5 @@ Linuxin Slint-ohjelmistorenderöinti, 100 %, 1100×800, 25.10.2026. Nämä ovat 
 ![Komponenttigalleria vaalealla teemalla](kuvat/fluent2-galleria-vaalea.png)
 
 ![Komponenttigalleria tummalla teemalla](kuvat/fluent2-galleria-tumma.png)
+
+Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).

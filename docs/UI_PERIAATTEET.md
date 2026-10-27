@@ -1,6 +1,6 @@
 # AS2026:n käyttöliittymän kehitysohje
 
-Fluent 2, suomenkielinen työpöytäsovellus. Sovellus tarjoaa järjestelmän mukaisen, vaalean, tumman, Tumma kuusi-, Hiillos- ja Shanghai-ulkoasun. Toteutus säilyy Rustissa
+Fluent 2, suomenkielinen työpöytäsovellus. Sovellus tarjoaa järjestelmätilan, vaalean ja tumman perusulkoasun sekä [7 tummaa väriteemaa](TEEMAT.md). Toteutus säilyy Rustissa
 ja Slintissä. Kilpailutietojen tarkistukset ja tallennus kulkevat yhteisen ytimen kautta.
 
 > **Fluent 2 -betan kehittäjälle:** uusi [komponenttistandardi ja esiasetuskatalogi](FLUENT2_KOMPONENTTISTANDARDI.md) on beta-haaran ensisijainen lähde mitoille, varianteille ja vuorovaikutusmalleille. Tämä ohje kuvaa betan yhteisiä toimintarajoja; tarkat presetit ja toteutuksen rajaus löytyvät komponenttistandardista. Ristiriidoissa komponenttistandardi voittaa beta-haarassa. `main` ei muutu.
@@ -140,8 +140,10 @@ säilytetään. Katso [kolmannen osapuolen tiedot](../THIRD_PARTY.md) ja
 
 ## Ulkoasuasetukset ja gallerian eristys
 
-`Preferences.appearance` tallentaa käyttäjän valinnan System/Light/Dark/Spruce/Hiillos/Shanghai. Vanhassa asetustiedostossa puuttuva arvo tarkoittaa järjestelmän mukaista tilaa. Virheellinen arvo tai tallennuskonflikti ei korvaa tiedostoa. UI palauttaa viimeisen tallennetun arvon tallennusvirheessä. `effects_enabled` pysyy erillisenä, oletuksena epätotena.
+`Preferences.appearance` tallentaa käyttäjän valinnan. Kaikki vaihtoehdot ja tallennusnimet ovat [teemaluettelossa](TEEMAT.md). Vanhassa asetustiedostossa puuttuva arvo tarkoittaa järjestelmän mukaista tilaa. Virheellinen arvo tai tallennuskonflikti ei korvaa tiedostoa. UI palauttaa viimeisen tallennetun arvon tallennusvirheessä. `effects_enabled` pysyy erillisenä, oletuksena epätotena.
 
 Ainoastaan upstreamin `color-scheme.slint` lukee Slintin sisäistä järjestelmävärimallia. Älä levitä `SlintInternal`-kutsuja näkymiin. Teeman pinnat ovat staattisesti peittäviä. Windowsin alkuperäisiä taustamateriaaleja tai suurikontrastisen tilan täydellistä alustaintegraatiota ei saa kuvata valmiiksi.
 
 `--fluent-gallery` palaa erilliseen `GalleryWindow`-ajoon ennen AppWindow-, PreferencesStore-, tulostin-, lukija- ja päivityspalvelujen alustusta. Galleria ei käytä demo-kilpailua eikä oikeita käyttäjäasetuksia. Kaappaus- ja testiajastimet ovat vain erikseen pyydettyä QA-ajoa varten; tavallinen galleria ei käynnistä niitä.
+
+Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).

@@ -22,10 +22,20 @@ pub enum Appearance {
     #[default]
     System,
     Light,
+    #[serde(alias = "savu")]
     Dark,
+    #[serde(alias = "salvia", alias = "oliivi")]
     Spruce,
+    #[serde(alias = "hiekka", alias = "kupari")]
     Hiillos,
     Shanghai,
+    #[serde(alias = "muste", alias = "petrooli", alias = "jaatikko")]
+    Yomeri,
+    #[serde(alias = "luumu")]
+    Kanerva,
+    #[serde(alias = "kirsikka")]
+    Ruusu,
+    Revontuli,
 }
 
 impl Appearance {
@@ -37,6 +47,10 @@ impl Appearance {
             Self::Spruce => 3,
             Self::Hiillos => 4,
             Self::Shanghai => 5,
+            Self::Yomeri => 6,
+            Self::Kanerva => 7,
+            Self::Ruusu => 8,
+            Self::Revontuli => 9,
         }
     }
 
@@ -48,6 +62,10 @@ impl Appearance {
             3 => Some(Self::Spruce),
             4 => Some(Self::Hiillos),
             5 => Some(Self::Shanghai),
+            6 => Some(Self::Yomeri),
+            7 => Some(Self::Kanerva),
+            8 => Some(Self::Ruusu),
+            9 => Some(Self::Revontuli),
             _ => None,
         }
     }
@@ -562,14 +580,22 @@ mod tests {
     fn appearance_preserves_old_preferences_and_round_trips() {
         let old: Preferences = toml::from_str("effects_enabled = false").unwrap();
         assert_eq!(old.appearance, Appearance::System);
-        for appearance in [
+        for (index, appearance) in [
             Appearance::System,
             Appearance::Light,
             Appearance::Dark,
             Appearance::Spruce,
             Appearance::Hiillos,
             Appearance::Shanghai,
-        ] {
+            Appearance::Yomeri,
+            Appearance::Kanerva,
+            Appearance::Ruusu,
+            Appearance::Revontuli,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert_eq!(appearance.index(), index as i32);
             assert_eq!(Appearance::from_index(appearance.index()), Some(appearance));
             let preferences = Preferences {
                 appearance,
@@ -580,7 +606,31 @@ mod tests {
             assert_eq!(reopened.appearance, appearance);
         }
         assert_eq!(Appearance::from_index(-1), None);
-        assert_eq!(Appearance::from_index(6), None);
+        assert_eq!(Appearance::from_index(10), None);
+    }
+
+    #[test]
+    fn removed_theme_names_open_with_a_similar_retained_theme() {
+        for (old, expected) in [
+            ("savu", Appearance::Dark),
+            ("muste", Appearance::Yomeri),
+            ("petrooli", Appearance::Yomeri),
+            ("jaatikko", Appearance::Yomeri),
+            ("salvia", Appearance::Spruce),
+            ("oliivi", Appearance::Spruce),
+            ("hiekka", Appearance::Hiillos),
+            ("kupari", Appearance::Hiillos),
+            ("luumu", Appearance::Kanerva),
+            ("kirsikka", Appearance::Ruusu),
+        ] {
+            let preferences: Preferences =
+                toml::from_str(&format!("appearance = \"{old}\"")).unwrap();
+            assert_eq!(preferences.appearance, expected);
+            let saved = toml::to_string(&preferences).unwrap();
+            let reopened: Preferences = toml::from_str(&saved).unwrap();
+            assert_eq!(reopened.appearance, expected);
+            assert!(!saved.contains(&format!("\"{old}\"")));
+        }
     }
 
     #[test]

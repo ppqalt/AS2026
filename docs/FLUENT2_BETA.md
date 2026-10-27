@@ -106,3 +106,5 @@ Käy jokainen kohta läpi sekä vaaleassa että tummassa tilassa ja kaikissa ole
 - [ ] Windowsin ja Linuxin GUI- sekä Rust-regressiotestit läpäisevät.
 - [ ] Kaikki käyttöliittymäoppaat vastaavat toteutettua betaa ja ovat sisällöltään luotettavia.
 - [ ] Kumpikin kehittäjä voi arvioida erillistä betaa ilman, että vakaata `main`-haaraa muutetaan.
+
+Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).

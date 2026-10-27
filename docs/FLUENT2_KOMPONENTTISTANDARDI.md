@@ -34,7 +34,7 @@ Beta käyttää **Slint 1.18.1**:tä sekä runtimessa, kääntäjässä että pa
 
 `ui/presets.slint` tarjoaa UiButton-, UiIconButton-, UiMenuButton-, UiTextField-, UiTextArea-, UiComboBox-, UiCheckBox-, UiSwitch-, UiSpinBox-, UiSlider-, UiRadioGroup-, UiTabs-, UiListView-, UiProgressBar-, UiScrollView-, UiCard-, UiSeparator-, UiInfoBar-, UiEmptyState- ja UiValidationMessage-esiasetukset. Alla olevat `Fluent...`-nimet ovat semanttinen suunnittelukatalogi; ne eivät ole rinnakkaisia Slint-tyyppejä. Vastaava `Ui...`-tyyppi on käytettävissä, vaikka vanhassa katalogirivissä lukee vielä `[TOTEUTTAMATTA]`; merkintä koskee koko rivillä kuvattua tavoitekäytöstä, ei pelkkää perusohjainta.
 
-Todellisten sivujen Button/LineEdit/ComboBox/CheckBox/ScrollView-tuonnit kulkevat nyt yhteisten presettien kautta. Kilpailutietojen callbackit ja laskenta säilyvät. Ulkoasu valitaan Tietoja-ikkunasta: järjestelmä, vaalea, tumma tai Dark Spruce. Järjestelmätila seuraa Slintin alustasiltaa; tuntematon järjestelmätila käyttää vaaleaa. Tehosteasetus on erillinen ja oletuksena pois. Galleria käyttää vain muistissa olevaa esitystilaa eikä avaa käyttäjän asetuksia tai kilpailupalveluja.
+Todellisten sivujen Button/LineEdit/ComboBox/CheckBox/ScrollView-tuonnit kulkevat nyt yhteisten presettien kautta. Kilpailutietojen callbackit ja laskenta säilyvät. Ulkoasu valitaan Tietoja-ikkunasta: järjestelmätila, vaalea, tumma tai jokin [7 tummasta väriteemasta](TEEMAT.md). Järjestelmätila seuraa Slintin alustasiltaa; tuntematon järjestelmätila käyttää vaaleaa. Tehosteasetus on erillinen ja oletuksena pois. Galleria käyttää vain muistissa olevaa esitystilaa eikä avaa käyttäjän asetuksia tai kilpailupalveluja.
 
 Mica/Acrylic, järjestelmän korostusvärin seuranta, suuren kontrastin täydellinen alustaintegraatio ja pikselitason vertailu aitoon WinUI 3 Galleryyn ovat edelleen tekemättä. Näitä ei saa kuvata toteutetuiksi.
 
@@ -153,7 +153,7 @@ Luonnostele kaksi tasoa:
 - **Globaalit arvot:** väriportaiden perusarvot, neutraalit, aksentit ja kontrastivastineet sekä geometria.
 - **Semanttiset alias-tokenit:** `canvas`, `layer`, `surface`, `surface-raised`, `control-rest`, `control-hover`, `control-pressed`, `control-disabled`, `text-primary`, `text-secondary`, `text-disabled`, `stroke-default`, `stroke-subtle`, `focus-outer`, `focus-inner`, `accent-rest`, `accent-hover`, `accent-pressed`, `selection-rest`, `danger`, `warning`, `success`, `modal-smoke`.
 
-**[NYK]** `ui/theme.slint` sisältää tummat `canvas/surface/surface-raised/line/ink/muted/accent` jne. Niitä ei saa esitellä Microsoftin virallisina tokeneina. Nykyisen Dark Spruce -vihreän säilytys on yhteensopivuusvalinta; myöhemmin myös Windows-tyylin omat neutraalit light/dark-palettikartat. `Theme.color-scheme` on nykyisin hardcoded dark; light ja system follow **eivät ole valmis ominaisuus**.
+**[NYK]** `ui/theme.slint` sisältää semanttiset `canvas/surface/surface-raised/line/ink/muted/accent` jne. Niitä ei saa esitellä Microsoftin virallisina tokeneina. Tumma kuusi -vihreän säilytys on yhteensopivuusvalinta. Vaalea ja tumma peruspaletti sekä järjestelmän värimallia seuraava tila on toteutettu; `Theme.color-scheme` seuraa valintaa. Kaikki nimetyt väriteemat käyttävät tummaa värimallia. Windowsin suuren kontrastin täysi alustaintegraatio ei ole valmis.
 
 ### Kaikki käyttötilat samalla sopimuksella
 
@@ -457,3 +457,5 @@ Kaikki tulevat muutokset: animoidut hoverit, siirtymät, easing, fade, shadow, M
 Painikkeiden, valintalistojen, taulukkorivien ja sivupalkin väripalaute käyttää 120 millisekunnin siirtymää. Kohdistuskehys ja virheviestit säilyvät välittöminä. Kaikki nämä siirtymät noudattavat `Theme.effects-enabled`-asetusta (oletus pois); häivytysajastin ei käy pois-tilassa. Pisteisiin tai kilpailuaikoihin ei lisätä numerointerpolointia.
 
 Käännös tarkistetaan erikseen; toiminnallisia tai automaattisia testejä ei ajeta käyttäjän nykyisen testikiellon aikana.
+
+Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).

@@ -1526,12 +1526,12 @@ export component AppWindow inherits Window {
                                 spacing: Theme.space-3; alignment: start;
                                 Text { text: "Sovelluksen ulkoasu"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
                                 about-appearance := ComboBox {
-                                    model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Tumma kuusi", "Hiillos", "Shanghai"];
+                                    model: ["Järjestelmän mukaan", "Vaalea", "Tumma", "Tumma kuusi", "Hiillos", "Shanghai", "Yömeri", "Kanerva", "Ruusu", "Revontuli"];
                                     current-index <=> root.appearance-index;
                                     accessible-label: "Sovelluksen ulkoasu";
                                     selected(value) => { root.set-appearance(self.current-index); }
                                 }
-                                Note { text: root.appearance-index == 5 ? "Shanghai yhdistää lämpimän tumman pohjan, pehmeän vaalean tekstin ja lohenpunaisen korostuksen." : root.appearance-index == 4 ? "Hiillos yhdistää tummat puunsävyt ja hillityn meripihkakorostuksen." : "Valitse sovelluksen väriteema."; height: self.preferred-height; }
+                                Note { text: root.appearance-index == 9 ? "Revontuli yhdistää yönvioletin pohjan ja hillityn mintunvihreän korostuksen." : root.appearance-index == 8 ? "Ruusu yhdistää tumman ruusunharmaan ja pehmeän roosan korostuksen." : root.appearance-index == 7 ? "Kanerva yhdistää tumman violetin pohjan ja hillityn laventelikorostuksen." : root.appearance-index == 6 ? "Yömeri yhdistää syvän sinisen pohjan ja pehmeän turkoosin korostuksen." : root.appearance-index == 5 ? "Shanghai yhdistää lämpimän tumman pohjan, pehmeän vaalean tekstin ja lohenpunaisen korostuksen." : root.appearance-index == 4 ? "Hiillos yhdistää tummat puunsävyt ja hillityn meripihkakorostuksen." : "Valitse sovelluksen väriteema."; height: self.preferred-height; }
                                 about-effects := CheckBox {
                                     text: "Ota animaatiot ja tehosteet käyttöön";
                                     checked <=> root.effects-enabled;

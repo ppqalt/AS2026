@@ -126,6 +126,10 @@ fn ordinary_text_and_primary_action_have_readable_contrast() {
         "DarkColors",
         "HiillosColors",
         "ShanghaiColors",
+        "YomeriColors",
+        "KanervaColors",
+        "RuusuColors",
+        "RevontuliColors",
     ] {
         let palette = theme
             .split(&format!("export global {name} {{"))
@@ -164,6 +168,46 @@ fn ordinary_text_and_primary_action_have_readable_contrast() {
                 contrast >= 4.5,
                 "{foreground} / {background}: text contrast is only {contrast:.2}:1"
             );
+        }
+        if !matches!(
+            name,
+            "SpruceColors" | "LightColors" | "DarkColors" | "HiillosColors" | "ShanghaiColors"
+        ) {
+            let assert_contrast = |foreground: &str, background: &str, minimum: f64| {
+                let a = luminance(foreground);
+                let b = luminance(background);
+                let contrast = (a.max(b) + 0.05) / (a.min(b) + 0.05);
+                assert!(
+                    contrast >= minimum,
+                    "{name}: {foreground} / {background}: contrast is only {contrast:.2}:1"
+                );
+            };
+            for background in [
+                "canvas",
+                "surface",
+                "surface-raised",
+                "surface-hover",
+                "table-header",
+                "accent-soft",
+                "sidebar",
+                "sidebar-hover",
+                "control-pressed",
+                "danger-soft",
+            ] {
+                for foreground in ["ink", "muted", "subtle-text"] {
+                    assert_contrast(foreground, background, 4.5);
+                }
+                for foreground in ["control-stroke", "focus-outer"] {
+                    assert_contrast(foreground, background, 3.0);
+                }
+            }
+            for foreground in ["danger", "warning", "success"] {
+                for background in ["surface", "surface-raised"] {
+                    assert_contrast(foreground, background, 4.5);
+                }
+            }
+            assert_contrast("line", "control-pressed", 3.0);
+            assert_contrast("focus-inner", "accent-fill", 3.0);
         }
     }
 }

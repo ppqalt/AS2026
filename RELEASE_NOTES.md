@@ -1,17 +1,18 @@
-# AS2026 0.7.4
+# AS2026 0.7.6
 
-Versio toteuttaa issuet #45–#52 ja säilyttää 0.7.3:n Fluent 2 -käyttöliittymän.
+Versio täydentää 0.7.4:ää rajatulla teemavalikoimalla. Kaikki 0.7.4:n kilpailu-, KITI-, PDF-, Emit- ja livetuloskorjaukset säilyvät.
 
-- **KITI-vienti:** jokaiselle pohjan luokalle valitaan pakollinen perusluokka ja vapaaehtoinen yhdistetty luokka. Molemmissa listoissa ovat kaikki tulosluokat. Perusluokan sija menee aina Lkasij.-sarakkeeseen, yhdistetyn luokan sija Sij.-sarakkeeseen. Ilman yhdistettyä valintaa molemmat sijoitukset tulevat perusluokasta. Valinnat muistetaan.
-- **KITI-tiedostonimi:** pohjan nimi + `-valmis.xlsx`, samassa kansiossa. Alkuperäistä pohjaa ja olemassa olevia tulostiedostoja ei korvata.
-- **PDF-vienti:** valittujen luokkien järjestyksen voi määrätä järjestysnumeroilla. Järjestys koskee myös Beginners Cupia ja asemakohtaisia tuloksia.
-- **PDF-logo:** logo sijoittuu 10 mm:n marginaalien sisälle kuvasuhteensa säilyttäen. Otsikot väistävät logoa myös vaakatulosteessa ja leveällä logolla.
-- **Emit-korjaus:** radan Emit-numerot voi tuoda pohjaksi myös olemassa olevaa korttilukua korjattaessa. Kellonajat täydennetään kilpailukortista; alkuperäinen lukema säilyy historiassa.
-- **Termit:** Manuaalinen aika, Kokonaismyöhästymisraja, Jaksomyöhästymisraja ja Virhevapaa aika ovat käytössä käyttöliittymässä ja ajantasaisissa ohjeissa.
-- **Livetulokset:** yhdistettyjen luokkien otsikoissa näkyy luokan nimi ilman sisäistä Y1-/Y2-tunnistetta.
+- **Kymmenen ulkoasuvaihtoehtoa:** Järjestelmän mukaan, Vaalea, Tumma, Tumma kuusi, Hiillos, Shanghai, Yömeri, Kanerva (laventeli), Ruusu ja Revontuli.
+- **Hillitty valikoima:** keskenään liian samankaltaiset paletit on karsittu. Viisi ensimmäistä vaihtoehtoa ja laventelinsävyinen Kanerva säilyvät.
+- **Vanhat ulkoasuasetukset:** poistuneen teeman tallennettu nimi avautuu samansävyisessä säilytetyssä teemassa. Muut asetukset ja kilpailutiedot säilyvät.
+- **Yhtenäinen valinta:** samat vaihtoehdot sovelluksessa ja komponenttigalleriassa. Valinta tallentuu vain omalle tietokoneelle; animaatiot ja tehosteet ovat oletuksena pois.
+
+Ulkoasu vaihdetaan kohdasta **Tietoja → Ulkoasu**. [Teemat ja sävyt](docs/TEEMAT.md).
+
+[Version 0.7.4 kilpailukäyttöön liittyvät korjaukset](docs/julkaisut/0.7.4.md) säilyvät: KITI-luokkakohdistukset ja sijoitukset, turvallinen vientitiedostonimi, PDF-luokkajärjestys ja logo, Emit-korjauspohja, täsmennetyt ajanottotermit sekä livetulosten luokkaotsikot.
 
 Pura koko käyttöjärjestelmäsi paketti ja käynnistä **as2026-gui** tai **as2026-gui.exe**. Pakettiin kuuluvat varmennettava manifesti, käynnistin ja lisenssit.
 
 Fyysinen Emit-lukija, paperitulostin ja kilpailupaikan verkko on tarkistettava käytettävällä kalustolla. Automaattiset testit käyttävät erillisiä esimerkkikilpailuja.
 
-[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Vienti](docs/VIENTI_JA_HUOMAUTUKSET.md) · [Emit-korjaus](docs/EMIT_RIVIN_KORJAUS.md) · [Version 0.7.3 muutokset](docs/julkaisut/0.7.3.md)
+[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Vienti](docs/VIENTI_JA_HUOMAUTUKSET.md) · [Emit-korjaus](docs/EMIT_RIVIN_KORJAUS.md)

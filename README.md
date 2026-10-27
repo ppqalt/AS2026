@@ -70,7 +70,8 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md)
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
-- [Version 0.7.4 julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.4 julkaisutiedot](docs/julkaisut/0.7.4.md)
+- [Valmisteilla olevan 0.7.6:n julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja
@@ -87,6 +88,6 @@ Slint-maininta säilyy ohjelman Tietoja-ikkunassa.
 
 ## Ulkoasu ja päivitykset
 
-Tietoja → Ulkoasu tarjoaa järjestelmän mukaisen, vaalean, tumman, Tumma kuusi-, Hiillos- ja Shanghai-teeman. Teema koskee vain omaa tietokonetta. Lyhyet häivytykset ja värisiirtymät voi kytkeä erikseen päälle; oletuksena ne ovat pois. Tietoja → Lisenssit sisältää oman lisenssin linkin ja Slint-maininnan.
+Tietoja → Ulkoasu tarjoaa 10 ulkoasuvaihtoehtoa: järjestelmätilan, vaalean ja tumman perusulkoasun sekä 7 hillittyä tummaa väriteemaa. [Teemaluettelo](docs/TEEMAT.md). Teema koskee vain omaa tietokonetta. Lyhyet häivytykset ja värisiirtymät voi kytkeä erikseen päälle; oletuksena ne ovat pois. Tietoja → Lisenssit sisältää oman lisenssin linkin ja Slint-maininnan.
 
 Ohjelma tarkistaa päivitykset automaattisesti taustalla käynnistyessään. Asennus käynnistetään erikseen sivupalkista. Kilpailun käyttö ei tarvitse internetyhteyttä.

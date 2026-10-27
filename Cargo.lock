@@ -268,7 +268,7 @@ checksum = "175571dd1d178ced59193a6fc02dde1b972eb0bc56c892cde9beeceac5bf0f6b"
 
 [[package]]
 name = "as2026"
-version = "0.7.4"
+version = "0.7.6"
 dependencies = [
  "calamine",
  "chrono",
