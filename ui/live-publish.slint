@@ -1,15 +1,31 @@
 import { UiButton as Button, UiTextField as LineEdit, UiComboBox as ComboBox, UiScrollView as ScrollView, UiCheckBox as CheckBox } from "presets.slint";
+import { ClassSelection } from "class-selection.slint";
 import { Theme } from "theme.slint";
 import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
 import { ResultEntryInput, DrawClassOption } from "types.slint";
+component PublishField inherits VerticalLayout {
+    in property <ResultEntryInput> field;
+    in property <bool> writable;
+    callback edited(int, string);
+    spacing: 4px;
+    Note { text: root.field.label; }
+    LineEdit {
+        text: root.field.value;
+        enabled: root.writable;
+        input-type: root.field.key == 3 ? InputType.password : InputType.text;
+        edited => { root.edited(root.field.key, self.text); }
+    }
+}
 export component LivePublishDialog inherits Rectangle {
     in property <[ResultEntryInput]> fields;
+    private property <bool> advanced-open: false;
     in property <string> status;
     in property <bool> running;
     in property <bool> busy;
     in-out property <int> protocol;
     in property <[DrawClassOption]> classes;
     callback class-toggled(int, bool);
+    callback classes-all(bool);
     callback local();
     callback edited(int, string);
     callback test();
@@ -27,26 +43,55 @@ export component LivePublishDialog inherits Rectangle {
         }
         DialogSurface {
             available-width: root.width; available-height: root.height;
-            preferred-dialog-height: 760px; preferred-dialog-width: 840px;
+            preferred-dialog-width: 840px;
+            minimum-dialog-height: 520px; maximum-dialog-height: 1200px;
+            content-dialog-height: publish-content.min-height + 108px + 150px;
             Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; text: "Live-tulosten julkaisu"; }
             Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 40px;
                 text: "Julkaisu koskee tätä kilpailua tällä koneella. Vain yksi kone julkaisee samaan osoitteeseen. Salasana säilyy vain muistissa."; }
             ScrollView {
                 x: Theme.dialog-padding; y: 108px; width: parent.width - 2 * Theme.dialog-padding;
                 height: parent.height - 108px - 150px;
-                VerticalLayout {
+                publish-content := VerticalLayout {
                     spacing: Theme.space-2; padding-right: 12px;
                     Note { text: "Julkaistavat luokat – jokainen omalla kiertävällä sivullaan"; }
-                    for item[i] in root.classes: CheckBox { text:item.label; checked:item.selected; enabled:!root.running && !root.busy; toggled => {root.class-toggled(i,self.checked);} }
-                    ComboBox { model: ["SFTP (salattu)", "FTP (salaamaton)"]; current-index <=> root.protocol; enabled: !root.running && !root.busy; }
-                    if root.protocol == 1: Note { text: "FTP lähettää salasanan ja tulokset salaamatta. Käytä vain harkitusti."; }
-                    for field in root.fields: VerticalLayout {
-                        spacing: 4px;
-                        Note { text: field.label; }
-                        LineEdit { text: field.value; enabled: !root.running && !root.busy;
-                            input-type: field.key == 3 ? InputType.password : InputType.text;
-                            edited => { root.edited(field.key, self.text); }
+                    ClassSelection {
+                        height: max(220px, min(500px, 124px + ceil(root.classes.length / 2) * 80px + 24px)); vertical-stretch: 0;
+                        classes: root.classes; writable: !root.running && !root.busy;
+                        toggle(index, selected) => { root.class-toggled(index, selected); }
+                        select-all(selected) => { root.classes-all(selected); }
+                    }
+                    ComboBox {
+                        model: ["SFTP (salattu)", "FTP (salaamaton)"];
+                        current-index <=> root.protocol;
+                        enabled: !root.running && !root.busy;
+                        selected(index) => {
+                            if root.fields[1].value == "22" || root.fields[1].value == "21" {
+                                root.edited(1, index == 1 ? "21" : "22");
+                            }
                         }
+                    }
+                    if root.protocol == 1: Note { text: "FTP lähettää salasanan ja tulokset salaamatta. Käytä vain harkitusti."; }
+                    PublishField { field: root.fields[0]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                    PublishField { field: root.fields[2]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                    PublishField { field: root.fields[3]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                    if root.protocol == 0: PublishField { field: root.fields[5]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                    PublishField { field: root.fields[6]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                    HorizontalLayout {
+                        alignment: start;
+                        Button {
+                            text: root.advanced-open ? "Piilota lisäasetukset" : "Lisäasetukset";
+                            clicked => { root.advanced-open = !root.advanced-open; }
+                        }
+                    }
+                    if root.advanced-open: VerticalLayout {
+                        spacing: Theme.space-2;
+                        PublishField { field: root.fields[1]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                        if root.protocol == 0: PublishField { field: root.fields[4]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                        PublishField { field: root.fields[7]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                        PublishField { field: root.fields[8]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                        PublishField { field: root.fields[9]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
+                        PublishField { field: root.fields[10]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
                     }
                 }
             }

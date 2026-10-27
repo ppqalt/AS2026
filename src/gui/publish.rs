@@ -70,6 +70,21 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
             }
         }
     });
+    let weak = app.as_weak();
+    app.on_publish_classes_all(move |selected| {
+        if let Some(app) = weak.upgrade() {
+            if app.get_publish_running() || app.get_publish_busy() {
+                return;
+            }
+            let classes = app.get_publish_classes();
+            for index in 0..classes.row_count() {
+                if let Some(mut item) = classes.row_data(index) {
+                    item.selected = selected;
+                    classes.set_row_data(index, item);
+                }
+            }
+        }
+    });
     let shared = state.clone();
     let weak = app.as_weak();
     app.on_publish_local(move || {

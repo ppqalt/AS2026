@@ -1,0 +1,98 @@
+import { Theme } from "theme.slint";
+import { UiButton, UiTextField, UiCheckBox, UiScrollView } from "presets.slint";
+import { Note } from "components.slint";
+import { DrawClassOption } from "types.slint";
+
+// Suodatettu näkymä säilyttää aina alkuperäisen mallin indeksit.
+export global ClassSelectionLogic {
+    pure callback indices([DrawClassOption], string, bool) -> [int];
+    pure callback count([DrawClassOption]) -> int;
+}
+
+export component ClassSelection inherits Rectangle {
+    in property <[DrawClassOption]> classes;
+    in property <bool> writable: true;
+    callback toggle(int, bool);
+    callback select-all(bool);
+    in-out property <string> query;
+    in-out property <bool> selected-only;
+    private property <[int]> indices: ClassSelectionLogic.indices(root.classes, root.query, root.selected-only);
+    out property <int> selected-count: ClassSelectionLogic.count(root.classes);
+    out property <Point> first-card-position: { x: entries.absolute-position.x + Theme.space-2, y: entries.absolute-position.y + Theme.space-2 };
+    out property <length> card-width: (entries.width - 3 * Theme.space-2) / 2;
+    out property <int> visible-count: root.indices.length;
+    out property <bool> search-focused: search.has-focus;
+    public function focus-search() { search.focus(); }
+    VerticalLayout {
+        spacing: Theme.space-2;
+        HorizontalLayout {
+            Note { text: "Hae luokkaa"; horizontal-stretch: 1; }
+            Note { text: root.selected-count + " / " + root.classes.length + " valittu"; color: Theme.accent; }
+        }
+        search := UiTextField {
+            text <=> root.query; placeholder-text: "Luokan nimi tai tunnus";
+            accessible-label: "Hae luokkaa";
+        }
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            UiButton { text: "Valitse kaikki"; enabled: root.writable; clicked => { root.select-all(true); } }
+            UiButton { text: "Tyhjennä"; enabled: root.writable; clicked => { root.select-all(false); } }
+            Rectangle { horizontal-stretch: 1; }
+            UiCheckBox { text: "Vain valitut"; checked <=> root.selected-only; }
+        }
+        Rectangle {
+            vertical-stretch: 1; min-height: 80px;
+            border-width: 1px; border-color: Theme.line; border-radius: Theme.radius;
+            background: Theme.canvas;
+            list := UiScrollView {
+                x: Theme.space-1; y: Theme.space-1;
+                width: parent.width - 2 * Theme.space-1; height: parent.height - 2 * Theme.space-1;
+                horizontal-scrollbar-policy: always-off;
+                content-width: self.visible-width; content-height: entries.height;
+                entries := Rectangle {
+                    width: list.visible-width;
+                    height: max(88px, ceil(root.indices.length / 2) * (72px + Theme.space-2) + Theme.space-2);
+                    if root.indices.length == 0: Note {
+                        width: parent.width; height: 72px;
+                        text: root.classes.length == 0 ? "Ei valittavia luokkia." : "Ei luokkia tällä rajauksella.";
+                        horizontal-alignment: center; vertical-alignment: center;
+                    }
+                    for source[i] in root.indices: card := Rectangle {
+                        x: Theme.space-2 + Math.mod(i, 2) * (self.width + Theme.space-2);
+                        y: Theme.space-2 + floor(i / 2) * (72px + Theme.space-2);
+                        width: (entries.width - 3 * Theme.space-2) / 2; height: 72px;
+                        background: root.classes[source].selected ? Theme.accent-soft : touch.has-hover && root.writable ? Theme.surface-hover : Theme.surface;
+                        border-radius: Theme.radius; border-width: 1px; border-color: Theme.line;
+                        choice := UiCheckBox {
+                            x: Theme.space-3; y: (parent.height - Theme.control-height) / 2;
+                            width: parent.width - 2 * Theme.space-3; height: Theme.control-height;
+                            text: root.classes[source].label; checked: root.classes[source].selected;
+                            enabled: root.writable;
+                            toggled => {
+                                if root.selected-only { search.focus(); }
+                                root.toggle(source, self.checked);
+                            }
+                            changed has-focus => {
+                                if self.has-focus {
+                                    if card.y < -list.content-y { list.content-y = -card.y; }
+                                    else if card.y + card.height > -list.content-y + list.visible-height {
+                                        list.content-y = list.visible-height - card.y - card.height;
+                                    }
+                                }
+                            }
+                            Tooltip { text: @markdown("\{root.classes[source].label}"); }
+                        }
+                        touch := TouchArea {
+                            width: parent.width; height: parent.height;
+                            enabled: root.writable;
+                            clicked => {
+                                if root.selected-only { search.focus(); } else { choice.focus(); }
+                                root.toggle(source, !root.classes[source].selected);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

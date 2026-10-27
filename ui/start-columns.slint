@@ -24,8 +24,10 @@ export component StartColumnsDialog inherits Rectangle {
         }
         DialogSurface {
             available-width: root.width; available-height: root.height;
-            preferred-dialog-width: 560px; preferred-dialog-height: 700px;
-            VerticalLayout {
+            preferred-dialog-width: 560px;
+            minimum-dialog-height: 360px; maximum-dialog-height: 1120px;
+            content-dialog-height: form-layout.min-height - body.min-height + content.min-height;
+            form-layout := VerticalLayout {
                 padding: Theme.dialog-padding; spacing: Theme.space-3;
                 Heading { text: "Lähtöluettelon kentät"; }
                 Note { text: "Valitse näytettävät kentät ja muuta järjestystä nuolilla. Valinta koskee kilpailijataulukkoa sekä HTML- ja CSV-lähtöluetteloa."; }

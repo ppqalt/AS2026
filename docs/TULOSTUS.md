@@ -33,7 +33,10 @@ käyttävät BC:n omia virhepisteitä ja asemavalintaa. Raaka Emit-aineisto säi
 
 Avaa **Tulokset → Toiminnot → Tulosta luokkatulokset** tai
 **Tulosta asematulokset**. Valitse yksi tai useampi perusluokka, yhdistetty
-luokka tai määritetty Beginners Cup. Muiden luokkien tuloksia ei lisätä tulosteeseen.
+luokka tai määritetty Beginners Cup. Koko luokkakorttia voi klikata.
+Haku rajaa näkyvät kortit, mutta säilyttää muut valinnat. **Vain valitut** näyttää
+valitut luokat; **Valitse kaikki** ja **Tyhjennä** koskevat koko luetteloa.
+Valittujen määrä näkyy hakurivin yläpuolella. Muiden luokkien tuloksia ei lisätä tulosteeseen.
 Jokainen valittu luokka alkaa omalta sivultaan. Oletuksena kukin luokka sovitetaan
 yhdelle sivulle. Asematuloste on oletuksena A4-vaaka, luokkatulos A4-pysty.
 Suunnan voi vaihtaa. Sovituksen poistaminen antaa pitkän luokan jatkua uusilla

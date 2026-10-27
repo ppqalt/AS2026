@@ -221,7 +221,9 @@ edelleen erillisen laitekokeen.
 Yleiskatsaus käyttää tunnuslukuja (`Metric`) ja työvaihepainikkeita.
 Kilpailijat ja Luokat käyttävät samaa `DataTable` + `Editor` -työaluetta.
 Tulokset lisää `ResultSummary`-kortin ja asematulostaulukon; haku ja
-luokkarajaus säilyvät Mikky100:n otsikkorivillä.
+luokkarajaus säilyvät Mikky100:n otsikkorivillä. Pieni **Nro**-kenttä
+rajaa luettelon täsmällisen kilpailunumeron mukaan. Se toimii yhdessä muun
+haun ja luokkarajauksen kanssa; tyhjentäminen poistaa numerorajauksen.
 
 ## Peräkkäiset Emit-kortit
 

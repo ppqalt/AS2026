@@ -1,4 +1,5 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
+mod class_selection;
 mod gallery;
 slint::include_modules!();
 mod background;
@@ -93,6 +94,7 @@ struct State {
     route_draft: BTreeMap<i32, String>,
     invalid_route_fields: BTreeMap<i32, String>,
     filter: String,
+    result_number: String,
     result_class: String,
     worker: Option<ReaderWorker>,
     receiver: Option<Receiver<ReaderEvent>>,
@@ -550,6 +552,9 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
                 .is_some_and(|c| members.iter().any(|m| m == c.as_str()))
         });
     }
+    if state.page == 3 {
+        tables::filter_result_number(&mut view.rows, &state.result_number);
+    }
     app.set_rows(model(view.rows));
     app.set_headers(model(view.headers));
     app.set_weights(model(view.weights));
@@ -760,6 +765,8 @@ fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
         ws.set_bc_view(false)?;
     }
     state.filter.clear();
+    state.result_number.clear();
+    app.set_result_number("".into());
     state.draft.clear();
     state.result_class.clear();
     app.set_page(page);
@@ -1140,6 +1147,8 @@ fn follow_pending_result(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         })?;
     state.page = 3;
     state.filter.clear();
+    state.result_number.clear();
+    app.set_result_number("".into());
     state.result_class.clear();
     app.set_result_class_index(0);
     app.set_page(3);
@@ -1973,6 +1982,10 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         update_form(s, &a);
         Ok(())
     });
+    action!(on_result_number_changed, |s, a, text| {
+        s.result_number = text.to_string();
+        update_tables(s, &a)
+    });
     action!(on_filter_changed, |s, a, text| {
         s.filter = text.to_string();
         update_tables(s, &a)
@@ -2442,6 +2455,8 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         s.selection = Selection::None;
         s.detail = -1;
         s.filter.clear();
+        s.result_number.clear();
+        a.set_result_number("".into());
         a.set_filter("".into());
         update_tables(s, &a)?;
         update_form(s, &a);
@@ -3667,6 +3682,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         return gallery::run(captures, gallery_smoke);
     }
     let app = AppWindow::new()?;
+    class_selection::register(app.global::<ClassSelectionLogic>());
     let tung_weak = app.as_weak();
     app.on_tung_start(move || {
         let Some(app) = tung_weak.upgrade() else {

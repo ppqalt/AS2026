@@ -42,6 +42,8 @@ Koko kortin leimat korjataan Emit-sivun **Muokkaa leimauksia** -toiminnolla.
    rivit yhdessä. Pitkällä lomakealueella yksi pystyvierityksen omistaja.
 4. **Valintaikkunat:** yhteinen pinta, 12 px etäisyys ikkunan reunasta ja 24 px
    sisämarginaali. Tavallinen leveys enintään 560 px, Excel-esikatselu 1100 px.
+   Korkeus seuraa sisällön omaa mittaa näkymäkohtaisen vähimmäis- ja enimmäiskorkeuden
+   välillä. Pitkän editorin yläraja on 1200 px ja aina sovellusikkunaa pienempi.
    Otsikko ja toimintorivi pysyvät näkyvissä; pitkä sisältö vierii niiden välissä.
 5. **Lomakkeet:** nimi kentän yläpuolella, samat kellokentät ja valinnat kaikkialla.
    Enter tai poistuminen kentästä tallentaa kelvollisen arvon. Tavallisen
@@ -93,7 +95,10 @@ Tulostuksen luokkavalinnassa käytetään samoja joukkovalintoja kuin lähtöarv
 Pitkän luokkalistan kaikki rivit ovat saavutettavissa näppäimistöllä myös
 vieritysalueen ulkopuolelta; kohdistus vierittää rivin näkyviin.
 
-Arvonnan ja tulostuksen luokkalistat käyttävät yhteistä ChoiceRow-riviä.
+Arvonnan luokkalista käyttää ChoiceRow-riviä. Tulostuksen ja live-julkaisun
+luokkavalinta käyttää yhteistä ClassSelection-komponenttia: kaksi koko alaltaan
+klikattavaa korttia rivillä, haku, valittujen määrä ja Vain valitut -rajaus.
+Suodatus säilyttää alkuperäisen valintamallin indeksit eikä muuta piilossa olevia valintoja.
 Joukkovalintapainikkeet ja valintojen yhteenveto pysyvät listan ulkopuolella
 näkyvissä myös vieritettäessä; vain luokkalista vierii.
 

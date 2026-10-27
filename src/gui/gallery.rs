@@ -46,6 +46,7 @@ pub(super) fn run(
     smoke: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let gallery = GalleryWindow::new()?;
+    super::class_selection::register(gallery.global::<super::ClassSelectionLogic>());
     slint::select_bundled_translation("fi").map_err(|_| "Suomennoksen avaaminen epäonnistui")?;
     gallery.show()?;
     let timer = Rc::new(Timer::default());
@@ -125,6 +126,49 @@ pub(super) fn run(
                         assert!((size.width as f32 / scale - 900.).abs() <= 2. && (size.height as f32 / scale - 600.).abs() <= 2., "Gallerian todellinen koko: {size:?}, skaala {scale}");
                         capture(&app, &directory.join("pieni-900x600.png"))?;
                     }
+                    63 => { app.invoke_show_class_picker(); }
+                    64 => {
+                        assert_eq!(app.get_preview_count(), 6);
+                        assert_eq!(app.get_preview_visible_count(), 12);
+                        let p = app.get_preview_card_position();
+                        let x = p.x + app.get_preview_card_width() - 8.;
+                        let y = p.y + 62.;
+                        pointer(&app, true, x, y); pointer(&app, false, x, y);
+                        assert_eq!(app.get_preview_count(), 5, "Kortin alakulma vaihtaa valinnan tasan kerran");
+                    }
+                    65 => {
+                        key(&app, " ");
+                        assert_eq!(app.get_preview_count(), 6, "Kortin klikkaus säilyttää valintaruudun näppäimistökohdistuksen");
+                        app.set_preview_query(" cup ".into());
+                    }
+                    66 => {
+                        assert_eq!(app.get_preview_visible_count(), 1);
+                        let p = app.get_preview_card_position();
+                        pointer(&app, true, p.x + 16., p.y + 36.); pointer(&app, false, p.x + 16., p.y + 36.);
+                        assert_eq!(app.get_preview_count(), 7, "Suodatettu kortti valitsee alkuperäisen mallin oikean luokan");
+                        app.set_preview_selected_only(true);
+                    }
+                    67 => {
+                        assert_eq!(app.get_preview_visible_count(), 1);
+                        let p = app.get_preview_card_position();
+                        pointer(&app, true, p.x + 16., p.y + 36.); pointer(&app, false, p.x + 16., p.y + 36.);
+                        assert_eq!(app.get_preview_count(), 6);
+                    }
+                    68 => {
+                        assert_eq!(app.get_preview_visible_count(), 0, "Poistettu valinta katoaa Vain valitut -rajauksesta");
+                        app.set_preview_selected_only(false); app.set_preview_query("".into());
+                    }
+                    69 => { capture(&app, &directory.join("luokkavalitsin-900x600.png"))?; key(&app, Key::Escape); }
+                    70 => { app.set_sizing_content(100.); }
+                    71 => { assert_eq!(app.get_sizing_height(), 300.); app.set_sizing_content(800.); }
+                    72 => { assert_eq!(app.get_sizing_height(), 800.); app.set_sizing_content(2000.); }
+                    73 => { assert_eq!(app.get_sizing_height(), 1000.); app.set_sizing_available(600.); }
+                    74 => {
+                        assert_eq!(app.get_sizing_height(), 576.);
+                        assert_eq!(app.get_sizing_y(), 12.);
+                        app.set_sizing_content(-1.);
+                    }
+                    75 => { assert_eq!(app.get_sizing_height(), 520.); assert_eq!(app.get_sizing_y(), 40.); }
                     _ => {
                         app.set_effects_enabled(false);
                         capture(&app, &directory.join("fluent-gallery.png"))?;

@@ -25,6 +25,24 @@ pub struct ViewData {
     pub result_overview: ResultOverview,
 }
 
+// Nro-kenttä hakee täsmällistä kilpailunumeroa, ei nimeä, Emit-korttia tai sijoitusta.
+pub(super) fn filter_result_number(rows: &mut Vec<TableRow>, query: &str) {
+    use slint::Model;
+    let query = query.trim();
+    if query.is_empty() {
+        return;
+    }
+    let number = query.parse::<u32>().ok();
+    rows.retain(|row| {
+        number.is_some()
+            && row
+                .cells
+                .row_data(1)
+                .and_then(|cell| cell.parse::<u32>().ok())
+                == number
+    });
+}
+
 fn row(index: usize, cells: Vec<String>) -> TableRow {
     TableRow {
         key: index as i32,
@@ -1120,6 +1138,59 @@ fn history(
 mod tests {
     use super::*;
     use as2026::{native::Project, storage::ProjectStore};
+
+    #[test]
+    fn number_search_matches_only_the_exact_competition_number() {
+        let all = vec![
+            row(
+                0,
+                vec![
+                    "5".into(),
+                    "7".into(),
+                    "A".into(),
+                    "Kilpailija 51".into(),
+                    "51".into(),
+                ],
+            ),
+            row(
+                1,
+                vec![
+                    "7".into(),
+                    "51".into(),
+                    "A".into(),
+                    "Toinen".into(),
+                    "12345".into(),
+                ],
+            ),
+            row(
+                2,
+                vec![
+                    "1".into(),
+                    "517".into(),
+                    "B".into(),
+                    "Kolmas".into(),
+                    "12345".into(),
+                ],
+            ),
+        ];
+        for (query, expected) in [
+            ("51", vec![1]),
+            (" 051 ", vec![1]),
+            ("7", vec![0]),
+            ("", vec![0, 1, 2]),
+            ("ei numero", vec![]),
+            ("4294967296", vec![]),
+        ] {
+            let mut rows = all.clone();
+            filter_result_number(&mut rows, query);
+            assert_eq!(
+                rows.iter().map(|row| row.key).collect::<Vec<_>>(),
+                expected,
+                "{query}"
+            );
+        }
+    }
+
     use slint::Model;
     use std::{
         path::PathBuf,

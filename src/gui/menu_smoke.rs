@@ -398,6 +398,7 @@ pub(super) fn start(
                 assert!(app.get_result_entry_identity().starts_with("#7 "));
                 smoke::key(&app, slint::platform::Key::Escape);
             } else if step == 98 {
+                if app.get_result_entry_open() { app.invoke_result_entry_close(false); }
                 app.invoke_open_publish();
                 assert!(app.get_publish_open());
                 assert_eq!(app.get_publish_fields().row_count(), 11);
@@ -406,6 +407,7 @@ pub(super) fn start(
                 assert!(!app.get_publish_busy());
                 assert!(app.get_publish_status().contains("Anna"));
             } else if step == 99 {
+                if app.get_result_entry_open() { app.invoke_result_entry_close(false); return; }
                 save_view(&app, &directory.join("live-julkaisun-asetukset.png")).unwrap();
                 smoke::key(&app, slint::platform::Key::Escape);
                 assert!(!app.get_publish_open());
@@ -497,6 +499,40 @@ pub(super) fn start(
                 assert_eq!(document.pages[0].texts[1].value, first.pages[0].texts[1].value);
                 save_view(&app, &directory.join("pdf-luokkajarjestys.png")).unwrap();
                 app.set_export_open(false);
+            } else if step == 106 {
+                if app.get_result_entry_open() { app.invoke_result_entry_close(false); return; }
+                shared.borrow_mut().result_class.clear();
+                app.invoke_open_print_classes(false);
+                assert!(app.get_print_classes_open());
+            } else if step == 107 {
+                save_view(&app, &directory.join("luokkavalitsin-tulostus-900x600.png")).unwrap();
+                app.invoke_print_classes_all(false);
+                app.invoke_print_class_toggled(0, true);
+                app.invoke_print_classes_close(true);
+                assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
+                assert!(!shared.borrow().last_print.as_ref().unwrap().pages.is_empty());
+                app.invoke_open_print_classes(true);
+                assert!(app.get_print_classes_open());
+            } else if step == 108 {
+                save_view(&app, &directory.join("luokkavalitsin-asemat-900x600.png")).unwrap();
+                app.invoke_print_classes_all(true);
+                app.invoke_print_classes_close(true);
+                assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
+                assert!(shared.borrow().last_print.as_ref().unwrap().landscape);
+            } else if step == 109 {
+                app.invoke_navigate(3);
+                app.set_result_number("7".into());
+                app.invoke_result_number_changed("7".into());
+                assert!(app.get_rows().row_count() > 0);
+                assert!(app.get_rows().iter().all(|row| row.cells.row_data(1).as_deref() == Some("7")));
+            } else if step == 110 {
+                save_view(&app, &directory.join("tulokset-numerohaku-900x600.png")).unwrap();
+                app.set_result_number("999999".into());
+                app.invoke_result_number_changed("999999".into());
+                assert_eq!(app.get_rows().row_count(), 0);
+                app.set_result_number("".into());
+                app.invoke_result_number_changed("".into());
+                assert!(app.get_rows().row_count() > 0);
             } else {
                 test_complete.set(true);
                 println!("Valikkokoe valmis: 54 oikeaa valikkovalintaa, KITI-luokkavalinnat, luokat tallennettu ja avattu uudelleen; seitsemän sivua neljässä koossa.");

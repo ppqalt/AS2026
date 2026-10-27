@@ -59,10 +59,16 @@ export component Workspace inherits Rectangle {
 export component DialogSurface inherits FadeSurface {
     in property <length> preferred-dialog-width: Theme.dialog-width;
     in property <length> preferred-dialog-height: 520px;
+    // Sisällön oma mitta ei riipu vieritysalueen näkyvästä korkeudesta.
+    in property <length> content-dialog-height: -1px;
+    in property <length> minimum-dialog-height: 0px;
+    in property <length> maximum-dialog-height: 1200px;
     in property <length> available-width;
     in property <length> available-height;
     width: min(root.preferred-dialog-width, max(0px, root.available-width - 2 * Theme.dialog-margin));
-    height: min(root.preferred-dialog-height, max(0px, root.available-height - 2 * Theme.dialog-margin));
+    height: min(max(0px, root.available-height - 2 * Theme.dialog-margin),
+        min(root.maximum-dialog-height, max(root.minimum-dialog-height,
+            root.content-dialog-height >= 0px ? root.content-dialog-height : root.preferred-dialog-height)));
     x: (root.available-width - self.width) / 2;
     y: (root.available-height - self.height) / 2;
     border-radius: Theme.radius-large;

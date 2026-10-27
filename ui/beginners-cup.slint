@@ -64,7 +64,9 @@ export component BeginnersCupDialog inherits Rectangle {
             clip: true;
             available-width: root.width;
             available-height: root.height;
-            preferred-dialog-height: 760px;
+            minimum-dialog-height: 440px; maximum-dialog-height: 1120px;
+            content-dialog-height: 112px + (root.tab == 0 ? body-content.min-height : 64px + root.participants.length * (Theme.control-height + Theme.space-2))
+                + 2 * Theme.space-3 + Theme.dialog-padding + Theme.control-height + (root.error == "" ? 0px : 48px);
             title := Heading {
                 x: Theme.dialog-padding; y: Theme.dialog-padding;
                 width: parent.width - 2 * Theme.dialog-padding; height: 28px;

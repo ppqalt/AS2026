@@ -15,6 +15,7 @@ import { ResultEntryDialog } from "result-entry.slint";
 import { EmitCorrectionDialog } from "emit-correction.slint";
 import { PrintClassesDialog } from "print-classes.slint";
 import { ResultEntryInput } from "types.slint";
+export { ClassSelectionLogic } from "class-selection.slint";
 export { ResultEntryInput }
 export { TableRow, EditorField, ResultOverview, DrawClassOption, ExportClassOption, BcStationOption }
 
@@ -53,6 +54,8 @@ export component AppWindow inherits Window {
     in-out property <int> read-count;
     in-out property <int> unsaved-count;
     in-out property <string> filter;
+    in-out property <string> result-number;
+    callback result-number-changed(string);
     in-out property <[string]> result-classes: ["Luokka"];
     in-out property <int> result-class-index;
     callback result-class-changed(int);
@@ -131,6 +134,7 @@ export component AppWindow inherits Window {
     callback publish-edited(int, string);
     in-out property <[DrawClassOption]> publish-classes;
     callback publish-class-toggled(int, bool);
+    callback publish-classes-all(bool);
     callback publish-local();
     callback publish-test();
     callback publish-toggle();
@@ -544,6 +548,14 @@ export component AppWindow inherits Window {
                         spacing: Theme.space-1;
                         Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"][root.page]; }
                     }
+                    if root.page == 3 && root.opened: LineEdit {
+                        min-width: 68px; preferred-width: 68px; max-width: 68px;
+                        text <=> root.result-number; placeholder-text: "Nro";
+                        accessible-label: "Hae kilpailunumerolla";
+                        input-type: InputType.number;
+                        edited => { root.result-number-changed(self.text); }
+                    }
+                    if root.page == 3 && root.opened: Rectangle { width: Theme.space-2; }
                     if root.page == 3 && root.opened: LineEdit { preferred-width: 230px; text <=> root.filter; placeholder-text: "Hae kilpailijaa"; edited => { root.filter-changed(self.text); } }
                     if root.page == 3 && root.opened: Rectangle { width: Theme.space-3; }
                     if root.page == 3 && root.opened: ComboBox { preferred-width: 180px; model: root.result-classes; current-index <=> root.result-class-index; selected(index) => { root.result-class-changed(self.current-index); }
@@ -788,7 +800,7 @@ export component AppWindow inherits Window {
                                 headers: root.page == 3 && data-workspace.compact && root.result-stations ? root.detail-headers : root.headers;
                                 weights: root.page == 3 && data-workspace.compact && root.result-stations ? root.detail-weights : root.weights;
                                 selected-key: root.page == 3 && data-workspace.compact && root.result-stations ? root.detail-key : root.selected-key;
-                                empty-text: root.filter != "" ? "Haulla ei löytynyt tietoja." : "Luettelo on tyhjä.";
+                                empty-text: root.filter != "" || (root.page == 3 && root.result-number != "") ? "Haulla ei löytynyt tietoja." : "Luettelo on tyhjä.";
                                 selected(key) => {
                                     if root.page == 3 && data-workspace.compact && root.result-stations { root.select-detail(key); }
                                     else { root.select-row(key); }
@@ -1070,8 +1082,10 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 800px; preferred-dialog-height: 720px;
-                VerticalLayout {
+                preferred-dialog-width: 800px;
+                minimum-dialog-height: 360px; maximum-dialog-height: 1100px;
+                content-dialog-height: station-info-layout.min-height - station-info-scroll.min-height + station-info-content.min-height;
+                station-info-layout := VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-3;
                     station-info-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
@@ -1116,8 +1130,10 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 560px; preferred-dialog-height: 300px;
-                VerticalLayout {
+                preferred-dialog-width: 560px;
+                minimum-dialog-height: 240px; maximum-dialog-height: 640px;
+                content-dialog-height: route-info-layout.min-height;
+                route-info-layout := VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-3;
                     Editor {
                         fit-content: true;
@@ -1145,8 +1161,10 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 960px; preferred-dialog-height: 820px;
-                VerticalLayout {
+                preferred-dialog-width: 960px;
+                minimum-dialog-height: 540px; maximum-dialog-height: 1200px;
+                content-dialog-height: competitor-layout.min-height - competitor-scroll.min-height + competitor-editor.min-height;
+                competitor-layout := VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-3;
                     Heading { text: "Muokkaa kilpailijaa"; }
                     Button { text: "Emit-leimat / Luo leimarivi"; enabled: root.editable; clicked => { root.edit-result-competitor(); root.open-emit-edit(); } }
@@ -1333,11 +1351,13 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: 880px; preferred-dialog-height: 680px;
-                VerticalLayout {
+                preferred-dialog-width: 880px;
+                minimum-dialog-height: 320px; maximum-dialog-height: 1100px;
+                content-dialog-height: notes-layout.min-height - notes-panel.min-height + notes-text.preferred-height + 2 * Theme.space-3;
+                notes-layout := VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-4;
                     Heading { text: "Tulosten huomautukset"; vertical-stretch: 0; }
-                    Rectangle {
+                    notes-panel := Rectangle {
                         vertical-stretch: 1;
                         background: Theme.canvas;
                         border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
@@ -1752,6 +1772,7 @@ export component AppWindow inherits Window {
         width: root.width; height: root.height;
         fields: root.publish-fields; status: root.publish-status; classes: root.publish-classes;
         class-toggled(index,selected) => { root.publish-class-toggled(index,selected); }
+        classes-all(selected) => { root.publish-classes-all(selected); }
         local => { root.publish-local(); }
         running: root.publish-running; busy: root.publish-busy;
         protocol <=> root.publish-protocol;
@@ -1784,7 +1805,8 @@ export component AppWindow inherits Window {
         width: root.width; height: root.height;
         background: transparent;
         for speed[index] in root.tung-speeds: Image {
-            width: min(root.width, root.height) * (0.045 + Math.pow(Math.mod(index * 7, 16) / 15, 2) * 0.905);
+            property <float> size-pulse: 1 + 0.3 * Math.sin((root.tung-frame * (6 + Math.mod(index, 4) * 2) + index * 47) * 1deg);
+            width: min(root.width, root.height) * (0.045 + Math.pow(Math.mod(index * 7, 16) / 15, 2) * 0.905) * self.size-pulse;
             height: self.width;
             x: (Math.mod(index, 4) + 0.5) * root.width / 4 - self.width / 2;
             y: (Math.floor(index / 4) + 0.5) * root.height / 4 - self.height / 2;

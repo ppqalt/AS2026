@@ -1,0 +1,88 @@
+// Vain gallerian muistissa toimivat esimerkkiluokat, yhteinen sovelluskomponentti.
+import { Theme } from "theme.slint";
+import { UiButton, UiComboBox } from "presets.slint";
+import { DialogSurface, DialogActions, Heading, Note } from "components.slint";
+import { ClassSelection } from "class-selection.slint";
+import { DrawClassOption } from "types.slint";
+export component GalleryClassPicker inherits Rectangle {
+    callback close();
+    private property <int> context;
+    private property <string> feedback;
+    private property <[DrawClassOption]> rows: [
+        { code: "B", label: "B", selected: true },
+        { code: "C", label: "C", selected: true },
+        { code: "SM-M", label: "SM-M", selected: true },
+        { code: "SM-A", label: "SM-A", selected: true },
+        { code: "NAC-K", label: "NAC-K", selected: true },
+        { code: "NAC-U", label: "NAC-U", selected: true },
+        { code: "SM-M+NAC-K", label: "SM-M+NAC-K", selected: false },
+        { code: "SM-A+N-KC", label: "SM-A+N-KC", selected: false },
+        { code: "SM-A+NAC-K", label: "SM-A+NAC-K", selected: false },
+        { code: "SM-A-0", label: "SM-A-0", selected: false },
+        { code: "SM-M-0", label: "SM-M-0", selected: false },
+        { code: "Beginners Cup", label: "Beginners Cup", selected: false }
+    ];
+    out property <int> selected-count: choices.selected-count;
+    out property <int> visible-count: choices.visible-count;
+    out property <Point> first-card-position: choices.first-card-position;
+    out property <length> card-width: choices.card-width;
+    in-out property <string> query <=> choices.query;
+    in-out property <bool> selected-only <=> choices.selected-only;
+    public function focus-search() { choices.focus-search(); }
+    background: Theme.modal-backdrop;
+    TouchArea {}
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(); return accept; }
+            if event.text == Key.Tab && apply.has-focus && !event.modifiers.shift { purpose.focus(); return accept; }
+            if event.text == Key.Tab && purpose.has-focus && event.modifiers.shift { cancel.focus(); return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-width: 760px;
+            minimum-dialog-height: 460px; maximum-dialog-height: 1120px;
+            content-dialog-height: picker-layout.min-height - choices.min-height + max(200px, 148px + ceil(root.rows.length / 2) * 80px);
+            picker-layout := VerticalLayout {
+                padding: Theme.dialog-padding; spacing: Theme.space-3;
+                Heading { text: "Valitse luokat"; }
+                purpose := UiComboBox {
+                    model: ["Luokkatulosten tulostus", "Asematulosten tulostus", "Live-tulosten julkaisu"];
+                    current-index <=> root.context; accessible-label: "Esikatseltava käyttökohde";
+                    selected => { root.feedback = ""; }
+                }
+                choices := ClassSelection {
+                    vertical-stretch: 1;
+                    classes: root.rows;
+                    toggle(index, selected) => { root.rows[index].selected = selected; root.feedback = ""; }
+                    select-all(selected) => {
+                        root.rows[0].selected = selected;
+                        root.rows[1].selected = selected;
+                        root.rows[2].selected = selected;
+                        root.rows[3].selected = selected;
+                        root.rows[4].selected = selected;
+                        root.rows[5].selected = selected;
+                        root.rows[6].selected = selected;
+                        root.rows[7].selected = selected;
+                        root.rows[8].selected = selected;
+                        root.rows[9].selected = selected;
+                        root.rows[10].selected = selected;
+                        root.rows[11].selected = selected;
+                        root.feedback = "";
+                    }
+                }
+                Note { text: root.feedback != "" ? root.feedback : root.context == 2 ? "Valitut luokat julkaistaan omilla tulossivuillaan." : "Jokainen valittu luokka aloittaa oman sivun."; }
+                DialogActions {
+                    cancel := UiButton { text: "Peruuta"; clicked => { root.close(); } }
+                    apply := UiButton {
+                        preset-variant: "primary";
+                        text: root.context == 2 ? "Käytä valintaa" : "Tulosta (" + choices.selected-count + ")";
+                        enabled: choices.selected-count > 0;
+                        clicked => { root.feedback = "Esikatselu: " + choices.selected-count + " luokkaa valittu. Mitään ei tulostettu tai julkaistu."; }
+                    }
+                }
+            }
+        }
+    }
+}

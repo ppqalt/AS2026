@@ -3,9 +3,20 @@
 // No competition data or scoring callbacks. Follow docs/FLUENT2_KOMPONENTTISTANDARDI.md.
 import { Palette } from "std-widgets.slint";
 import { Theme } from "theme.slint";
+import { DialogSurface } from "components.slint";
 import { UiButton, UiTextField, UiComboBox, UiCheckBox, UiSlider, UiScrollView, UiCard, UiSeparator, UiSwitch, UiSpinBox, UiTextArea, UiRadioGroup, UiTabs, UiListView, UiProgressBar, UiIconButton, UiMenuButton, UiInfoBar, UiEmptyState, UiValidationMessage } from "presets.slint";
 
+import { GalleryClassPicker } from "gallery-class-picker.slint";
+
 export component FluentGallery inherits Rectangle {
+    private property <bool> class-picker-open: false;
+    public function show-class-picker() { root.class-picker-open = true; class-picker.focus-search(); }
+    out property <int> preview-count: class-picker.selected-count;
+    out property <int> preview-visible-count: class-picker.visible-count;
+    out property <Point> preview-card-position: class-picker.first-card-position;
+    out property <length> preview-card-width: class-picker.card-width;
+    in-out property <string> preview-query <=> class-picker.query;
+    in-out property <bool> preview-selected-only <=> class-picker.selected-only;
     in property <bool> effects-enabled;
     in-out property<int> appearance-index: 0;
     callback toggle-effects(bool);
@@ -51,6 +62,7 @@ export component FluentGallery inherits Rectangle {
                 Text { text: "AS2026 / Fluent 2"; color: Theme.ink; font-size: Theme.heading-font-size; font-weight: 600; }
                 Text { text: "Kehitysgalleria · komponenttipresetit · vain beta"; color: Theme.muted; font-size: Theme.body-font-size; }
             }
+            class-preview-button := UiButton { text: "Luokkavalitsin"; clicked => { root.show-class-picker(); } }
             UiButton { text: "Sulje galleria"; preset-variant: "standard"; clicked => { root.close(); } }
         }
         appearance-choice := UiComboBox {
@@ -267,10 +279,27 @@ export component FluentGallery inherits Rectangle {
             vertical-stretch: 0;
         }
     }
+    class-picker := GalleryClassPicker {
+        visible: root.class-picker-open;
+        width: root.width; height: root.height;
+        close => { root.class-picker-open = false; class-preview-button.focus(); }
+
+    }
 }
 
 // Tämä ikkuna ei avaa kilpailuja, asetustiedostoja tai laitepalveluja.
 export component GalleryWindow inherits Window {
+    // Eristetyn gallerian GUI-kokeen mittauspinta ei näy käyttäjälle.
+    in-out property <length> sizing-content: -1px;
+    in-out property <length> sizing-available: 1200px;
+    out property <length> sizing-height: size-probe.height;
+    out property <length> sizing-y: size-probe.y;
+    size-probe := DialogSurface {
+        visible: false;
+        available-width: 900px; available-height: root.sizing-available;
+        content-dialog-height: root.sizing-content;
+        minimum-dialog-height: 300px; maximum-dialog-height: 1000px;
+    }
     title: "AS2026 — Fluent 2 -komponenttigalleria (beta)";
     preferred-width: 1100px; preferred-height: 800px;
     min-width: 700px; min-height: 500px;
@@ -287,6 +316,13 @@ export component GalleryWindow inherits Window {
     in-out property<length> internal-scroll-offset <=> gallery.internal-scroll-offset;
     out property<length> internal-scroll-minimum: gallery.internal-scroll-minimum;
     out property<bool> popup-open: gallery.popup-open;
+    out property <int> preview-count: gallery.preview-count;
+    out property <int> preview-visible-count: gallery.preview-visible-count;
+    out property <Point> preview-card-position: gallery.preview-card-position;
+    out property <length> preview-card-width: gallery.preview-card-width;
+    in-out property <string> preview-query <=> gallery.preview-query;
+    in-out property <bool> preview-selected-only <=> gallery.preview-selected-only;
+    public function show-class-picker() { gallery.show-class-picker(); }
     public function focus-menu() { gallery.focus-menu(); }
     public function focus-appearance() { gallery.focus-appearance(); }
     out property<bool> sample-switch <=> gallery.sample-switch;

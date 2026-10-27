@@ -54,8 +54,9 @@ export component CombinedClassDialog inherits Rectangle {
         DialogSurface {
             available-width: root.width;
             available-height: root.height;
-            preferred-dialog-height: 620px;
-            VerticalLayout {
+            minimum-dialog-height: 460px; maximum-dialog-height: 1100px;
+            content-dialog-height: form-layout.min-height - body.min-height + entries.min-height;
+            form-layout := VerticalLayout {
                 padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
                 Heading { text: root.creating ? "Lisää yhdistetty luokka" : "Yhdistetyn luokan tiedot"; vertical-stretch: 0; }

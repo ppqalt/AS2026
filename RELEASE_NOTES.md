@@ -1,11 +1,18 @@
 # AS2026 0.7.6
 
-Versio täydentää 0.7.4:ää rajatulla teemavalikoimalla. Kaikki 0.7.4:n kilpailu-, KITI-, PDF-, Emit- ja livetuloskorjaukset säilyvät.
+Versio yhdistää 0.7.4:n korjaukset aiemmin valmisteltuihin käyttöliittymä- ja luotettavuusparannuksiin sekä rajattuun teemavalikoimaan. Kaikki 0.7.4:n kilpailu-, KITI-, PDF-, Emit- ja livetuloskorjaukset säilyvät.
 
 - **Kymmenen ulkoasuvaihtoehtoa:** Järjestelmän mukaan, Vaalea, Tumma, Tumma kuusi, Hiillos, Shanghai, Yömeri, Kanerva (laventeli), Ruusu ja Revontuli.
 - **Hillitty valikoima:** keskenään liian samankaltaiset paletit on karsittu. Viisi ensimmäistä vaihtoehtoa ja laventelinsävyinen Kanerva säilyvät.
 - **Vanhat ulkoasuasetukset:** poistuneen teeman tallennettu nimi avautuu samansävyisessä säilytetyssä teemassa. Muut asetukset ja kilpailutiedot säilyvät.
 - **Yhtenäinen valinta:** samat vaihtoehdot sovelluksessa ja komponenttigalleriassa. Valinta tallentuu vain omalle tietokoneelle; animaatiot ja tehosteet ovat oletuksena pois.
+
+- **Luokkavalinta:** tulostuksessa ja live-julkaisussa kaksi koko alaltaan klikattavaa korttia rivillä, haku, valittujen määrä ja joukkovalinnat. PDF-viennin järjestysnumerot säilyvät 0.7.4:n mukaisina.
+- **Tulosten numerohaku:** pieni Nro-kenttä hakee vain täsmällistä kilpailunumeroa muun haun ja luokkarajauksen rinnalla.
+- **Valintaikkunat:** korkeus mukautuu sisältöön ja ikkunan kokoon; otsikko ja toiminnot pysyvät näkyvissä.
+- **Live-julkaisun asetukset:** harvemmin tarvittavat asetukset on koottu lisäasetuksiin. FTP-vastausten käsittelyä ja julkaisun herätejonoa on vahvistettu.
+- **Tallennus ja päivitykset:** tuntemattomat sovellusasetukset säilyvät, tilapäistiedostot luodaan suojattuina, päivityspakettien nimet ja tarkistussummat validoidaan tarkasti. Windowsin asennuksen hetkellisiä tiedostolukkoja yritetään uudelleen.
+- **Lähiverkon palautuminen:** taustatöiden virhetilat ja LAN-liittymisen aloitus käsitellään turvallisemmin. Kahden GUI:n palautumiskoe varmistaa Emit-lukujen, korjausten ja hyväksyntöjen säilymisen yhteyskatkossa.
 
 Ulkoasu vaihdetaan kohdasta **Tietoja → Ulkoasu**. [Teemat ja sävyt](docs/TEEMAT.md).
 

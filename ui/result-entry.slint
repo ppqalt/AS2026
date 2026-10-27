@@ -81,7 +81,9 @@ export component ResultEntryDialog inherits Rectangle {
         }
         DialogSurface {
             available-width: root.width; available-height: root.height;
-            preferred-dialog-height: 720px;
+            minimum-dialog-height: 360px; maximum-dialog-height: 1120px;
+            content-dialog-height: entry-content.min-height + (root.queued == "" ? 120px : 148px)
+                + Theme.dialog-padding + Theme.control-height + Theme.space-3 + (root.error == "" ? 0px : 48px);
             Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: "Täydennä tulos"; }
             Note { x: Theme.dialog-padding; y: 60px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: root.identity; }
             Note { x: Theme.dialog-padding; y: 84px; width: parent.width - 2 * Theme.dialog-padding; height: root.queued == "" ? 24px : 52px; text: root.queued == "" ? "Kellonajat muodossa hhmmss (esim. 180325). Siirry Tab-näppäimellä." : root.queued; }

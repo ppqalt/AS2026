@@ -50,8 +50,9 @@ export component DrawClassDialog inherits Rectangle {
         DialogSurface {
             available-width: root.width;
             available-height: root.height;
-            preferred-dialog-height: 580px;
-            VerticalLayout {
+            minimum-dialog-height: 340px; maximum-dialog-height: 1000px;
+            content-dialog-height: form-layout.min-height - body.min-height + entries.min-height;
+            form-layout := VerticalLayout {
                 padding: Theme.dialog-padding;
                 spacing: Theme.space-3;
                 Heading { text: "Lähtöarvonnan luokat"; }

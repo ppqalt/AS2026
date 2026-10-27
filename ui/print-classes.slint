@@ -1,9 +1,9 @@
-import { UiButton as Button, UiCheckBox as CheckBox, UiScrollView as ScrollView } from "presets.slint";
+import { UiButton as Button, UiCheckBox as CheckBox } from "presets.slint";
 import { Theme } from "theme.slint";
-import { Heading, Note, AccentButton, DialogSurface, DialogActions, ChoiceRow } from "components.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+import { ClassSelection } from "class-selection.slint";
 import { DrawClassOption } from "types.slint";
 export component PrintClassesDialog inherits Rectangle {
-    private property <int> focus-index: -1;
     in property <bool> stations;
     in property <[DrawClassOption]> classes;
     in property <string> printer;
@@ -14,97 +14,50 @@ export component PrintClassesDialog inherits Rectangle {
     callback select-all(bool);
     callback close(bool);
     background: Theme.modal-backdrop;
-    TouchArea { }
-    Timer {
-        interval: 1ms; running: true;
-        triggered => { self.running = false; cancel.focus(); }
-    }
+    TouchArea {}
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
     FocusScope {
-        x: 0px; y: 0px;
         width: root.width; height: root.height;
         capture-key-pressed(event) => {
             if event.text == Key.Escape { root.close(false); return accept; }
-            // Looginen kohde päivittyy heti, vaikka ChoiceRow:n kohdistus odottaa ajastinta.
-            if root.focus-index >= 0 && root.focus-index < root.classes.length {
-                if event.text == Key.Space {
-                    root.toggle(root.focus-index, !root.classes[root.focus-index].selected);
-                    return accept;
-                }
-                if event.text == Key.Tab {
-                    let next = root.focus-index + (event.modifiers.shift ? -1 : 1);
-                    if next < 0 { root.focus-index = -1; clear.focus(); }
-                    else if next >= root.classes.length { root.focus-index = -1; direction.focus(); }
-                    else { root.focus-index = next; }
-                    return accept;
-                }
-            }
             if event.text == Key.Tab {
-                if print.has-focus && !event.modifiers.shift { all.focus(); return accept; }
-                if all.has-focus && event.modifiers.shift { print.focus(); return accept; }
-                if clear.has-focus && !event.modifiers.shift {
-                    if root.classes.length > 0 { root.focus-index = 0; } else { direction.focus(); }
+                if event.modifiers.shift && choices.search-focused {
+                    if choices.selected-count > 0 { print.focus(); } else { cancel.focus(); }
                     return accept;
                 }
-                if direction.has-focus && event.modifiers.shift {
-                    if root.classes.length > 0 { root.focus-index = root.classes.length - 1; } else { clear.focus(); }
-                    return accept;
+                if !event.modifiers.shift && (print.has-focus || (cancel.has-focus && choices.selected-count == 0)) {
+                    choices.focus-search(); return accept;
                 }
             }
             reject
         }
         DialogSurface {
-            clip: true;
             available-width: root.width; available-height: root.height;
-            preferred-dialog-height: 600px;
-            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; height: 28px; text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; }
-            Note { x: Theme.dialog-padding; y: 64px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: "Jokainen luokka aloittaa oman sivun."; }
-            HorizontalLayout {
-                x: Theme.dialog-padding; y: 92px;
-                width: parent.width - 2 * Theme.dialog-padding;
-                height: Theme.control-height; spacing: Theme.space-2;
-                all := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Valitse kaikki"; clicked => { root.select-all(true); } }
-                clear := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tyhjennä valinta"; clicked => { root.select-all(false); } }
-                Rectangle { horizontal-stretch: 1; }
-            }
-            Rectangle {
-                x: Theme.dialog-padding; y: 140px; width: parent.width - 2 * Theme.dialog-padding;
-                height: max(0px, direction.y - self.y - Theme.space-3 - (root.error == "" ? 0px : 48px));
-                clip: true;
-                body := ScrollView {
-                    width: parent.width; height: parent.height;
-                    horizontal-scrollbar-policy: always-off; content-width: self.visible-width;
-                    content-height: entries.min-height;
-                    entries := VerticalLayout {
-                        x: 0px; y: 0px; width: body.visible-width; height: self.min-height;
-                        alignment: start; spacing: Theme.space-2;
-                        for item[i] in root.classes: ChoiceRow {
-                            text: item.label; checked: item.selected; index: i; focus-index: root.focus-index;
-                            toggle(selected) => { root.toggle(i, selected); }
-                            move(index) => {
-                                if index < 0 { root.focus-index = -1; clear.focus(); }
-                                else if index >= root.classes.length { root.focus-index = -1; direction.focus(); }
-                                else { root.focus-index = index; }
-                            }
-                            focused(index) => {
-                                root.focus-index = index;
-                                let top = index * (Theme.control-height + Theme.space-2);
-                                let bottom = top + Theme.control-height;
-                                if top < -body.content-y { body.content-y = -top; }
-                                else if bottom > -body.content-y + body.visible-height { body.content-y = min(0px, body.visible-height - bottom); }
-                            }
-                        }
+            preferred-dialog-width: 760px;
+            minimum-dialog-height: 480px; maximum-dialog-height: 1120px;
+            content-dialog-height: form-layout.min-height - choices.min-height + max(200px, 124px + ceil(root.classes.length / 2) * 80px + 24px);
+            form-layout := VerticalLayout {
+                padding: Theme.dialog-padding; spacing: Theme.space-2;
+                Heading { text: root.stations ? "Tulosta asematulokset" : "Tulosta luokkatulokset"; }
+                Note { text: "Jokainen valittu luokka aloittaa oman sivun."; }
+                choices := ClassSelection {
+                    vertical-stretch: 1; min-height: 200px;
+                    classes: root.classes;
+                    toggle(index, selected) => { root.toggle(index, selected); }
+                    select-all(selected) => { root.select-all(selected); }
+                }
+                if root.error != "": Note { text: root.error; color: Theme.danger; }
+                CheckBox { text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
+                CheckBox { text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
+                Note { text: "Tulostin: " + root.printer; }
+                DialogActions {
+                    cancel := Button { text: "Peruuta"; clicked => { root.close(false); } }
+                    print := AccentButton {
+                        text: "Tulosta (" + choices.selected-count + ")";
+                        enabled: choices.selected-count > 0;
+                        clicked => { root.close(true); }
                     }
                 }
-            }
-            direction := CheckBox { changed has-focus => { if self.has-focus { root.focus-index = -1; } } x: Theme.dialog-padding; y: fit-choice.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Vaakasuuntainen A4"; checked <=> root.landscape; }
-            fit-choice := CheckBox { changed has-focus => { if self.has-focus { root.focus-index = -1; } } x: Theme.dialog-padding; y: printer-note.y - Theme.control-height - Theme.space-1; width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height; text: "Sovita kukin luokka yhdelle sivulle"; checked <=> root.fit; }
-            printer-note := Note { x: Theme.dialog-padding; y: actions.y - Theme.space-3 - 20px; width: parent.width - 2 * Theme.dialog-padding; height: 20px; text: "Tulostin: " + root.printer; }
-            if root.error != "": Note { x: Theme.dialog-padding; y: direction.y - 48px; width: parent.width - 2 * Theme.dialog-padding; height: 44px; text: root.error; color: Theme.danger; }
-            actions := DialogActions {
-                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
-                width: parent.width - 2 * Theme.dialog-padding; height: Theme.control-height;
-                cancel := Button { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Peruuta"; clicked => { root.close(false); } }
-                print := AccentButton { changed has-focus => { if self.has-focus { root.focus-index = -1; } } text: "Tulosta"; clicked => { root.close(true); } }
             }
         }
     }
