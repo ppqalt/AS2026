@@ -544,10 +544,11 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     horizontal-stretch: 1;
                     VerticalLayout {
-                        horizontal-stretch: 1;
+                        horizontal-stretch: root.page == 3 && root.opened ? 0 : 1;
                         spacing: Theme.space-1;
                         Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"][root.page]; }
                     }
+                    if root.page == 3 && root.opened: Rectangle { width: Theme.space-3; }
                     if root.page == 3 && root.opened: LineEdit {
                         min-width: 68px; preferred-width: 68px; max-width: 68px;
                         text <=> root.result-number; placeholder-text: "Nro";
