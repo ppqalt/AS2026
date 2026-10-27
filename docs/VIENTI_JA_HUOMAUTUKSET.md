@@ -45,16 +45,26 @@ haluttaessa **Asemakohtaiset tulokset**. Otsikko on kilpailun nimi ja
 luokkaotsikko `luokka: luokan nimi`; yhdistetyn luokan sisäinen Y-tunnus ei näy.
 PDF syntyy ilman virtuaalitulostinta. Asetusten PNG-logo tallentuu sovellusasetuksiin,
 kuvan alkuperäistä tiedostoa ei tarvita myöhemmin. PDF:ssä logo on vasemmassa
-ylänurkassa 2 cm korkea ja kuvasuhde säilyy.
+ylänurkassa 10 mm:n marginaalien sisällä. Enimmäiskorkeus on 20 mm ja
+enimmäisleveys 60 mm; kuvasuhde säilyy ja otsikot väistävät logoa.
+
+PDF-viennissä anna valituille luokille eri positiiviset järjestysnumerot.
+Luokat tulevat pienimmästä numerosta suurimpaan myös silloin, kun mukana on
+Beginners Cup. Valitsemattoman luokan numeroa ei tarkisteta.
 
 **KITI Excel-pohjaan** pyytää alkuperäisen KITIstä ladatun XLSX-pohjan ja erillisen
-tulostiedoston. Results-työlehden luokkalohkot ja A–R-tiedot säilyvät, tulokset
+tulostiedoston. Oletusnimi on pohjan nimi + **-valmis.xlsx**, pohjan kansiossa.
+Olemassa olevaa kohdetiedostoa ei korvata. Results-työlehden luokkalohkot ja A–R-tiedot säilyvät, tulokset
 täytetään S–Y-sarakkeisiin. Sijoitus ja luokkasijoitus käsitellään erikseen.
 Kohdistus käyttää kilpailunumeroa ja luokkayhteyttä; nimiä ei käytetä arvaukseen.
 
-Valitse jokaiselle pohjan luokalle tulosluokka valintalistasta. Lista sisältää myös
-nimetyt yhdistetyt luokat; ohjelman sisäisiä tunnisteita ei tarvitse kirjoittaa.
-Kohdistukset muistetaan asetuksissa. Tarkista ehdotukset ennen vientiä.
+Valitse jokaiselle pohjan luokalle pakollinen **Perusluokka** ja halutessasi
+**Yhdistetty luokka**. Molemmissa valinnoissa ovat kaikki tulosluokat.
+Perusluokan sijoitus menee aina **Lkasij. / Class position** -sarakkeeseen.
+Yhdistetyn luokan sijoitus menee **Sij. / Position** -sarakkeeseen; ilman
+yhdistettyä valintaa siihen tulee perusluokan sijoitus. Myös pisteet ja tila
+tulevat perusluokasta. Molemmat kohdistukset muistetaan asetuksissa.
+Tarkista ehdotukset ennen vientiä.
 
 KITI-pohjan tulosselitesarakkeen kommentin mukaiset oletukset ovat osallistunut 1,
 keskeyttänyt 2, hylätty 3, kilpailusta suljettu 4 ja peruuttanut 0. Myös lähtemätön

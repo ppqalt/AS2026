@@ -699,7 +699,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
         }
     });
     println!(
-        "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, käsikellot, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
+        "GUI-työnkulkukoe hyväksytty: Emit → Tulokset, keskeneräisen työn suojaus, manuaaliset ajat, pistekorjaus, hyväksyminen, tilat, Excel-tuonti ja lähtöarvonta."
     );
     Ok(import_directory.join(native::FILE_NAME))
 }
@@ -824,7 +824,7 @@ fn competition_settings_068(
     assert!(
         app.get_fields()
             .iter()
-            .any(|f| f.label.contains("Maksimi kokonais"))
+            .any(|f| f.label.contains("Kokonaismyöhästymisraja"))
     );
     assert!(
         !app.get_fields()
@@ -1477,7 +1477,7 @@ fn finish_imported_race(
     );
     assert_eq!(std::fs::read(&path)?, before_reopen);
     println!(
-        "GUI-kilpailun elinkaarikoe hyväksytty: Excel → luokat ja radat → lähtöarvonta → Emit → käsikellot → viisi pisteosaa → hyväksytyt tulokset → raportit → uudelleenavaus. Aineisto: {}",
+        "GUI-kilpailun elinkaarikoe hyväksytty: Excel → luokat ja radat → lähtöarvonta → Emit → manuaaliset ajat → viisi pisteosaa → hyväksytyt tulokset → raportit → uudelleenavaus. Aineisto: {}",
         directory.display()
     );
     Ok(())
@@ -1542,12 +1542,12 @@ pub fn prepare_print_entry(
         .asemat;
     let mut at = stations[0].clone();
     at.tyyppi = "AT".into();
-    at.nimi = "AT käsikello".into();
+    at.nimi = "AT manuaalinen aika".into();
     at.emit_koodi = 0;
     at.tavoiteaika_sekuntia = 300;
     let mut jat = at.clone();
     jat.tyyppi = "JAT".into();
-    jat.nimi = "JAT käsikello".into();
+    jat.nimi = "JAT manuaalinen aika".into();
     jat.tavoiteaika_sekuntia = 480;
     jat.jakso_minuutteina = Some(8);
     let mut finish = at.clone();
@@ -1664,7 +1664,7 @@ fn published_issues(
             -1 => "2",
             -2 => "11",
             _ => {
-                if field.label.contains("AT käsikello") {
+                if field.label.contains("AT manuaalinen aika") {
                     "12:05:00"
                 } else {
                     "12:08:00"
@@ -1689,7 +1689,7 @@ fn published_issues(
             -1 => "3",
             -2 => "17",
             _ => {
-                if field.label.contains("AT käsikello") {
+                if field.label.contains("AT manuaalinen aika") {
                     "12:05:00"
                 } else {
                     "12:08:00"

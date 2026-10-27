@@ -654,7 +654,7 @@ fn results(
     if !interrupted && let Some(result) = &snapshot {
         if !pending_clocks.is_empty() {
             issues.push(format!(
-                "Täydennä käsikellot: {}. Valitse Tulosta tulos.",
+                "Täydennä manuaaliset ajat: {}. Valitse Tulosta tulos.",
                 pending_clocks
                     .iter()
                     .map(|index| driver
@@ -842,7 +842,7 @@ fn results(
                             )
                         }),
                     if pending {
-                        "Käsikello puuttuu".into()
+                        "Manuaalinen aika puuttuu".into()
                     } else {
                         station.note.clone()
                     },
@@ -1302,7 +1302,12 @@ mod tests {
         assert_eq!(empty.result_overview.time_points.to_string(), "-");
         // Ensimmäisen kilpailijan puuttuva käsimaali ei kuulu lukemattoman
         // toisen kilpailijan huomautukseksi.
-        assert!(!empty.result_overview.issue.contains("Syötä käsikellot"));
+        assert!(
+            !empty
+                .result_overview
+                .issue
+                .contains("Syötä manuaaliset ajat")
+        );
         assert!(
             empty
                 .result_overview
@@ -1346,7 +1351,7 @@ mod tests {
         assert_eq!(text(view.detail_rows.last().unwrap(), 4), "-");
         assert_eq!(
             text(view.detail_rows.last().unwrap(), 10),
-            "Käsikello puuttuu"
+            "Manuaalinen aika puuttuu"
         );
         fixture.workspace.review_results(7).unwrap();
         let finish = fixture

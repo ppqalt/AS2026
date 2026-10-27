@@ -199,7 +199,9 @@ pub fn pdf(document: &Document, logo: &[u8]) -> Result<Vec<u8>, CoreError> {
             }
         }
         let id=pdf.stream(&format!("/Type /XObject /Subtype /Image /Width {} /Height {} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode",rgba.width(),rgba.height()),&deflate(&rgb)?);
-        Some((id, 20. * f64::from(rgba.width()) / f64::from(rgba.height())))
+        let ratio = f64::from(rgba.width()) / f64::from(rgba.height());
+        let h = 20_f64.min(60. / ratio);
+        Some((id, h * ratio, h))
     };
     let (width, height) = if document.landscape {
         (297., 210.)
@@ -210,12 +212,13 @@ pub fn pdf(document: &Document, logo: &[u8]) -> Result<Vec<u8>, CoreError> {
     let mut pages = Vec::new();
     for page in &document.pages {
         let mut commands = String::from("0.4 w\n");
-        if let Some((_, w)) = image {
+        if let Some((_, w, h)) = image {
             commands.push_str(&format!(
-                "q {} 0 0 {} 0 {} cm /Logo Do Q\n",
+                "q {} 0 0 {} {} {} cm /Logo Do Q\n",
                 w * mm,
-                20. * mm,
-                (height - 20.) * mm
+                h * mm,
+                10. * mm,
+                (height - 10. - h) * mm
             ));
         }
         for line in &page.lines {
@@ -230,11 +233,13 @@ pub fn pdf(document: &Document, logo: &[u8]) -> Result<Vec<u8>, CoreError> {
         for text in &page.texts {
             let mut x = text.x;
             let mut available = text.width;
-            if text.y <= 10.
-                && let Some((_, w)) = image
+            if let Some((_, w, h)) = image
+                && text.y < 10. + h
+                && text.y + text.height > 10.
+                && text.x < 10. + w + 3.
             {
-                x = w + 3.;
-                available = width - x - 10.;
+                x = 10. + w + 3.;
+                available = (text.x + text.width - x).max(1.);
             }
             let advance = text
                 .value
@@ -262,7 +267,7 @@ pub fn pdf(document: &Document, logo: &[u8]) -> Result<Vec<u8>, CoreError> {
         let content = pdf.stream("/Filter /FlateDecode", &deflate(commands.as_bytes())?);
         let resources = format!(
             "/Font << /F {font} 0 R >> {}",
-            image.map_or(String::new(), |(i, _)| format!(
+            image.map_or(String::new(), |(i, _, _)| format!(
                 "/XObject << /Logo {i} 0 R >>"
             ))
         );

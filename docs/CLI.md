@@ -153,11 +153,11 @@ as2026 ohje
 
 Näissä esimerkeissä `as2026` tarkoittaa oman alustan ohjelmatiedostoa. Kehityshakemistossa sama komento on esimerkiksi `cargo run -- tarkista fixtures/synthetic`. Laita välilyöntejä sisältävä polku lainausmerkkeihin.
 
-`laske` näyttää TOML-kilpailun samat tallennetut asemakorjaukset ja täydennettävät käsikellot kuin käyttöliittymä. Jos tallennettua asematulosta ei ole, rivit muodostetaan korttiluvusta. Puuttuva käsikello näkyy viivana ja tulos odottaa tarkastusta. `tulokset` käyttää samaa ajantasaista kilpailumallia. Komennot eivät itsessään hyväksy tulosta tai muuta kilpailutiedostoa.
+`laske` näyttää TOML-kilpailun samat tallennetut asemakorjaukset ja täydennettävät manuaaliset ajat kuin käyttöliittymä. Jos tallennettua asematulosta ei ole, rivit muodostetaan korttiluvusta. Puuttuva manuaalinen aika näkyy viivana ja tulos odottaa tarkastusta. `tulokset` käyttää samaa ajantasaista kilpailumallia. Komennot eivät itsessään hyväksy tulosta tai muuta kilpailutiedostoa.
 
 Vanhan AS2015A-aineiston `laske` on erillinen raakaleimausten staattinen esikatselu. Sen `tulokset` käyttää `Kilp.txt`-tiedoston tallennettuja pisteitä. Kumpikaan ei korvaa vanhoja lähdetiedostoja. Käyttöliittymän Tarkista, Tutki, käsikorjaukset ja Hyväksy tulos on kuvattu [kilpailutoiminnoissa](KILPAILUTOIMINNOT.md).
 
-AS2026-kilpailun toimitsijalaskenta tukee ajanottotapoja 0, 1 ja 2 sekä erikseen annettuja käsikelloja. Kokonaispisteet yhdistävät asemien aikavirheet ja muut virheet, puuttuvien ja ylimääräisten RT-asemien erilliset pisteet sekä muut kilpailijakohtaiset pisteet. Oletuksena puuttuva RT antaa 600 pistettä; kilpailun asetus voi muuttaa kerrointa.
+AS2026-kilpailun toimitsijalaskenta tukee ajanottotapoja 0, 1 ja 2 sekä erikseen annettuja manuaalisia aikoja. Kokonaispisteet yhdistävät asemien aikavirheet ja muut virheet, puuttuvien ja ylimääräisten RT-asemien erilliset pisteet sekä muut kilpailijakohtaiset pisteet. Oletuksena puuttuva RT antaa 600 pistettä; kilpailun asetus voi muuttaa kerrointa.
 
 Tulosluettelossa ovat luokka- ja ratakohtainen järjestys, yhdistetyt luokat sekä nousu- ja sarjapisteet. Syy säilyy HTML-, CSV- ja XLSX-viennissä. CSV on puolipistein erotettua UTF-8:aa ja XLSX tavallinen työkirja ilman makroja tai suoritettavia kaavoja. Raportit eivät korvaa olemassa olevaa tiedostoa.
 
@@ -165,7 +165,7 @@ Tulosluettelossa ovat luokka- ja ratakohtainen järjestys, yhdistetyt luokat sek
 
 Versiosta 0.7.2 alkaen tasapisteet ratkaistaan RT-määrän ja aika-asemien parivertailulla, kun tiedot ovat riittävät ja kohdistuvat samoihin asemiin. Tasainen, puutteellinen tai ristiriitainen vertailu jää jaetuksi. Valitsin `--ratkaise-tasatulokset` käyttää yhteensopivuuden vuoksi vaihtoehtoista vanhaa parhaiden rivien vertailua. Avoimet tarkastustulokset estävät nousu- ja sarjapisteiden vahvistamisen.
 
-## Käsikellot, Excel-tuonti ja lähtöjärjestelyt
+## Manuaaliset ajat, Excel-tuonti ja lähtöjärjestelyt
 
 Käyttöliittymän **Tulokset** täydentää Emit-numerolla 0 merkityt asemat muodossa `hh:mm:ss`. Myös käsimaalin aika annetaan erikseen. **Tutki** laskee tallennetut kellot uudelleen; **Hyväksy tulos** säilyttää asemien käsin korjatut pisteet. Keskeneräinen, virheellinen tai vanhentunut tulos ei kelpaa hyväksyttäväksi. Nämä toiminnot eivät ole erillisiä komentorivikomentoja.
 
@@ -182,6 +182,6 @@ Vanhan AS2015A-aineiston staattinen laskentapolku on erillään uuden kilpailun 
 Yhteiset Rust-, Slint- ja GUI-tarkistukset on koottu
 [kääntämis- ja testausohjeeseen](BUILDING.md#rust--slint--ja-paketointitarkistukset).
 Ne kattavat vanhat tiedostot ja Excel-tuonnin, TOML-yhteensopivuuden,
-käsikellot, tilasiirtymät, uusintaluvut, hyväksynnän esteet sekä tallennuksen
+manuaaliset ajat, tilasiirtymät, uusintaluvut, hyväksynnän esteet sekä tallennuksen
 virheet ja ristiriidat. Paikallisen alkuperäisen Excel-mallipohjan erillinen
 koe on kuvattu [Excel-tuonnin ohjeessa](EXCEL_TUONTI.md).

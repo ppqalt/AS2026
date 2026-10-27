@@ -739,7 +739,7 @@ pub fn save_new_bytes(path: &Path, bytes: &[u8]) -> Result<(), CoreError> {
 pub fn project_results_html(project: &crate::native::Project) -> Result<String, crate::CoreError> {
     let archive = crate::application::calculated_project(project)?;
     let mut html = document("Tulokset ja asemarivit", &project.kilpailu.nimi);
-    html.push_str("<section class=\"notice\"><p>Käsikellot ja pistekorjaukset säilyvät tallennettuina. Keskeneräisen tuloksen kokonaistulosta, maaliaikaa tai käytettyä aikaa ei julkaista.</p></section>\n");
+    html.push_str("<section class=\"notice\"><p>Manuaaliset ajat ja pistekorjaukset säilyvät tallennettuina. Keskeneräisen tuloksen kokonaistulosta, maaliaikaa tai käytettyä aikaa ei julkaista.</p></section>\n");
     warnings(&mut html, &archive.warnings);
     for driver in &archive.competitors {
         let snapshot = project
@@ -830,10 +830,13 @@ pub fn project_results_html(project: &crate::native::Project) -> Result<String, 
         let clock_changed = snapshot.is_some_and(|s| s.kasikellot_muuttuneet);
         let invalid_times = snapshot.is_some_and(|s| !s.virheelliset_ajat.is_empty());
         if !pending.is_empty() {
-            html.push_str(&format!("<p>Käsikelloja puuttuu: {}.</p>\n", pending.len()));
+            html.push_str(&format!(
+                "<p>Manuaalisia aikoja puuttuu: {}.</p>\n",
+                pending.len()
+            ));
         }
         if clock_changed {
-            html.push_str("<p>Käsikelloa on muutettu. Tutki laskee toteutuneet ajat ja pisteet uudelleen.</p>\n");
+            html.push_str("<p>Manuaalista aikaa on muutettu. Tutki laskee toteutuneet ajat ja pisteet uudelleen.</p>\n");
         }
         html.push_str("<div class=\"table-wrap\"><table><thead><tr><th scope=\"col\">Järjestys</th><th scope=\"col\">Tyyppi</th><th scope=\"col\">Nimi</th><th scope=\"col\">Emit</th><th scope=\"col\">Luettu</th><th scope=\"col\">Kello</th><th scope=\"col\">Tavoite (s)</th><th scope=\"col\">Toteutunut (s)</th><th scope=\"col\">Aikavirhe (p)</th><th scope=\"col\">Muu virhe (p)</th><th scope=\"col\">Yhteensä (p)</th><th scope=\"col\">Huomautus</th></tr></thead><tbody>\n");
         let mut reference_known = true;

@@ -207,7 +207,7 @@ let s=shared.borrow();
 let p=s.workspace.as_ref().unwrap().project().unwrap();
 std::fs::write(dir.join(format!("{role}-lopputulos.toml")),p.to_toml()?).map_err(|e|invalid(&io_message(&e)))?;
 std::fs::write(dir.join(format!("{role}-onnistui")),b"Kaksi Emit-lukua, kasikellot, virhepisteet, hyvaksynta ja tulosteen muodostus GUI:ssa").map_err(|e|invalid(&io_message(&e)))?;
-println!("LAN-GUI {role}: Emit, käsikellot, pisteet, hyväksyntä ja tulosteen muodostus läpäisivät");
+println!("LAN-GUI {role}: Emit, manuaaliset ajat, pisteet, hyväksyntä ja tulosteen muodostus läpäisivät");
 phase=if recovery{
 6}
 else{

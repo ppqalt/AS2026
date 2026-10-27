@@ -64,7 +64,7 @@ ja jonon jatkokäsittely tarkistetaan käyttöjärjestelmästä.
 
 ## Varmennus
 
-Ydintestit tarkistavat käsikellojen laskennan, tallennuksen, virheelliset syötteet,
+Ydintestit tarkistavat manuaalisten aikojen laskennan, tallennuksen, virheelliset syötteet,
 luokkien rajauksen, pitkän taulukon sovituksen ja PostScriptin tekstiescapet.
 GUI-koe käyttää oikeita Tab- ja Enter-tapahtumia AT → JAT → RT → muut → Tulosta
 -järjestyksessä. Windowsin testit renderöivät kilpailija-, luokka- ja asematulosteet

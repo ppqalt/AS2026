@@ -135,7 +135,7 @@ fn public_results_only(html: &str) {
         "Osallistumistilastoa:",
         "Tuloslaskennan lähtijämäärä:",
         "Tulosluettelon ulkopuolelle jäi",
-        "käsikelloa on muutettu",
+        "manuaalista aikaa on muutettu",
         "HYVÄKSYMÄTÖN",
         "Tuntematon tarkastustulos",
         "Nousu- ja sarjapisteitä ei julkaista",
@@ -167,7 +167,7 @@ fn public_class_combined_route_and_print_results_omit_all_official_diagnostics()
             c
         })
         .collect();
-    archive.warnings = (29..=41).map(|n| format!("Kilpailija {n}: käsikelloa on muutettu. Pisteet säilyvät ennallaan, kunnes valitaan Tutki.")).collect();
+    archive.warnings = (29..=41).map(|n| format!("Kilpailija {n}: manuaalista aikaa on muutettu. Pisteet säilyvät ennallaan, kunnes valitaan Tutki.")).collect();
     let report = ranking::rank(&RankingInput {
         classes: ["A", "B"]
             .into_iter()
@@ -236,7 +236,7 @@ fn public_class_combined_route_and_print_results_omit_all_official_diagnostics()
         warnings: archive.warnings.clone(),
     });
     assert!(internal.contains("Huomautukset"));
-    assert!(internal.contains("käsikelloa on muutettu"));
+    assert!(internal.contains("manuaalista aikaa on muutettu"));
 }
 
 #[test]
@@ -439,11 +439,11 @@ fn native_reports_present_results_without_development_banners() {
     assert!(
         as2026::report::project_results_html(&project)
             .unwrap()
-            .contains("käsikello puuttuu")
+            .contains("manuaalinen aika puuttuu")
     );
     let public = as2026::report::project_ranking_html(&archive, &ranking);
     public_results_only(&public);
-    assert!(!public.contains("käsikello puuttuu"));
+    assert!(!public.contains("manuaalinen aika puuttuu"));
     for html in [
         as2026::report::project_results_html(&project).unwrap(),
         as2026::report::project_ranking_html(&archive, &ranking),
@@ -541,7 +541,7 @@ fn operational_station_report_hides_pending_finish_duration_and_final_total() {
     let before = project.clone();
     let html = as2026::report::project_results_html(&project).unwrap();
     assert!(html.contains("Tila: <strong>ILM</strong>"));
-    assert!(html.contains("Käsikelloja puuttuu: 1."));
+    assert!(html.contains("Manuaalisia aikoja puuttuu: 1."));
     assert!(html.contains("Käytetty aika: — · Maaliaika: —"));
     assert!(html.contains("Kokonaistulos: —"));
     assert!(!html.contains("Kokonaistulos: 645 p"));

@@ -31,7 +31,7 @@ yhteisen BC-tuloksen; jokaisen laskennassa säilyy oman NAC-luokan myöhästymis
 BC on tässä toteutuksessa yhden NAC-lähderadan osajoukko. Omia tavoiteaikoja,
 nousupisteitä ja sarjapisteitä ei määritetä tällä toiminnolla.
 
-Osallistujavalinnan poistaminen säilyttää aiemmat BC:n virhepisteet, käsikellot
+Osallistujavalinnan poistaminen säilyttää aiemmat BC:n virhepisteet, manuaaliset ajat
 ja asematuloksen. Ne palautuvat käyttöön, kun kilpailija valitaan uudelleen.
 Kilpailija lasketaan ilmoittautuneiden määrään ja lähtöarvontaan kerran.
 
@@ -48,7 +48,7 @@ uusintakäsittelyssä; NAC-arvoja ei kopioida niiden tilalle.
 
 BC-näkymän kilpailijapaneelista avataan **Muokkaa kilpailijaa**. Puuttuvat
 ja ylimääräiset RT:t, muut virhepisteet, tila ja tilan syy tallennetaan vain
-BC-tulokseen. Myös asemakorjaukset, käsikellot, **Tutki**, **Tarkista** ja
+BC-tulokseen. Myös asemakorjaukset, manuaaliset ajat, **Tutki**, **Tarkista** ja
 **Tulosta tulos** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.
 BC-pisteiden muutos ei muuta NAC-tulosta tai sen hyväksyntää ja päinvastoin.
 Perusteltu keskeytys voidaan vahvistaa kummallekin erikseen.

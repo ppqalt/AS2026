@@ -1,16 +1,16 @@
-# AS2026 0.7.1:n pohjalta kehitetyn Fluent 2 -betan ohjeet
+# AS2026 0.7.4:n ohjeet
 
 Lataus ja asennus: [projektin etusivu](../README.md) ·
-[version 0.7.1 julkaisutiedot](../RELEASE_NOTES.md).
+[version 0.7.4 julkaisutiedot](../RELEASE_NOTES.md).
 
-> **Fluent 2 -beta on keskeneräinen.** Tällä haaralla oleva [beta-suunnitelma ja koko käyttöliittymän tarkastuslista](FLUENT2_BETA.md) kertoo suunnan ja todetut puutteet. Käyttöliittymäopas ja yhteiset periaatteet on päivitetty betan nykyisten teemojen, presettien ja valintaikkunoiden mukaisiksi. Suunniteltujen materiaalien ja WinUI-vertailun keskeneräisyys on erotettu toteutetuista ominaisuuksista.
+Käyttöliittymä perustuu version 0.7.3 Fluent 2 -toteutukseen. [Aiempi beta-suunnitelma ja tarkastuslista](FLUENT2_BETA.md) kuvaa ulkoasun kehityshistoriaa ja jatkosuunnitelmia.
 
 ## Kilpailun järjestäjälle
 
 | Ohje | Sisältö |
 |---|---|
 | [Kilpailupäivän tarkistuslista](KILPAILUPAIVA.md) | Varmuuskopio, kalusto, verkko ja lopulliset tulokset |
-| [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md) | Käsikellot, pisteet, hyväksynnät ja lähtöarvonta |
+| [Kilpailun valmistelu ja tuloslaskenta](KILPAILUTOIMINNOT.md) | Manuaaliset ajat, pisteet, hyväksynnät ja lähtöarvonta |
 | [Kuvallinen käyttöliittymäopas](KAYTTOLIITTYMAOPAS.md) | Sivut, valintaikkunat ja Slint-komponentit |
 | [Excel-tuonti](EXCEL_TUONTI.md) | RATA/KILP-kentät, esikatselu ja puuttuvat tiedot |
 | [Luokat ja Beginners Cup](LUOKAT_JA_BEGINNERS_CUP.md) | Perusluokat, yhdistetyt luokat ja BC:n erillinen tulos |

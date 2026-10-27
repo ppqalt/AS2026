@@ -57,7 +57,7 @@ Lähde: [ui/components.slint](../ui/components.slint).
 | [results.slint](../ui/results.slint): `ResultSummary` | Kilpailijan tila, ajat, virhepisteet, yhteensä ja toimintopainikkeet | Tulostus ja kilpailijan muokkaus; ei omaa rinnakkaista pistelaskentaa |
 | `ResultPoint` samassa tiedostossa | Selite vasemmalla, arvo oikealla | Yhden tulossumman esitys |
 | [live-publish.slint](../ui/live-publish.slint): `LivePublishDialog` | Keskitetty tumma ikkuna, yhteystapa, nimetyt palvelinkentät ja lähetyksen tila | Vieritys pienessä ikkunassa, salasanan peittäminen, erilliset testaus/aloitus/lopetus/lopullinen julkaisu; [käyttöohje](LIVE_JULKAISU.md) |
-| [result-entry.slint](../ui/result-entry.slint): `ResultEntryDialog` | Käsikellot ja virhepisteet sekä tulostus | Mikky100:n hyväksyntä- ja tulostuspolku; virhe pysyy lomakkeessa |
+| [result-entry.slint](../ui/result-entry.slint): `ResultEntryDialog` | Manuaaliset ajat ja virhepisteet sekä tulostus | Mikky100:n hyväksyntä- ja tulostuspolku; virhe pysyy lomakkeessa |
 | `EntryLine` samassa tiedostossa | Yksi nimetty kellon tai pisteiden syöterivi | Looginen Tab-järjestys ja näkyviin vieritys |
 | [emit-correction.slint](../ui/emit-correction.slint): `EmitCorrectionDialog` | Koko aktiivisen kortin leimaukset kiinteinä kenttäryhminä | Mikky100:n lisää/poista/palauta alkuperäiset -toiminnot ja kellonaikamuokkaus; raakalukema säilyy |
 | `CorrectionField` samassa tiedostossa | Yksi leiman kenttä | Välittää muokkauksen editorin luonnokseen; peruuttaminen ei kirjoita korttia |

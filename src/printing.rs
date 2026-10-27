@@ -447,7 +447,10 @@ pub fn classes(
         landscape,
         pages: Vec::new(),
     };
-    for group in ranked.groups.iter().filter(|g| selected.contains(&g.code)) {
+    for group in selected
+        .iter()
+        .filter_map(|code| ranked.groups.iter().find(|g| &g.code == code))
+    {
         let mut drivers = group
             .entries
             .iter()

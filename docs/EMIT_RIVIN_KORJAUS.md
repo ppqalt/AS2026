@@ -11,8 +11,11 @@ valitun kilpailijan tiedoista **Emit-leimat / Luo leimarivi**.
   hhmmss tai hh:mm:ss. Korttiaika lasketaan lähtöajasta ja Emit-korjauksesta.
 - **Poista** poistaa rivin luonnoksesta heti. **Lisää leima** lisää rivin kyseisen
   rivin jälkeen. **Lisää alkuun** lisää ensimmäisen rivin.
-- Jos korttilukua ei ole, editori luo tyhjän pohjan. Valitse rata: sen leimasimet
-  tulevat taulukkoon ja kellonajat jäävät täytettäviksi.
+- Valitse rata ja **Tuo radan Emit-numerot**: radan leimasimet tulevat
+  luonnoksen pohjaksi ja kellonajat jäävät täytettäviksi kilpailukortista.
+  Toiminto käy myös jo luetun kortin korjauksessa. Pohjan tuonti korvaa
+  luonnoksen rivit; **Palauta alkuperäiset leimat** tai **Peruuta** palauttaa
+  alkuperäiseen. Tyhjiä kellonaikoja ei voi tallentaa.
 - **Tallenna korjaus** laskee tulokset uudelleen. **Peruuta** hylkää luonnoksen.
   Alkuperäiseen palautus muuttaa luonnosta, ei poista korjaushistoriaa.
 
@@ -22,7 +25,7 @@ Puuttuvan JAT:n tai maalin lisääminen poistaa puuttumiseen perustuvan
 keskeytyksen uudelleenlaskennassa. Erillisestä syystä käsin asetettu tila säilyy.
 
 NAC- ja BC-tulokset lasketaan yhteisistä korjatuista leimoista. Molempien hyväksyntä
-poistuu. Käsikellot ja erilliset RT-/muut lisävirheet säilyvät rata-aseman perusteella;
+poistuu. Manuaaliset ajat ja erilliset RT-/muut lisävirheet säilyvät rata-aseman perusteella;
 asemarivien pistekorjaukset korvataan uudella laskennalla. Virheellinen muutos ei
 tallenna osittaista tulosta. Vanhat kilpailutiedostot avautuvat edelleen.
 

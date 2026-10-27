@@ -536,7 +536,7 @@ pub fn rank_stored(
 }
 
 /// Muodostaa Tarkista-toiminnon uuden asematuloksen korttiluvusta.
-/// Vanhoja käsikelloja tai asemarivien pistekorjauksia ei käytetä lähtötietona.
+/// Vanhoja manuaalisia aikoja tai asemarivien pistekorjauksia ei käytetä lähtötietona.
 /// Kutsuja tallentaa palautetun tuloksen vasta toiminnon onnistuttua.
 pub fn capture_project_result(
     project: &crate::native::Project,
@@ -748,7 +748,7 @@ pub fn validate_project_result(
     stored.validate_route(&route)
 }
 
-/// Tutki käyttää tallennettuja asemarivejä ja käsikelloja. Se ei lue eikä muuta
+/// Tutki käyttää tallennettuja asemarivejä ja manuaalisia aikoja. Se ei lue eikä muuta
 /// raakaleimauksia. Määrittelemättömän vanhan laskentapolun kohdalla palautetaan virhe.
 pub fn recalculate_stored_result(
     project: &crate::native::Project,
@@ -771,7 +771,7 @@ pub fn recalculate_stored_result(
         timing::calculate_operational(&rows, &route, &stored.kasin_annetut_kellot, &options)?;
     let mut result = snapshot_for_calculation(&archive, c, calculated)?;
     result.kasin_annetut_kellot = stored.kasin_annetut_kellot.clone();
-    // Syötetty käsikello säilyy sellaisenaan myös vuorokauden vaihtuessa.
+    // Syötetty manuaalinen aika säilyy sellaisenaan myös vuorokauden vaihtuessa.
     for row in &mut result.rivit {
         if result.kasin_annetut_kellot.contains(&row.output_index)
             && let Some(original) = stored
@@ -877,7 +877,7 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                 if operational_incomplete && result.tila == "TRK" {
                     result.tila = "ILM".into();
                     result.syy = if result.kasikellot_muuttuneet {
-                        "Ajanoton tietoja tai käsikelloja on muutettu. Valitse Tutki.".into()
+                        "Ajanoton tietoja tai manuaalisia aikoja on muutettu. Valitse Tutki.".into()
                     } else {
                         "Tulos odottaa tarkastusta. Täydennä puuttuvat tai virheelliset ajat."
                             .into()
@@ -889,7 +889,7 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
                         .push(format!("Kilpailija {number}: {message}"));
                 }
                 if result.kasikellot_muuttuneet {
-                    archive.warnings.push(format!("Kilpailija {number}: käsikelloa on muutettu. Pisteet säilyvät ennallaan, kunnes valitaan Tutki."));
+                    archive.warnings.push(format!("Kilpailija {number}: manuaalista aikaa on muutettu. Pisteet säilyvät ennallaan, kunnes valitaan Tutki."));
                 }
                 apply_result(competitor, &result)?;
             }
@@ -926,7 +926,7 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
             competitor.declared_row_count = 0;
             competitor.header_fields[27] = "0".into();
         } else if operational_incomplete && requested_status.is_some_and(|s| s.tunnus == "TRK") {
-            archive.warnings.push(format!("Kilpailija {number}: keskeneräistä tulosta ei merkitä tarkastetuksi. Täydennä käsikellot ja valitse Tutki."));
+            archive.warnings.push(format!("Kilpailija {number}: keskeneräistä tulosta ei merkitä tarkastetuksi. Täydennä manuaaliset ajat ja valitse Tutki."));
         } else if let Some(status) = project
             .kilpailijat
             .iter()

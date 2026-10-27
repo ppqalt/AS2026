@@ -206,6 +206,57 @@ pub fn fill_with_groups(
     codes: &BTreeMap<String, i64>,
     groups: &BTreeMap<String, String>,
 ) -> Result<Vec<u8>, CoreError> {
+    let mappings = groups
+        .iter()
+        .map(|(source, base)| {
+            (
+                source.clone(),
+                ClassMapping {
+                    base: base.clone(),
+                    combined: String::new(),
+                },
+            )
+        })
+        .collect();
+    fill_with_class_mappings(project, path, codes, &mappings)
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ClassMapping {
+    pub base: String,
+    pub combined: String,
+}
+
+pub fn suggested_base_group(project: &Project, source: &str) -> String {
+    project
+        .luokat
+        .iter()
+        .find(|c| c.tunnus == source || c.nimi == source)
+        .map(|c| c.tunnus.clone())
+        .or_else(|| {
+            project
+                .beginners_cup
+                .as_ref()
+                .filter(|c| c.tunnus == source || c.nimi == source)
+                .map(|c| c.tunnus.clone())
+        })
+        .unwrap_or_default()
+}
+
+pub fn destination(path: &Path) -> Result<std::path::PathBuf, CoreError> {
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| invalid("KITI-pohjan tiedostonimi puuttuu"))?;
+    Ok(path.with_file_name(format!("{stem}-valmis.xlsx")))
+}
+
+pub fn fill_with_class_mappings(
+    project: &Project,
+    path: &Path,
+    codes: &BTreeMap<String, i64>,
+    groups: &BTreeMap<String, ClassMapping>,
+) -> Result<Vec<u8>, CoreError> {
     let bytes = std::fs::read(path).map_err(|_| invalid("Valitse luettava KITI-Excel-pohja"))?;
     let mut workbook = calamine::Xlsx::new(Cursor::new(bytes.clone()))
         .map_err(|_| invalid("Valitse kelvollinen XLSX-pohja"))?;
@@ -267,8 +318,14 @@ pub fn fill_with_groups(
         let mut matches = Vec::new();
         for (archive, ranked) in archives.iter().zip(&ranks) {
             for g in &ranked.groups {
-                let target = groups.get(&group).unwrap_or(&group);
+                let target = groups.get(&group).map_or(&group, |m| &m.base);
                 let label = crate::printing::class_label(&g.code);
+                let exact = ranks
+                    .iter()
+                    .any(|r| r.groups.iter().any(|candidate| &candidate.code == target));
+                if exact && &g.code != target {
+                    continue;
+                }
                 if &g.code != target
                     && label != target
                     && !archive
@@ -312,7 +369,7 @@ pub fn fill_with_groups(
                 r + 1
             )));
         }
-        let (archive, ranked, g, entry, driver, source_index) = matches[0];
+        let (_, _, g, entry, driver, _) = matches[0];
         let status = entry.map_or(driver.status.as_str(), |e| e.status.as_legacy());
         let code = *codes.get(status).ok_or_else(|| {
             invalid(format!(
@@ -320,19 +377,42 @@ pub fn fill_with_groups(
             ))
         })?;
         let classified = entry.is_some_and(|e| e.status == ranking::Status::Classified);
-        let source_class = archive
-            .basic
-            .classes
-            .iter()
-            .find(|c| c.code == driver.class_code)
-            .ok_or_else(|| invalid("KITI-luokan rata puuttuu"))?;
-        let overall = ranked
-            .routes
-            .iter()
-            .filter(|r| r.code == source_class.route)
-            .flat_map(|r| &r.entries)
-            .find(|e| e.source_index == source_index && e.number == i64::from(number))
-            .map(|e| i64::from(e.primary_position));
+        let overall = if let Some(mapping) = groups.get(&group).filter(|m| !m.combined.is_empty()) {
+            let mut positions = Vec::new();
+            for (other_archive, other_ranked) in archives.iter().zip(&ranks) {
+                for other_group in &other_ranked.groups {
+                    if other_group.code != mapping.combined {
+                        continue;
+                    }
+                    // A selected result class must contain this same competitor.
+                    let other_driver = other_archive
+                        .competitors
+                        .iter()
+                        .position(|d| d.number == number);
+                    if let Some(index) = other_driver
+                        && let Some(other) = other_group
+                            .entries
+                            .iter()
+                            .find(|e| e.source_index == index + 1 && e.number == i64::from(number))
+                    {
+                        positions.push(
+                            (other.status == ranking::Status::Classified)
+                                .then_some(i64::from(other.primary_position)),
+                        );
+                    }
+                }
+            }
+            if classified && positions.len() != 1 {
+                return Err(invalid(format!(
+                    "KITI-rivi {}: kilpailija ei kuulu yksiselitteisesti valittuun yhdistettyyn luokkaan",
+                    r + 1
+                )));
+            }
+            positions.first().copied().flatten()
+        } else {
+            // Without a combined selection, both position columns use the base class.
+            entry.map(|e| i64::from(e.primary_position))
+        };
         let header = |i: usize| {
             driver
                 .header_fields
