@@ -2,6 +2,12 @@
 use std::{fs, path::Path, process::Command};
 
 fn forbidden_path(path: &str) -> bool {
+    if path
+        .split('/')
+        .any(|part| matches!(part, "__pycache__" | ".venv"))
+    {
+        return true;
+    }
     let name = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();
     [
         ".py", ".pyw", ".pyi", ".ipynb", ".pyc", ".pyo", ".whl", ".pyd",
@@ -30,11 +36,13 @@ fn interpreter(word: &str) -> bool {
         .unwrap_or(word)
         .trim_end_matches(".exe")
         .to_ascii_lowercase();
-    ["python", "pip", "pypy", "pytest"].iter().any(|prefix| {
-        word.strip_prefix(prefix).is_some_and(|tail| {
-            tail.is_empty() || tail.chars().all(|c| c.is_ascii_digit() || c == '.')
+    ["python", "pip", "pypy", "pytest", "py"]
+        .iter()
+        .any(|prefix| {
+            word.strip_prefix(prefix).is_some_and(|tail| {
+                tail.is_empty() || tail.chars().all(|c| c.is_ascii_digit() || c == '.')
+            })
         })
-    })
 }
 fn command(line: &str) -> bool {
     line.split([';', '|', '&']).any(|part| {
@@ -54,11 +62,17 @@ fn violations(path: &str, text: &str) -> Vec<String> {
         .extension()
         .and_then(|x| x.to_str())
         .unwrap_or("");
-    let docs = matches!(extension, "md" | "txt" | "rst");
+    let docs = matches!(extension, "md" | "rst")
+        || (extension == "txt"
+            && (path.starts_with("docs/")
+                || path.contains("LICENSE")
+                || path.contains("/licenses/")
+                || path.contains("license-overrides/")));
     let rust = extension == "rs";
     let workflow = path.starts_with(".github/workflows/");
     let shell = matches!(extension, "sh" | "bash" | "ps1" | "cmd" | "bat" | "fish")
-        || path.starts_with("scripts/");
+        || path.starts_with("scripts/")
+        || extension.is_empty();
     let mut run_indent = None;
     for (index, line) in text.lines().enumerate() {
         let trimmed = line.trim();
@@ -79,7 +93,7 @@ fn violations(path: &str, text: &str) -> Vec<String> {
         if workflow && matches!(run, Some("|" | ">" | "|-" | ">-")) {
             run_indent = Some(indent);
         }
-        let config_command = ["command", "script", "runner", "entrypoint", "exec"]
+        let config_command = ["command", "script", "runner", "entrypoint", "exec", "shell"]
             .iter()
             .any(|key| {
                 trimmed.starts_with(&format!("{key} =")) || trimmed.starts_with(&format!("{key}:"))
@@ -92,12 +106,17 @@ fn violations(path: &str, text: &str) -> Vec<String> {
                 index + 1
             ));
         }
+        if workflow && trimmed.contains("actions/setup-python@") {
+            errors.push(format!("{path}:{}: kielletty tulkkiasennus", index + 1));
+        }
         // Muun nimiseksi piilotettu skripti tunnistetaan lähdekielen tunnusomaisista riveistä.
         if !rust
             && !workflow
             && !matches!(extension, "toml" | "json" | "yaml" | "yml" | "po")
             && ((trimmed.starts_with("from ") && trimmed.contains(" import "))
-                || (trimmed.strip_prefix("import ").is_some_and(|tail| tail.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')) && !trimmed.contains(" from "))
+                || (trimmed.strip_prefix("import ").is_some_and(|tail| {
+                    tail.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+                }) && !trimmed.contains(" from "))
                 || (trimmed.starts_with("def ") && trimmed.ends_with(':'))
                 || trimmed.contains("__name__ ==")
                 || trimmed.contains("__name__=="))

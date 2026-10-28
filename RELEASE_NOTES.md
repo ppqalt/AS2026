@@ -1,13 +1,25 @@
-# AS2026 0.7.5-1
+# AS2026 0.7.5-2
 
-Korjausversio yhtenäistää luokkavalinnat ja vientitiedostojen oletusnimet. Version 0.7.5 kilpailulaskenta ja muut toiminnot säilyvät.
+Korjausversio siirtää viimeisen oman testityökalun Rustiin ja vahvistaa
+projektin automaattisia tarkistuksia. Kilpailulaskenta, käyttöliittymä ja
+version 0.7.5-1 luokkavalinnat sekä vientitiedostojen nimet säilyvät.
 
-- Sama kahden sarakkeen korttivalitsin on nyt HTML-, CSV-, Excel- ja PDF-vienneissä, lähtöarvonnassa ja yhdistetyissä luokissa sekä aiempaan tapaan tulostuksessa ja live-julkaisussa.
-- Koko luokkakortti on valittavissa. Haku, valintojen määrä, joukkovalinnat ja Vain valitut -rajaus ovat yhteiset.
-- PDF-luokkien järjestysnumerot säilyvät muokattavina korteissa. KITI-luokkakohdistukset säilyvät erillisinä.
-- Kilpailun nimi aloittaa myös PDF-, CSV-, Excel-, KITI- ja HTML-lähtöluettelon oletustiedostonimen, esimerkiksi `testieksytys-tulokset.pdf`. Oman nimen voi edelleen valita.
-- Päivitystarkistus tukee numeroituja korjausversioita: 0.7.5 < 0.7.5-1 < 0.7.6.
+- Kahden erillisen GUI-prosessin LAN-, verkkokatko- ja palautumiskoetta
+  koordinoidaan nyt Rustilla. Emit, käsikellot, pisteet, hyväksynnät,
+  tulostusesikatselu ja pysyvä jono tarkistetaan kuten ennenkin.
+- Koordinaattori tarkistaa molemmat prosessit, virhetiedostot ja
+  palautuneiden kilpailutiedostojen tarkan yhtäläisyyden. Aikakatkaisu
+  lopettaa molemmat lapsiprosessit ja säilyttää lokit sekä kuvat.
+- Projektin omissa työkaluissa ja automaatiossa ei käytetä Pythonia.
+  Versionhallinnan läpikäyvä Rust-tarkistin estää sen lisäämisen takaisin.
+  Tarkistimen sekä LAN-koordinaattorin virhepolut testataan erikseen.
+- Linuxin ja Windowsin CI käyttävät Rust-koordinaattoria. Dokumentaatio
+  ja kehityssäännöt on päivitetty.
 
-**Asennus:** lataa ja pura koko käyttöjärjestelmäsi paketti. Vanha 0.7.5 ei tue numeroitua korjausversiota automaattipäivityksenä, joten lataa tämä versio GitHubista käsin. Kilpailutietoja tai käyttäjäasetuksia ei tarvitse poistaa.
+**Asennus:** pura koko käyttöjärjestelmäsi paketti ja käynnistä ohjelma.
+0.7.5-1 tukee tämän korjausversion automaattipäivitystä. Vanha 0.7.5 ei tue
+numeroituja korjausversioita, joten siitä siirryttäessä lataa paketti käsin.
+Kilpailutietoja tai käyttäjäasetuksia ei tarvitse poistaa.
 
-[Version 0.7.5 muutokset](docs/julkaisut/0.7.5.md) · [Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Tulostus](docs/TULOSTUS.md)
+[Version 0.7.5-1 muutokset](docs/julkaisut/0.7.5-1.md) ·
+[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Rakentaminen](docs/BUILDING.md)
