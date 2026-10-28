@@ -34,8 +34,8 @@ fn interpreter(word: &str) -> bool {
         .rsplit(['/', '\\'])
         .next()
         .unwrap_or(word)
-        .trim_end_matches(".exe")
         .to_ascii_lowercase();
+    let word = word.trim_end_matches(".exe");
     ["python", "pip", "pypy", "pytest", "py"]
         .iter()
         .any(|prefix| {
@@ -69,7 +69,7 @@ fn violations(path: &str, text: &str) -> Vec<String> {
                 || path.contains("/licenses/")
                 || path.contains("license-overrides/")));
     let rust = extension == "rs";
-    let workflow = path.starts_with(".github/workflows/");
+    let workflow = path.starts_with(".github/") && matches!(extension, "yaml" | "yml");
     let shell = matches!(extension, "sh" | "bash" | "ps1" | "cmd" | "bat" | "fish")
         || path.starts_with("scripts/")
         || extension.is_empty();
@@ -195,6 +195,14 @@ mod tests {
             ),
             ("run.sh", "uv run python test"),
             ("run.ps1", "& python test"),
+            ("run.ps1", "PYTHON.EXE test"),
+            ("tools/hidden.txt", "import os"),
+            ("tools/run", "python3 test"),
+            (
+                ".github/actions/local/action.yml",
+                "run: pip3 install example",
+            ),
+            (".github/workflows/test.yml", "shell: python"),
             ("test.rs", "Command::new(\"python3\")"),
         ] {
             assert!(!violations(path, text).is_empty(), "{path}: {text}");
