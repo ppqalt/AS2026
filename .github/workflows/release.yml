@@ -41,6 +41,8 @@ jobs:
           persist-credentials: false
       - name: Asenna Rustin julkaisutyökalu
         run: rustup toolchain install stable --profile minimal
+      - name: Varmista Rust-työkaluketju myös julkaisutagista
+        run: cargo +stable run --manifest-path tools/checks/Cargo.toml -- check-no-python
       - name: Varmista AS2026:n täydellinen BSD-2-Clause-lisenssi ennen rakentamista
         run: cargo +stable run --manifest-path tools/release/Cargo.toml -- check-license
       - name: Varmista vakaa versio ja main-haaran julkaisu

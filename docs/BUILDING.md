@@ -100,13 +100,13 @@ ovat historiallista aineistoa, eivät tämän version hyväksyntätesti.
 
 ## Kahden GUI:n lähiverkko- ja palautumiskoe
 
-Käännä ensin GUI. Aja sen jälkeen Python 3:n vakiokirjastoa käyttävä koordinaattori:
+Käännä ensin GUI. Aja sen jälkeen Rust-koordinaattori:
 
 ```sh
-python3 scripts/check_lan_gui.py --app target/debug/as2026-gui --output target/gui-smoke/lan
+cargo run --manifest-path tools/checks/Cargo.toml -- lan-gui --app target/debug/as2026-gui --output target/gui-smoke/lan
 ```
 
-Windowsissa käytä `python`-komentoa ja `target/debug/as2026-gui.exe`-polkua.
+Windowsissa käytä samaa Cargo-komentoa ja `target/debug/as2026-gui.exe`-polkua.
 Linuxin virtuaalinäytössä komennon eteen voi lisätä `xvfb-run -a`.
 Koe käynnistää kaksi erillistä `--demo`-prosessia, joiden kilpailut ja asetukset
 ovat tilapäisiä. Se käyttää sovelluksen LAN-porttia; sulje muut paikalliset
@@ -125,3 +125,30 @@ Pidä oikeat kilpailut, asetukset ja yksityiset avaimet repositorion ulkopuolell
 `fixtures` sisältää synteettisiä esimerkkejä. Paikallinen tiedostolukko suojaa
 saman koneen tallennusta; usean koneen käyttö tehdään [LAN-toiminnolla](LAHIVERKKO.md).
 Julkaisuautomaatio, allekirjoitukset ja paketit: [RELEASES.md](RELEASES.md).
+
+## Projektin pysyvä Rust-työkaluketju
+
+Projektin oma lähdekoodi, testit ja automaatio toteutetaan Rustilla. Pythonia
+ja sitä käynnistäviä komentoja ei lisätä projektiin. Sääntö koskee koko
+versionhallintaa, myös työkaluja ja workflow-tiedostoja. Historialliset
+kuvaukset ja dokumentaatiossa mainittu kielto eivät ole suorituskomentoja.
+
+```sh
+cargo run --manifest-path tools/checks/Cargo.toml -- check-no-python
+cargo test --manifest-path tools/checks/Cargo.toml
+cargo fmt --manifest-path tools/checks/Cargo.toml -- --check
+cargo clippy --manifest-path tools/checks/Cargo.toml --all-targets -- -D warnings
+```
+
+Tarkistin lukee Gitin indeksoidut polut. Lisää uudet tiedostot indeksiin ennen
+paikallista tarkistusta; CI:ssä kaikki PR:n tiedostot ovat versionhallinnassa.
+Tarkistus hylkää kielletyt tiedostopäätteet ja asetustiedostot, tulkkishebangit,
+aktiiviset tulkkikomennot ja tunnistettavat muun nimiset skriptit. Se ei ole
+mielivaltaisesti peitetyn ohjelmakoodin täydellinen semanttinen analyysi.
+
+Työkalun negatiiviset testit käynnistävät tarkistimen oikeassa väliaikaisessa
+Git-repositoriossa. LAN-koordinaattorin testit käynnistävät kaksi Rustilla
+rakennettua fixture-prosessia: onnistuminen, eri kilpailutiedot, virhetiedosto,
+ennenaikainen poistuminen ja aikakatkaisu. Lapsiprosessien poistuminen ja
+lokien säilyminen tarkistetaan myös virheessä. Varsinainen `lan-gui`-ajo
+käyttää kahta oikeaa Slint-GUI-prosessia; fixture ei korvaa sitä.
