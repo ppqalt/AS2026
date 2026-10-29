@@ -9,7 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  rust-policy:
+    name: Rust-työkaluketju (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Nouda lähdekoodi
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Asenna Rustin tarkistustyökalut
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+      - name: Estä Python koko versionhallinnassa
+        run: cargo +stable run --manifest-path tools/checks/Cargo.toml -- check-no-python
+      - name: Todista eston ja LAN-koordinaattorin virhepolut
+        run: cargo +stable test --manifest-path tools/checks/Cargo.toml
+      - name: Tarkista Rust-työkalun muotoilu ja varoitukset
+        run: |
+          cargo +stable fmt --manifest-path tools/checks/Cargo.toml -- --check
+          cargo +stable clippy --manifest-path tools/checks/Cargo.toml --all-targets -- -D warnings
   native:
+    needs: rust-policy
     name: Alustakohtaiset tarkistukset (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -73,7 +97,7 @@ jobs:
       - name: Tarkista kahden GUI:n LAN-yhteys, verkkokatko ja palautuminen Linuxissa
         if: runner.os == 'Linux'
         timeout-minutes: 3
-        run: xvfb-run -a --server-args='-screen 0 2560x1440x24' python3 scripts/check_lan_gui.py --app target/debug/as2026-gui --output target/gui-smoke/lan
+        run: xvfb-run -a --server-args='-screen 0 2560x1440x24' cargo +stable run --manifest-path tools/checks/Cargo.toml -- lan-gui --app target/debug/as2026-gui --output target/gui-smoke/lan
       - name: Tarkista Fluent 2 -gallerian renderöinti 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Linux'
         timeout-minutes: 5
@@ -126,7 +150,7 @@ jobs:
       - name: Tarkista kahden GUI:n LAN-yhteys, verkkokatko ja palautuminen Windowsissa
         if: runner.os == 'Windows'
         timeout-minutes: 3
-        run: python scripts/check_lan_gui.py --app target/debug/as2026-gui.exe --output target/gui-smoke/lan
+        run: cargo +stable run --manifest-path tools/checks/Cargo.toml -- lan-gui --app target/debug/as2026-gui.exe --output target/gui-smoke/lan
       - name: Tarkista Fluent 2 -galleria Windowsissa 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Windows'
         timeout-minutes: 5

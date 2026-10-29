@@ -6,10 +6,10 @@ internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.7.5-1 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.5-1):
+Lataa oma pakettisi [version 0.7.5-2 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.5-2):
 
-- Linux x86-64: `AS2026-0.7.5-1-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.5-1-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.5-2-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.5-2-windows-x86_64.zip`
 
 Versiosta 0.7.5 tähän numeroituun korjausversioon siirrytään lataamalla paketti käsin; vanha päivitystarkistus ei tunnista `-1`-versiota.
 
@@ -73,7 +73,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
 - [Version 0.7.4 julkaisutiedot](docs/julkaisut/0.7.4.md)
-- [Version 0.7.5-1 julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.5-2 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja

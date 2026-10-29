@@ -1,0 +1,7 @@
+[package]
+name = "as2026-checks"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "BSD-2-Clause"
+publish = false
