@@ -34,11 +34,26 @@ pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .filter(|r| !terminal && r.expected_code == 0 && r.station_type != "L")
         .map(|r| ResultEntryInput {
             key: r.output_index as i32,
-            label: format!("{} · {} · kellonaika (hhmmss)", r.sequence, r.name).into(),
-            value: if pending.contains(&r.output_index) {
+            label: format!(
+                "{} · {} · kellonaika (hhmmss){}",
+                r.sequence,
+                r.name,
+                if result.as_ref().is_some_and(|s| s.ilman_emit) {
+                    " tai - jos merkintä puuttuu"
+                } else {
+                    ""
+                }
+            )
+            .into(),
+            value: if result
+                .as_ref()
+                .is_some_and(|s| s.puuttuvat_aikamerkinnat.contains(&r.output_index))
+            {
+                "-".into()
+            } else if pending.contains(&r.output_index) {
                 String::new()
             } else {
-                format!("{:02}{:02}{:02}", r.clock[0], r.clock[1], r.clock[2])
+                format!("{:02}:{:02}:{:02}", r.clock[0], r.clock[1], r.clock[2])
             }
             .into(),
         })
@@ -134,16 +149,41 @@ fn queue(state: &mut State, app: &AppWindow, document: Document) -> GuiResult<()
     }
     Ok(())
 }
+pub(super) fn print_numbers(state: &mut State, app: &AppWindow, numbers: &[u32]) -> GuiResult<()> {
+    let project = current_workspace(state)?
+        .result_project()?
+        .ok_or_else(|| invalid("Avaa kilpailu"))?;
+    let mut combined: Option<Document> = None;
+    for number in numbers {
+        let document = printing::competitor(&project, *number, None)?;
+        if let Some(all) = &mut combined {
+            all.pages.extend(document.pages);
+        } else {
+            combined = Some(document);
+        }
+    }
+    if let Some(mut document) = combined {
+        document.title = "Kilpailijaparien tulokset".into();
+        queue(state, app, document)?;
+    }
+    Ok(())
+}
 fn finish_entry(state: &mut State, app: &AppWindow, print: bool) -> GuiResult<()> {
     let number = state
         .entry_number
         .ok_or_else(|| invalid("Valitse kilpailija uudelleen"))?;
     let mut clocks = Vec::new();
+    let mut missing_rows = Vec::new();
     let mut missing = 0;
     let mut other = 0;
     for (index, field) in app.get_result_entry_fields().iter().enumerate() {
         let result = if field.key > 0 {
-            parse_clock(&field.value).map(|clock| clocks.push((field.key as u32, clock)))
+            if field.value.trim() == "-" {
+                missing_rows.push(field.key as u32);
+                Ok(())
+            } else {
+                parse_clock(&field.value).map(|clock| clocks.push((field.key as u32, clock)))
+            }
         } else if field.key == -1 {
             field
                 .value
@@ -171,7 +211,7 @@ fn finish_entry(state: &mut State, app: &AppWindow, print: bool) -> GuiResult<()
         }
     }
     let ws = current_workspace(state)?;
-    ws.complete_result_entry(number, &clocks, missing, other)?;
+    ws.complete_result_entry_with_missing(number, &clocks, &missing_rows, missing, other)?;
     if print {
         ws.synchronize_lan()?;
     }
@@ -197,6 +237,7 @@ fn finish_entry(state: &mut State, app: &AppWindow, print: bool) -> GuiResult<()
         });
     app.set_result_entry_open(false);
     state.entry_number = None;
+    state.entry_dirty = false;
     update_tables(state, app)?;
     update_form(state, app);
     if follow_bc {
@@ -336,6 +377,22 @@ pub(super) fn initialize_printer(state: &State, app: &AppWindow) {
     });
 }
 pub(super) fn bind(state: &SharedState, app: &AppWindow) {
+    let weak = app.as_weak();
+    app.on_result_entry_committed(move |key| {
+        if key <= 0 {
+            return;
+        }
+        if let Some(app) = weak.upgrade() {
+            let fields = app.get_result_entry_fields();
+            if let Some(index) = fields.iter().position(|f| f.key == key) {
+                let mut field = fields.row_data(index).unwrap();
+                if let Ok(clock) = parse_clock(&field.value) {
+                    field.value = format!("{:02}:{:02}:{:02}", clock[0], clock[1], clock[2]).into();
+                    fields.set_row_data(index, field);
+                }
+            }
+        }
+    });
     let state2 = state.clone();
     let edit_state = state.clone();
     let weak = app.as_weak();
@@ -358,6 +415,7 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow) {
             if !accepted {
                 app.set_result_entry_open(false);
                 state.entry_number = None;
+                state.entry_dirty = false;
                 drop(state);
                 defer_pending_result(&state2, &app);
             } else if let Err(error) = finish_entry(&mut state, &app, true) {

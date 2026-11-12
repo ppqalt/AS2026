@@ -75,8 +75,7 @@ Tulossivu on itsenäinen mobiilissa toimiva HTML-sivu. Siinä näkyvät kilpailu
 päivitysaika, epävirallinen tila sekä tavallisten, yhdistettyjen ja Beginners
 Cup -luokkien tulokset nykyisten hyväksyntäsääntöjen mukaan. Selaimen
 päivitys- ja sivukiertoväli määritetään julkaisuikkunassa sekunteina (oletus 60).
-Lähetys ei odota selaimen ajastinta. Tarkastamattomat kilpailijat näkyvät
-hyväksyttyjen ja keskeyttäneiden välissä, tuloksena **AJAA**.
+Lähetys ei odota selaimen ajastinta. Yleisön tulossivulla on **Tilanne**-sarake sekä **RT**, **Aika**, **Muut** ja **Yhteensä** -pistesarakkeet. Ensimmäinen vielä tulkkaamaton jakso näkyy muodossa **Jakso 2**; kaikkien jaksojen jälkeen näkyy **Maalissa**. Ennen ensimmäistä tulkattua jaksoa pisteet ja sijoitus ovat tyhjät. Tulkattujen jaksojen pisteet ja välisijoitus näkyvät myös ennen tuloksen hyväksymistä. Välisijoitukset määräytyvät kertyneiden pisteiden mukaan; keskeneräisen luokan tasapisteet jakavat sijoituksen. Vahvistetut KESK/HYL ja muut tilapäätökset näkyvät Tilanne-sarakkeessa ilman numeerista sijoitusta tai pistemäärää. Virallinen tuloslaskenta, hyväksyntä ja lopullisen julkaisun vaatimukset säilyvät erillisinä.
 
 Palvelimen/CDN:n pitää ohittaa välimuisti tulostiedoston osalta tai käyttää
 `Cache-Control: no-store, max-age=0` -otsaketta. HTML:n välimuistimetatiedot

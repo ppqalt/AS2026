@@ -55,6 +55,7 @@ fn row_penalties_update_five_part_sum_and_survive_newer_readout() {
         ylimaaraiset_rt_kpl: 2,
         ylimaaraiset_rt_pisteet: 9,
         muut_virhepisteet: 3,
+        tulkki_siirto: None,
     };
     p.kilpailijat[0].tila = Some(native::ManualStatus {
         tunnus: "HYL".into(),

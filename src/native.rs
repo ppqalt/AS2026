@@ -51,6 +51,8 @@ pub struct Project {
     /// Toimitsijan perustellut laskentakorjaukset. Alkuperäisiä leimalukuja ei muuteta.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub emit_korjaukset: Vec<crate::emit_corrections::Correction>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub oikeat_rivit: Vec<crate::interpretation::StoredRoute>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -328,6 +330,31 @@ pub struct AdditionalPenalties {
     pub ylimaaraiset_rt_kpl: u32,
     pub ylimaaraiset_rt_pisteet: i64,
     pub muut_virhepisteet: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tulkki_siirto: Option<TulkkiPenaltySource>,
+}
+
+/// Vastaanotetun osuuden tunniste estää samojen muiden pisteiden lisäämisen uudelleen.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TulkkiPenaltySource {
+    pub tunniste: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tapahtumatunniste: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tulkatut_jaksot: Vec<u32>,
+    #[serde(default)]
+    pub jaksoja: u32,
+    pub muut_virhepisteet: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub puuttuvat_rt: Vec<MissingRtSection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MissingRtSection {
+    pub jakso: u32,
+    pub kilvet: Vec<String>,
 }
 
 impl AdditionalPenalties {
@@ -337,9 +364,34 @@ impl AdditionalPenalties {
             && self.ylimaaraiset_rt_kpl == 0
             && self.ylimaaraiset_rt_pisteet == 0
             && self.muut_virhepisteet == 0
+            && self.tulkki_siirto.is_none()
+    }
+
+    pub(crate) fn same_scoring(&self, other: &Self) -> bool {
+        self.puuttuvat_rt_kpl == other.puuttuvat_rt_kpl
+            && self.puuttuvat_rt_pisteet == other.puuttuvat_rt_pisteet
+            && self.ylimaaraiset_rt_kpl == other.ylimaaraiset_rt_kpl
+            && self.ylimaaraiset_rt_pisteet == other.ylimaaraiset_rt_pisteet
+            && self.muut_virhepisteet == other.muut_virhepisteet
     }
 
     pub(crate) fn validate(&self) -> Result<(), CoreError> {
+        if self.tulkki_siirto.as_ref().is_some_and(|s| {
+            s.tunniste.len() != 64
+                || !s.tunniste.bytes().all(|c| c.is_ascii_hexdigit())
+                || s.tapahtumatunniste
+                    .as_ref()
+                    .is_some_and(|v| v.len() != 64 || !v.bytes().all(|c| c.is_ascii_hexdigit()))
+                || s.muut_virhepisteet < 0
+                || s.tulkatut_jaksot.iter().any(|j| *j == 0 || *j > s.jaksoja)
+                || s.tulkatut_jaksot
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    != s.tulkatut_jaksot.len()
+        }) {
+            return Err(invalid("Virheellinen AS tulkin siirtotunniste"));
+        }
         if self.puuttuvat_rt_pisteet < 0
             || self.ylimaaraiset_rt_pisteet < 0
             || self.muut_virhepisteet < 0
@@ -410,6 +462,7 @@ impl Project {
     }
 
     pub fn into_archive(self) -> Result<Archive, CoreError> {
+        crate::interpretation::validate_stored(&self)?;
         crate::emit_corrections::validate_history(&self)?;
         crate::beginners::validate(&self)?;
         if self.versio != 1 {
@@ -784,6 +837,7 @@ impl Project {
             kilpailijat: Vec::new(),
             leimaluvut: Vec::new(),
             emit_korjaukset: Vec::new(),
+            oikeat_rivit: Vec::new(),
         };
         project.validate()?;
         Ok(project)

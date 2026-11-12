@@ -442,8 +442,11 @@ fn result_row(
             driver.class_code.clone(),
             driver.driver.clone(),
             driver.navigator.clone(),
-            if native.is_some_and(|d| d.emit_number().is_none() || d.lahtoaika.is_empty())
-                && !archive.has_confirmed_interruption(driver.number)
+            if native.is_some_and(|d| {
+                d.lahtoaika.is_empty()
+                    || (project.is_some_and(|p| p.kilpailu.ajanottotapa != 0)
+                        && d.emit_number().is_none())
+            }) && !archive.has_confirmed_interruption(driver.number)
                 && driver.status == "ILM"
             {
                 "Täydennettävä".into()
@@ -630,6 +633,15 @@ fn results(
         result_project.as_ref().map_or_else(
             || "AS2015A-aineisto · vain katselu".to_string(),
             |project| {
+                if project.kilpailu.ajanottotapa == 0 {
+                    return if snapshot.as_ref().is_some_and(|r| r.hyvaksytty) {
+                        "Tulos valmis".into()
+                    } else if snapshot.as_ref().is_some_and(|r| r.can_approve()) {
+                        "Ajat kirjattu · tarkista ja hyväksy tulos".into()
+                    } else {
+                        "Manuaalinen ajanotto · syötä ajat ja tarkista tulos".into()
+                    };
+                }
                 if driver
                     .emit_card
                     .parse::<u32>()
@@ -699,8 +711,17 @@ fn results(
         selected: true,
         identity: format!("Nro {} · {}", driver.number, driver.driver).into(),
         details: format!(
-            "Luokka {} · Kartanlukija {} · Emit {}",
-            driver.class_code, driver.navigator, driver.emit_card
+            "Luokka {} · Kartanlukija {}{}",
+            driver.class_code,
+            driver.navigator,
+            if result_project
+                .as_ref()
+                .is_some_and(|p| p.kilpailu.ajanottotapa == 0)
+            {
+                String::new()
+            } else {
+                format!(" · Emit {}", driver.emit_card)
+            }
         )
         .into(),
         status: if interrupted {
@@ -797,6 +818,10 @@ fn results(
         .enumerate()
         .map(|(index, station)| {
             let pending = pending_clocks.contains(&station.output_index);
+            let unavailable = pending
+                || snapshot
+                    .as_ref()
+                    .is_some_and(|r| r.puuttuvat_aikamerkinnat.contains(&station.output_index));
             row(
                 index,
                 vec![
@@ -812,12 +837,12 @@ fn results(
                         }
                     ),
                     station.target_seconds.to_string(),
-                    if pending {
+                    if unavailable {
                         "-".into()
                     } else {
                         station.actual_seconds.to_string()
                     },
-                    if pending {
+                    if unavailable {
                         "-".into()
                     } else {
                         format!(
@@ -825,7 +850,7 @@ fn results(
                             station.clock[0], station.clock[1], station.clock[2]
                         )
                     },
-                    if pending {
+                    if unavailable {
                         "-".into()
                     } else {
                         format!("{:+}", station.signed_time_penalty)
@@ -837,7 +862,7 @@ fn results(
                     } else {
                         station.other_penalty.to_string()
                     },
-                    if pending {
+                    if unavailable {
                         "-".into()
                     } else {
                         station.total_penalty.to_string()

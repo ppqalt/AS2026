@@ -255,8 +255,11 @@ pub fn read(path: &Path) -> Result<ImportPreview, CoreError> {
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or("");
-    if !extension.eq_ignore_ascii_case("xls") && !extension.eq_ignore_ascii_case("xlsx") {
-        return Err(invalid("Tuetut Excel-tiedostot ovat .xls ja .xlsx"));
+    if !["xls", "xlsx", "xlsm"]
+        .iter()
+        .any(|supported| extension.eq_ignore_ascii_case(supported))
+    {
+        return Err(invalid("Tuetut Excel-tiedostot ovat .xls, .xlsx ja .xlsm"));
     }
     let metadata = std::fs::metadata(path).map_err(|error| {
         invalid(format!(
@@ -280,6 +283,11 @@ pub fn read(path: &Path) -> Result<ImportPreview, CoreError> {
             .cloned()
     };
     if find_sheet("RATA").is_none() && find_sheet("KILP").is_none() {
+        if names.iter().any(|name| name.starts_with("Syotto_")) {
+            return Err(invalid(
+                "Tiedosto sisältää oikean rivin Syotto-välilehtiä. Avaa kilpailu ja valitse Kilvet → Toiminnot → Tuo oikea rivi",
+            ));
+        }
         return Err(invalid("Excelistä ei löydy RATA- eikä KILP-välilehteä"));
     }
     let track = match find_sheet("RATA") {

@@ -100,6 +100,20 @@ ovat historiallista aineistoa, eivät tämän version hyväksyntätesti.
 
 ## Kahden GUI:n lähiverkko- ja palautumiskoe
 
+AS tulkin erillinen synteettinen vastaanottokoe käyttää vain `--demo`-kilpailua:
+
+```powershell
+$env:AS2026_TULKKI_GUI_TEST='1'
+$env:SLINT_SCALE_FACTOR='1'
+target/debug/as2026-gui.exe --demo --capture-dir target/tulkki-gui-100
+$env:SLINT_SCALE_FACTOR='1.5'
+target/debug/as2026-gui.exe --demo --capture-dir target/tulkki-gui-150
+```
+
+Koe tarkistaa tulkintataulukon, toistuvan kilven esiintymän, ajat ja huomautukset, toisen tarkistajan korjauksen, asetusten uudelleenavauksen, laskentatietojen säilymisen sekä näppäimistön, vierityksen, 900 × 600 -koon ja yhteyskatkon näkyvän tilan. Kuvat ja `result.txt` säilyvät tuloshakemistossa. Testi ei ota verkkoyhteyttä oikeaan kilpailuun. Muutossyötteen sivutusta ja palautumista testataan Rustin localhost-palvelimella: `cargo test --locked --features desktop --lib tulkki_yhteys`.
+
+Alla oleva kahden GUI:n LAN-koe on edelleen erillinen ja säilyy ennallaan.
+
 Käännä ensin GUI. Aja sen jälkeen Rust-koordinaattori:
 
 ```sh

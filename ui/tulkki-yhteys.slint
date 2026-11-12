@@ -1,0 +1,120 @@
+import { UiButton as Button, UiTextField as LineEdit, UiScrollView as ScrollView, UiCheckBox as CheckBox } from "presets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, AccentButton, DialogSurface, DialogActions } from "components.slint";
+
+export component TulkkiDialog inherits Rectangle {
+    in-out property <string> site;
+    in-out property <string> user;
+    in-out property <string> password;
+    in property <string> code;
+    in property <string> status;
+    in property <bool> busy;
+    in property <bool> receiving;
+    in property <bool> configured;
+    in property <bool> closed;
+    callback manage(int);
+    in property <bool> automatic;
+    callback automatic-changed(bool);
+    in property <bool> error;
+    in property <bool> qr-ready;
+    in property <bool> qr-open;
+    changed qr-open=>{if !root.qr-open && root.configured {cancel.focus();}}
+    callback show-qr;
+    callback publish();
+    callback close();
+    background: Theme.modal-backdrop;
+    TouchArea {}
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; if root.qr-open { return; } if root.configured { cancel.focus(); } else { site-field.focus(); } } }
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape && !root.busy { root.close(); return accept; }
+            if event.text == Key.Tab {
+                if root.busy { return accept; }
+                if event.modifiers.shift {
+                    if send.has-focus { cancel.focus(); }
+                    else if cancel.has-focus { if root.configured {auto-results.focus();} else { password-field.focus(); } }
+                    else if auto-results.has-focus {rotate-button.focus();}
+                    else if rotate-button.has-focus {connection-button.focus();}
+                    else if connection-button.has-focus {if root.qr-ready{qr-button.focus();}else{code-field.focus();}}
+                    else if qr-button.has-focus {code-field.focus();}
+                    else if code-field.has-focus {password-field.focus();}
+                    else if password-field.has-focus { user-field.focus(); }
+                    else if user-field.has-focus { if root.configured {send.focus();}else{site-field.focus();} }
+                    else { send.focus(); }
+                } else {
+                    if site-field.has-focus { user-field.focus(); }
+                    else if user-field.has-focus { password-field.focus(); }
+                    else if code-field.has-focus && root.qr-ready {qr-button.focus();}
+                    else if password-field.has-focus {code-field.focus();}
+                    else if code-field.has-focus {if root.configured {connection-button.focus();}else{cancel.focus();}}
+                    else if qr-button.has-focus {connection-button.focus();}
+                    else if connection-button.has-focus {rotate-button.focus();}
+                    else if rotate-button.has-focus {auto-results.focus();}
+                    else if auto-results.has-focus {cancel.focus();}
+                    else if cancel.has-focus { send.focus(); }
+                    else { if root.configured { user-field.focus(); } else { site-field.focus(); } }
+                }
+                return accept;
+            }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-width: 560px;
+            content-dialog-height: content.min-height + 124px;
+            maximum-dialog-height: 800px;
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; text: "AS tulkki – yhteys"; }
+            ScrollView {
+                x: Theme.dialog-padding; y: 64px;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: parent.height - 124px;
+                horizontal-scrollbar-policy: always-off;
+                content-width: self.visible-width; content-height: content.min-height;
+                content := VerticalLayout {
+                    x: 0px; y: 0px; width: parent.visible-width; height: self.min-height;
+                    spacing: Theme.space-2;
+                    Note { height: self.preferred-height; text: "Lähetä avoimen kilpailun parit, jaksot ja kilvet puhelinsovellukselle."; }
+                    Note { height: self.preferred-height; text: "Sivuston osoite"; }
+                    site-field := LineEdit { text <=> root.site; enabled: !root.configured && !root.busy; accessible-label: "AS tulkin sivuston osoite"; }
+                    VerticalLayout {
+                        spacing: Theme.space-2;
+                        Note { height: self.preferred-height; text: "WordPress-käyttäjätunnus (ylläpitäjä)"; }
+                        user-field := LineEdit { text <=> root.user; enabled: !root.busy; accessible-label: "WordPress-käyttäjätunnus"; }
+                        Note { height: self.preferred-height; text: "WordPressin sovellussalasana"; }
+                        password-field := LineEdit { text <=> root.password; enabled: !root.busy; input-type: InputType.password; accessible-label: "WordPressin sovellussalasana"; }
+                        Note { height: self.preferred-height; text: "Sovellussalasana luodaan WordPressin omassa käyttäjäprofiilissa. Se säilyy vain tämän ikkunan muistissa. Lisäosaan ei syötetä tietoja."; }
+                    }
+                    VerticalLayout {
+                        spacing: Theme.space-2;
+                        Note { height: self.preferred-height; text: "Puhelimille annettava liittymiskoodi"; }
+                        code-field := LineEdit { text: root.code; placeholder-text: "Näkyy verkkokilpailun luomisen jälkeen"; read-only: true; accessible-label: "Liittymiskoodi"; }
+                        qr-button:=Button {text:"Näytä liittymisen QR-koodi";enabled:root.qr-ready && !root.busy;clicked=>{root.show-qr();}}
+                    }
+                    VerticalLayout {
+                        spacing:Theme.space-2;
+                        Note {height:self.preferred-height;text:!root.configured ? "Luo verkkokilpailu ennen yhteyden hallintaa." : root.closed ? "Puhelinyhteys on suljettu." : "Puhelinyhteys on avoinna.";}
+                        Note {height:self.preferred-height;text:"Hallinta vaatii ylläpitäjän sovellussalasanan. Sulkeminen ja koodin vaihtaminen katkaisevat puhelinistunnot. Tarkastajat liittyvät uudelleen nykyisellä koodilla; paikalliset kirjaukset säilyvät.";}
+                        connection-button:=Button {text:root.closed ? "Avaa puhelinyhteys" : "Sulje puhelinyhteys";enabled:root.configured && !root.busy && !root.receiving;clicked=>{root.manage(0);}}
+                        rotate-button:=Button {text:"Vaihda liittymiskoodi";enabled:root.configured && !root.busy && !root.receiving;clicked=>{root.manage(1);}}
+                    }
+                    Text { height: self.preferred-height; text: root.status; color: root.error ? Theme.danger : Theme.ink; wrap: word-wrap; }
+                    auto-results := CheckBox {
+                        text: "Hyväksy ja tulosta valmiit tulokset automaattisesti";
+                        checked: root.automatic; enabled: root.configured && !root.busy && !root.receiving;
+                        toggled => { root.automatic-changed(self.checked); }
+                    }
+                    Note { height: self.preferred-height; text: root.automatic ? "Automaattinen: kun kaikki jaksot on tulkattu ja laskenta on valmis, pääkone hyväksyy tuloksen ja lähettää tuloslapun tulostimelle. Korjattu tulos tulostuu uudelleen. Selvitystä vaativat tulokset käsitellään käsin." : "Käsin hyväksyttävät tulokset: tuloslaskija tarkistaa ja hyväksyy lopputulokset."; }
+                    Note { height: self.preferred-height; text: "Puhelinten valmiit tulkinnat vastaanotetaan taustalla. Näet ne Kilvet-välilehden Näytä tulkinnat -painikkeesta."; }
+                }
+            }
+            HorizontalLayout {
+                x: Theme.dialog-padding; y: parent.height - 48px;
+                width: parent.width - 2 * Theme.dialog-padding;
+                spacing: Theme.space-2; alignment: end;
+                cancel := Button { text: "Sulje"; enabled: !root.busy; clicked => { root.close(); } }
+                send := AccentButton { text: root.busy ? "Lähetetään" : root.configured ? "Lähetä kilpailutiedot" : "Luo verkkokilpailu"; enabled: !root.busy && !root.receiving; clicked => { root.publish(); } }
+            }
+        }
+    }
+}

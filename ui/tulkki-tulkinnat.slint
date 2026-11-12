@@ -1,0 +1,40 @@
+import { UiButton as Button, UiScrollView as ScrollView } from "presets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, DialogSurface, DialogActions } from "components.slint";
+
+export component TulkintaDialog inherits Rectangle {
+    in property <string> heading;
+    in property <string> text;
+    callback close();
+    background: Theme.modal-backdrop;
+    TouchArea {}
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; close-button.focus(); } }
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(); return accept; }
+            if event.text == Key.Tab { close-button.focus(); return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-width: 560px;
+            content-dialog-height: body.preferred-height + 132px;
+            maximum-dialog-height: 1000px;
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; width: parent.width - 2 * Theme.dialog-padding; text: root.heading; }
+            ScrollView {
+                x: Theme.dialog-padding; y: 76px;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: parent.height - 132px;
+                horizontal-scrollbar-policy: always-off;
+                content-width: self.visible-width; content-height: body.preferred-height;
+                body := Note { x: 0px; y: 0px; width: parent.visible-width; height: self.preferred-height; text: root.text; }
+            }
+            DialogActions {
+                x: Theme.dialog-padding; y: parent.height - Theme.dialog-padding - Theme.control-height;
+                width: parent.width - 2 * Theme.dialog-padding;
+                close-button := Button { text: "Sulje"; clicked => { root.close(); } }
+            }
+        }
+    }
+}

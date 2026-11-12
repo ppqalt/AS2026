@@ -1,3 +1,13 @@
+# Julkaisemattomat kehitysmuutokset: AS tulkki
+
+Kilvet ja oikean rivin tuonti, puhelintulkkausten tiedonsiirto ja tuloslaskenta,
+manuaalinen ajanotto, QR-liittyminen, kilpikorjaukset ja mitätöinti, valinnainen
+automaattitulostus sekä livetulosten välipisteet ja piste-erittely.
+[Kehittäjän muutoskuvaus](docs/AS_TULKKI_MUUTOKSET.md).
+
+Pohja on 0.7.5-2. Uusi julkaisunumero ja tagi päätetään ylläpitäjän
+tarkistusten jälkeen; alla olevat aiemman julkaisun tiedot säilyvät historiaksi.
+
 # AS2026 0.7.5-2
 
 Korjausversio siirtää viimeisen oman testityökalun Rustiin ja vahvistaa

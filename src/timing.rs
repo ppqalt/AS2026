@@ -1007,21 +1007,36 @@ fn score_prepared_rows(
             {
                 parameters.jat_cap = i64::MAX;
             }
-            let penalty = time_penalty(
+            let mut penalty = time_penalty(
                 result.rows[index].target_seconds,
                 result.rows[index].actual_seconds,
                 kind.expect("asemalaji tarkistettu"),
                 result.rows[index].effective_rule,
                 &parameters,
             )?;
+            let capped_early = result.policy == CalculationPolicy::As2026OperationalV1
+                && penalty.capped
+                && result.rows[index].target_seconds > result.rows[index].actual_seconds;
+            if capped_early {
+                penalty.signed_points = penalty.signed_points.abs();
+            }
             result.rows[index].signed_time_points = penalty.signed_points;
             if penalty.capped {
-                result.rows[index].note = "max myöhä".into();
+                result.rows[index].note = if capped_early {
+                    "max ennakko"
+                } else {
+                    "max myöhä"
+                }
+                .into();
                 trace(
                     result,
                     Some(index + 1),
                     "time-cap",
-                    "Aikavirhe ylitti katon; tallennettu etumerkki on vanhan kaavan mukaan negatiivinen",
+                    if capped_early {
+                        "Aikavirhe ylitti katon; maksimiennakon etumerkki säilytettiin positiivisena"
+                    } else {
+                        "Aikavirhe ylitti katon; tallennettu etumerkki on negatiivinen"
+                    },
                 );
             }
             if matches!(kind, Some(StationKind::Jat | StationKind::Finish)) {

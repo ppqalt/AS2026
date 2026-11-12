@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StoredResult {
+    #[serde(default)]
+    pub ilman_emit: bool,
+    #[serde(default)]
+    pub puuttuvien_at_pisteet: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub puuttuvat_aikamerkinnat: Vec<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emit_kortti: Option<u32>,
     #[serde(default)]
@@ -145,6 +151,7 @@ impl From<&StoredRow> for StationResult {
 impl StoredResult {
     pub fn section_difference(&self, row: &StoredRow) -> Option<i64> {
         if !matches!(row.station_type.as_str(), "JAT" | "M")
+            || self.puuttuvat_aikamerkinnat.contains(&row.output_index)
             || (row.expected_code != 0 && row.received_code != row.expected_code)
             || self.pending_manual_clocks().contains(&row.output_index)
         {
@@ -180,6 +187,7 @@ impl StoredResult {
                     && r.expected_code == 0
                     && r.station_type != "L"
                     && !self.kasin_annetut_kellot.contains(&r.output_index)
+                    && !self.puuttuvat_aikamerkinnat.contains(&r.output_index)
             })
             .map(|r| r.output_index)
             .collect()
@@ -215,6 +223,31 @@ impl StoredResult {
         self.rivit.iter().map(StationResult::from).collect()
     }
     pub fn validate_route(&self, route: &[RouteStation]) -> Result<(), CoreError> {
+        if self.puuttuvien_at_pisteet < 0 || (!self.ilman_emit && self.puuttuvien_at_pisteet != 0) {
+            return Err(CoreError::InvalidInput(
+                "Puuttuvan AT:n pisteosuus on virheellinen".into(),
+            ));
+        }
+        let missing = self
+            .puuttuvat_aikamerkinnat
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if missing.len() != self.puuttuvat_aikamerkinnat.len()
+            || (!self.ilman_emit && !missing.is_empty())
+            || missing.iter().any(|id| {
+                self.kasin_annetut_kellot.contains(id)
+                    || !self.rivit.iter().any(|r| {
+                        r.output_index == *id
+                            && r.expected_code == 0
+                            && matches!(r.station_type.as_str(), "AT" | "JAT" | "ULA" | "M")
+                    })
+            })
+        {
+            return Err(CoreError::InvalidInput(
+                "Puuttuvien aikamerkintöjen tiedot ovat ristiriitaiset".into(),
+            ));
+        }
         if self.rata
             != route
                 .iter()
@@ -340,6 +373,7 @@ impl StoredResult {
             }
         }
         let last = self.rivit.last().map(|r| r.output_index) == Some(index);
+        self.puuttuvat_aikamerkinnat.retain(|r| *r != index);
         let row = self.row_mut(index)?;
         row.clock = clock;
         if clock == [0; 3] {
@@ -464,7 +498,8 @@ pub(crate) fn invalidate_input_changes(
             if timing_changed {
                 result.hyvaksytty = false;
                 result.kasikellot_muuttuneet = true;
-            } else if old.lisavirheet != driver.lisavirheet || old.tila != driver.tila {
+            } else if !old.lisavirheet.same_scoring(&driver.lisavirheet) || old.tila != driver.tila
+            {
                 result.hyvaksytty = false;
             }
         }
@@ -499,6 +534,43 @@ mod card_identity_tests {
         assert_eq!(snapshot.as_ref().unwrap().emit_kortti, Some(7002));
         invalidate_input_changes(&before, &mut after);
         assert_eq!(after.kilpailijat[0].tallennettu_tulos, snapshot);
+    }
+    #[test]
+    fn tulkki_metadata_preserves_approval_but_points_require_new_approval() {
+        let mut before = project();
+        before.kilpailijat[0]
+            .tallennettu_tulos
+            .as_mut()
+            .unwrap()
+            .hyvaksytty = true;
+        let mut after = before.clone();
+        after.kilpailijat[0].lisavirheet.tulkki_siirto = Some(crate::native::TulkkiPenaltySource {
+            puuttuvat_rt: Vec::new(),
+            tunniste: "a".repeat(64),
+            tapahtumatunniste: None,
+            tulkatut_jaksot: Vec::new(),
+            jaksoja: 0,
+            muut_virhepisteet: 0,
+        });
+        invalidate_input_changes(&before, &mut after);
+        assert!(
+            after.kilpailijat[0]
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .hyvaksytty
+        );
+        let before = after.clone();
+        after.kilpailijat[0].lisavirheet.puuttuvat_rt_kpl = 1;
+        after.kilpailijat[0].lisavirheet.puuttuvat_rt_pisteet = 600;
+        invalidate_input_changes(&before, &mut after);
+        assert!(
+            !after.kilpailijat[0]
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .hyvaksytty
+        );
     }
     #[test]
     fn new_read_does_not_transfer_an_old_cards_snapshot() {

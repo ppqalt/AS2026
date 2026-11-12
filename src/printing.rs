@@ -407,10 +407,70 @@ pub fn competitor(
     if !reason.is_empty() {
         page.text(10., 282., 190., 5., 8., false, format!("Syy: {reason}"));
     }
+    let mut missing = Vec::new();
+    if let Some(received) = &source.lisavirheet.tulkki_siirto {
+        for section in &received.puuttuvat_rt {
+            for chunk in section.kilvet.chunks(12) {
+                missing.push(vec![format!("Jakso {}", section.jakso), chunk.join(", ")]);
+            }
+        }
+    }
+    if missing.is_empty() {
+        missing.push(vec![
+            "–".into(),
+            if source.lisavirheet.puuttuvat_rt_kpl == 0 {
+                "Ei puuttuvia RT-asemia".into()
+            } else {
+                format!(
+                    "{} puuttuvaa RT-asemaa; tunnuksia ei ole vastaanotettu",
+                    source.lisavirheet.puuttuvat_rt_kpl
+                )
+            },
+        ]);
+    }
+    let height = 5_f64.min(200. / (rows.len() + 1) as f64);
+    let mut top = 80. + height * (rows.len() + 1) as f64 + 8.;
+    let mut pages = Vec::new();
+    let mut offset = 0;
+    while offset < missing.len() {
+        if top + 22. > 278. {
+            pages.push(page);
+            page = Page::default();
+            page.text(
+                10.,
+                8.,
+                190.,
+                7.,
+                12.,
+                true,
+                format!("Nro {number} · {}", driver.driver),
+            );
+            top = 22.;
+        }
+        page.text(10., top, 190., 6., 11., true, "Puuttuvat");
+        let start = top + 7.;
+        let capacity = (((278. - start) / 5.).floor() as usize)
+            .saturating_sub(1)
+            .max(1);
+        let end = (offset + capacity).min(missing.len());
+        table(
+            &mut page,
+            start,
+            190.,
+            278.,
+            &["Jakso".into(), "Puuttuvat RT-asemat".into()],
+            &[1., 7.],
+            &missing[offset..end],
+            false,
+        );
+        offset = end;
+        top = 280.;
+    }
+    pages.push(page);
     Ok(Document {
         title: format!("AS2026 kilpailija {number}"),
         landscape: false,
-        pages: vec![page],
+        pages,
     })
 }
 

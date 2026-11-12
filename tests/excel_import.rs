@@ -205,10 +205,10 @@ fn import_limits_and_file_types_fail_with_finnish_messages() {
             .contains("tuontirajan")
     );
     assert!(
-        excel_import::read(Path::new("ei-tueta.xlsm"))
+        excel_import::read(Path::new("ei-tueta.csv"))
             .unwrap_err()
             .to_string()
-            .contains(".xls ja .xlsx")
+            .contains(".xls, .xlsx ja .xlsm")
     );
     assert!(
         excel_import::read(Path::new("puuttuva.xlsx"))

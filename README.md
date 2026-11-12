@@ -40,6 +40,11 @@ varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 
 ## Toiminnot
 
+Kehityslähteessä on myös **AS tulkki -integraatio**: Kilvet, oikeiden rivien
+Excel-tuonti, puhelintulkkausten vastaanotto, manuaalinen ajanotto, kilpikorjaukset
+ja mitätöinti, QR-liittyminen sekä valinnainen automaattinen tulostus.
+[Muutokset ja yhdistämisen tarkistukset](docs/AS_TULKKI_MUUTOKSET.md).
+
 - Kilpailijat, luokat, yhdistetyt luokat, radat ja asemat sekä lähtöluettelon sarakevalinta.
 - RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla ja erillisillä tuontivalinnoilla.
 - Jatkuva Emit-luku, lukuhistoria ja aktiivisen kortin leimausten korjaus.

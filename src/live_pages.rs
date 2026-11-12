@@ -92,9 +92,46 @@ pub fn pages_with_interval(
         return Err(invalid("Virheellinen HTML-tiedoston nimi"));
     }
     let mut selected = Vec::new();
-    for archive in archives(project)? {
-        let ranked = application::rank_stored(&archive, TiePolicy::PairwiseControlComparison)?;
-        for group in ranked.groups {
+    for (archive_index, archive) in archives(project)?.into_iter().enumerate() {
+        let mut states = std::collections::BTreeMap::new();
+        let mut snapshot = archive.clone();
+        let mut provisional = false;
+        for c in &mut snapshot.competitors {
+            let state = live_state(project, &archive, c, archive_index == 0)?;
+            if let Some(points) = state.points {
+                provisional |= !archive.has_approved_result(c.number);
+                c.total_penalties = points;
+                c.status = "TRK".into();
+            } else if !state.terminal {
+                c.status = "ILM".into();
+            }
+            states.insert(c.number, state);
+        }
+        // Vain yleisön välitulossnapshot: virallisia hyväksyntöjä tai pisteitä ei muuteta.
+        snapshot.result_publication = None;
+        let ranked = application::rank_stored(&snapshot, TiePolicy::PairwiseControlComparison)?;
+        let shared = if provisional {
+            Some(application::rank_stored(
+                &snapshot,
+                TiePolicy::KeepSharedAndFlag,
+            )?)
+        } else {
+            None
+        };
+        for mut group in ranked.groups {
+            let group_provisional = group.entries.iter().any(|e| {
+                states
+                    .get(&(e.number as u32))
+                    .is_some_and(|s| s.points.is_some())
+                    && !archive.has_approved_result(e.number as u32)
+            });
+            if group_provisional
+                && let Some(other) = shared
+                    .as_ref()
+                    .and_then(|r| r.groups.iter().find(|g| g.code == group.code))
+            {
+                group = other.clone();
+            }
             if !settings.classes.contains(&group.code) {
                 continue;
             }
@@ -104,43 +141,31 @@ pub fn pages_with_interval(
                 (
                     e.status != crate::ranking::Status::Classified,
                     e.primary_position,
+                    e.number,
                 )
             });
-            let pending = archive.competitors.iter().filter(|c| {
-                let member = if group.kind == crate::ranking::GroupKind::Ordinary { c.class_code == group.code } else {
-                    archive.basic.combined_classes.iter().any(|g| group.code == format!("Y{}: {}", g.first().map(String::as_str).unwrap_or(""), g.get(1).map(String::as_str).unwrap_or("")) && archive.basic.classes.iter().enumerate().any(|(i, class)| class.code == c.class_code && g.get(4 + i).is_some_and(|v| v == "1")))
-                };
-                member && !archive.can_publish_competitor(c)
-            }).map(|c| format!("<tr><td>—</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">AJAA</td></tr>", c.number, escape(&c.driver), escape(&c.navigator))).collect::<String>();
-            let mut pending_added = false;
             for entry in entries {
-                if entry.status != crate::ranking::Status::Classified && !pending_added {
-                    rows.push_str(&pending);
-                    pending_added = true;
-                }
-                let Some(driver) = archive.competitors.iter().find(|c| {
-                    i64::from(c.number) == entry.number && archive.can_publish_competitor(c)
-                }) else {
+                let Some(driver) = archive
+                    .competitors
+                    .iter()
+                    .find(|c| i64::from(c.number) == entry.number)
+                else {
                     continue;
                 };
-                let approved = archive.has_approved_result(driver.number);
-                let classified = entry.status == crate::ranking::Status::Classified;
-                let place = if classified {
+                let state = &states[&driver.number];
+                let place = if state.points.is_some() && !state.terminal {
                     entry.primary_position.to_string()
                 } else {
-                    escape(entry.status.as_legacy())
+                    String::new()
                 };
-                let total = if approved && classified {
-                    driver.total_penalties.to_string()
-                } else {
-                    "—".into()
-                };
-                rows.push_str(&format!("<tr><td>{place}</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">{total}</td></tr>", driver.number, escape(&driver.driver), escape(&driver.navigator)));
+                let total = state.points.map(|p| p.to_string()).unwrap_or_default();
+                let (rt, time, other) = state
+                    .breakdown
+                    .map(|p| (p.rt.to_string(), p.time.to_string(), p.other.to_string()))
+                    .unwrap_or_default();
+                rows.push_str(&format!("<tr><td>{place}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td class=\"numeric\">{rt}</td><td class=\"numeric\">{time}</td><td class=\"numeric\">{other}</td><td class=\"numeric total\">{total}</td></tr>",driver.number,escape(&driver.driver),escape(&driver.navigator),escape(&state.driving)));
             }
-            if !pending_added {
-                rows.push_str(&pending);
-            }
-            selected.push((group.code, rows));
+            selected.push((group.code, rows, group_provisional));
         }
     }
     if selected.is_empty() {
@@ -156,12 +181,12 @@ pub fn pages_with_interval(
         })
         .collect();
     let updated = chrono::Local::now().format("%d.%m.%Y %H:%M:%S").to_string();
-    Ok(selected.iter().enumerate().map(|(i, (class, rows))| {
+    Ok(selected.iter().enumerate().map(|(i, (class, rows, provisional))| {
         let next = url(&names[(i + 1) % names.len()]);
         let html = format!(r#"<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="{refresh_seconds};url={next}"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><title>{competition} · {class}</title><style>
-:root{{color-scheme:light;font:16px/1.2 system-ui,sans-serif;color:#152433;background:#f2f5f8}}body{{margin:0}}header,main{{max-width:1400px;margin:auto;padding:.5rem 1rem}}h1{{font-size:1.6rem;margin:.15rem 0}}h2{{font-size:1.25rem;margin:0 0 .4rem}}p{{margin:.2rem 0}}.brand{{font-weight:750;letter-spacing:.06em;color:#245779;font-size:.8rem}}.subtitle{{color:#4d6375;font-size:.85rem}}section{{background:#fff;border:1px solid #d7e0e8;border-radius:10px;padding:.6rem}}.table-wrap{{overflow-x:auto}}table{{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}}th,td{{text-align:left;padding:.18rem .5rem;border-bottom:1px solid #dce4eb}}th{{background:#edf2f6;font-size:.9rem}}.numeric{{text-align:right;white-space:nowrap}}tbody tr:nth-child(even){{background:#f8fafc}}@media(max-width:600px){{:root{{font-size:13px}}header,main{{padding:.4rem}}th,td{{padding:.18rem .25rem}}}}
-</style></head><body><header><p class="brand">AS2026</p><h1>{competition}</h1><p class="subtitle">Epäviralliset tulokset · Päivitetty {updated} · Sivu {page}/{count}</p></header><main><section><h2>Luokka: {class}</h2><div class="table-wrap"><table><thead><tr><th>Sij.</th><th>Nro</th><th>Kuljettaja</th><th>Kartanlukija</th><th class="numeric">Tulos</th></tr></thead><tbody>{rows}</tbody></table></div></section></main></body></html>"#,
-            competition=escape(&project.kilpailu.nimi), class=escape(crate::printing::class_label(class)), page=i+1, count=selected.len());
+:root{{color-scheme:light;font:16px/1.2 system-ui,sans-serif;color:#152433;background:#f2f5f8}}body{{margin:0}}header,main{{max-width:1400px;margin:auto;padding:.5rem 1rem}}h1{{font-size:1.6rem;margin:.15rem 0}}h2{{font-size:1.25rem;margin:0 0 .4rem}}p{{margin:.2rem 0}}.brand{{font-weight:750;letter-spacing:.06em;color:#245779;font-size:.8rem}}.subtitle{{color:#4d6375;font-size:.85rem}}section{{background:#fff;border:1px solid #d7e0e8;border-radius:10px;padding:.6rem}}.table-wrap{{overflow-x:auto}}table{{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}}th,td{{text-align:left;padding:.18rem .5rem;border-bottom:1px solid #dce4eb}}th{{background:#edf2f6;font-size:.9rem}}.numeric{{text-align:right;white-space:nowrap}}tbody tr:nth-child(even){{background:#f8fafc}} .table-hint{{display:none}}@media(max-width:600px){{:root{{font-size:13px}}header,main{{padding:.4rem}}th,td{{padding:.18rem .25rem}}.table-hint{{display:block;font-size:.85rem;color:#4d6375}}}}
+</style></head><body><header><p class="brand">AS2026</p><h1>{competition}</h1><p class="subtitle">Epäviralliset tulokset{interim_notice} · Päivitetty {updated} · Sivu {page}/{count}</p></header><main><section><h2>Luokka: {class}</h2>{progress_notice}<p class="table-hint">Taulukkoa voi vierittää sivusuunnassa.</p><div class="table-wrap"><table><thead><tr><th>Sij.</th><th>Nro</th><th>Kuljettaja</th><th>Kartanlukija</th><th>Tilanne</th><th class="numeric">RT</th><th class="numeric">Aika</th><th class="numeric">Muut</th><th class="numeric">Yhteensä</th></tr></thead><tbody>{rows}</tbody></table></div></section></main></body></html>"#,
+            progress_notice=if *provisional{"<p class=\"subtitle\">Välituloksessa ovat mukana vain tulkatut jaksot ja käytettävissä olevat ajat. Parit voivat olla eri vaiheissa kilpailua; sijoitus voi muuttua. Maalissa ei vielä tarkoita hyväksyttyä lopputulosta.</p>"}else{""}, interim_notice=if *provisional{" · Välisijoitukset kertyneiden pisteiden mukaan"}else{""}, competition=escape(&project.kilpailu.nimi), class=escape(crate::printing::class_label(class)), page=i+1, count=selected.len());
         (settings.base.with_file_name(&names[i]), html)
     }).collect())
 }
@@ -234,6 +259,164 @@ pub(crate) fn write_pages_with_cancel(
         .map_err(|_| invalid("Livetulossivun tallennus epäonnistui"))?;
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct PointBreakdown {
+    rt: i64,
+    time: i64,
+    other: i64,
+}
+fn scored_state(parts: PointBreakdown, driving: String) -> Result<LiveState, CoreError> {
+    let points = parts
+        .rt
+        .checked_add(parts.time)
+        .and_then(|n| n.checked_add(parts.other))
+        .ok_or(CoreError::ArithmeticOverflow("Livetuloksen pisteet"))?;
+    Ok(LiveState {
+        points: Some(points),
+        breakdown: Some(parts),
+        driving,
+        terminal: false,
+    })
+}
+fn full_state(c: &crate::legacy::Competitor, driving: String) -> Result<LiveState, CoreError> {
+    let field = |index: usize| {
+        c.header_fields
+            .get(index)
+            .and_then(|s| s.parse::<i64>().ok())
+            .ok_or_else(|| invalid("Tuloksen piste-erittely puuttuu"))
+    };
+    let add = |a: i64, b: i64| {
+        a.checked_add(b)
+            .ok_or(CoreError::ArithmeticOverflow("Piste-erittely"))
+    };
+    let parts = PointBreakdown {
+        rt: add(field(22)?, field(24)?)?,
+        time: field(19)?,
+        other: add(field(20)?, field(25)?)?,
+    };
+    let state = scored_state(parts, driving)?;
+    if state.points != Some(c.total_penalties) {
+        return Err(invalid("Piste-erittely ei vastaa kokonaispisteitä"));
+    }
+    Ok(state)
+}
+struct LiveState {
+    points: Option<i64>,
+    breakdown: Option<PointBreakdown>,
+    driving: String,
+    terminal: bool,
+}
+fn live_state(
+    project: &Project,
+    archive: &crate::legacy::Archive,
+    c: &crate::legacy::Competitor,
+    interim: bool,
+) -> Result<LiveState, CoreError> {
+    if archive.can_publish_competitor(c) && c.status != "TRK" {
+        return Ok(LiveState {
+            points: None,
+            breakdown: None,
+            driving: c.status.clone(),
+            terminal: true,
+        });
+    }
+    if archive.has_approved_result(c.number) && c.status == "TRK" {
+        return full_state(c, "Maalissa".into());
+    }
+    let native = project.kilpailijat.iter().find(|d| d.numero == c.number);
+    let source = native.and_then(|d| d.lisavirheet.tulkki_siirto.as_ref());
+    let (completed, total) =
+        source.map_or((&[][..], 0), |s| (s.tulkatut_jaksot.as_slice(), s.jaksoja));
+    let next = (1..=total).find(|s| !completed.contains(s));
+    let stored = native.and_then(|d| d.tallennettu_tulos.as_ref());
+    let finished =
+        (total > 0 && next.is_none()) || (total == 0 && stored.is_some_and(|r| r.can_approve()));
+    let driving = if finished {
+        "Maalissa".into()
+    } else {
+        format!("Jakso {}", next.unwrap_or(1))
+    };
+    let none = || LiveState {
+        points: None,
+        breakdown: None,
+        driving: driving.clone(),
+        terminal: false,
+    };
+    if !interim || (total > 0 && completed.is_empty()) {
+        return Ok(none());
+    }
+    let Some(driver) = native else {
+        return Ok(none());
+    };
+    if finished && stored.is_some_and(|r| r.can_approve()) {
+        return full_state(c, driving);
+    }
+    if completed.is_empty() {
+        return Ok(none());
+    }
+    let add = |a: i64, b: i64| {
+        a.checked_add(b)
+            .ok_or(CoreError::ArithmeticOverflow("Livetuloksen pisteet"))
+    };
+    let rt = add(
+        driver.lisavirheet.puuttuvat_rt_pisteet,
+        driver.lisavirheet.ylimaaraiset_rt_pisteet,
+    )?;
+    let mut other = driver.lisavirheet.muut_virhepisteet;
+    let mut time = 0i64;
+    if let Some(result) = stored {
+        // Sama aika-asemien tyyppi- ja järjestyskohdistus kuin puhelinaikojen vastaanotossa.
+        if c.results.is_empty()
+            || result.kasikellot_muuttuneet
+            || !result.virheelliset_ajat.is_empty()
+        {
+            return Ok(none());
+        }
+        let route = project
+            .luokat
+            .iter()
+            .find(|class| class.tunnus == driver.luokka)
+            .and_then(|class| project.oikeat_rivit.iter().find(|r| r.rata == class.rata));
+        let Some(route) = route else {
+            return Ok(none());
+        };
+        let clocks = route
+            .merkinnat
+            .iter()
+            .filter(|e| e.merkinta.kind.is_clock())
+            .collect::<Vec<_>>();
+        let rows = result
+            .rivit
+            .iter()
+            .filter(|r| matches!(r.station_type.as_str(), "AT" | "JAT" | "ULA" | "M"))
+            .collect::<Vec<_>>();
+        if clocks.len() != rows.len() {
+            return Ok(none());
+        }
+        for (entry, row) in clocks.iter().zip(rows) {
+            let kind = match row.station_type.as_str() {
+                "AT" => crate::interpretation::EntryKind::At,
+                "JAT" => crate::interpretation::EntryKind::Jat,
+                "ULA" => crate::interpretation::EntryKind::Ula,
+                _ => crate::interpretation::EntryKind::Finish,
+            };
+            if entry.merkinta.kind != kind {
+                return Ok(none());
+            }
+            if completed.contains(&entry.merkinta.section) {
+                time = add(
+                    time,
+                    row.signed_time_penalty
+                        .checked_abs()
+                        .ok_or(CoreError::ArithmeticOverflow("Aikapisteet"))?,
+                )?;
+                other = add(other, row.other_penalty)?;
+            }
+        }
+    }
+    scored_state(PointBreakdown { rt, time, other }, driving)
 }
 
 #[cfg(test)]

@@ -100,6 +100,7 @@ pub(super) fn start(
         (4, 0, "paivitys"),
         (5, 0, "paivitys"),
         (6, 0, "paivitys"),
+        (7, 0, "paivitys"),
     ];
     let weak = app.as_weak();
     let shared = state.clone();
