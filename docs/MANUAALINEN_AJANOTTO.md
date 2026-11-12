@@ -36,3 +36,8 @@ AKK:n 2026 sääntöjen 10.11 mukaan käymättä jäänyt JAT tai maali tarkoitt
 Lähde: https://www.autourheilu.fi/site/assets/files/1930/akk_autosuunnistus_2026.pdf
 
 Tämä muutos koskee koko kilpailun manuaalista ajanottoa. Emit-kilpailun puhelinaikoja ei siirretä Emit-laskennan päälle. Beginners Cupin erillinen laskenta ja sen puhelinsiirto eivät kuulu tähän muutokseen.
+
+Kellonaikapohjainen kilpailu voi sisältää myös vanhoja tai uusia Emit-lukuja.
+Kun parilla on kelvollinen Emit-luku, Tarkista ja tulosnäkymä säilyttävät sen
+laskennan pohjana. Ilman lukua paperikortin luonnos avataan Tulosta tulos
+-painikkeella; pelkkä parin valitseminen ei luo tallennettua tulosta.

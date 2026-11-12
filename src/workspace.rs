@@ -364,9 +364,6 @@ impl Workspace {
         if let Some(stored) = &driver.tallennettu_tulos {
             return Ok(Some(stored.clone()));
         }
-        if project.kilpailu.ajanottotapa == 0 {
-            return application::capture_manual_result(project, number).map(Some);
-        }
         if project.active_readout(driver.emit).is_none() {
             return Ok(None);
         }
@@ -780,11 +777,7 @@ impl Workspace {
     /// Tarkista muodostaa asematuloksen uudelleen kortinlukuhistoriasta.
     pub fn review_results(&mut self, number: u32) -> Result<(), CoreError> {
         self.update_result(|project| {
-            let mut result = if project.kilpailu.ajanottotapa == 0 {
-                application::capture_manual_result(project, number)?
-            } else {
-                application::capture_entry_result(project, number)?
-            };
+            let mut result = application::capture_entry_result(project, number)?;
             crate::manual_timing::sync_points(project, number, &mut result, None)?;
             project
                 .kilpailijat
@@ -844,16 +837,10 @@ impl Workspace {
                 .iter()
                 .find(|d| d.numero == number)
                 .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
-            let mut result = driver.tallennettu_tulos.clone().map_or_else(
-                || {
-                    if project.kilpailu.ajanottotapa == 0 {
-                        application::capture_manual_result(project, number)
-                    } else {
-                        application::capture_entry_result(project, number)
-                    }
-                },
-                Ok,
-            )?;
+            let mut result = driver
+                .tallennettu_tulos
+                .clone()
+                .map_or_else(|| application::capture_entry_result(project, number), Ok)?;
             let expected = result
                 .rivit
                 .iter()

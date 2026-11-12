@@ -633,7 +633,9 @@ fn results(
         result_project.as_ref().map_or_else(
             || "AS2015A-aineisto · vain katselu".to_string(),
             |project| {
-                if project.kilpailu.ajanottotapa == 0 {
+                if snapshot.as_ref().is_some_and(|r| r.ilman_emit)
+                    || application::uses_manual_entry(project, driver.number)
+                {
                     return if snapshot.as_ref().is_some_and(|r| r.hyvaksytty) {
                         "Tulos valmis".into()
                     } else if snapshot.as_ref().is_some_and(|r| r.can_approve()) {

@@ -2,7 +2,7 @@
 
 Lähdekoodin luovutus 12.11.2026. Pohja on AS2026 0.7.5-2, GitHubin
 ZIP-kopion commit `d44a7c60e395909e2b0a7aa2ad58acc99a32e151`.
-Tämä on yhdistettävä kehitysmuutos, ei uusi virallinen julkaisutagi.
+Kuvaus dokumentoi integraation alkuperäisen luovutuksen. Korjattu integraatio sisältyy AS2026 0.7.6:een.
 
 ## Käyttäjälle näkyvät muutokset
 

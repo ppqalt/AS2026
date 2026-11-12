@@ -166,3 +166,15 @@ fn printed_missing_signs_are_grouped_and_continue_on_another_page() {
         assert!(page.texts.iter().all(|t| t.y + t.height <= 297.));
     }
 }
+
+#[test]
+fn entry_without_a_readout_remains_an_unapproved_paper_draft() {
+    let p = project();
+    let before = p.clone();
+    assert!(application::uses_manual_entry(&p, 7));
+    let result = application::capture_entry_result(&p, 7).unwrap();
+    assert!(result.ilman_emit);
+    assert!(!result.can_approve());
+    assert_eq!(result.pending_manual_clocks(), vec![2, 3, 4]);
+    assert_eq!(p, before);
+}

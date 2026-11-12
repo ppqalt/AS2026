@@ -261,7 +261,14 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 assert!(p.leimaluvut.is_empty());assert!(!r.hyvaksytty);assert_eq!(r.rivit[2].clock,[12,10,30]);assert_eq!(d.lisavirheet.muut_virhepisteet,2400);assert_eq!(d.lisavirheet.puuttuvat_rt_kpl,1);
                 let mut preview=p.clone();preview.kilpailijat[0].tallennettu_tulos.as_mut().unwrap().hyvaksytty=true;
                 let document=as2026::printing::competitor(&preview,7,None).unwrap();assert!(document.pages.iter().flat_map(|p|&p.texts).any(|t|t.value=="Puuttuvat"));
-                as2026::printing::preview_png(&document,&directory.join("tuloslappu-puutteet")).unwrap();
+                let pdf=as2026::export::pdf(&document,&[]).unwrap();
+                assert!(pdf.starts_with(b"%PDF-"));
+                std::fs::write(directory.join("tuloslappu-puutteet.pdf"),pdf).unwrap();
+                let postscript=as2026::printing::postscript(&document);
+                assert!(postscript.starts_with("%!PS-Adobe"));
+                std::fs::write(directory.join("tuloslappu-puutteet.ps"),postscript).unwrap();
+                #[cfg(windows)]
+                { let pages=as2026::printing::preview_png(&document,&directory.join("tuloslappu-puutteet")).unwrap(); assert_eq!(pages.len(),document.pages.len()); }
                 let path=ws.path().to_owned();s.preferences.as_mut().unwrap().save_tulkki(path,config).unwrap();update_tables(&s,&app).unwrap();update_form(&s,&app);app.set_details_open(true);
             }
             21=>{

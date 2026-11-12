@@ -542,13 +542,7 @@ pub fn capture_project_result(
     project: &crate::native::Project,
     number: u32,
 ) -> Result<crate::corrections::StoredResult, CoreError> {
-    if project.kilpailu.ajanottotapa == 0
-        && project
-            .kilpailijat
-            .iter()
-            .find(|d| d.numero == number)
-            .is_some_and(|d| project.active_readout(d.emit).is_none())
-    {
+    if uses_manual_entry(project, number) {
         return capture_manual_result(project, number);
     }
     let archive = project.to_archive()?;
@@ -560,16 +554,23 @@ pub fn capture_project_result(
     capture_archive_operational(&archive, competitor)
 }
 
-/// Käyttöliittymän ajanottotapa valitsee paperikortin tai Emit-luvun tulospohjan.
+/// Paperipohja tarvitaan vain ilman kilpailijan kelvollista Emit-lukua.
+pub fn uses_manual_entry(project: &crate::native::Project, number: u32) -> bool {
+    project.kilpailu.ajanottotapa == 0
+        && project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .is_some_and(|d| project.active_readout(d.emit).is_none())
+}
+
+/// Kellonaikapohjainenkin kilpailu voi sisältää Emit-lukuja. Säilytä tällöin
+/// kortin tulospohja; ilman lukua manuaalinen ajanotto muodostaa paperipohjan.
 pub fn capture_entry_result(
     project: &crate::native::Project,
     number: u32,
 ) -> Result<crate::corrections::StoredResult, CoreError> {
-    if project.kilpailu.ajanottotapa == 0 {
-        capture_manual_result(project, number)
-    } else {
-        capture_project_result(project, number)
-    }
+    capture_project_result(project, number)
 }
 
 pub fn capture_manual_result(
@@ -956,7 +957,9 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
             (validation.map(|()| stored.clone()), blocked)
         } else {
             (
-                if project.kilpailu.ajanottotapa == 0 {
+                if project.kilpailu.ajanottotapa == 0
+                    && project.active_readout(driver.emit).is_none()
+                {
                     capture_manual_archive(&paper_archive, competitor)
                 } else {
                     capture_archive_operational(&archive, competitor)

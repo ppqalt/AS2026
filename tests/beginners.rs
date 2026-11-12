@@ -559,3 +559,20 @@ fn bc_finish_preserves_void_rule_with_or_without_finish_punch() {
         }
     }
 }
+
+#[test]
+fn clock_mode_entry_and_preview_keep_existing_emit_times() {
+    let p = project();
+    let before = p.clone();
+    assert!(!application::uses_manual_entry(&p, 7));
+    let expected = application::capture_project_result(&p, 7).unwrap();
+    let entry = application::capture_entry_result(&p, 7).unwrap();
+    assert_eq!(entry, expected);
+    assert!(!entry.ilman_emit);
+    let calculated = application::calculated_project(&p).unwrap();
+    assert_eq!(
+        calculated.competitors[0].results[1].clock,
+        entry.rivit[1].clock
+    );
+    assert_eq!(p, before);
+}

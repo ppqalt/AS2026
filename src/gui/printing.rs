@@ -16,7 +16,13 @@ pub(super) fn open_entry(state: &mut State, app: &AppWindow) -> GuiResult<()> {
         .iter()
         .find(|d| d.numero == number)
         .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
-    let result = ws.result_snapshot(number)?;
+    let result = match ws.result_snapshot(number)? {
+        Some(result) => Some(result),
+        None if application::uses_manual_entry(&project, number) => {
+            Some(application::capture_entry_result(&project, number)?)
+        }
+        None => None,
+    };
     let terminal = driver
         .tila
         .as_ref()

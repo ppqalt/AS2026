@@ -2218,7 +2218,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             .workspace
             .as_ref()
             .and_then(Workspace::project)
-            .is_some_and(|p| p.kilpailu.ajanottotapa == 0);
+            .is_some_and(|p| application::uses_manual_entry(p, number));
         confirmation(
             s,
             &a,
@@ -2776,7 +2776,7 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
                     current_workspace(s)?.review_results(number)?;
                     if current_workspace(s)?
                         .project()
-                        .is_some_and(|p| p.kilpailu.ajanottotapa == 0)
+                        .is_some_and(|p| application::uses_manual_entry(p, number))
                     {
                         "Manuaalinen tulospohja muodostettu radan asemista ja tallennettu."
                     } else {
