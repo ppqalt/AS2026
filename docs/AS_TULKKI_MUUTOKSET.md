@@ -93,6 +93,6 @@ erillisen GUI-prosessin LAN-/katko-/palautumiskoe pitää ajaa ennen yhdistämis
 Näiden olemassa olevia testejä ei ole poistettu. Fyysisten puhelinten yhteiskäyttö
 sekä puuttuvien aikojen sääntöpoikkeustestit on siirretty myöhemmäksi käyttäjän päätöksellä.
 
-Julkaisuversion päättää ylläpitäjä. Päivitä silloin Cargo.toml, Cargo.lock ja
-julkaisutiedot normaalisti sekä käytä `docs/RELEASES.md`:n allekirjoitettua
-työnkulkua. Nykyistä 0.7.5-2-tagia tai paketteja ei ylikirjoiteta.
+Korjattu integraatio valmistellaan versiona 0.7.6. Versiotiedot päivitetään
+normaalisti ja julkaisu käyttää `docs/RELEASES.md`:n allekirjoitettua
+työnkulkua. Aikaisempia julkaisutageja tai paketteja ei ylikirjoiteta.
