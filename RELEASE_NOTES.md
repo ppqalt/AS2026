@@ -10,6 +10,11 @@ vastaanoton ja paperikortin ajanoton kilpailunhallintaan.
 - Paperikortin ajat, puuttuvat aikamerkinnät ja RT-puutteiden koonti.
   Valinnainen valmiin tuloksen hyväksyntä ja tulostus.
 - Livetulosten välipisteet ja tarkempi piste-erittely.
+- Keskeneräiset parit säilyvät livetuloksissa keskeyttäneiden edellä.
+  Ilman puhelintulkkausta käytetään edelleen AJAA-tilaa; oikean rivin
+  jaksot näyttävät tulkkauksen etenemisen.
+- Tulkintojen alkuperäiset määrät validoidaan myös uusintakäsittelyssä
+  ennen mitätöityjen kilpien sovitusta ja siirtotunnisteen tarkistusta.
 - Korjattu käsiajanoton ja Emit-luvun yhteiskäyttö: kelvollinen Emit-luku
   säilyy tuloksen pohjana myös kellonaikapohjaisessa kilpailussa.
   Kortiton tulospohja avataan aikojen syöttöön erikseen, eikä lukemattomalle

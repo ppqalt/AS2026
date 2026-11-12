@@ -139,7 +139,13 @@ pub fn pages_with_interval(
             let mut entries = group.entries.iter().collect::<Vec<_>>();
             entries.sort_by_key(|e| {
                 (
-                    e.status != crate::ranking::Status::Classified,
+                    if states[&(e.number as u32)].terminal {
+                        2
+                    } else if states[&(e.number as u32)].points.is_some() {
+                        0
+                    } else {
+                        1
+                    },
                     e.primary_position,
                     e.number,
                 )
@@ -326,6 +332,19 @@ fn live_state(
         return full_state(c, "Maalissa".into());
     }
     let native = project.kilpailijat.iter().find(|d| d.numero == c.number);
+    let right_row = native
+        .and_then(|driver| {
+            project
+                .luokat
+                .iter()
+                .find(|class| class.tunnus == driver.luokka)
+        })
+        .and_then(|class| {
+            project
+                .oikeat_rivit
+                .iter()
+                .find(|route| route.rata == class.rata)
+        });
     let source = native.and_then(|d| d.lisavirheet.tulkki_siirto.as_ref());
     let (completed, total) =
         source.map_or((&[][..], 0), |s| (s.tulkatut_jaksot.as_slice(), s.jaksoja));
@@ -335,6 +354,8 @@ fn live_state(
         (total > 0 && next.is_none()) || (total == 0 && stored.is_some_and(|r| r.can_approve()));
     let driving = if finished {
         "Maalissa".into()
+    } else if total == 0 && right_row.is_none() {
+        "AJAA".into()
     } else {
         format!("Jakso {}", next.unwrap_or(1))
     };

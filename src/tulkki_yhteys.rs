@@ -111,6 +111,25 @@ pub fn penalty_changes(
     if !effective.published_manifest.is_empty() {
         let mut value: Value = serde_json::from_str(&effective.published_manifest)
             .map_err(|_| crate::CoreError::InvalidInput("Julkaistu oikea rivi puuttuu".into()))?;
+        // Tarkista alkuperäinen vastaanotto ennen mitätöityjen kilpien sovitusta.
+        // Normalisointi ei saa peittää virheellisiä määriä välimuistissa.
+        for receipt in &config.received {
+            validate_event(
+                &InterpretationEvent {
+                    event_id: receipt.event_id,
+                    pair_number: receipt.pair_number,
+                    revision: config.revision,
+                    reviewer: receipt.reviewer.clone(),
+                    saved_at: receipt.saved_at.clone(),
+                    sections: vec![receipt.section.clone()],
+                    original_sections: Vec::new(),
+                    original_labels: BTreeMap::new(),
+                },
+                &value,
+                config.revision,
+            )
+            .map_err(crate::CoreError::InvalidInput)?;
+        }
         for route in &project.oikeat_rivit {
             for entry in route.merkinnat.iter().filter(|e| e.mitatoity) {
                 for r in value["routes"].as_array_mut().into_iter().flatten() {
@@ -170,6 +189,29 @@ fn penalty_changes_inner(
             ));
         }
         receipts.sort_by(|a, b| a.section.id.cmp(&b.section.id));
+        // Myös aiemmin käsitellyn tapahtuman sisältö tarkistetaan ennen
+        // siirtotunnisteen pikaoikotietä; vioittunut välimuisti ei saa ohittaa validointia.
+        let mut sections = BTreeSet::new();
+        for receipt in &receipts {
+            if !sections.insert(&receipt.section.id) {
+                return Err(invalid("Tulkinnassa on sama jakso kahdesti"));
+            }
+            validate_event(
+                &InterpretationEvent {
+                    event_id: receipt.event_id,
+                    pair_number: number,
+                    revision: config.revision,
+                    reviewer: receipt.reviewer.clone(),
+                    saved_at: receipt.saved_at.clone(),
+                    sections: vec![receipt.section.clone()],
+                    original_sections: Vec::new(),
+                    original_labels: BTreeMap::new(),
+                },
+                &manifest,
+                config.revision,
+            )
+            .map_err(|e| invalid(&e))?;
+        }
         let published_sections = list(published, "sections").map_err(|e| invalid(&e))?;
         let completed = published_sections
             .iter()
@@ -257,26 +299,7 @@ fn penalty_changes_inner(
         }
         let mut missing = 0u32;
         let mut others = 0u32;
-        let mut sections = BTreeSet::new();
         for receipt in receipts {
-            if !sections.insert(&receipt.section.id) {
-                return Err(invalid("Tulkinnassa on sama jakso kahdesti"));
-            }
-            validate_event(
-                &InterpretationEvent {
-                    event_id: receipt.event_id,
-                    pair_number: number,
-                    revision: config.revision,
-                    reviewer: receipt.reviewer.clone(),
-                    saved_at: receipt.saved_at.clone(),
-                    sections: vec![receipt.section.clone()],
-                    original_sections: Vec::new(),
-                    original_labels: BTreeMap::new(),
-                },
-                &manifest,
-                config.revision,
-            )
-            .map_err(|e| invalid(&e))?;
             missing = missing
                 .checked_add(receipt.section.missing_signs)
                 .ok_or(CoreError::ArithmeticOverflow("RT-määrä"))?;
