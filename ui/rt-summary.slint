@@ -1,0 +1,42 @@
+import { UiButton as Button, UiScrollView as ScrollView } from "presets.slint";
+import { Theme } from "theme.slint";
+import { TableRow } from "types.slint";
+import { DialogSurface, DialogActions, Heading, Note, DataTable } from "components.slint";
+export component MissingRtDialog inherits Rectangle {
+    in property <[TableRow]> rows;
+    in property <string> summary;
+    callback close;
+    property <int> selected-key:-1;
+    changed rows=>{root.selected-key=-1;}
+    background:Theme.modal-backdrop;
+    TouchArea {}
+    FocusScope {
+        width:root.width;height:root.height;
+        init=>{close-button.focus();}
+        capture-key-pressed(event)=>{if event.text==Key.Escape {root.close();return accept;}reject}
+        DialogSurface {
+            available-width:root.width;available-height:root.height;
+            preferred-dialog-width:Theme.dialog-wide-width;preferred-dialog-height:720px;
+            VerticalLayout {
+                padding:Theme.dialog-padding;spacing:Theme.space-3;
+                Heading {text:"Puuttuvien RT-asemien koonti";}
+                Note {text:root.summary;}
+                DataTable {
+                    rows:root.rows;headers:["Rata","Jakso","RT","Puutteita","Pareja","Kilpailunumerot"];
+                    selected-key:root.selected-key;selected(key)=>{root.selected-key=key;}
+                    weights:[1.3,0.6,1,0.8,0.8,3.5];content-min-width:800px;
+                    empty-text:"Ei puuttuvia RT-asemia vastaanotetuissa kirjauksissa.";
+                }
+                Note {text:"Valitse rivi nähdäksesi kaikki kilpailunumerot.";}
+                pair-scroll:=ScrollView {
+                    height:root.height<700px ? 64px : 96px;vertical-stretch:0;horizontal-scrollbar-policy:always-off;
+                    content-width:self.visible-width;content-height:pair-list.preferred-height;
+                    pair-list:=Note {x:0px;y:0px;width:pair-scroll.visible-width;height:self.preferred-height;
+                        text:root.selected-key>=0 && root.selected-key<root.rows.length ? root.rows[root.selected-key].cells[0]+" · Jakso "+root.rows[root.selected-key].cells[1]+" · "+root.rows[root.selected-key].cells[2]+"\nKilpailunumerot: "+root.rows[root.selected-key].cells[5] : "";
+                    }
+                }
+                DialogActions {close-button:=Button {text:"Sulje";clicked=>{root.close();}}}
+            }
+        }
+    }
+}

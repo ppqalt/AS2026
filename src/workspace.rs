@@ -367,7 +367,7 @@ impl Workspace {
         if project.active_readout(driver.emit).is_none() {
             return Ok(None);
         }
-        application::capture_project_result(project, number).map(Some)
+        application::capture_entry_result(project, number).map(Some)
     }
 
     /// Keskeytyspäätös voidaan vahvistaa ilman korttia tai asematulosta.
@@ -457,7 +457,7 @@ impl Workspace {
                 .iter()
                 .any(|d| d.numero == number && d.tallennettu_tulos.is_none())
             {
-                let result = application::capture_project_result(project, number)?;
+                let result = application::capture_entry_result(project, number)?;
                 project
                     .kilpailijat
                     .iter_mut()
@@ -475,7 +475,7 @@ impl Workspace {
                 .any(|e| e.numero == number && e.osallistuu && e.tallennettu_tulos.is_none())
             {
                 let view = crate::beginners::projection(project)?;
-                let result = application::capture_project_result(&view, number)?;
+                let result = application::capture_entry_result(&view, number)?;
                 project
                     .bc_osallistujat
                     .iter_mut()
@@ -500,6 +500,152 @@ impl Workspace {
 
     pub fn ranking(&self) -> Result<RankingReport, CoreError> {
         application::rank_stored(&self.results()?, TiePolicy::PairwiseControlComparison)
+    }
+
+    pub fn import_right_row(
+        &mut self,
+        route: u32,
+        preview: &crate::interpretation::Preview,
+    ) -> Result<(), CoreError> {
+        self.update(|project| crate::interpretation::import_route(project, route, preview))
+    }
+
+    #[cfg(feature = "desktop")]
+    pub fn correct_right_row(
+        &mut self,
+        route: u32,
+        preview: &crate::interpretation::Preview,
+        config: &crate::tulkki_yhteys::Config,
+    ) -> Result<(), CoreError> {
+        if self.lan_client().is_some() {
+            return Err(invalid("Oikea rivi korvataan kilpailun pääkoneella"));
+        }
+        self.update(|project| crate::tulkki_yhteys::correct_route(project, config, route, preview))
+    }
+
+    #[cfg(feature = "desktop")]
+    pub fn apply_tulkki_penalties(
+        &mut self,
+        config: &crate::tulkki_yhteys::Config,
+    ) -> Result<bool, CoreError> {
+        let project = self
+            .project()
+            .ok_or_else(|| invalid("Avaa muokattava AS2026-kilpailu"))?;
+        let published: serde_json::Value =
+            serde_json::from_str(&config.published_manifest).unwrap_or_default();
+        if let Ok(current) = crate::tulkki_yhteys::manifest(project)
+            && current != published
+            && !crate::tulkki_yhteys::void_only(&published, &current)
+        {
+            return Ok(false);
+        }
+        let voids = published["routes"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .flat_map(|r| r["sections"].as_array().into_iter().flatten())
+            .flat_map(|s| s["entries"].as_array().into_iter().flatten())
+            .filter(|e| e["voided"] == true)
+            .filter_map(|e| e["id"].as_str())
+            .map(str::to_owned)
+            .collect::<std::collections::BTreeSet<_>>();
+        let flags_changed = project
+            .oikeat_rivit
+            .iter()
+            .flat_map(|r| &r.merkinnat)
+            .any(|e| !e.mitatoity && voids.contains(&e.tunniste));
+        if crate::tulkki_yhteys::penalty_changes(project, config)?.is_empty() && !flags_changed {
+            return Ok(false);
+        }
+        self.update(|project| {
+            for entry in project
+                .oikeat_rivit
+                .iter_mut()
+                .flat_map(|r| &mut r.merkinnat)
+            {
+                if voids.contains(&entry.tunniste) && !entry.merkinta.kind.is_clock() {
+                    entry.mitatoity = true;
+                }
+            }
+            let changes = crate::tulkki_yhteys::penalty_changes(project, config)?;
+            let mut financial = flags_changed;
+            for (number, penalties) in changes {
+                let same_event = project
+                    .kilpailijat
+                    .iter()
+                    .find(|d| d.numero == number)
+                    .and_then(|d| d.lisavirheet.tulkki_siirto.as_ref())
+                    .zip(penalties.tulkki_siirto.as_ref())
+                    .is_some_and(|(old, new)| old.tunniste == new.tunniste);
+                let result = if project.kilpailu.ajanottotapa == 0 && !same_event {
+                    Some(crate::tulkki_yhteys::manual_result(
+                        project, config, number,
+                    )?)
+                } else {
+                    None
+                };
+                let driver = project
+                    .kilpailijat
+                    .iter_mut()
+                    .find(|d| d.numero == number)
+                    .ok_or_else(|| invalid("Kilpailuparia ei löydy"))?;
+                financial |= !driver.lisavirheet.same_scoring(&penalties);
+                driver.lisavirheet = penalties;
+                if let Some(result) = result {
+                    financial |= driver.tallennettu_tulos.as_ref() != Some(&result);
+                    driver.tallennettu_tulos = Some(result);
+                }
+            }
+            Ok(financial)
+        })
+    }
+
+    pub fn set_right_row_time_input(
+        &mut self,
+        route: u32,
+        entry_id: &str,
+        manual: Option<bool>,
+    ) -> Result<(), CoreError> {
+        self.update(|project| {
+            crate::interpretation::set_time_input(project, route, entry_id, manual)
+        })
+    }
+
+    #[cfg(feature = "desktop")]
+    pub fn void_right_row(
+        &mut self,
+        route: u32,
+        id: &str,
+        config: &crate::tulkki_yhteys::Config,
+    ) -> Result<Vec<u32>, CoreError> {
+        match &mut self.source {
+            Source::Native(store) => store.update(|project| {
+                let before = project.clone();
+                let affected = crate::tulkki_yhteys::void_sign(project, route, id, config)?;
+                crate::corrections::invalidate_input_changes(&before, project);
+                // Käyttäjä on hyväksynyt esikatselussa vain kilpipuutteen korjauksen.
+                for number in &affected {
+                    let approved = before
+                        .kilpailijat
+                        .iter()
+                        .find(|d| d.numero == *number)
+                        .and_then(|d| d.tallennettu_tulos.as_ref())
+                        .is_some_and(|r| r.hyvaksytty);
+                    if let Some(result) = project
+                        .kilpailijat
+                        .iter_mut()
+                        .find(|d| d.numero == *number)
+                        .and_then(|d| d.tallennettu_tulos.as_mut())
+                        && approved
+                        && result.can_approve()
+                    {
+                        result.hyvaksytty = true;
+                    }
+                }
+                Ok(affected)
+            }),
+            _ => Err(invalid("Avaa muokattava AS2026-kilpailu")),
+        }
     }
 
     fn update<T>(
@@ -631,7 +777,8 @@ impl Workspace {
     /// Tarkista muodostaa asematuloksen uudelleen kortinlukuhistoriasta.
     pub fn review_results(&mut self, number: u32) -> Result<(), CoreError> {
         self.update_result(|project| {
-            let result = application::capture_project_result(project, number)?;
+            let mut result = application::capture_entry_result(project, number)?;
+            crate::manual_timing::sync_points(project, number, &mut result, None)?;
             project
                 .kilpailijat
                 .iter_mut()
@@ -649,6 +796,17 @@ impl Workspace {
         &mut self,
         number: u32,
         clocks: &[(u32, [i64; 3])],
+        missing_rt: u32,
+        other: i64,
+    ) -> Result<(), CoreError> {
+        self.complete_result_entry_with_missing(number, clocks, &[], missing_rt, other)
+    }
+
+    pub fn complete_result_entry_with_missing(
+        &mut self,
+        number: u32,
+        clocks: &[(u32, [i64; 3])],
+        missing_rows: &[u32],
         missing_rt: u32,
         other: i64,
     ) -> Result<(), CoreError> {
@@ -682,7 +840,7 @@ impl Workspace {
             let mut result = driver
                 .tallennettu_tulos
                 .clone()
-                .map_or_else(|| application::capture_project_result(project, number), Ok)?;
+                .map_or_else(|| application::capture_entry_result(project, number), Ok)?;
             let expected = result
                 .rivit
                 .iter()
@@ -692,13 +850,29 @@ impl Workspace {
             let supplied = clocks
                 .iter()
                 .map(|(r, _)| *r)
+                .chain(missing_rows.iter().copied())
                 .collect::<std::collections::BTreeSet<_>>();
-            if expected != supplied || supplied.len() != clocks.len() {
+            if expected != supplied || supplied.len() != clocks.len() + missing_rows.len() {
                 return Err(invalid(
                     "Täydennä kaikki manuaaliset ajat; asemavalinta on muuttunut",
                 ));
             }
             let mut changed = result.kasikellot_muuttuneet;
+            if !missing_rows.is_empty() && !result.ilman_emit {
+                return Err(invalid(
+                    "Puuttuva aikamerkintä voidaan kirjata vain manuaalisessa ajanotossa",
+                ));
+            }
+            if result.ilman_emit {
+                result
+                    .kasin_annetut_kellot
+                    .retain(|r| !expected.contains(r));
+                result.puuttuvat_aikamerkinnat.clear();
+                for &row in missing_rows {
+                    crate::manual_timing::set_missing(&mut result, row)?;
+                }
+                changed = true;
+            }
             for &(row, clock) in clocks {
                 let old = result.rivit.iter().find(|r| r.output_index == row).unwrap();
                 if old.clock != clock || !result.kasin_annetut_kellot.contains(&row) {
@@ -709,6 +883,7 @@ impl Workspace {
             if changed {
                 result = application::recalculate_stored_result(project, number, &result)?;
             }
+            crate::manual_timing::sync_points(project, number, &mut result, Some(other))?;
             let rate = project
                 .virhepisteet
                 .puuttuva_rt
@@ -723,11 +898,24 @@ impl Workspace {
                 .unwrap();
             driver.lisavirheet.puuttuvat_rt_kpl = missing_rt;
             driver.lisavirheet.puuttuvat_rt_pisteet = points;
-            driver.lisavirheet.muut_virhepisteet = other;
+            if !result.ilman_emit {
+                driver.lisavirheet.muut_virhepisteet = other;
+            }
+            if !result.can_approve() {
+                return Err(invalid(
+                    "Täydennä puuttuvat manuaaliset ajat ja valitse Tutki ennen hyväksymistä",
+                ));
+            }
+            application::validate_project_result(project, number, &result)?;
+            result.hyvaksytty = true;
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap();
             driver.tallennettu_tulos = Some(result);
             Ok(())
-        })?;
-        self.approve_result(number)
+        })
     }
 
     pub fn recalculate_stored(&mut self, number: u32) -> Result<(), CoreError> {
@@ -738,7 +926,8 @@ impl Workspace {
                 .find(|d| d.numero == number)
                 .and_then(|d| d.tallennettu_tulos.as_ref())
                 .ok_or_else(|| invalid("Valitse ensin Tarkista tai tallenna asemakorjaus"))?;
-            let result = application::recalculate_stored_result(project, number, stored)?;
+            let mut result = application::recalculate_stored_result(project, number, stored)?;
+            crate::manual_timing::sync_points(project, number, &mut result, None)?;
             project
                 .kilpailijat
                 .iter_mut()
@@ -782,7 +971,7 @@ impl Workspace {
                 .clone()
             {
                 Some(result) => result,
-                None => application::capture_project_result(project, competitor_number)?,
+                None => application::capture_entry_result(project, competitor_number)?,
             };
             match field {
                 ResultField::Clock => {

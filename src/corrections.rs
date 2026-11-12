@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StoredResult {
+    #[serde(default)]
+    pub ilman_emit: bool,
+    #[serde(default)]
+    pub puuttuvien_at_pisteet: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub puuttuvat_aikamerkinnat: Vec<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emit_kortti: Option<u32>,
     #[serde(default)]
@@ -145,6 +151,7 @@ impl From<&StoredRow> for StationResult {
 impl StoredResult {
     pub fn section_difference(&self, row: &StoredRow) -> Option<i64> {
         if !matches!(row.station_type.as_str(), "JAT" | "M")
+            || self.puuttuvat_aikamerkinnat.contains(&row.output_index)
             || (row.expected_code != 0 && row.received_code != row.expected_code)
             || self.pending_manual_clocks().contains(&row.output_index)
         {
@@ -180,6 +187,7 @@ impl StoredResult {
                     && r.expected_code == 0
                     && r.station_type != "L"
                     && !self.kasin_annetut_kellot.contains(&r.output_index)
+                    && !self.puuttuvat_aikamerkinnat.contains(&r.output_index)
             })
             .map(|r| r.output_index)
             .collect()
@@ -215,6 +223,31 @@ impl StoredResult {
         self.rivit.iter().map(StationResult::from).collect()
     }
     pub fn validate_route(&self, route: &[RouteStation]) -> Result<(), CoreError> {
+        if self.puuttuvien_at_pisteet < 0 || (!self.ilman_emit && self.puuttuvien_at_pisteet != 0) {
+            return Err(CoreError::InvalidInput(
+                "Puuttuvan AT:n pisteosuus on virheellinen".into(),
+            ));
+        }
+        let missing = self
+            .puuttuvat_aikamerkinnat
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if missing.len() != self.puuttuvat_aikamerkinnat.len()
+            || (!self.ilman_emit && !missing.is_empty())
+            || missing.iter().any(|id| {
+                self.kasin_annetut_kellot.contains(id)
+                    || !self.rivit.iter().any(|r| {
+                        r.output_index == *id
+                            && r.expected_code == 0
+                            && matches!(r.station_type.as_str(), "AT" | "JAT" | "ULA" | "M")
+                    })
+            })
+        {
+            return Err(CoreError::InvalidInput(
+                "Puuttuvien aikamerkintöjen tiedot ovat ristiriitaiset".into(),
+            ));
+        }
         if self.rata
             != route
                 .iter()
@@ -340,6 +373,7 @@ impl StoredResult {
             }
         }
         let last = self.rivit.last().map(|r| r.output_index) == Some(index);
+        self.puuttuvat_aikamerkinnat.retain(|r| *r != index);
         let row = self.row_mut(index)?;
         row.clock = clock;
         if clock == [0; 3] {
@@ -397,6 +431,34 @@ pub(crate) fn invalidate_input_changes(
     before: &crate::native::Project,
     after: &mut crate::native::Project,
 ) {
+    // Samassa tapahtumassa uudelleen laskettu ja nimenomaisesti hyväksytty
+    // tulos voidaan säilyttää. Pelkkä vanhan hyväksynnän kopio ei riitä.
+    let approvals = after
+        .kilpailijat
+        .iter()
+        .filter_map(|driver| {
+            let result = driver.tallennettu_tulos.as_ref()?;
+            let old = before
+                .kilpailijat
+                .iter()
+                .find(|old| old.numero == driver.numero)?;
+            (result.hyvaksytty && old.tallennettu_tulos.as_ref() != Some(result))
+                .then_some(driver.numero)
+        })
+        .collect::<Vec<_>>();
+    let bc_approvals = after
+        .bc_osallistujat
+        .iter()
+        .filter_map(|entry| {
+            let result = entry.tallennettu_tulos.as_ref()?;
+            let old = before
+                .bc_osallistujat
+                .iter()
+                .find(|old| old.numero == entry.numero)?;
+            (result.hyvaksytty && old.tallennettu_tulos.as_ref() != Some(result))
+                .then_some(entry.numero)
+        })
+        .collect::<Vec<_>>();
     crate::beginners::invalidate_input_changes(before, after);
     let global_timing_changed = before.kilpailu.ajanottotapa != after.kilpailu.ajanottotapa
         || !before.virhepisteet.same_scoring(&after.virhepisteet);
@@ -464,9 +526,55 @@ pub(crate) fn invalidate_input_changes(
             if timing_changed {
                 result.hyvaksytty = false;
                 result.kasikellot_muuttuneet = true;
-            } else if old.lisavirheet != driver.lisavirheet || old.tila != driver.tila {
+            } else if !old.lisavirheet.same_scoring(&driver.lisavirheet) || old.tila != driver.tila
+            {
                 result.hyvaksytty = false;
             }
+        }
+    }
+    for number in approvals {
+        let valid = after
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .and_then(|d| d.tallennettu_tulos.as_ref())
+            .is_some_and(|r| {
+                r.can_approve()
+                    && crate::application::validate_project_result(after, number, r).is_ok()
+            });
+        if valid {
+            after
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap()
+                .tallennettu_tulos
+                .as_mut()
+                .unwrap()
+                .hyvaksytty = true;
+        }
+    }
+    for number in bc_approvals {
+        let valid = crate::beginners::projection(after).is_ok_and(|view| {
+            view.kilpailijat
+                .iter()
+                .find(|d| d.numero == number)
+                .and_then(|d| d.tallennettu_tulos.as_ref())
+                .is_some_and(|r| {
+                    r.can_approve()
+                        && crate::application::validate_project_result(&view, number, r).is_ok()
+                })
+        });
+        if valid {
+            after
+                .bc_osallistujat
+                .iter_mut()
+                .find(|e| e.numero == number)
+                .unwrap()
+                .tallennettu_tulos
+                .as_mut()
+                .unwrap()
+                .hyvaksytty = true;
         }
     }
 }
@@ -484,6 +592,58 @@ mod card_identity_tests {
         p
     }
     #[test]
+    fn explicit_completed_result_and_points_keep_approval_in_one_transaction() {
+        let before = project();
+        let mut after = before.clone();
+        let mut result = before.kilpailijat[0].tallennettu_tulos.clone().unwrap();
+        result.set_clock(5, [12, 10, 0]).unwrap();
+        result = crate::application::recalculate_stored_result(&after, 7, &result).unwrap();
+        assert!(result.can_approve(), "{result:?}");
+        result.hyvaksytty = true;
+        after.kilpailijat[0].lisavirheet.muut_virhepisteet = 25;
+        after.kilpailijat[0].tallennettu_tulos = Some(result);
+        invalidate_input_changes(&before, &mut after);
+        assert!(
+            after.kilpailijat[0]
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .hyvaksytty,
+            "{:?}",
+            after.kilpailijat[0].tallennettu_tulos
+        );
+        let before = after.clone();
+        after.kilpailijat[0].lisavirheet.muut_virhepisteet = 26;
+        invalidate_input_changes(&before, &mut after);
+        assert!(
+            !after.kilpailijat[0]
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .hyvaksytty,
+            "Pelkkä pistekorjaus ei hyväksy vanhaa tulosta"
+        );
+    }
+    #[test]
+    fn timing_change_still_invalidates_an_explicit_approval() {
+        let mut before = project();
+        let mut result = before.kilpailijat[0].tallennettu_tulos.clone().unwrap();
+        result.set_clock(5, [12, 10, 0]).unwrap();
+        result = crate::application::recalculate_stored_result(&before, 7, &result).unwrap();
+        before.kilpailijat[0].tallennettu_tulos = Some(result);
+        let mut after = before.clone();
+        after.kilpailijat[0].lahtoaika = "12:01:00".into();
+        after.kilpailijat[0]
+            .tallennettu_tulos
+            .as_mut()
+            .unwrap()
+            .hyvaksytty = true;
+        invalidate_input_changes(&before, &mut after);
+        let result = after.kilpailijat[0].tallennettu_tulos.as_ref().unwrap();
+        assert!(!result.hyvaksytty);
+        assert!(result.kasikellot_muuttuneet);
+    }
+    #[test]
     fn newly_recaptured_card_survives_lan_input_invalidation() {
         let before = project();
         let mut after = before.clone();
@@ -499,6 +659,43 @@ mod card_identity_tests {
         assert_eq!(snapshot.as_ref().unwrap().emit_kortti, Some(7002));
         invalidate_input_changes(&before, &mut after);
         assert_eq!(after.kilpailijat[0].tallennettu_tulos, snapshot);
+    }
+    #[test]
+    fn tulkki_metadata_preserves_approval_but_points_require_new_approval() {
+        let mut before = project();
+        before.kilpailijat[0]
+            .tallennettu_tulos
+            .as_mut()
+            .unwrap()
+            .hyvaksytty = true;
+        let mut after = before.clone();
+        after.kilpailijat[0].lisavirheet.tulkki_siirto = Some(crate::native::TulkkiPenaltySource {
+            puuttuvat_rt: Vec::new(),
+            tunniste: "a".repeat(64),
+            tapahtumatunniste: None,
+            tulkatut_jaksot: Vec::new(),
+            jaksoja: 0,
+            muut_virhepisteet: 0,
+        });
+        invalidate_input_changes(&before, &mut after);
+        assert!(
+            after.kilpailijat[0]
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .hyvaksytty
+        );
+        let before = after.clone();
+        after.kilpailijat[0].lisavirheet.puuttuvat_rt_kpl = 1;
+        after.kilpailijat[0].lisavirheet.puuttuvat_rt_pisteet = 600;
+        invalidate_input_changes(&before, &mut after);
+        assert!(
+            !after.kilpailijat[0]
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .hyvaksytty
+        );
     }
     #[test]
     fn new_read_does_not_transfer_an_old_cards_snapshot() {

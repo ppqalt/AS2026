@@ -98,6 +98,8 @@ pub struct Preferences {
     pub kiti_luokkaryhmat: String,
     /// Paikalliset yhteysasetukset; salasanaa ei koskaan tallenneta.
     pub live_julkaisut: std::collections::BTreeMap<PathBuf, crate::live_publish::Config>,
+    /// Kilpailukohtaiset yhteystunnukset. WordPressin sovellussalasanaa ei tallenneta.
+    pub tulkki_yhteydet: BTreeMap<PathBuf, crate::tulkki_yhteys::Config>,
 }
 
 // Vanhempi sovellusversio ei saa hukata uudemman version omia asetuksia.
@@ -186,6 +188,16 @@ impl PreferencesStore {
         let mut candidate = self.preferences.clone();
         config.password.clear();
         candidate.live_julkaisut.insert(path, config);
+        self.save(candidate)
+    }
+
+    pub fn save_tulkki(
+        &mut self,
+        path: PathBuf,
+        config: crate::tulkki_yhteys::Config,
+    ) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.tulkki_yhteydet.insert(path, config);
         self.save(candidate)
     }
 

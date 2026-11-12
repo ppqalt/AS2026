@@ -11,7 +11,11 @@ import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
 import { BeginnersCupDialog } from "beginners-cup.slint";
 import { LivePublishDialog } from "live-publish.slint";
+import { TulkkiDialog } from "tulkki-yhteys.slint";
+import { TulkkiQrDialog } from "tulkki-qr.slint";
+import { TulkintaDialog } from "tulkki-tulkinnat.slint";
 import { ResultEntryDialog } from "result-entry.slint";
+import { MissingRtDialog } from "rt-summary.slint";
 import { EmitCorrectionDialog } from "emit-correction.slint";
 import { PrintClassesDialog } from "print-classes.slint";
 import { ResultEntryInput } from "types.slint";
@@ -21,6 +25,48 @@ export { ResultEntryInput }
 export { TableRow, EditorField, ResultOverview, DrawClassOption, ExportClassOption, BcStationOption }
 
 export component AppWindow inherits Window {
+    in-out property <bool> tulkki-open;
+    in-out property <string> result-tulkki-status;
+    in-out property <string> result-tulkki-counts;
+    in-out property <bool> result-tulkki-has-data;
+    in-out property <string> result-tulkki-missing-signs;
+    in-out property <string> result-tulkki-missing-times;
+    in-out property <string> result-tulkki-other-errors;
+    in-out property <bool> result-tulkki-available;
+    callback open-result-tulkki();
+    in-out property <bool> tulkki-view;
+    in-out property <bool> tulkki-receiving;
+    in-out property <bool> tulkki-details-open;
+    in-out property <bool> tulkki-sync-error;
+    in-out property <string> tulkki-sync-status;
+    in-out property <string> tulkki-summary;
+    in-out property <[TableRow]> tulkki-rows;
+    in-out property <int> tulkki-pair: -1;
+    in-out property <string> tulkki-detail-title;
+    in-out property <string> tulkki-detail-text;
+    callback toggle-tulkki-view();
+    callback select-tulkki-pair(int);
+    callback receive-tulkki();
+    in-out property <bool> tulkki-busy;
+    in-out property <bool> tulkki-configured;
+    in-out property <bool> tulkki-error;
+    in-out property <string> tulkki-site;
+    in-out property <string> tulkki-user;
+    in-out property <string> tulkki-password;
+    in-out property <string> tulkki-code;
+    in-out property <bool> tulkki-qr-ready;
+    in-out property <bool> tulkki-qr-open;
+    in-out property <image> tulkki-qr-image;
+    in-out property <string> tulkki-qr-link;
+    callback open-tulkki-qr();
+    in-out property <string> tulkki-status;
+    callback open-tulkki();
+    callback tulkki-publish();
+    callback tulkki-manage(int);
+    in-out property <bool> tulkki-automatic;
+    callback tulkki-automatic-changed(bool);
+    in-out property <bool> tulkki-closed;
+    callback close-tulkki();
     init => { Palette.color-scheme = Theme.color-scheme; }
     private property <ColorScheme> resolved-color-scheme: Theme.color-scheme;
     changed resolved-color-scheme => { Palette.color-scheme = root.resolved-color-scheme; }
@@ -147,6 +193,7 @@ export component AppWindow inherits Window {
     in-out property <string> result-entry-error;
     in-out property <int> result-entry-focus;
     callback result-entry-edited(int, string);
+    callback result-entry-committed(int);
     callback result-entry-close(bool);
     callback result-entry-save();
     in-out property <bool> emit-edit-open;
@@ -256,6 +303,30 @@ export component AppWindow inherits Window {
     callback select-detail(int);
     callback edit-result-competitor();
     callback import-excel();
+    callback import-right-row();
+    callback view-right-row();
+    callback open-rt-summary();
+    in-out property <bool> rt-summary-open;
+    in-out property <[TableRow]> rt-summary-rows;
+    in-out property <string> rt-summary-text;
+    callback right-row-selection();
+    in-out property <bool> right-row-open;
+    in-out property <bool> right-row-view-only;
+    in-out property <[string]> right-row-sheets;
+    in-out property <[string]> right-row-routes;
+    in-out property <int> right-row-sheet;
+    in-out property <int> right-row-route;
+    in-out property <[TableRow]> right-row-rows;
+    in-out property <string> right-row-error;
+    callback signs-route-changed();
+    in-out property <[string]> signs-routes;
+    in-out property <int> signs-route;
+    in-out property <[TableRow]> signs-rows;
+    in-out property <string> signs-summary;
+    in-out property <int> signs-selected-key: -1;
+    callback select-sign(int);
+    callback sign-manual-toggled(int, bool);
+    callback sign-void-toggled(int, bool);
     in-out property <bool> import-open;
     in-out property <string> import-name;
     in-out property <string> import-details;
@@ -411,6 +482,10 @@ export component AppWindow inherits Window {
     focus-on-tab-navigation: false;
     capture-key-pressed(event) => {
         if root.install-busy { return accept; }
+        if root.tulkki-qr-open {if event.text==Key.Escape{root.tulkki-qr-open=false;return accept;}return reject;}
+        if root.rt-summary-open {if event.text==Key.Escape {root.rt-summary-open=false;root.focus-page();return accept;}return reject;}
+        if root.tulkki-details-open && event.text == Key.Escape { root.tulkki-details-open = false; return accept; }
+        if root.tulkki-open && event.text == Key.Escape { root.close-tulkki(); return accept; }
         if event.text == Key.Escape {
             if root.route-info-open { root.route-info-open = false; return accept; }
             if root.start-columns-open { root.start-columns-close(false); return accept; }
@@ -450,7 +525,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.publish-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.tulkki-details-open && !root.tulkki-open && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.publish-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -504,10 +579,12 @@ export component AppWindow inherits Window {
                         width: nav-scroll.visible-width;
                         height: self.min-height;
                         spacing: Theme.space-1;
-                        for label[index] in ["Yleiskatsaus", "Kilpailijat", "Emit", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"]: NavItem {
+                        // Asetusten sisäinen sivutunnus säilyy 6; Kilvet käyttää tunnusta 7.
+                        for label[index] in ["Yleiskatsaus", "Kilpailijat", "Emit", "Tulokset", "Luokat", "Radat ja asemat", "Kilvet", "Asetukset"]: NavItem {
+                            property <int> target-page: index == 6 ? 7 : index == 7 ? 6 : index;
                             label: label;
-                            active: root.page == index;
-                            chosen => { root.navigate(index); }
+                            active: root.page == self.target-page;
+                            chosen => { root.navigate(self.target-page); }
                         }
                     }
                 }
@@ -549,7 +626,7 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                         horizontal-stretch: root.page == 3 && root.opened ? 0 : 1;
                         spacing: Theme.space-1;
-                        Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset"][root.page]; }
+                        Heading { text: ["Kilpailun yleiskatsaus", "Kilpailijat", "Emit", "Tulokset", "Luokat", "Radat ja asemat", "Asetukset", "Kilvet"][root.page]; }
                     }
                     if root.page == 3 && root.opened: Rectangle { width: Theme.space-3; }
                     if root.page == 3 && root.opened: LineEdit {
@@ -573,7 +650,7 @@ export component AppWindow inherits Window {
                         extras-menu := PopupWindow {
                             close-policy: close-on-click-outside;
                             x: parent.width - self.width; y: parent.height + Theme.space-2;
-                            width: 280px; height: root.extras-export-mode ? 232px : root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
+                            width: 280px; height: root.extras-export-mode ? 232px : root.page == 1 || root.page == 3 ? 232px : root.page == 0 || root.page == 4 || root.page == 7 ? 188px : root.page == 5 ? 144px : root.page == 2 ? 100px : 56px;
                             Rectangle {
                                 background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius-large;
                                 if root.extras-export-mode: Rectangle {
@@ -596,6 +673,9 @@ export component AppWindow inherits Window {
                                     if root.page == 0: Button { text: "+ Uusi"; clicked => { root.begin-new(); extras-menu.close(); } }
                                     if root.page == 0: Button { text: "Tuo kilpailu Excelistä"; clicked => { root.import-excel(); extras-menu.close(); } }
                                     if root.page == 1 || root.page == 5: Button { text: "Tuo Excel"; clicked => { root.import-excel(); extras-menu.close(); } }
+                                    if root.page == 7: Button { text: "Tuo oikea rivi"; enabled: root.editable; clicked => { root.import-right-row(); extras-menu.close(); } }
+                                    if root.page == 7: Button { text: "Näytä tuonnin tiedot"; enabled: root.editable; clicked => { root.view-right-row(); extras-menu.close(); } }
+                                    if root.page == 7: Button {text:"Puuttuvien RT-asemien koonti";clicked=>{root.open-rt-summary();extras-menu.close();}}
                                     if root.page == 1: Button { text: "Tallenna html-lähtöluettelo"; enabled: root.editable; clicked => { root.export-starts(); extras-menu.close(); } }
                                     if root.page == 5: Button { text: "+ Lisää rata"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); root.details-open = true; extras-menu.close(); } }
                                     if root.page == 1: Button { text: "Lisää kilpailija"; enabled: root.editable && !root.new-record; clicked => { root.add-record(); root.details-open = true; extras-menu.close(); } }
@@ -691,7 +771,7 @@ export component AppWindow inherits Window {
                     Rectangle { vertical-stretch: 1; }
                     }
                 }
-                if root.page > 0 && root.page < 6 && !root.opened: Rectangle {
+                if root.page > 0 && root.page != 6 && !root.opened: Rectangle {
                     Text { text: "Avaa kilpailu aloittaaksesi."; color: Theme.muted; horizontal-alignment: center; vertical-alignment: center; }
                 }
                 if root.opened && root.page == 2: VerticalLayout {
@@ -846,6 +926,14 @@ export component AppWindow inherits Window {
                                     editable: root.editable;
                                     approvable: root.result-approvable;
                                     interrupted: root.result-interrupted;
+                                    interpretation-has-data: root.result-tulkki-has-data;
+                                    interpretation-missing-signs: root.result-tulkki-missing-signs;
+                                    interpretation-missing-times: root.result-tulkki-missing-times;
+                                    interpretation-other-errors: root.result-tulkki-other-errors;
+                                    interpretation-available: root.result-tulkki-available;
+                                    interpretation-sync: root.tulkki-sync-status;
+                                    interpretation-sync-error: root.tulkki-sync-error;
+                                    view-interpretation => { root.open-result-tulkki(); }
                                     edit-competitor => { root.edit-result-competitor(); }
                                     approve => { root.approve-results(); }
                                 }
@@ -1001,6 +1089,50 @@ export component AppWindow inherits Window {
 
                         }
                         }
+                    }
+                }
+                if root.opened && root.page == 7: VerticalLayout {
+                    spacing: Theme.space-3;
+                    horizontal-stretch: 1; vertical-stretch: 1;
+                    HorizontalLayout {
+                        spacing: Theme.space-3;
+                        vertical-stretch: 0;
+                        if !root.tulkki-view: Text { text: "Rata"; color: Theme.ink; vertical-alignment: center; }
+                        if !root.tulkki-view: ComboBox {
+                            preferred-width: 260px;
+                            accessible-label: "Kilpien rata";
+                            model: root.signs-routes;
+                            current-index <=> root.signs-route;
+                            selected(value) => { root.signs-selected-key = -1; root.signs-route-changed(); }
+                        }
+                        LineEdit {
+                            horizontal-stretch: 1;
+                            text <=> root.filter;
+                            placeholder-text: root.tulkki-view ? "Hae kilpailuparia" : "Hae kilpeä";
+                            edited => { root.filter-changed(self.text); }
+                        }
+                        Button { text: "AS tulkki"; enabled: root.editable; clicked => { root.open-tulkki(); } }
+                        Button { text: root.tulkki-view ? "Näytä kilvet" : "Näytä tulkinnat"; clicked => { root.toggle-tulkki-view(); } }
+                    }
+                    Note { text: root.tulkki-view ? root.tulkki-summary : root.signs-summary; height: self.preferred-height; }
+                    if root.tulkki-view: HorizontalLayout {
+                        spacing: Theme.space-2; vertical-stretch: 0;
+                        Text { horizontal-stretch: 1; height: self.preferred-height; text: root.tulkki-sync-status; color: root.tulkki-sync-error ? Theme.danger : Theme.muted; wrap: word-wrap; vertical-alignment: center; }
+                        Button { text: root.tulkki-receiving ? "Haetaan tulkintoja" : "Päivitä tulkinnat"; enabled: root.tulkki-configured && !root.tulkki-receiving && !root.tulkki-busy; clicked => { root.receive-tulkki(); } }
+                    }
+                    DataTable {
+                        horizontal-stretch: 1; vertical-stretch: 1;
+                        table-min-height: Theme.table-min-height;
+                        rows: root.tulkki-view ? root.tulkki-rows : root.signs-rows;
+                        headers: root.tulkki-view ? ["Nro", "Kilpailupari", "Tulkinta", "Kilpipuutteet", "Aikapuutteet", "Muut virheet"] : ["Järj.", "Jakso", "Kilpi / aikamerkintä", "Ajan syöttö käsin", "Mitätöi kilpi"];
+                        weights: root.tulkki-view ? [0.7, 2.6, 1.4, 1, 1, 1] : [0.7, 0.7, 2, 2, 1.6];
+                        checkbox-column: root.tulkki-view ? -1 : 3;
+                        second-checkbox-column: root.tulkki-view ? -1 : 4;
+                        checkbox-writable: root.editable;
+                        cell-toggled(key, column, checked) => { if column==4 {root.sign-void-toggled(key,checked);}else{root.sign-manual-toggled(key, checked);} }
+                        selected-key: root.tulkki-view ? root.tulkki-pair : root.signs-selected-key;
+                        selected(key) => { if root.tulkki-view { root.select-tulkki-pair(key); } else { root.select-sign(key); } }
+                        empty-text: root.tulkki-view ? "Kilpailupareja ei löytynyt." : root.filter != "" ? "Haulla ei löytynyt kilpiä." : "Tälle radalle ei ole tuotu kilpiä. Valitse Toiminnot → Tuo oikea rivi.";
                     }
                 }
                 if root.page == 6: settings-scroll := ScrollView {
@@ -1617,7 +1749,7 @@ export component AppWindow inherits Window {
             init => { confirm-cancel.focus(); }
             capture-key-pressed(event) => {
                 if event.text == Key.Escape { root.confirm-action(false); return accept; }
-                if event.text == Key.Tab && !root.import-open {
+                if event.text == Key.Tab && !root.import-open && !root.right-row-open {
                     if !root.confirm-acceptable { confirm-cancel.focus(); }
                     else if confirm-cancel.has-focus { confirm-accept.focus(); }
                     else { confirm-cancel.focus(); }
@@ -1627,16 +1759,32 @@ export component AppWindow inherits Window {
             }
             DialogSurface {
                 available-width: root.width; available-height: root.height;
-                preferred-dialog-width: root.import-open ? Theme.dialog-wide-width : Theme.dialog-width;
-                preferred-dialog-height: root.import-open ? 860px : 440px;
+                preferred-dialog-width: root.import-open || root.right-row-open ? Theme.dialog-wide-width : Theme.dialog-width;
+                preferred-dialog-height: root.import-open || root.right-row-open ? 860px : 440px;
                 VerticalLayout {
                     padding: Theme.dialog-padding; spacing: Theme.space-4;
                     Heading { text: root.confirm-title; }
-                    if !root.import-open: confirm-scroll := ScrollView {
+                    if !root.import-open && !root.right-row-open: confirm-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
                         content-width: self.visible-width;
                         content-height: confirm-note.preferred-height;
                         confirm-note := Note { x: 0px; y: 0px; width: confirm-scroll.visible-width; height: self.preferred-height; text: root.confirm-text; }
+                    }
+                    if root.right-row-open: right-scroll := ScrollView {
+                        horizontal-scrollbar-policy: always-off;
+                        content-width: self.visible-width;
+                        content-height: right-content.min-height;
+                        right-content := VerticalLayout {
+                            x: 0px; y: 0px; width: right-scroll.visible-width; height: self.min-height;
+                            spacing: Theme.space-3;
+                            Note { text: root.confirm-text; }
+                            Text { text: "Syotto-välilehti"; color: Theme.ink; }
+                            ComboBox { model: root.right-row-sheets; current-index <=> root.right-row-sheet; selected(value) => { root.right-row-selection(); } }
+                            if !root.right-row-view-only: Text { text: "Kohderata"; color: Theme.ink; }
+                            if !root.right-row-view-only: ComboBox { model: root.right-row-routes; current-index <=> root.right-row-route; selected(value) => { root.right-row-selection(); } }
+                            DataTable { height: 330px; rows: root.right-row-rows; headers: ["Excel-rivi", "Jakso", "Merkintä"]; weights: [1, 1, 2]; }
+                            if root.right-row-error != "": Note { text: root.right-row-error; }
+                        }
                     }
                     if root.import-open: import-scroll := ScrollView {
                         horizontal-scrollbar-policy: always-off;
@@ -1683,7 +1831,7 @@ export component AppWindow inherits Window {
                         }
                     }
                     DialogActions {
-                        confirm-cancel := Button { height: Theme.control-height; text: "Peruuta"; clicked => { root.confirm-action(false); } }
+                        confirm-cancel := Button { height: Theme.control-height; text: root.right-row-open ? "Poistu" : "Peruuta"; clicked => { root.confirm-action(false); } }
                         confirm-accept := AccentButton { height: Theme.control-height; text: root.import-open ? (root.import-mode == 1 ? "Tuo radat" : root.import-mode == 2 ? "Tuo kilpailijat" : "Tuo kilpailu") : root.confirm-action-label; enabled: root.confirm-acceptable; clicked => { root.confirm-action(true); } }
                     }
                 }
@@ -1768,6 +1916,31 @@ export component AppWindow inherits Window {
         add(restore) => { root.emit-edit-add(restore); }
         close(save) => { root.emit-edit-close(save); }
     }
+    if root.tulkki-open: TulkkiDialog {
+        width: root.width; height: root.height;
+        site <=> root.tulkki-site; user <=> root.tulkki-user; password <=> root.tulkki-password;
+        code: root.tulkki-code; status: root.tulkki-status;
+        busy: root.tulkki-busy; configured: root.tulkki-configured; error: root.tulkki-error;
+        receiving: root.tulkki-receiving;
+        qr-ready:root.tulkki-qr-ready;
+        qr-open:root.tulkki-qr-open;
+        show-qr=>{root.open-tulkki-qr();}
+        publish => { root.tulkki-publish(); }
+        closed:root.tulkki-closed;
+        manage(kind)=>{root.tulkki-manage(kind);}
+        automatic: root.tulkki-automatic;
+        automatic-changed(value)=>{root.tulkki-automatic-changed(value);}
+        close => { root.close-tulkki(); }
+    }
+    if root.tulkki-qr-open: TulkkiQrDialog {
+        width:root.width;height:root.height;qr:root.tulkki-qr-image;link:root.tulkki-qr-link;code:root.tulkki-code;
+        close=>{root.tulkki-qr-open=false;}
+    }
+    if root.tulkki-details-open: TulkintaDialog {
+        width: root.width; height: root.height;
+        heading: root.tulkki-detail-title; text: root.tulkki-detail-text;
+        close => { root.tulkki-details-open = false; }
+    }
     if root.publish-open: LivePublishDialog {
         width: root.width; height: root.height;
         fields: root.publish-fields; status: root.publish-status; classes: root.publish-classes;
@@ -1782,12 +1955,17 @@ export component AppWindow inherits Window {
         finish => { root.publish-finish(); }
         close => { root.publish-open = false; }
     }
+    if root.rt-summary-open: MissingRtDialog {
+        width:root.width;height:root.height;rows:root.rt-summary-rows;summary:root.rt-summary-text;
+        close=>{root.rt-summary-open=false;root.focus-page();}
+    }
     if root.result-entry-open: ResultEntryDialog {
         width: root.width; height: root.height;
         queued: root.result-entry-queue;
         identity: root.result-entry-identity; fields: root.result-entry-fields;
         error: root.result-entry-error; focus-index <=> root.result-entry-focus;
         edited(key, value) => { root.result-entry-edited(key, value); }
+        committed(key) => { root.result-entry-committed(key); }
         close(accepted) => { root.result-entry-close(accepted); }
         save => { root.result-entry-save(); }
     }

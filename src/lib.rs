@@ -14,6 +14,9 @@ pub mod excel_import;
 pub mod export;
 #[cfg(feature = "desktop")]
 pub mod installation;
+pub mod interpretation;
+#[cfg(feature = "gui")]
+pub mod join_qr;
 pub mod kiti;
 #[cfg(feature = "desktop")]
 pub mod lan;
@@ -21,12 +24,15 @@ pub mod legacy;
 #[cfg(feature = "desktop")]
 pub mod live_publish;
 pub mod live_reader;
+pub mod manual_timing;
 pub mod matching;
 #[cfg(feature = "desktop")]
 pub mod preferences;
 pub mod reader;
 pub mod scoring;
 pub mod starts;
+#[cfg(feature = "desktop")]
+pub mod tulkki_yhteys;
 #[cfg(feature = "desktop")]
 pub mod updates;
 pub mod workspace;

@@ -581,6 +581,7 @@ fn operational_station_report_escapes_names_and_preserves_accepted_five_part_cor
         ylimaaraiset_rt_kpl: 3,
         ylimaaraiset_rt_pisteet: 75,
         muut_virhepisteet: 100,
+        tulkki_siirto: None,
     };
     project.kilpailijat[0].tila = Some(as2026::native::ManualStatus {
         tunnus: "HYL".into(),

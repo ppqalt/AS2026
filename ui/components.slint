@@ -286,6 +286,10 @@ export component DataTable inherits Rectangle {
     in property <int> selected-key: -1;
     in property <string> empty-text: "Ei tietoja.";
     callback selected(int);
+    in property <int> checkbox-column: -1;
+    in property <int> second-checkbox-column: -1;
+    in property <bool> checkbox-writable: false;
+    callback cell-toggled(int, int, bool);
     in property <length> table-min-height: 160px;
     // Sisällön leveys ei kasvata ikkunan vähimmäisleveyttä.
     in property <length> content-min-width: max(520px, root.headers.length * 85px);
@@ -337,18 +341,31 @@ export component DataTable inherits Rectangle {
                         height: Theme.row-height;
                         background: row.key == root.selected-key ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : Theme.surface;
                         animate background { enabled: Theme.effects-enabled; duration: Theme.duration-fast; easing: ease-out; }
+                        touch := TouchArea { clicked => { root.selected(row.key); } }
                         HorizontalLayout {
                             padding-left: Theme.space-3; padding-right: Theme.space-3; spacing: Theme.space-2;
-                            for value[i] in row.cells: Text {
-                                text: value; horizontal-stretch: root.weights[i];
+                            for value[i] in row.cells: Rectangle {
+                                horizontal-stretch: root.weights[i];
                                 min-width: 0px; preferred-width: 0px;
-                                color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
-                                font-weight: i == 0 ? 600 : 400;
-                                font-size: Theme.body-font-size; vertical-alignment: center;
+                                if (i != root.checkbox-column && i != root.second-checkbox-column) || value == "–": Text {
+                                    width: parent.width; height: parent.height;
+                                    text: value;
+                                    color: row.key == root.selected-key ? Theme.accent-text : Theme.ink;
+                                    font-weight: i == 0 ? 600 : 400;
+                                    font-size: Theme.body-font-size; vertical-alignment: center;
+                                }
+                                if (i == root.checkbox-column || i == root.second-checkbox-column) && value != "–": CheckBox {
+                                    width: 18px; height: Theme.control-height;
+                                    x: 0px;
+                                    y: (parent.height - self.height) / 2;
+                                    checked: value == "1";
+                                    enabled: root.checkbox-writable && !(i == root.second-checkbox-column && value == "1");
+                                    accessible-label: root.headers[i] + ", " + row.cells[2] + ", jakso " + row.cells[1] + ", rivi " + row.cells[0];
+                                    toggled => { root.cell-toggled(row.key, i, self.checked); }
+                                }
                             }
                         }
                         Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
-                        touch := TouchArea { clicked => { root.selected(row.key); } }
                         accessible-role: list-item;
                         accessible-label: row.cells[0] + " " + row.cells[1];
                         accessible-action-default => { root.selected(row.key); }

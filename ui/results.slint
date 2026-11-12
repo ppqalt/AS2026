@@ -19,6 +19,14 @@ export component ResultSummary inherits Rectangle {
     in property <bool> editable;
     in property <bool> approvable;
     in property <bool> interrupted;
+    in property <bool> interpretation-has-data;
+    in property <string> interpretation-missing-signs;
+    in property <string> interpretation-missing-times;
+    in property <string> interpretation-other-errors;
+    in property <bool> interpretation-available;
+    in property <string> interpretation-sync;
+    in property <bool> interpretation-sync-error;
+    callback view-interpretation();
     callback edit-competitor();
     callback approve();
     height: content.min-height;
@@ -40,6 +48,8 @@ export component ResultSummary inherits Rectangle {
         if root.data.selected: VerticalLayout {
             spacing: Theme.space-2;
             ResultPoint { label: "Tila"; points: root.data.status; }
+            if root.interpretation-available: Button { height: Theme.control-height; text: "Näytä tulkinta"; clicked => { root.view-interpretation(); } }
+            if root.interpretation-sync-error && root.interpretation-sync != "": Text { height: self.preferred-height; vertical-stretch: 0; text: root.interpretation-sync; color: Theme.danger; font-size: Theme.label-font-size; wrap: word-wrap; }
             if root.data.reason != "": Note { height: self.preferred-height; vertical-stretch: 0; text: "Syy: " + root.data.reason; }
             if root.data.read-state != "": Note { height: self.preferred-height; vertical-stretch: 0; text: root.data.read-state; }
             if root.data.issue != "": Text {

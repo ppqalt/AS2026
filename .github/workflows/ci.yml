@@ -98,6 +98,12 @@ jobs:
         if: runner.os == 'Linux'
         timeout-minutes: 3
         run: xvfb-run -a --server-args='-screen 0 2560x1440x24' cargo +stable run --manifest-path tools/checks/Cargo.toml -- lan-gui --app target/debug/as2026-gui --output target/gui-smoke/lan
+      - name: Tarkista AS tulkin GUI ja paperiajanotto Linuxissa
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          AS2026_TULKKI_GUI_TEST=1 SLINT_SCALE_FACTOR=1 xvfb-run -a --server-args='-screen 0 2560x1440x24' target/debug/as2026-gui --demo --capture-dir target/gui-smoke/tulkki-100
+          AS2026_TULKKI_GUI_TEST=1 SLINT_SCALE_FACTOR=1.5 xvfb-run -a --server-args='-screen 0 2560x1440x24' target/debug/as2026-gui --demo --capture-dir target/gui-smoke/tulkki-150
       - name: Tarkista Fluent 2 -gallerian renderöinti 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Linux'
         timeout-minutes: 5
@@ -151,6 +157,20 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 3
         run: cargo +stable run --manifest-path tools/checks/Cargo.toml -- lan-gui --app target/debug/as2026-gui.exe --output target/gui-smoke/lan
+      - name: Tarkista AS tulkin GUI ja paperiajanotto Windowsissa
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        env:
+          SLINT_BACKEND: winit-software
+          AS2026_TULKKI_GUI_TEST: '1'
+        run: |
+          $app = (Resolve-Path target/debug/as2026-gui.exe).Path
+          foreach ($scale in @('1', '1.5')) {
+            $env:SLINT_SCALE_FACTOR = $scale
+            $folder = if ($scale -eq '1') { '100' } else { '150' }
+            $test = Start-Process -FilePath $app -ArgumentList @('--demo', '--capture-dir', "target/gui-smoke/tulkki-$folder") -Wait -PassThru
+            if ($test.ExitCode -ne 0) { throw "AS tulkin GUI-koe epäonnistui ($scale): $($test.ExitCode)" }
+          }
       - name: Tarkista Fluent 2 -galleria Windowsissa 100 ja 150 prosentin skaalauksella
         if: runner.os == 'Windows'
         timeout-minutes: 5

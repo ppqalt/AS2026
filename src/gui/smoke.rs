@@ -104,7 +104,7 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     }
     open_workspace(&mut state.borrow_mut(), app, &path, true)?;
     // Päivitykset ovat sivupalkin painike, eivät oma kilpailusivunsa.
-    app.invoke_navigate(7);
+    app.invoke_navigate(8);
     assert_eq!(
         app.get_page(),
         0,
@@ -112,6 +112,12 @@ pub fn run(app: &AppWindow, state: &SharedState) -> Result<PathBuf, Box<dyn std:
     );
     app.invoke_navigate(6);
     assert_eq!(app.get_page(), 6, "Asetukset kuuluvat kilpailunhallintaan");
+    app.invoke_navigate(7);
+    assert_eq!(app.get_page(), 7, "Kilvillä on oma kilpailunäkymä");
+    assert!(
+        app.get_signs_rows().row_count() == 0,
+        "Tuomaton oikea rivi ei keksi kilpiä"
+    );
     app.invoke_navigate(1);
     app.invoke_select_row(0);
     // Näkymän vaihto hyväksyy myös vielä kohdistetussa kentässä olevan luonnoksen.

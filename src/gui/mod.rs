@@ -12,8 +12,11 @@ mod lan_smoke;
 mod menu_smoke;
 mod printing;
 mod publish;
+mod right_row;
 mod smoke;
 mod tables;
+mod tulkki;
+mod tulkki_smoke;
 
 use as2026::{
     ClockTime, CoreError, application, emit, installation, io_message,
@@ -47,6 +50,12 @@ enum UpdateEvent {
 }
 
 enum PendingAction {
+    VoidSign {
+        route: u32,
+        id: String,
+        basis: String,
+    },
+    PrintVoided(Vec<u32>),
     Review(u32),
     Draw(Box<as2026::starts::StartDraw>),
     Import {
@@ -74,6 +83,14 @@ struct FormDraft {
 
 #[derive(Default)]
 struct State {
+    tulkki_job: Option<tulkki::Job>,
+    tulkki_apply_pending: bool,
+    tulkki_poll_due: Option<std::time::Instant>,
+    tulkki_poll_path: Option<PathBuf>,
+    tulkki_sync_notice: String,
+    right_row_previews: Vec<as2026::interpretation::Preview>,
+    right_row_routes: Vec<u32>,
+    right_row_replacement_basis: Option<String>,
     pending: Option<PendingAction>,
     pending_result: Option<PendingResult>,
     workspace: Option<Workspace>,
@@ -268,6 +285,14 @@ fn is_new(selection: &Selection) -> bool {
     )
 }
 fn can_leave(state: &mut State, app: &AppWindow) -> bool {
+    if app.get_tulkki_open() {
+        status(
+            app,
+            "Sulje AS tulkin yhteysikkuna ennen kilpailun tai näkymän vaihtamista.",
+            false,
+        );
+        return false;
+    }
     for (key, value) in state.route_draft.clone() {
         if !commit_route_field(state, app, key, &value) {
             return false;
@@ -501,6 +526,8 @@ fn update_header(state: &State, app: &AppWindow) -> GuiResult<()> {
 }
 
 fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
+    right_row::update_page(state, app);
+    tulkki::refresh(state, app);
     let Some(ws) = &state.workspace else {
         return Ok(());
     };
@@ -555,6 +582,7 @@ fn update_tables(state: &State, app: &AppWindow) -> GuiResult<()> {
     }
     if state.page == 3 {
         tables::filter_result_number(&mut view.rows, &state.result_number);
+        tulkki::decorate_results(state, &mut view);
     }
     app.set_rows(model(view.rows));
     app.set_headers(model(view.headers));
@@ -755,7 +783,7 @@ fn choose_row(state: &mut State, key: i32) -> GuiResult<()> {
 }
 
 fn navigate(state: &mut State, app: &AppWindow, page: i32) -> GuiResult<()> {
-    if !(0..=6).contains(&page) || !can_leave(state, app) {
+    if !(0..=7).contains(&page) || !can_leave(state, app) {
         return Ok(());
     }
     state.page = page;
@@ -1105,6 +1133,8 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         .and_then(Workspace::lan_client)
         .is_none_or(|client| client.ready())
         && !app.get_publish_open()
+        && !app.get_tulkki_open()
+        && !app.get_tulkki_details_open()
         && !app.get_lan_open()
         && !app.get_competitor_edit_open()
         && !app.get_emit_edit_open()
@@ -1447,6 +1477,8 @@ fn confirmation(
             PendingAction::Notice => "Sulje",
             PendingAction::DeleteClass(_) => "Poista luokka",
             PendingAction::RebuildRoutes(_) => "Kyllä, laske uudelleen",
+            PendingAction::VoidSign { .. } => "Mitätöi ja korjaa tulokset",
+            PendingAction::PrintVoided(_) => "Tulosta muuttuneet tulokset",
         }
         .into(),
     );
@@ -2182,14 +2214,29 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
             return Ok(());
         }
         let number = selected_number(s)?;
+        let manual = s
+            .workspace
+            .as_ref()
+            .and_then(Workspace::project)
+            .is_some_and(|p| application::uses_manual_entry(p, number));
         confirmation(
             s,
             &a,
             PendingAction::Review(number),
-            "Tarkista leimaukset",
-            format!(
-                "Kilpailijan {number} asemarivit muodostetaan uudelleen tallennetusta korttiluvusta. Asemien manuaaliset ajat ja pistekorjaukset korvataan. Erilliset lisävirheet ja käsin valittu tila säilyvät."
-            ),
+            if manual {
+                "Muodosta manuaalinen tulospohja"
+            } else {
+                "Tarkista leimaukset"
+            },
+            if manual {
+                format!(
+                    "Kilpailijan {number} tulospohja muodostetaan uudelleen radan asemista ilman Emit-lukua. Aiemmat ajat, aikamerkintöjen puutteet ja asemarivien pistekorjaukset poistetaan. Puuttuvien AT-asemien automaattinen pisteosuus poistetaan. RT-virheet, muut erilliset pisteet ja käsin valittu tila säilyvät."
+                )
+            } else {
+                format!(
+                    "Kilpailijan {number} asemarivit muodostetaan uudelleen tallennetusta korttiluvusta. Asemien manuaaliset ajat ja pistekorjaukset korvataan. Erilliset lisävirheet ja käsin valittu tila säilyvät."
+                )
+            },
         );
         Ok(())
     });
@@ -2224,13 +2271,46 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         if let Some(path) = choose_file(s, || {
             rfd::FileDialog::new()
                 .set_title("Tuo RATA- ja KILP-välilehdet")
-                .add_filter("Excel-kilpailupohja", &["xls", "xlsx"])
+                .add_filter("Excel-kilpailupohja", &["xls", "xlsx", "xlsm"])
                 .pick_file()
         }) {
             let preview = as2026::excel_import::read(&path)?;
             offer_excel_import(s, &a, &path, &preview, None)?;
         }
         Ok(())
+    });
+    action!(on_import_right_row, |s, a| right_row::open(s, &a, false));
+    action!(on_view_right_row, |s, a| right_row::open(s, &a, true));
+    action!(on_open_rt_summary, |s, a| {
+        if !can_leave(s, &a) {
+            return Ok(());
+        }
+        if s.workspace.as_ref().and_then(Workspace::project).is_none() {
+            return Err(invalid("Avaa kilpailu nähdäksesi RT-puutteiden koonnin"));
+        }
+        a.set_rt_summary_open(true);
+        right_row::refresh_summary(s, &a);
+        Ok(())
+    });
+    action!(on_right_row_selection, |s, a| right_row::refresh(s, &a));
+    action!(on_signs_route_changed, |s, a| {
+        right_row::update_page(s, &a);
+        Ok(())
+    });
+    action!(on_select_sign, |s, a, key| {
+        a.set_signs_selected_key(key);
+        right_row::update_page(s, &a);
+        Ok(())
+    });
+    action!(on_sign_manual_toggled, |s, a, key, checked| {
+        if let Err(error) = right_row::set_manual_time(s, &a, key, checked) {
+            right_row::update_page(s, &a);
+            return Err(error);
+        }
+        Ok(())
+    });
+    action!(on_sign_void_toggled, |s, a, key, checked| {
+        right_row::offer_void(s, &a, key, checked)
     });
     action!(on_import_class_route, |s, a, code, route| {
         if let Some(PendingAction::Import { preview, .. }) = s.pending.as_mut() {
@@ -2636,6 +2716,9 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
     });
     action!(on_draw_starts, |s, a| preview_draw(s, &a));
     action!(on_confirm_action, |s, a, accepted| {
+        if a.get_right_row_open() {
+            return right_row::finish(s, &a, accepted);
+        }
         if accepted && a.get_import_open() && a.get_import_name().trim().is_empty() {
             a.set_import_error("Anna kilpailun nimi.".into());
             status(&a, "Anna kilpailun nimi.", true);
@@ -2681,9 +2764,24 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         };
         if accepted {
             let message = match pending {
+                PendingAction::VoidSign { route, id, basis } => {
+                    right_row::finish_void(s, &a, route, &id, &basis)?;
+                    return Ok(());
+                }
+                PendingAction::PrintVoided(numbers) => {
+                    printing::print_numbers(s, &a, &numbers)?;
+                    "Muuttuneet tuloslaput lähetetty tulostukseen."
+                }
                 PendingAction::Review(number) => {
                     current_workspace(s)?.review_results(number)?;
-                    "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
+                    if current_workspace(s)?
+                        .project()
+                        .is_some_and(|p| application::uses_manual_entry(p, number))
+                    {
+                        "Manuaalinen tulospohja muodostettu radan asemista ja tallennettu."
+                    } else {
+                        "Tarkista: asematulokset muodostettu korttiluvusta ja tallennettu."
+                    }
                 }
                 PendingAction::Import { .. } => {
                     return Err(invalid("Avaa Excel-tuonnin esikatselu uudelleen"));
@@ -3813,6 +3911,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     printing::bind(&state, &app);
     let publish_timer = Timer::default();
     publish::bind(&state, &app, &publish_timer);
+    let tulkki_timer = Timer::default();
+    tulkki::bind(&state, &app, &tulkki_timer);
     printing::initialize_printer(&state.borrow(), &app);
     let update_timer = Rc::new(Timer::default());
     desktop::bind(&state, &app, &update_timer, &reader_timer);
@@ -3887,7 +3987,18 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    if let Some(directory) = captures.filter(|_| !menu_test) {
+    let _tulkki_smoke = if std::env::var_os("AS2026_TULKKI_GUI_TEST").is_some() {
+        Some(tulkki_smoke::start(
+            &app,
+            &state,
+            captures
+                .clone()
+                .ok_or("Tulkintakoe vaatii --capture-dir-valinnan")?,
+        )?)
+    } else {
+        None
+    };
+    if let Some(directory) = captures.filter(|_| !menu_test && _tulkki_smoke.is_none()) {
         if emit_correction_test {
             emit_correction::capture(&app, state.clone(), directory)?;
         } else {

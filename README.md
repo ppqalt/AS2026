@@ -6,12 +6,11 @@ internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.7.5-2 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.5-2):
+Lataa oma pakettisi [version 0.7.6 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.6):
 
-- Linux x86-64: `AS2026-0.7.5-2-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.5-2-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.6-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.6-windows-x86_64.zip`
 
-Versiosta 0.7.5 tähän numeroituun korjausversioon siirrytään lataamalla paketti käsin; vanha päivitystarkistus ei tunnista `-1`-versiota.
 
 Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
 `as2026-gui.exe` ja valitse **Asenna ja käynnistä**. Linuxissa ohjelmalla pitää
@@ -39,6 +38,11 @@ Asetuksissa. [Kilpailupäivän tarkistuslista](docs/KILPAILUPAIVA.md) auttaa var
 varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 
 ## Toiminnot
+
+Versio 0.7.6 sisältää myös **AS tulkki -integraation**: Kilvet, oikeiden rivien
+Excel-tuonti, puhelintulkkausten vastaanotto, manuaalinen ajanotto, kilpikorjaukset
+ja mitätöinti, QR-liittyminen sekä valinnainen automaattinen tulostus.
+[Muutokset ja yhdistämisen tarkistukset](docs/AS_TULKKI_MUUTOKSET.md).
 
 - Kilpailijat, luokat, yhdistetyt luokat, radat ja asemat sekä lähtöluettelon sarakevalinta.
 - RATA/KILP-Excel-tuonti (`.xls`, `.xlsx`) esikatselulla ja erillisillä tuontivalinnoilla.
@@ -73,7 +77,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
 - [Version 0.7.4 julkaisutiedot](docs/julkaisut/0.7.4.md)
-- [Version 0.7.5-2 julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.6 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja

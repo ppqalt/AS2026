@@ -259,6 +259,7 @@ fn independent_rt_and_other_penalties_contribute_to_final_native_result() {
         ylimaaraiset_rt_kpl: 3,
         ylimaaraiset_rt_pisteet: 75,
         muut_virhepisteet: 100,
+        tulkki_siirto: None,
     };
     let archive = project.to_archive().unwrap();
     assert_eq!(

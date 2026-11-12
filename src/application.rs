@@ -542,6 +542,9 @@ pub fn capture_project_result(
     project: &crate::native::Project,
     number: u32,
 ) -> Result<crate::corrections::StoredResult, CoreError> {
+    if uses_manual_entry(project, number) {
+        return capture_manual_result(project, number);
+    }
     let archive = project.to_archive()?;
     let competitor = archive
         .competitors
@@ -549,6 +552,84 @@ pub fn capture_project_result(
         .find(|c| c.number == number)
         .ok_or_else(|| invalid(format!("Kilpailijaa {number} ei löydy")))?;
     capture_archive_operational(&archive, competitor)
+}
+
+/// Paperipohja tarvitaan vain ilman kilpailijan kelvollista Emit-lukua.
+pub fn uses_manual_entry(project: &crate::native::Project, number: u32) -> bool {
+    project.kilpailu.ajanottotapa == 0
+        && project
+            .kilpailijat
+            .iter()
+            .find(|d| d.numero == number)
+            .is_some_and(|d| project.active_readout(d.emit).is_none())
+}
+
+/// Kellonaikapohjainenkin kilpailu voi sisältää Emit-lukuja. Säilytä tällöin
+/// kortin tulospohja; ilman lukua manuaalinen ajanotto muodostaa paperipohjan.
+pub fn capture_entry_result(
+    project: &crate::native::Project,
+    number: u32,
+) -> Result<crate::corrections::StoredResult, CoreError> {
+    capture_project_result(project, number)
+}
+
+pub fn capture_manual_result(
+    project: &crate::native::Project,
+    number: u32,
+) -> Result<crate::corrections::StoredResult, CoreError> {
+    if project.kilpailu.ajanottotapa != 0 {
+        return Err(invalid("Valitse kilpailun ajanottotavaksi Manuaalinen"));
+    }
+    let mut archive = project.to_archive()?;
+    crate::manual_timing::normalize(&mut archive);
+    let c = archive
+        .competitors
+        .iter()
+        .find(|c| c.number == number)
+        .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
+    capture_manual_archive(&archive, c)
+}
+
+fn capture_manual_archive(
+    archive: &Archive,
+    c: &Competitor,
+) -> Result<crate::corrections::StoredResult, CoreError> {
+    if c.header_fields.get(10).is_none_or(|v| v.trim().is_empty()) {
+        return Err(invalid(
+            "Kilpailijan lähtöaika puuttuu; anna lähtöluettelon aika",
+        ));
+    }
+    let route = route_for(archive, c)?
+        .to_core()
+        .map_err(|e| invalid(e.to_string()))?;
+    let source = route
+        .iter()
+        .enumerate()
+        .map(|(i, s)| crate::legacy::StationResult {
+            output_index: i as u32 + 1,
+            sequence: s.sequence,
+            station_type: s.kind.as_legacy().into(),
+            name: s.label.clone(),
+            elapsed_seconds: 0,
+            expected_code: 0,
+            received_code: 0,
+            target_seconds: s.target_seconds,
+            actual_seconds: 0,
+            clock: [0; 3],
+            rule: s.rule as i64,
+            section_text: s.section_time_text.clone(),
+            signed_time_penalty: 0,
+            other_penalty: 0,
+            total_penalty: 0,
+            note: String::new(),
+        })
+        .collect::<Vec<_>>();
+    let calculated =
+        timing::calculate_operational(&source, &route, &[], &operational_options(archive, c)?)?;
+    let mut result = snapshot_for_calculation(archive, c, calculated)?;
+    result.emit_kortti = None;
+    result.ilman_emit = true;
+    Ok(result)
 }
 
 fn capture_archive_operational(
@@ -696,6 +777,9 @@ fn snapshot_for_calculation(
         .to_core()
         .map_err(|e| invalid(e.to_string()))?;
     Ok(crate::corrections::StoredResult {
+        ilman_emit: false,
+        puuttuvien_at_pisteet: 0,
+        puuttuvat_aikamerkinnat: Vec::new(),
         emit_kortti: competitor.emit_card.parse().ok(),
         laskentatapa: if result.policy == CalculationPolicy::As2026OperationalV1 {
             crate::corrections::StoredCalculationPolicy::As2026Operational
@@ -736,7 +820,13 @@ pub fn validate_project_result(
     number: u32,
     stored: &crate::corrections::StoredResult,
 ) -> Result<(), CoreError> {
-    let archive = project.to_archive()?;
+    let mut archive = project.to_archive()?;
+    if stored.ilman_emit {
+        if project.kilpailu.ajanottotapa != 0 {
+            return Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"));
+        }
+        crate::manual_timing::normalize(&mut archive);
+    }
     let c = archive
         .competitors
         .iter()
@@ -755,7 +845,13 @@ pub fn recalculate_stored_result(
     number: u32,
     stored: &crate::corrections::StoredResult,
 ) -> Result<crate::corrections::StoredResult, CoreError> {
-    let archive = project.to_archive()?;
+    let mut archive = project.to_archive()?;
+    if stored.ilman_emit {
+        if project.kilpailu.ajanottotapa != 0 {
+            return Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"));
+        }
+        crate::manual_timing::normalize(&mut archive);
+    }
     let c = archive
         .competitors
         .iter()
@@ -771,6 +867,13 @@ pub fn recalculate_stored_result(
         timing::calculate_operational(&rows, &route, &stored.kasin_annetut_kellot, &options)?;
     let mut result = snapshot_for_calculation(&archive, c, calculated)?;
     result.kasin_annetut_kellot = stored.kasin_annetut_kellot.clone();
+    result.ilman_emit = stored.ilman_emit;
+    result.puuttuvien_at_pisteet = stored.puuttuvien_at_pisteet;
+    if result.ilman_emit {
+        result.emit_kortti = None;
+    }
+    result.puuttuvat_aikamerkinnat = stored.puuttuvat_aikamerkinnat.clone();
+    crate::manual_timing::resolve_missing(&mut result);
     // Syötetty manuaalinen aika säilyy sellaisenaan myös vuorokauden vaihtuessa.
     for row in &mut result.rivit {
         if result.kasin_annetut_kellot.contains(&row.output_index)
@@ -826,6 +929,8 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
         driver.keskeytys_vahvistettu = false;
     }
     let mut archive = automatic.to_archive()?;
+    let mut paper_archive = archive.clone();
+    crate::manual_timing::normalize(&mut paper_archive);
     let mut resolved = Vec::new();
     for competitor in &archive.competitors {
         let driver = project
@@ -834,13 +939,33 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
             .find(|d| d.numero == competitor.number)
             .expect("projektin kilpailija");
         let (result, blocked) = if let Some(stored) = &driver.tallennettu_tulos {
-            let validation = route_for(&archive, competitor)
+            let validation = if stored.ilman_emit && project.kilpailu.ajanottotapa != 0 {
+                Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"))
+            } else {
+                route_for(
+                    if stored.ilman_emit {
+                        &paper_archive
+                    } else {
+                        &archive
+                    },
+                    competitor,
+                )
                 .and_then(|r| r.to_core().map_err(|e| invalid(e.to_string())))
-                .and_then(|route| stored.validate_route(&route));
+                .and_then(|route| stored.validate_route(&route))
+            };
             let blocked = validation.is_err();
             (validation.map(|()| stored.clone()), blocked)
         } else {
-            (capture_archive_operational(&archive, competitor), false)
+            (
+                if project.kilpailu.ajanottotapa == 0
+                    && project.active_readout(driver.emit).is_none()
+                {
+                    capture_manual_archive(&paper_archive, competitor)
+                } else {
+                    capture_archive_operational(&archive, competitor)
+                },
+                false,
+            )
         };
         resolved.push((competitor.number, result, blocked));
     }
@@ -864,7 +989,13 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
             .kilpailijat
             .iter()
             .find(|d| d.numero == number)
-            .is_some_and(|d| d.has_confirmed_interruption());
+            .is_some_and(|d| {
+                d.has_confirmed_interruption()
+                    || (!blocked
+                        && d.tallennettu_tulos.as_ref().is_some_and(|r| {
+                            r.ilman_emit && r.hyvaksytty && r.tila == "KESK" && r.can_approve()
+                        }))
+            });
         let requested_status = project
             .kilpailijat
             .iter()

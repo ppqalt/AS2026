@@ -9,6 +9,7 @@ component EntryLine inherits Rectangle {
     in property <int> index;
     in property <int> focus-index;
     callback edited(int, string);
+    callback committed(int);
     callback next(int);
     callback focused(int);
     vertical-stretch: 0;
@@ -36,7 +37,7 @@ component EntryLine inherits Rectangle {
             width: parent.width; height: parent.height;
             text: root.data.value;
             edited => { root.edited(root.data.key, self.text); }
-            changed has-focus => { if self.has-focus { root.focused(root.index); } }
+            changed has-focus => { if self.has-focus { root.focused(root.index); } else { root.committed(root.data.key); } }
         }
         }
     }
@@ -48,6 +49,7 @@ export component ResultEntryDialog inherits Rectangle {
     in property <string> error;
     in-out property <int> focus-index: 0;
     callback edited(int, string);
+    callback committed(int);
     callback close(bool);
     callback save();
     background: Theme.modal-backdrop;
@@ -103,6 +105,7 @@ export component ResultEntryDialog inherits Rectangle {
                         for field[i] in root.fields: EntryLine {
                             data: field; index: i; focus-index: root.focus-index;
                             edited(key, value) => { root.edited(key, value); }
+                            committed(key) => { root.committed(key); }
                             focused(index) => {
                                 root.focus-index = index;
                                 let top = index * (Theme.control-height + 24px + Theme.space-3);

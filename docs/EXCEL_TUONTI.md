@@ -1,6 +1,52 @@
 # RATA- ja KILP-Excel-tuonti
 
-Sovelluksen `excel_import` lukee `.xls`- ja `.xlsx`-tiedostoista RATA- ja KILP-välilehtien tunnistetut kilpailutiedot. Lukeminen muodostaa esikatselun. Käyttöliittymä vahvistaa erikseen uuden kilpailukansion luomisen; lukija ei kirjoita tiedostoja.
+Sovelluksen `excel_import` lukee `.xls`-, `.xlsx`- ja `.xlsm`-tiedostoista RATA- ja KILP-välilehtien tunnistetut kilpailutiedot. Lukeminen muodostaa esikatselun. Käyttöliittymä vahvistaa erikseen uuden kilpailukansion luomisen; lukija ei kirjoita tiedostoja.
+
+## Oikean rivin XLSM-pohja (kehitysversio)
+
+Mallikorttirivi.xlsm ei ole RATA/KILP-kilpailupohja. Sen Syotto-välilehdet
+tuodaan erillisellä toiminnolla **Kilvet → Toiminnot → Tuo oikea rivi**.
+Kilvet-välilehti on sivupalkissa Radat ja asemat -kohdan alapuolella.
+Avaa ensin AS2026-kilpailu,
+jossa kohderadat ovat olemassa. Valitse tiedosto, Syotto-välilehti ja
+kohderata. Esikatselu näyttää merkinnät jaksoittain. **Tallenna oikea rivi**
+lisää rivin avoimen kilpailun kilpailu.toml-tiedostoon yhteisen tallennuksen
+kautta; se ei muuta ajanottoradan asemia tai kilpailijoita. Tuo muut
+välilehdet erikseen. Kilvet-välilehti näyttää valitun radan tallennetun
+oikean rivin järjestyksessä ja jaksoittain myös kilpailun uudelleenavaamisen
+jälkeen. Rataa vaihdetaan valinnasta ja kilpeä voi hakea tunnuksella.
+**Toiminnot → Näytä tuonnin tiedot** avaa kaikkien tallennettujen rivien
+esikatselun lähdetietoineen.
+
+### Aikarivin syöttötapa
+
+Kilvet-luettelon **Ajan syöttö käsin** -sarakkeessa on valintaruutu
+jokaiselle AT-, JAT-, ULA- ja M-riville. Täppä tarkoittaa, että aika
+syötetään puhelimessa; tyhjä ruutu jättää vain puuttumismerkinnän
+tarkastettavaksi. Valinta tallentuu heti kyseiselle esiintymälle.
+Puuttuvan aikamerkinnän tarkastus säilyy molemmissa tapauksissa.
+Aiemmin määrittämätön arvo näytetään aiemman oletuksen mukaisesti:
+AT/JAT kirjataan käsin, ULA/M ilman Emitiä. Ruutua painettaessa valinta
+tallentuu nimenomaisesti päälle tai pois. Saman Excelin uudelleentuonti
+ei nollaa valittuja syöttötapoja. Kilpiriveillä ei ole valintaruutua.
+
+Valinta on oikean rivin tulkkauksen metatieto. Se ei muuta nykyisen
+ajanottoradan Emit-koodeja tai laskentaa. Siirto puhelimeen toteutetaan
+palvelinrajapinnan yhteydessä; selainkokeilussa käytetään vielä erikseen
+määritettyjä esimerkkiasetuksia.
+
+Puuttuvat tunnukset (??), tuntemattomat merkinnät ja tyhjät välirivit
+estävät valitun välilehden tallennuksen. Muiden kelvollisten välilehtien
+tuonti onnistuu. Alkunollat ja saman numeron eri esiintymät säilyvät.
+JAT ja sitä seuraava ULA kuuluvat päättyvään jaksoon.
+
+Saman rivin tuominen uudelleen ei muuta esiintymätunnisteita. Erilaisen
+rivin tuominen jo tallennetun päälle estetään tässä kehitysvaiheessa,
+kunnes tulkkausten sovittaminen rivimuutoksiin toteutetaan.
+Uusi kilpailutiedoston oikeat_rivit-kenttä vaatii tämän kehitysversion;
+vanha virallinen versio ei tunne kenttää. Käytä kokeilussa testikilpailua
+tai kopiota. Vanhojen kilpailutiedostojen avaaminen kehitysversioon säilyy
+tuettuna. Makroja ei suoriteta eikä Excel-tiedostoa muuteta.
 
 ## Lähde ja integraatio
 

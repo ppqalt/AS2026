@@ -1,25 +1,39 @@
-# AS2026 0.7.5-2
+# AS2026 0.7.6
 
-Korjausversio siirtää viimeisen oman testityökalun Rustiin ja vahvistaa
-projektin automaattisia tarkistuksia. Kilpailulaskenta, käyttöliittymä ja
-version 0.7.5-1 luokkavalinnat sekä vientitiedostojen nimet säilyvät.
+AS tulkki -integraatio tuo oikeiden rivien tuonnin, puhelintulkkausten
+vastaanoton ja paperikortin ajanoton kilpailunhallintaan.
 
-- Kahden erillisen GUI-prosessin LAN-, verkkokatko- ja palautumiskoetta
-  koordinoidaan nyt Rustilla. Emit, käsikellot, pisteet, hyväksynnät,
-  tulostusesikatselu ja pysyvä jono tarkistetaan kuten ennenkin.
-- Koordinaattori tarkistaa molemmat prosessit, virhetiedostot ja
-  palautuneiden kilpailutiedostojen tarkan yhtäläisyyden. Aikakatkaisu
-  lopettaa molemmat lapsiprosessit ja säilyttää lokit sekä kuvat.
-- Projektin omissa työkaluissa ja automaatiossa ei käytetä Pythonia.
-  Versionhallinnan läpikäyvä Rust-tarkistin estää sen lisäämisen takaisin.
-  Tarkistimen sekä LAN-koordinaattorin virhepolut testataan erikseen.
-- Linuxin ja Windowsin CI käyttävät Rust-koordinaattoria. Dokumentaatio
-  ja kehityssäännöt on päivitetty.
+- Kilvet-näkymä, oikeiden rivien Excel-tuonti, pysyvät kilpitunnisteet,
+  jaksokohtaiset tulkinnat ja muutoshistoria.
+- AS tulkin verkkokilpailun julkaisu, liittymiskoodi ja QR-koodi,
+  automaattinen tulkintojen vastaanotto sekä yhteyskatkosta jatkaminen.
+- Paperikortin ajat, puuttuvat aikamerkinnät ja RT-puutteiden koonti.
+  Valinnainen valmiin tuloksen hyväksyntä ja tulostus.
+- Livetulosten välipisteet ja tarkempi piste-erittely.
+- Keskeneräiset parit säilyvät livetuloksissa keskeyttäneiden edellä.
+  Ilman puhelintulkkausta käytetään edelleen AJAA-tilaa; oikean rivin
+  jaksot näyttävät tulkkauksen etenemisen.
+- Tulkintojen alkuperäiset määrät validoidaan myös uusintakäsittelyssä
+  ennen mitätöityjen kilpien sovitusta ja siirtotunnisteen tarkistusta.
+- Korjattu käsiajanoton ja Emit-luvun yhteiskäyttö: kelvollinen Emit-luku
+  säilyy tuloksen pohjana myös kellonaikapohjaisessa kilpailussa.
+  Kortiton tulospohja avataan aikojen syöttöön erikseen, eikä lukemattomalle
+  kilpailijalle synny automaattisesti hyväksyttävää tulosta.
+- Beginners Cupin erilliset ajat, hyväksynnät ja tilat säilyvät.
+- Aikojen täydentäminen ja hyväksyntä tallennetaan lähiverkossa yhtenä
+  tapahtumana, jotta viivästynyt kuittaus ei jätä hyväksyntää tekemättä.
+- QR-koodikirjaston alkuperäinen MIT-lisenssiteksti sisältyy pakettiin.
+- AS tulkin GUI- ja paperiajanoton kokeet ajetaan Linuxin ja Windowsin
+  CI:ssä 100 ja 150 prosentin skaalauksilla aiempien kokeiden lisäksi.
+- Mukana aiemmin main-haaraan yhdistetty Rust-pohjainen LAN-testityökalu
+  ja pakollinen Python-esto. Kilpailutiedot ja käyttäjäasetukset säilyvät.
 
-**Asennus:** pura koko käyttöjärjestelmäsi paketti ja käynnistä ohjelma.
-0.7.5-1 tukee tämän korjausversion automaattipäivitystä. Vanha 0.7.5 ei tue
-numeroituja korjausversioita, joten siitä siirryttäessä lataa paketti käsin.
-Kilpailutietoja tai käyttäjäasetuksia ei tarvitse poistaa.
+AS tulkin verkkotoiminnot edellyttävät erillistä yhteensopivaa WordPress-lisäosaa.
+Paikallinen kilpailunhallinta ja lähiverkkokäyttö toimivat ilman sitä.
+Pura koko käyttöjärjestelmäsi paketti. Päivitys versioon 0.7.6 tunnistetaan myös
+vanhan 0.7.5:n päivitystarkistuksessa.
 
-[Version 0.7.5-1 muutokset](docs/julkaisut/0.7.5-1.md) ·
-[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md) · [Rakentaminen](docs/BUILDING.md)
+[AS tulkin ohje](docs/AS_TULKKI_YHTEYS.md) ·
+[Manuaalinen ajanotto](docs/MANUAALINEN_AJANOTTO.md) ·
+[Kehittäjän muutoskuvaus](docs/AS_TULKKI_MUUTOKSET.md) ·
+[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md)
