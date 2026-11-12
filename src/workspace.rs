@@ -901,10 +901,21 @@ impl Workspace {
             if !result.ilman_emit {
                 driver.lisavirheet.muut_virhepisteet = other;
             }
+            if !result.can_approve() {
+                return Err(invalid(
+                    "Täydennä puuttuvat manuaaliset ajat ja valitse Tutki ennen hyväksymistä",
+                ));
+            }
+            application::validate_project_result(project, number, &result)?;
+            result.hyvaksytty = true;
+            let driver = project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap();
             driver.tallennettu_tulos = Some(result);
             Ok(())
-        })?;
-        self.approve_result(number)
+        })
     }
 
     pub fn recalculate_stored(&mut self, number: u32) -> Result<(), CoreError> {

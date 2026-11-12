@@ -1886,7 +1886,25 @@ mod workflow_tests {
         // and pinning its basis even when review was acknowledged later.
         wa.synchronize_lan().unwrap();
         wa.pin_lan_basis();
+        // Pakota ensimmäinen tallennus odottamaan kuittausta myös nopealla levyllä.
+        // Kellojen, pisteiden ja hyväksynnän on silti saavuttava yhtenä tapahtumana.
+        let authority = host.authority.clone();
+        let (locked, ready) = std::sync::mpsc::channel();
+        let (release, resume) = std::sync::mpsc::channel();
+        let delayed = thread::spawn(move || {
+            let _guard = authority.lock().unwrap();
+            locked.send(()).unwrap();
+            let _ = resume.recv_timeout(Duration::from_secs(20));
+        });
+        ready.recv_timeout(Duration::from_secs(4)).unwrap();
         let completed = wa.complete_result_entry(7, &[(finish, [12, 10, 0])], 0, 25);
+        assert!(
+            completed
+                .as_ref()
+                .is_err_and(|e| e.to_string().contains("odottaa isännän kuittausta"))
+        );
+        release.send(()).unwrap();
+        delayed.join().unwrap();
         await_edit(&mut wa, &a, completed);
         assert!(wa.result_snapshot(7).unwrap().unwrap().hyvaksytty);
         let until = Instant::now() + Duration::from_secs(4);

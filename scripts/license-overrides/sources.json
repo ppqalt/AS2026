@@ -266,5 +266,12 @@
     "file": "libseat-sys-0.2.0.txt",
     "source": "https://raw.githubusercontent.com/PolyMeilex/libseat-rs/cfc67eeb449b5a034a192a2fa8d23ca44d59832d/libseat-sys/Cargo.toml",
     "notice": "Alkuperäpaketti ilmoittaa MIT-lisenssin ilman erillistä lisenssitiedostoa; vakioehdot ja Cargo-tekijämaininnat."
+  },
+  {
+    "name": "qrcodegen",
+    "version": "1.8.0",
+    "file": "qrcodegen-1.8.0.txt",
+    "source": "https://crates.io/api/v1/crates/qrcodegen/1.8.0/download",
+    "notice": "Lisenssiteksti on julkaistun Rust-lähdetiedoston src/lib.rs:n alkuperäisestä MIT-otsakkeesta."
   }
 ]

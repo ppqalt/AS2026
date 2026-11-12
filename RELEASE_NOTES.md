@@ -20,6 +20,9 @@ vastaanoton ja paperikortin ajanoton kilpailunhallintaan.
   Kortiton tulospohja avataan aikojen syöttöön erikseen, eikä lukemattomalle
   kilpailijalle synny automaattisesti hyväksyttävää tulosta.
 - Beginners Cupin erilliset ajat, hyväksynnät ja tilat säilyvät.
+- Aikojen täydentäminen ja hyväksyntä tallennetaan lähiverkossa yhtenä
+  tapahtumana, jotta viivästynyt kuittaus ei jätä hyväksyntää tekemättä.
+- QR-koodikirjaston alkuperäinen MIT-lisenssiteksti sisältyy pakettiin.
 - AS tulkin GUI- ja paperiajanoton kokeet ajetaan Linuxin ja Windowsin
   CI:ssä 100 ja 150 prosentin skaalauksilla aiempien kokeiden lisäksi.
 - Mukana aiemmin main-haaraan yhdistetty Rust-pohjainen LAN-testityökalu
