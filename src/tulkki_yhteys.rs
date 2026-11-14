@@ -252,6 +252,20 @@ fn penalty_changes_inner(
         let base_token = format!("{:x}", Sha256::digest(stamp));
         let missing_details =
             missing_rt_sections(config, number, published).map_err(|e| invalid(&e))?;
+        let section_other_points = |rate: i64| {
+            published_sections
+                .iter()
+                .map(|s| {
+                    let count = receipts
+                        .iter()
+                        .find(|r| s["id"].as_str() == Some(&r.section.id))
+                        .map_or(0, |r| r.section.other_errors);
+                    i64::from(count)
+                        .checked_mul(rate)
+                        .ok_or(CoreError::ArithmeticOverflow("Jakson muut virhepisteet"))
+                })
+                .collect::<Result<Vec<_>, _>>()
+        };
         let has_voids = list(published, "sections").is_ok_and(|ss| {
             ss.iter()
                 .any(|s| list(s, "entries").is_ok_and(|es| es.iter().any(|e| e["voided"] == true)))
@@ -267,39 +281,49 @@ fn penalty_changes_inner(
         } else {
             base_token.clone()
         };
-        if driver.lisavirheet.tulkki_siirto.as_ref().is_some_and(|s| {
+        if let Some(source) = driver.lisavirheet.tulkki_siirto.as_ref().filter(|s| {
             (s.tapahtumatunniste.as_ref() == Some(&base_token) || s.tunniste == base_token)
                 && (!has_voids
                     || (s.puuttuvat_rt == missing_details
                         && (s.tapahtumatunniste.is_some() || !s.puuttuvat_rt.is_empty())))
         }) {
-            if driver
-                .lisavirheet
-                .tulkki_siirto
-                .as_ref()
-                .unwrap()
-                .puuttuvat_rt
-                != missing_details
-                || driver
-                    .lisavirheet
-                    .tulkki_siirto
+            let other_points = if source.jaksojen_muut_pisteet.len() == section_count as usize {
+                source.jaksojen_muut_pisteet.clone()
+            } else {
+                // Päivitys 0.7.6:sta säilyttää vastaanottohetken hinnan ja käsin korjatut pisteet.
+                let missing_at_points = driver
+                    .tallennettu_tulos
                     .as_ref()
-                    .unwrap()
-                    .tulkatut_jaksot
-                    != completed
-                || driver.lisavirheet.tulkki_siirto.as_ref().unwrap().jaksoja != section_count
+                    .map_or(0, |r| r.puuttuvien_at_pisteet);
+                let count: i64 = receipts
+                    .iter()
+                    .map(|r| i64::from(r.section.other_errors))
+                    .sum();
+                let total = source.muut_virhepisteet - missing_at_points;
+                if count > 0 && total >= 0 && total % count == 0 {
+                    section_other_points(total / count)?
+                } else {
+                    vec![0; section_count as usize]
+                }
+            };
+            if source.puuttuvat_rt != missing_details
+                || source.tulkatut_jaksot != completed
+                || source.jaksoja != section_count
+                || source.jaksojen_muut_pisteet != other_points
             {
                 let mut penalties = driver.lisavirheet.clone();
-                penalties.tulkki_siirto.as_mut().unwrap().puuttuvat_rt = missing_details;
-                penalties.tulkki_siirto.as_mut().unwrap().tulkatut_jaksot = completed;
-                penalties.tulkki_siirto.as_mut().unwrap().jaksoja = section_count;
+                let source = penalties.tulkki_siirto.as_mut().unwrap();
+                source.puuttuvat_rt = missing_details;
+                source.tulkatut_jaksot = completed;
+                source.jaksoja = section_count;
+                source.jaksojen_muut_pisteet = other_points;
                 changes.push((number, penalties));
             }
             continue;
         }
         let mut missing = 0u32;
         let mut others = 0u32;
-        for receipt in receipts {
+        for receipt in &receipts {
             missing = missing
                 .checked_add(receipt.section.missing_signs)
                 .ok_or(CoreError::ArithmeticOverflow("RT-määrä"))?;
@@ -348,6 +372,7 @@ fn penalty_changes_inner(
             jaksoja: section_count,
             muut_virhepisteet: other_points,
             puuttuvat_rt: missing_details,
+            jaksojen_muut_pisteet: section_other_points(parameters.extra_at)?,
         });
         changes.push((number, penalties));
     }
@@ -1788,6 +1813,7 @@ mod tests {
         let source = p.kilpailijat[0].lisavirheet.tulkki_siirto.as_mut().unwrap();
         source.tulkatut_jaksot.clear();
         source.jaksoja = 0;
+        source.jaksojen_muut_pisteet.clear();
         p.kilpailijat[0].lisavirheet.puuttuvat_rt_kpl = 9;
         p.kilpailijat[0].lisavirheet.puuttuvat_rt_pisteet = 5400;
         let changes = penalty_changes(&p, &c).unwrap();

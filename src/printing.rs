@@ -323,12 +323,18 @@ pub fn competitor(
     .map(String::from);
     let mut rows = Vec::new();
     if let Some(result) = result {
+        let missing_at_points = archive
+            .scoring_parameters()
+            .map_err(|error| invalid(&error.to_string()))?
+            .missing_at;
         for r in &result.rivit {
             let extra = r.sequence == 0;
             if extra && matches!(r.received_code, 99 | 999) {
                 continue;
             }
             let known = row_clock_known(result, r);
+            let missing_on_paper = result.puuttuvat_aikamerkinnat.contains(&r.output_index);
+            let missing_at = r.station_type == "AT" && (r.note == "AT puuttuu" || missing_on_paper);
             if r.station_type != "ULA" {
                 rows.push(vec![
                     if extra {
@@ -364,12 +370,20 @@ pub fn competitor(
                     } else {
                         String::new()
                     },
-                    if known {
+                    if missing_at {
+                        if missing_on_paper {
+                            missing_at_points.to_string()
+                        } else {
+                            r.other_penalty.to_string()
+                        }
+                    } else if known {
                         format!("{:+}", r.signed_time_penalty)
                     } else {
                         String::new()
                     },
-                    if !extra {
+                    if missing_at {
+                        String::new()
+                    } else if !extra {
                         r.other_penalty.to_string()
                     } else {
                         String::new()
@@ -379,7 +393,9 @@ pub fn competitor(
                     } else {
                         String::new()
                     },
-                    if known && matches!(r.station_type.as_str(), "JAT" | "M") {
+                    if missing_at {
+                        "AT puuttuu".into()
+                    } else if known && matches!(r.station_type.as_str(), "JAT" | "M") {
                         signed(section_delay(r))
                     } else {
                         String::new()

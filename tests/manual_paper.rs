@@ -67,6 +67,50 @@ fn missing_at_is_distinct_from_a_pending_time_and_costs_1800() {
 }
 
 #[test]
+fn printed_missing_at_has_points_in_at_and_label_in_myoha() {
+    let mut paper = project();
+    let mut r = manual_timing::capture(&paper, 7).unwrap();
+    manual_timing::set_missing(&mut r, 2).unwrap();
+    r.set_clock(3, [12, 10, 0]).unwrap();
+    r.set_clock(4, [12, 10, 0]).unwrap();
+    let mut r = application::recalculate_stored_result(&paper, 7, &r).unwrap();
+    r.hyvaksytty = true;
+    paper.kilpailijat[0].tallennettu_tulos = Some(r);
+
+    let mut emit =
+        native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
+    emit.leimaluvut[0].leimat.retain(|mark| mark.koodi != 31);
+    let mut r = application::capture_project_result(&emit, 7).unwrap();
+    let finish = r
+        .rivit
+        .iter()
+        .find(|row| row.station_type == "M")
+        .unwrap()
+        .output_index;
+    if r.pending_manual_clocks().contains(&finish) {
+        r.set_clock(finish, [12, 10, 0]).unwrap();
+    }
+    let mut r = application::recalculate_stored_result(&emit, 7, &r).unwrap();
+    r.hyvaksytty = true;
+    emit.kilpailijat[0].tallennettu_tulos = Some(r);
+
+    for p in [paper, emit] {
+        let doc = as2026::printing::competitor(&p, 7, None).unwrap();
+        let texts = &doc.pages[0].texts;
+        let cell = |value: &str, x: f64, y: f64| {
+            texts
+                .iter()
+                .any(|t| t.value == value && t.x == x && t.y == y)
+        };
+        let heading = |name: &str| texts.iter().find(|t| t.value == name && t.y > 80.).unwrap();
+        let row = texts.iter().find(|t| t.value == "AT31").unwrap();
+        assert!(cell("1800", heading("AT").x, row.y));
+        assert!(cell("AT puuttuu", heading("Myöhä").x, row.y));
+        assert!(cell("", heading("ATp").x, row.y));
+    }
+}
+
+#[test]
 fn missing_public_control_and_finish_are_interruption_and_ula_is_unresolved() {
     for (kind, row) in [("JAT", 3), ("M", 4), ("ULA", 3)] {
         let mut p = project();
@@ -149,6 +193,7 @@ fn printed_missing_signs_are_grouped_and_continue_on_another_page() {
         jaksoja: 0,
         tunniste: "a".repeat(64),
         muut_virhepisteet: 0,
+        jaksojen_muut_pisteet: Vec::new(),
         puuttuvat_rt: (1..=80)
             .map(|jakso| native::MissingRtSection {
                 jakso,

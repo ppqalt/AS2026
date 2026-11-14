@@ -19,13 +19,15 @@ pisteet säilyvät; niitä voi muuttaa kilpailijan tiedoista.
 
 **Tallenna ja tulosta** tallentaa ajat ja lisävirheet sekä laskee aikavirheet. Tulos tulee
 tulosluetteloon ilman erillistä hyväksymispainiketta. Tulostinvirhe ei peru
-tietojen tallennusta; tulostamisen voi uusia. Saman kilpailijan **Tulosta tulos**
+tietojen tallennusta; tulostamisen voi uusia. Saman kilpailijan **Muokkaa tulosta**
 avaa ikkunan myös myöhemmin. Peruuta tai Esc sulkee syöttämättä uusia arvoja.
 
 Kilpailijaparin A4-pystytulosteessa ovat kilpailijatiedot, lähtö- ja maaliaika,
 käytetty aika, kokonaismyöhä, AT-, ATp/ATy-, RT- ja muut pisteet sekä asemien
 ihanneajat, toteutuneet ajat, kellot ja virhepisteet. ULA on aikaviite, joten
 sitä ei tulosteta omana virhepisterivinään. Asemarivit sovitetaan yhdelle sivulle.
+Puuttuvan AT:n rivillä **Myöhä**-sarakkeessa lukee **AT puuttuu** ja
+**AT**-sarakkeessa näkyy puuttumisesta annettu pistemäärä (oletus 1800).
 NAC- ja BC-laskenta käsitellään omissa tulosnäkymissään: BC:n syöttö ja tulostus
 käyttävät BC:n omia virhepisteitä ja asemavalintaa. Raaka Emit-aineisto säilyy.
 

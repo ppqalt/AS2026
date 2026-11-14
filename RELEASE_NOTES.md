@@ -1,39 +1,16 @@
-# AS2026 0.7.6
+# AS2026 0.7.7
 
-AS tulkki -integraatio tuo oikeiden rivien tuonnin, puhelintulkkausten
-vastaanoton ja paperikortin ajanoton kilpailunhallintaan.
+- Livetuloksissa on luokkakohtaiset jaksosivut. Avaa jakso kokonaistulossivun
+  linkistä nähdäksesi jakson pisteet ja sijoitukset. (#57)
+- Tuloslapulla puuttuva AT merkitään Myöhä-sarakkeeseen. AT-sarakkeessa näkyy
+  puuttumisesta annettu pistemäärä, oletuksena 1800. (#57)
+- AS2026 hakee AS tulkin tulkinnat automaattisesti 15 sekunnin välein
+  edellisen haun valmistumisesta. (#57)
+- Tulokset-sivun kilpailijatietojen painike on nyt **Muokkaa tulosta**. (#59)
 
-- Kilvet-näkymä, oikeiden rivien Excel-tuonti, pysyvät kilpitunnisteet,
-  jaksokohtaiset tulkinnat ja muutoshistoria.
-- AS tulkin verkkokilpailun julkaisu, liittymiskoodi ja QR-koodi,
-  automaattinen tulkintojen vastaanotto sekä yhteyskatkosta jatkaminen.
-- Paperikortin ajat, puuttuvat aikamerkinnät ja RT-puutteiden koonti.
-  Valinnainen valmiin tuloksen hyväksyntä ja tulostus.
-- Livetulosten välipisteet ja tarkempi piste-erittely.
-- Keskeneräiset parit säilyvät livetuloksissa keskeyttäneiden edellä.
-  Ilman puhelintulkkausta käytetään edelleen AJAA-tilaa; oikean rivin
-  jaksot näyttävät tulkkauksen etenemisen.
-- Tulkintojen alkuperäiset määrät validoidaan myös uusintakäsittelyssä
-  ennen mitätöityjen kilpien sovitusta ja siirtotunnisteen tarkistusta.
-- Korjattu käsiajanoton ja Emit-luvun yhteiskäyttö: kelvollinen Emit-luku
-  säilyy tuloksen pohjana myös kellonaikapohjaisessa kilpailussa.
-  Kortiton tulospohja avataan aikojen syöttöön erikseen, eikä lukemattomalle
-  kilpailijalle synny automaattisesti hyväksyttävää tulosta.
-- Beginners Cupin erilliset ajat, hyväksynnät ja tilat säilyvät.
-- Aikojen täydentäminen ja hyväksyntä tallennetaan lähiverkossa yhtenä
-  tapahtumana, jotta viivästynyt kuittaus ei jätä hyväksyntää tekemättä.
-- QR-koodikirjaston alkuperäinen MIT-lisenssiteksti sisältyy pakettiin.
-- AS tulkin GUI- ja paperiajanoton kokeet ajetaan Linuxin ja Windowsin
-  CI:ssä 100 ja 150 prosentin skaalauksilla aiempien kokeiden lisäksi.
-- Mukana aiemmin main-haaraan yhdistetty Rust-pohjainen LAN-testityökalu
-  ja pakollinen Python-esto. Kilpailutiedot ja käyttäjäasetukset säilyvät.
+Lataa ja pura koko käyttöjärjestelmäsi paketti. Käynnistä Windowsissa
+**as2026-gui.exe** tai Linuxissa **as2026-gui**.
 
-AS tulkin verkkotoiminnot edellyttävät erillistä yhteensopivaa WordPress-lisäosaa.
-Paikallinen kilpailunhallinta ja lähiverkkokäyttö toimivat ilman sitä.
-Pura koko käyttöjärjestelmäsi paketti. Päivitys versioon 0.7.6 tunnistetaan myös
-vanhan 0.7.5:n päivitystarkistuksessa.
-
-[AS tulkin ohje](docs/AS_TULKKI_YHTEYS.md) ·
-[Manuaalinen ajanotto](docs/MANUAALINEN_AJANOTTO.md) ·
-[Kehittäjän muutoskuvaus](docs/AS_TULKKI_MUUTOKSET.md) ·
-[Käyttöohje](docs/KAYTTOLIITTYMAOPAS.md)
+[Livetulosten ohje](docs/LIVE_JULKAISU.md) ·
+[Tulostusohje](docs/TULOSTUS.md) ·
+[AS tulkin ohje](docs/AS_TULKKI_YHTEYS.md)

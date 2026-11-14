@@ -66,7 +66,7 @@ fn live_combined_heading_hides_internal_identifier_and_escapes_name() {
         },
     )
     .unwrap();
-    assert_eq!(pages.len(), 1);
+    assert_eq!(pages.len(), 2);
     assert!(
         pages[0]
             .1

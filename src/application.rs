@@ -75,7 +75,10 @@ fn class_for<'a>(
     }
     Ok(found[0])
 }
-fn route_for<'a>(a: &'a Archive, c: &Competitor) -> Result<&'a crate::legacy::Route, CoreError> {
+pub(crate) fn route_for<'a>(
+    a: &'a Archive,
+    c: &Competitor,
+) -> Result<&'a crate::legacy::Route, CoreError> {
     let class = class_for(a, &c.class_code)?;
     // AS2015A:n luokan sarake 2 vertautuu R-tietueen nimeen (0x41553e).
     // Uuden TOML-muodon luokan rata on sen sijaan eksplisiittinen numero.

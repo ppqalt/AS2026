@@ -49,7 +49,7 @@ uusintakäsittelyssä; NAC-arvoja ei kopioida niiden tilalle.
 BC-näkymän kilpailijapaneelista avataan **Muokkaa kilpailijaa**. Puuttuvat
 ja ylimääräiset RT:t, muut virhepisteet, tila ja tilan syy tallennetaan vain
 BC-tulokseen. Myös asemakorjaukset, manuaaliset ajat, **Tutki**, **Tarkista** ja
-**Tulosta tulos** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.
+**Muokkaa tulosta** kohdistuvat valittuun laskentaan. NAC-pisteitä ei kopioida BC:hen.
 BC-pisteiden muutos ei muuta NAC-tulosta tai sen hyväksyntää ja päinvastoin.
 Perusteltu keskeytys voidaan vahvistaa kummallekin erikseen.
 

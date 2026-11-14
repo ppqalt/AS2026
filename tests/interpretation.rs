@@ -15,6 +15,7 @@ fn missing_rt_summary_separates_routes_sections_occurrences_and_pairs() {
         jaksoja: 0,
         tunniste: "a".repeat(64),
         muut_virhepisteet: 0,
+        jaksojen_muut_pisteet: Vec::new(),
         puuttuvat_rt: vec![
             MissingRtSection {
                 jakso: 1,

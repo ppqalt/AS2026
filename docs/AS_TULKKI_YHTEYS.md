@@ -19,7 +19,7 @@ Yhteyskatkossa sama luontitunniste ja avaimet säilyvät. Uusi lähetys jatkaa l
 
 Puhelimella avataan `https://autosuunnistus.net/as-tulkki/` ja liitytään AS2026:n näyttämällä koodilla sekä tarkastajan nimellä. Lisäosaversio 0.3.0 sisältää selainversion. Valmiiksi merkityt jaksot lähetetään palvelimelle; keskeneräiset luonnokset säilyvät puhelimella.
 
-AS2026 vastaanottaa avoimen verkkokilpailun tulkinnat pääkoneella automaattisesti noin viiden sekunnin välein edellisen haun valmistumisesta. Avaa **Kilvet → Näytä tulkinnat**. Taulukossa näkyvät kilpailuparit, tulkattujen jaksojen tila, kilvipuutteet, aikapuutteet ja muut virheet. Kaikkien radan jaksojen valmistuttua parin tilana on **Tulkattu**. Osittainen tulkinta näyttää esimerkiksi **2/4 jaksoa**.
+AS2026 vastaanottaa avoimen verkkokilpailun tulkinnat pääkoneella automaattisesti noin 15 sekunnin välein edellisen haun valmistumisesta. Avaa **Kilvet → Näytä tulkinnat**. Taulukossa näkyvät kilpailuparit, tulkattujen jaksojen tila, kilvipuutteet, aikapuutteet ja muut virheet. Kaikkien radan jaksojen valmistuttua parin tilana on **Tulkattu**. Osittainen tulkinta näyttää esimerkiksi **2/4 jaksoa**.
 
 Avaa pari nähdäksesi jaksoittaiset puuttuvat kilvet, ajat, muut virheet, huomautukset ja tarkastajan. Saman jakson samannumeroiset kilvet erotetaan jakson rivinumerolla. Korjaus korvaa vain kyseisen jakson aiemman tulkinnan. Parin muut jaksot säilyvät, eikä virhemääriä lasketa uudelleenlähetyksestä kahteen kertaan.
 
