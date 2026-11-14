@@ -16,7 +16,7 @@ use std::{
 fn fixture() -> Project {
     Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap()
 }
-type Published = Arc<Mutex<Vec<Vec<u8>>>>;
+type Published = Arc<Mutex<Vec<(String, Vec<u8>)>>>;
 type TestServer = (Config, Published, Arc<AtomicBool>, thread::JoinHandle<()>);
 fn server(count: usize, fail_first: bool, delay_first_store: bool) -> TestServer {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -50,7 +50,7 @@ fn server(count: usize, fail_first: bool, delay_first_store: bool) -> TestServer
             let mut input = BufReader::new(socket.try_clone().unwrap());
             let mut data = None;
             let mut temporary = None;
-            let mut rename = false;
+            let mut rename = None;
             loop {
                 let mut line = String::new();
                 if input.read_line(&mut line).unwrap_or(0) == 0 {
@@ -79,25 +79,26 @@ fn server(count: usize, fail_first: bool, delay_first_store: bool) -> TestServer
                         .unwrap();
                     data = Some(listener);
                     continue;
-                } else if line.starts_with("STOR ") {
-                    assert_eq!(line, "STOR kilpailu.html.as2026-upload\r\n");
+                } else if let Some(name) = line.trim_end().strip_prefix("STOR ") {
+                    assert!(name.starts_with("kilpailu") && name.ends_with(".html.as2026-upload"));
                     socket.write_all(b"150 Data\r\n").unwrap();
                     let (mut stream, _) = data.take().unwrap().accept().unwrap();
                     let mut bytes = Vec::new();
                     stream.read_to_end(&mut bytes).unwrap();
-                    temporary = Some(bytes);
+                    temporary = Some((name.to_owned(), bytes));
                     stored.store(true, Ordering::Relaxed);
                     if i == 0 && delay_first_store {
                         thread::sleep(Duration::from_millis(500));
                     }
                     "226 OK\r\n"
-                } else if line.starts_with("RNFR ") {
-                    rename = true;
+                } else if let Some(name) = line.trim_end().strip_prefix("RNFR ") {
+                    rename = Some(name.to_owned());
                     "350 OK\r\n"
-                } else if line.starts_with("RNTO ") {
-                    assert!(rename);
-                    assert_eq!(line, "RNTO kilpailu.html\r\n");
-                    result.lock().unwrap().push(temporary.take().unwrap());
+                } else if let Some(name) = line.trim_end().strip_prefix("RNTO ") {
+                    let (source, bytes) = temporary.take().unwrap();
+                    assert_eq!(rename.take().as_deref(), Some(source.as_str()));
+                    assert_eq!(source.strip_suffix(".as2026-upload"), Some(name));
+                    result.lock().unwrap().push((name.to_owned(), bytes));
                     "250 OK\r\n"
                 } else if line == "QUIT\r\n" {
                     socket.write_all(b"221 Hei\r\n").unwrap();
@@ -120,12 +121,15 @@ fn ftp_test_does_not_publish_and_transfer_renames_complete_file() {
     handle.join().unwrap();
     assert_eq!(
         *published.lock().unwrap(),
-        vec![b"valmis synteettinen tulossivu".to_vec()]
+        vec![(
+            "kilpailu.html".into(),
+            b"valmis synteettinen tulossivu".to_vec()
+        )]
     );
 }
 #[test]
 fn background_retry_publishes_latest_snapshot_after_disconnect() {
-    let (config, published, _, handle) = server(2, true, false);
+    let (config, published, _, handle) = server(3, true, false);
     let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
     let mut project = fixture();
     publisher.offer(&project);
@@ -137,15 +141,18 @@ fn background_retry_publishes_latest_snapshot_after_disconnect() {
     project.kilpailu.nimi = "Viimeisin tilanne & korjaus".into();
     publisher.offer(&project);
     let deadline = Instant::now() + Duration::from_secs(15);
-    while published.lock().unwrap().is_empty() {
+    while !publisher.status().contains("Viimeisin lähetys") {
         assert!(Instant::now() < deadline, "{}", publisher.status());
         thread::sleep(Duration::from_millis(30));
     }
     drop(publisher);
     handle.join().unwrap();
     let values = published.lock().unwrap();
-    assert_eq!(values.len(), 1);
-    let html = String::from_utf8(values[0].clone()).unwrap();
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[0].0, "kilpailu-luokka41-jakso1.html");
+    assert_eq!(values[1].0, "kilpailu.html");
+    assert!(String::from_utf8_lossy(&values[0].1).contains("Viimeisin tilanne &amp; korjaus"));
+    let html = String::from_utf8_lossy(&values[1].1);
     assert!(html.contains("Viimeisin tilanne &amp; korjaus"));
     assert!(html.contains("content=\"60;url="));
     assert!(html.contains("Epäviralliset tulokset"));
@@ -245,7 +252,12 @@ fn local_publisher_accepts_html_filenames_with_spaces_and_finnish_letters() {
     drop(publisher);
     let html = std::fs::read_to_string(directory.join(filename)).unwrap();
     assert!(html.contains("Esimerkkikilpailu"));
-    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+    assert!(
+        directory
+            .join("omat tulokset ää-luokka41-jakso1.html")
+            .is_file()
+    );
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 2);
     std::fs::remove_dir_all(directory).unwrap();
 }
 
@@ -276,7 +288,7 @@ fn sftp_real_isolated_server_when_configured() {
 
 #[test]
 fn final_publication_requires_complete_results_and_stops_only_after_success() {
-    let (config, published, _, handle) = server(1, false, false);
+    let (config, published, _, handle) = server(2, false, false);
     let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
     let mut project = fixture();
     assert!(publisher.finish(&project).is_err());
@@ -292,17 +304,17 @@ fn final_publication_requires_complete_results_and_stops_only_after_success() {
     }
     handle.join().unwrap();
     let values = published.lock().unwrap();
-    assert_eq!(values.len(), 1);
+    assert_eq!(values.len(), 2);
     assert!(
-        String::from_utf8(values[0].clone())
-            .unwrap()
-            .contains("Lopulliset tulokset")
+        values
+            .iter()
+            .all(|(_, bytes)| String::from_utf8_lossy(bytes).contains("Lopulliset tulokset"))
     );
 }
 
 #[test]
 fn final_publication_changes_only_the_status_banner_and_preserves_names() {
-    let (config, published, _, handle) = server(1, false, false);
+    let (config, published, _, handle) = server(2, false, false);
     let publisher = Publisher::start(config, "synteettinen.toml".into()).unwrap();
     let mut project = fixture();
     project.kilpailu.nimi = "Epäviralliset tulokset & kilpailu".into();
@@ -323,8 +335,9 @@ fn final_publication_changes_only_the_status_banner_and_preserves_names() {
     }
     handle.join().unwrap();
     let values = published.lock().unwrap();
-    assert_eq!(values.len(), 1);
-    let html = String::from_utf8(values[0].clone()).unwrap();
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[1].0, "kilpailu.html");
+    let html = String::from_utf8_lossy(&values[1].1);
     assert!(html.contains("<h1>Epäviralliset tulokset &amp; kilpailu</h1>"));
     assert!(
         html.contains(
@@ -340,7 +353,7 @@ fn final_publication_changes_only_the_status_banner_and_preserves_names() {
 
 #[test]
 fn stopped_publisher_cannot_commit_over_the_replacement_publisher() {
-    let (config, published, started, handle) = server(2, false, true);
+    let (config, published, started, handle) = server(3, false, true);
     let first = Publisher::start(config.clone(), "ensimmainen.toml".into()).unwrap();
     let mut project = fixture();
     first.offer(&project);
@@ -354,7 +367,7 @@ fn stopped_publisher_cannot_commit_over_the_replacement_publisher() {
     project.kilpailu.nimi = "Vain uusi julkaisija".into();
     second.offer(&project);
     let deadline = Instant::now() + Duration::from_secs(5);
-    while published.lock().unwrap().is_empty() {
+    while !second.status().contains("Viimeisin lähetys") {
         assert!(Instant::now() < deadline, "{}", second.status());
         thread::sleep(Duration::from_millis(20));
     }
@@ -363,13 +376,13 @@ fn stopped_publisher_cannot_commit_over_the_replacement_publisher() {
     let values = published.lock().unwrap();
     assert_eq!(
         values.len(),
-        1,
+        2,
         "Pysäytetty julkaisija ei saa vahvistaa vanhaa tiedostoa"
     );
     assert!(
-        String::from_utf8(values[0].clone())
-            .unwrap()
-            .contains("Vain uusi julkaisija")
+        values
+            .iter()
+            .all(|(_, bytes)| String::from_utf8_lossy(bytes).contains("Vain uusi julkaisija"))
     );
 }
 
@@ -415,7 +428,7 @@ fn fallback_server(mode: Replacement) -> FallbackServer {
     let handle = thread::spawn(move || {
         for _ in 0..if matches!(
             mode,
-            Replacement::Disconnect | Replacement::DisconnectBackup
+            Replacement::Disconnect | Replacement::DisconnectBackup | Replacement::PauseAfterBackup
         ) {
             2
         } else {
