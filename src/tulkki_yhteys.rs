@@ -1813,6 +1813,7 @@ mod tests {
         let source = p.kilpailijat[0].lisavirheet.tulkki_siirto.as_mut().unwrap();
         source.tulkatut_jaksot.clear();
         source.jaksoja = 0;
+        source.jaksojen_muut_pisteet.clear();
         p.kilpailijat[0].lisavirheet.puuttuvat_rt_kpl = 9;
         p.kilpailijat[0].lisavirheet.puuttuvat_rt_pisteet = 5400;
         let changes = penalty_changes(&p, &c).unwrap();
