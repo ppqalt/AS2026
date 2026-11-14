@@ -384,3 +384,36 @@ fn importing_old_receipts_restores_section_points_without_repricing_them() {
     p.kilpailijat[0].lisavirheet = migrated;
     assert!(tulkki_yhteys::penalty_changes(&p, &c).unwrap().is_empty());
 }
+
+#[test]
+fn direct_other_points_and_legacy_error_counts_are_scored_per_section() {
+    let (mut p, mut c) = setup();
+    receive(
+        &mut p,
+        &mut c,
+        1,
+        1,
+        vec![],
+        json!({"r1-e2":"12:05:00","r1-e3":"12:10:00","r1-e4":"12:12:00"}),
+    );
+    receive(
+        &mut p,
+        &mut c,
+        2,
+        2,
+        vec![],
+        json!({"r1-e6":"12:22:00","r1-e7":"12:22:00"}),
+    );
+    c.received[0].event_id = 3;
+    c.received[0].section.other_penalty_points = Some(300);
+    c.received[1].event_id = 4;
+    c.received[1].section.other_errors = 1;
+    p.kilpailijat[0].lisavirheet = tulkki_yhteys::penalty_changes(&p, &c).unwrap().remove(0).1;
+    assert_eq!(p.kilpailijat[0].lisavirheet.muut_virhepisteet, 900);
+    let html = pages(&p);
+    assert_eq!(cells(&html[1].1, 7)[8], "300");
+    assert_eq!(cells(&html[2].1, 7)[8], "600");
+    assert!(tulkki_yhteys::penalty_changes(&p, &c).unwrap().is_empty());
+    c.received[0].section.other_penalty_points = Some(350);
+    assert!(tulkki_yhteys::penalty_changes(&p, &c).is_err());
+}

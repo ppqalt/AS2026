@@ -4,6 +4,23 @@ use as2026::tulkki_yhteys::{self, Api, Config};
 
 const INTERPRETATION_POLL_INTERVAL: Duration = Duration::from_secs(15);
 
+fn other_errors_label(sections: impl Iterator<Item = (u32, Option<u32>)>) -> String {
+    let (count, points) = sections.fold((0u64, None), |(count, points), (n, p)| {
+        (
+            count + u64::from(n),
+            match p {
+                Some(p) => Some(points.unwrap_or(0) + u64::from(p)),
+                None => points,
+            },
+        )
+    });
+    match points {
+        Some(points) if count != 0 => format!("{points} vp + {count} kpl"),
+        Some(points) => format!("{points} vp"),
+        None => count.to_string(),
+    }
+}
+
 pub(super) struct Job {
     path: PathBuf,
     publishing: bool,
@@ -66,7 +83,11 @@ fn pair_status(
             .iter()
             .map(|r| r.section.missing_times)
             .sum::<u32>(),
-        receipts.iter().map(|r| r.section.other_errors).sum::<u32>()
+        other_errors_label(
+            receipts
+                .iter()
+                .map(|r| (r.section.other_errors, r.section.other_penalty_points))
+        )
     );
     (label, counts, true)
 }
@@ -151,12 +172,12 @@ fn refresh_results(
             .into(),
     );
     app.set_result_tulkki_other_errors(
-        receipts
-            .iter()
-            .map(|r| r.section.other_errors)
-            .sum::<u32>()
-            .to_string()
-            .into(),
+        other_errors_label(
+            receipts
+                .iter()
+                .map(|r| (r.section.other_errors, r.section.other_penalty_points)),
+        )
+        .into(),
     );
     let info = number.map(|n| pair_status(config, manifest, n));
     let (label, counts, available) = info.unwrap_or_else(|| ("–".into(), String::new(), false));
@@ -233,7 +254,10 @@ fn detail_text(config: &Config, number: u32) -> String {
             "Kilpipuutteet: {} · Aikapuutteet: {} · Muut virheet: {}",
             receipt.section.missing_signs,
             receipt.section.missing_times,
-            receipt.section.other_errors
+            other_errors_label(std::iter::once((
+                receipt.section.other_errors,
+                receipt.section.other_penalty_points
+            )))
         ));
         if let Some(entries) = section["entries"].as_array() {
             let mut missing = Vec::new();
@@ -315,7 +339,10 @@ fn detail_text(config: &Config, number: u32) -> String {
                 } else {
                     missing.join(", ")
                 },
-                saved["otherErrors"]
+                saved["otherPenaltyPoints"].as_u64().map_or_else(
+                    || saved["otherErrors"].to_string(),
+                    |points| format!("{points} vp"),
+                )
             ));
             for (id, time) in saved["times"].as_object().into_iter().flatten() {
                 lines.push(format!("{}: {}", label(id), time.as_str().unwrap_or("")));
@@ -415,12 +442,12 @@ pub(super) fn refresh(state: &State, app: &AppWindow) {
                         .sum::<u32>()
                         .to_string()
                         .into(),
-                    receipts
-                        .iter()
-                        .map(|r| r.section.other_errors)
-                        .sum::<u32>()
-                        .to_string()
-                        .into(),
+                    other_errors_label(
+                        receipts
+                            .iter()
+                            .map(|r| (r.section.other_errors, r.section.other_penalty_points)),
+                    )
+                    .into(),
                 ]),
             })
         })
@@ -922,6 +949,7 @@ mod tests {
                 times: BTreeMap::new(),
                 note: "Koe".into(),
                 other_errors: 0,
+                other_penalty_points: None,
                 missing_signs: 1,
                 missing_times: 0,
                 interpreted: true,

@@ -1,16 +1,11 @@
-# AS2026 0.7.7
+# AS2026 0.7.8
 
-- Livetuloksissa on luokkakohtaiset jaksosivut. Avaa jakso kokonaistulossivun
-  linkistä nähdäksesi jakson pisteet ja sijoitukset. (#57)
-- Tuloslapulla puuttuva AT merkitään Myöhä-sarakkeeseen. AT-sarakkeessa näkyy
-  puuttumisesta annettu pistemäärä, oletuksena 1800. (#57)
-- AS2026 hakee AS tulkin tulkinnat automaattisesti 15 sekunnin välein
-  edellisen haun valmistumisesta. (#57)
-- Tulokset-sivun kilpailijatietojen painike on nyt **Muokkaa tulosta**. (#59)
+- Vastaanottaa AS tulkin 0.7.2:ssa sadan pisteen askelin kirjatut muut
+  virhepisteet. Pisteet näkyvät tuloksissa ja kyseisen jakson livetulossivulla.
+- Aiemmat kappalemääräiset tulkinnat käyttävät kilpailun ylimääräisen
+  AT-merkinnän pistearvoa. Jo tallennetut käsin lisätyt pisteet säilyvät.
 
-Lataa ja pura koko käyttöjärjestelmäsi paketti. Käynnistä Windowsissa
+Pura koko käyttöjärjestelmäsi paketti. Käynnistä Windowsissa
 **as2026-gui.exe** tai Linuxissa **as2026-gui**.
 
-[Livetulosten ohje](docs/LIVE_JULKAISU.md) ·
-[Tulostusohje](docs/TULOSTUS.md) ·
 [AS tulkin ohje](docs/AS_TULKKI_YHTEYS.md)
