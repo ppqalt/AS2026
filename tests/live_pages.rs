@@ -24,7 +24,7 @@ fn three_class_pages_cycle_and_exclude_diagnostics_and_series_points() {
         classes: vec!["A".into(), "B".into(), "C".into()],
     };
     let pages = live_pages::pages(&p, &config).unwrap();
-    assert_eq!(pages.len(), 3);
+    assert_eq!(pages.len(), 6);
     for (i, next) in ["oma%20tulos1.html", "oma%20tulos2.html", "oma%20tulos.html"]
         .iter()
         .enumerate()
@@ -44,6 +44,21 @@ fn three_class_pages_cycle_and_exclude_diagnostics_and_series_points() {
     }
     assert_eq!(pages[0].0, PathBuf::from("oma tulos.html"));
     assert_eq!(pages[2].0, PathBuf::from("oma tulos2.html"));
+    assert!(
+        pages[0]
+            .1
+            .contains("href=\"oma%20tulos-luokka41-jakso1.html\"")
+    );
+    assert!(
+        pages[3]
+            .1
+            .contains("60;url=oma%20tulos-luokka41-jakso1.html")
+    );
+    assert!(
+        pages[3]
+            .1
+            .contains("href=\"oma%20tulos.html\">Kokonaistulos")
+    );
 }
 #[test]
 fn selected_single_class_refreshes_itself_and_empty_selection_is_rejected() {
@@ -53,7 +68,7 @@ fn selected_single_class_refreshes_itself_and_empty_selection_is_rejected() {
         classes: vec!["B".into()],
     };
     let pages = live_pages::pages(&p, &config).unwrap();
-    assert_eq!(pages.len(), 1);
+    assert_eq!(pages.len(), 2);
     assert!(pages[0].1.contains("60;url=omat.html"));
     assert!(pages[0].1.contains("Luokka: B"));
     assert!(!pages[0].1.contains("Luokka: A"));

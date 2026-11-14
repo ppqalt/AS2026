@@ -88,6 +88,10 @@ fn receive(p: &mut Project, c: &mut Config, id: u64, j: u32, missing: Vec<&str>,
     p.kilpailijat[0].tallennettu_tulos = Some(result);
 }
 fn page(p: &Project) -> String {
+    pages(p).remove(0).1
+}
+
+fn pages(p: &Project) -> Vec<(std::path::PathBuf, String)> {
     live_pages::pages(
         p,
         &Settings {
@@ -96,8 +100,6 @@ fn page(p: &Project) -> String {
         },
     )
     .unwrap()
-    .remove(0)
-    .1
 }
 fn cells(html: &str, number: u32) -> Vec<String> {
     html.split("<tr>")
@@ -307,4 +309,78 @@ fn all_nonzero_point_components_sum_to_total_before_approval() {
     p.kilpailijat[0].lisavirheet.muut_virhepisteet = 600;
     let row = cells(&page(&p), 7);
     assert_eq!(&row[5..9], &["600", "60", "600", "1260"]);
+}
+
+#[test]
+fn section_pages_show_only_their_own_results_even_when_received_out_of_order() {
+    let (mut p, mut c) = setup();
+    receive(
+        &mut p,
+        &mut c,
+        1,
+        2,
+        vec!["r1-e5"],
+        json!({"r1-e6":"12:22:00","r1-e7":"12:22:00"}),
+    );
+    let html = pages(&p);
+    assert_eq!(html.len(), 3);
+    assert_eq!(&cells(&html[1].1, 7)[5..9], &["", "", "", ""]);
+    assert_eq!(&cells(&html[2].1, 7)[5..9], &["600", "0", "0", "600"]);
+
+    receive(
+        &mut p,
+        &mut c,
+        2,
+        1,
+        vec!["r1-e1"],
+        json!({"r1-e2":"12:04:30","r1-e3":"12:10:00","r1-e4":"12:12:00"}),
+    );
+    let corrected = c
+        .received
+        .iter_mut()
+        .find(|r| r.section.id == "r1-j1")
+        .unwrap();
+    corrected.section.other_errors = 1;
+    corrected.event_id = 3;
+    p.kilpailijat[0].lisavirheet = tulkki_yhteys::penalty_changes(&p, &c).unwrap().remove(0).1;
+    let p = Project::from_toml(&p.to_toml().unwrap()).unwrap();
+    let html = pages(&p);
+    assert_eq!(&cells(&html[1].1, 7)[5..9], &["600", "60", "600", "1260"]);
+    assert_eq!(&cells(&html[2].1, 7)[5..9], &["600", "0", "0", "600"]);
+    assert_eq!(cells(&html[0].1, 7)[8], "1860");
+}
+
+#[test]
+fn importing_old_receipts_restores_section_points_without_repricing_them() {
+    let (mut p, mut c) = setup();
+    receive(
+        &mut p,
+        &mut c,
+        1,
+        1,
+        vec![],
+        json!({"r1-e2":"12:05:00","r1-e3":"12:10:00","r1-e4":"12:12:00"}),
+    );
+    c.received[0].section.other_errors = 2;
+    c.received[0].event_id = 2;
+    let mut old = tulkki_yhteys::penalty_changes(&p, &c).unwrap().remove(0).1;
+    old.tulkki_siirto
+        .as_mut()
+        .unwrap()
+        .jaksojen_muut_pisteet
+        .clear();
+    old.muut_virhepisteet += 200;
+    p.kilpailijat[0].lisavirheet = old.clone();
+    let migrated = tulkki_yhteys::penalty_changes(&p, &c).unwrap().remove(0).1;
+    assert_eq!(migrated.muut_virhepisteet, 1400);
+    assert_eq!(
+        migrated
+            .tulkki_siirto
+            .as_ref()
+            .unwrap()
+            .jaksojen_muut_pisteet,
+        [1200, 0]
+    );
+    p.kilpailijat[0].lisavirheet = migrated;
+    assert!(tulkki_yhteys::penalty_changes(&p, &c).unwrap().is_empty());
 }

@@ -2,6 +2,8 @@
 use super::*;
 use as2026::tulkki_yhteys::{self, Api, Config};
 
+const INTERPRETATION_POLL_INTERVAL: Duration = Duration::from_secs(15);
+
 pub(super) struct Job {
     path: PathBuf,
     publishing: bool,
@@ -849,14 +851,14 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
                     let _=tx.send((config,result));
                 });
                 if started.is_ok(){state.tulkki_job=Some(Job{path,receiver:rx,publishing,management:false});if publishing{app.set_tulkki_busy(true);}else{app.set_tulkki_receiving(true);}}
-                else {state.tulkki_poll_due=Some(std::time::Instant::now()+Duration::from_secs(5));state.tulkki_sync_notice="Vastaanoton käynnistäminen epäonnistui.".into();app.set_tulkki_sync_error(true);refresh(&state,&app);}
+                else {state.tulkki_poll_due=Some(std::time::Instant::now()+INTERPRETATION_POLL_INTERVAL);state.tulkki_sync_notice="Vastaanoton käynnistäminen epäonnistui.".into();app.set_tulkki_sync_error(true);refresh(&state,&app);}
             }
             return;
         }
         let job=state.tulkki_job.as_ref().unwrap();
         let Some(outcome) = background::poll(&job.receiver) else { return; };
         let job = state.tulkki_job.take().unwrap();
-        state.tulkki_poll_due=Some(std::time::Instant::now()+Duration::from_secs(5));
+        state.tulkki_poll_due=Some(std::time::Instant::now()+INTERPRETATION_POLL_INTERVAL);
         if job.publishing {app.set_tulkki_busy(false);} else {app.set_tulkki_receiving(false);}
         let active=state.workspace.as_ref().is_some_and(|w|w.path()==job.path);
         match outcome {

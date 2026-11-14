@@ -348,6 +348,9 @@ pub struct TulkkiPenaltySource {
     pub muut_virhepisteet: i64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub puuttuvat_rt: Vec<MissingRtSection>,
+    /// Puhelimessa kirjattujen muiden virheiden pisteet jaksoittain.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jaksojen_muut_pisteet: Vec<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -383,6 +386,9 @@ impl AdditionalPenalties {
                     .as_ref()
                     .is_some_and(|v| v.len() != 64 || !v.bytes().all(|c| c.is_ascii_hexdigit()))
                 || s.muut_virhepisteet < 0
+                || (!s.jaksojen_muut_pisteet.is_empty()
+                    && s.jaksojen_muut_pisteet.len() != s.jaksoja as usize)
+                || s.jaksojen_muut_pisteet.iter().any(|p| *p < 0)
                 || s.tulkatut_jaksot.iter().any(|j| *j == 0 || *j > s.jaksoja)
                 || s.tulkatut_jaksot
                     .iter()

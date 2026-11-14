@@ -670,6 +670,7 @@ mod card_identity_tests {
             .hyvaksytty = true;
         let mut after = before.clone();
         after.kilpailijat[0].lisavirheet.tulkki_siirto = Some(crate::native::TulkkiPenaltySource {
+            jaksojen_muut_pisteet: Vec::new(),
             puuttuvat_rt: Vec::new(),
             tunniste: "a".repeat(64),
             tapahtumatunniste: None,

@@ -128,4 +128,11 @@ nousupisteitä tai sarjapisteitä. Paikallisten tulossivujen kansio määritetä
 ikkunassa. **Paikallinen live** aloittaa päivityksen siihen ilman palvelinyhteyttä;
 avaa kansion pääsivu selaimeen. Samat sivut lähetetään FTP/SFTP-julkaisussa.
 
+Luokan kokonaistulossivulla on linkki jokaiselle radan jaksolle. Jaksosivun
+sijoitus lasketaan vain kyseisen jakson pisteistä, ja tasapisteet jakavat
+sijoituksen. Jaksosivu päivittyy samalla aikavälillä ja pysyy valitussa jaksossa.
+Pisteet näkyvät, kun jakson tulkkaus ja siihen tarvittavat ajat ovat käytettävissä.
+Ilman tulkkausta jakso valmistuu ajanotosta. Erilliset lisäpisteet, joilla ei ole
+jaksotietoa, näkyvät kokonaistuloksessa.
+
 SFTP-toteutus on sisäänrakennettu; ulkoista WinSCP-asennusta ei tarvita.

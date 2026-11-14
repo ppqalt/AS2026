@@ -12,9 +12,9 @@ Jos verkkokilpailuun on jo tallennettu tulkintoja, lisäosa ei salli oikean rivi
 
 ## Aikojen syöttö AS2026:ssa
 
-Valitse pari Tulokset-näkymästä ja paina Tulosta tulos. Aikojen syöttö aukeaa ilman kortinlukua. Syötä kellot muodossa hhmmss (esim. 183403). Kortista puuttuva merkintä merkitään viivalla (-). Tallenna laskee ja hyväksyy valmiin tuloksen. Tallenna ja tulosta lähettää lisäksi tuloslapun tulostimelle.
+Valitse pari Tulokset-näkymästä ja paina Muokkaa tulosta. Aikojen syöttö aukeaa ilman kortinlukua. Syötä kellot muodossa hhmmss (esim. 183403). Kortista puuttuva merkintä merkitään viivalla (-). Tallenna laskee ja hyväksyy valmiin tuloksen. Tallenna ja tulosta lähettää lisäksi tuloslapun tulostimelle.
 
-Tarkista muodostaa uuden tyhjän tulospohjan ja poistaa aiemmat ajat sekä aikapuutteiden automaattiset AT-pisteet vahvistuksen jälkeen. Käytä puhelimelta saatujen aikojen tarkastamiseen Tulosta tulos -painiketta. Tutki laskee paikallisesti muokatut ajat uudelleen.
+Tarkista muodostaa uuden tyhjän tulospohjan ja poistaa aiemmat ajat sekä aikapuutteiden automaattiset AT-pisteet vahvistuksen jälkeen. Käytä puhelimelta saatujen aikojen tarkastamiseen Muokkaa tulosta -painiketta. Tutki laskee paikallisesti muokatut ajat uudelleen.
 
 Lähtöluettelon lähtöaika tarvitaan laskennan perustaksi. Jos sitä ei ole, laskenta odottaa sen syöttämistä. Puuttuvaa lähtöaikaa ei korvata keksityllä ajalla.
 
@@ -39,5 +39,5 @@ Tämä muutos koskee koko kilpailun manuaalista ajanottoa. Emit-kilpailun puheli
 
 Kellonaikapohjainen kilpailu voi sisältää myös vanhoja tai uusia Emit-lukuja.
 Kun parilla on kelvollinen Emit-luku, Tarkista ja tulosnäkymä säilyttävät sen
-laskennan pohjana. Ilman lukua paperikortin luonnos avataan Tulosta tulos
+laskennan pohjana. Ilman lukua paperikortin luonnos avataan Muokkaa tulosta
 -painikkeella; pelkkä parin valitseminen ei luo tallennettua tulosta.

@@ -680,13 +680,13 @@ fn results(
     };
     if interrupted && !interruption_confirmed {
         issues.push(
-            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Tulosta tulos.".into(),
+            "Tarkista keskeytyksen syy kilpailijan tiedoista ja valitse Muokkaa tulosta.".into(),
         );
     }
     if !interrupted && let Some(result) = &snapshot {
         if !pending_clocks.is_empty() {
             issues.push(format!(
-                "Täydennä manuaaliset ajat: {}. Valitse Tulosta tulos.",
+                "Täydennä manuaaliset ajat: {}. Valitse Muokkaa tulosta.",
                 pending_clocks
                     .iter()
                     .map(|index| driver

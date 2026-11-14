@@ -6,10 +6,10 @@ internetiä tai usean toimitsijan yhteisenä kilpailuna lähiverkossa.
 
 ## Lataa ja asenna
 
-Lataa oma pakettisi [version 0.7.6 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.6):
+Lataa oma pakettisi [version 0.7.7 julkaisusivulta](https://github.com/ppqalt/AS2026/releases/tag/v0.7.7):
 
-- Linux x86-64: `AS2026-0.7.6-linux-x86_64.tar.gz`
-- Windows x86-64: `AS2026-0.7.6-windows-x86_64.zip`
+- Linux x86-64: `AS2026-0.7.7-linux-x86_64.tar.gz`
+- Windows x86-64: `AS2026-0.7.7-windows-x86_64.zip`
 
 
 Pura **koko paketti** omaan kansioon. Avaa `as2026-gui` tai Windowsissa
@@ -39,7 +39,7 @@ varmuuskopion, kortinluvun, tulostuksen ja verkon ennen ensimmäistä lähtöä.
 
 ## Toiminnot
 
-Versio 0.7.6 sisältää myös **AS tulkki -integraation**: Kilvet, oikeiden rivien
+Versiosta 0.7.6 alkaen mukana on myös **AS tulkki -integraatio**: Kilvet, oikeiden rivien
 Excel-tuonti, puhelintulkkausten vastaanotto, manuaalinen ajanotto, kilpikorjaukset
 ja mitätöinti, QR-liittyminen sekä valinnainen automaattinen tulostus.
 [Muutokset ja yhdistämisen tarkistukset](docs/AS_TULKKI_MUUTOKSET.md).
@@ -77,7 +77,7 @@ kone kilpailua kohti. [Käyttöönotto ja palvelimen vaatimukset](docs/LIVE_JULK
 - [Kilpailun valmistelu ja tuloslaskenta](docs/KILPAILUTOIMINNOT.md)
 - [Kuvallinen Slint-käyttöliittymäopas](docs/KAYTTOLIITTYMAOPAS.md)
 - [Version 0.7.4 julkaisutiedot](docs/julkaisut/0.7.4.md)
-- [Version 0.7.6 julkaisutiedot](RELEASE_NOTES.md)
+- [Version 0.7.7 julkaisutiedot](RELEASE_NOTES.md)
 
 Linux- ja Windows-CI tarkistavat Rust-/Slint-käännöksen, laskennan ja natiivin GUI:n
 synteettisellä aineistolla. Fyysisen Emit-lukijan, oikean kilpailuverkon ja
