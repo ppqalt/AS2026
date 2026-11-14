@@ -44,6 +44,8 @@ pub struct SectionInterpretation {
     pub times: BTreeMap<String, String>,
     pub note: String,
     pub other_errors: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub other_penalty_points: Option<u32>,
     pub missing_signs: u32,
     pub missing_times: u32,
     pub interpreted: bool,
@@ -256,13 +258,21 @@ fn penalty_changes_inner(
             published_sections
                 .iter()
                 .map(|s| {
-                    let count = receipts
+                    let section = receipts
                         .iter()
                         .find(|r| s["id"].as_str() == Some(&r.section.id))
-                        .map_or(0, |r| r.section.other_errors);
-                    i64::from(count)
-                        .checked_mul(rate)
-                        .ok_or(CoreError::ArithmeticOverflow("Jakson muut virhepisteet"))
+                        .map(|r| &r.section);
+                    match section {
+                        Some(s) => s.other_penalty_points.map_or_else(
+                            || {
+                                i64::from(s.other_errors).checked_mul(rate).ok_or(
+                                    CoreError::ArithmeticOverflow("Jakson muut virhepisteet"),
+                                )
+                            },
+                            |points| Ok(i64::from(points)),
+                        ),
+                        None => Ok(0),
+                    }
                 })
                 .collect::<Result<Vec<_>, _>>()
         };
@@ -299,11 +309,16 @@ fn penalty_changes_inner(
                     .iter()
                     .map(|r| i64::from(r.section.other_errors))
                     .sum();
-                let total = source.muut_virhepisteet - missing_at_points;
+                let direct: i64 = receipts
+                    .iter()
+                    .filter_map(|r| r.section.other_penalty_points)
+                    .map(i64::from)
+                    .sum();
+                let total = source.muut_virhepisteet - missing_at_points - direct;
                 if count > 0 && total >= 0 && total % count == 0 {
                     section_other_points(total / count)?
                 } else {
-                    vec![0; section_count as usize]
+                    section_other_points(0)?
                 }
             };
             if source.puuttuvat_rt != missing_details
@@ -322,21 +337,19 @@ fn penalty_changes_inner(
             continue;
         }
         let mut missing = 0u32;
-        let mut others = 0u32;
         for receipt in &receipts {
             missing = missing
                 .checked_add(receipt.section.missing_signs)
                 .ok_or(CoreError::ArithmeticOverflow("RT-määrä"))?;
-            others = others
-                .checked_add(receipt.section.other_errors)
-                .ok_or(CoreError::ArithmeticOverflow("Muiden virheiden määrä"))?;
         }
         let rt_points = i64::from(missing)
             .checked_mul(parameters.missing_rt)
             .ok_or(CoreError::ArithmeticOverflow("RT-pisteet"))?;
-        let mut other_points = i64::from(others)
-            .checked_mul(parameters.extra_at)
-            .ok_or(CoreError::ArithmeticOverflow("Muut virhepisteet"))?;
+        let points_by_section = section_other_points(parameters.extra_at)?;
+        let mut other_points = points_by_section.iter().try_fold(0i64, |sum, p| {
+            sum.checked_add(*p)
+                .ok_or(CoreError::ArithmeticOverflow("Muut virhepisteet"))
+        })?;
         if project.kilpailu.ajanottotapa == 0 {
             let result = manual_result(project, config, number)?;
             other_points = other_points
@@ -372,7 +385,7 @@ fn penalty_changes_inner(
             jaksoja: section_count,
             muut_virhepisteet: other_points,
             puuttuvat_rt: missing_details,
-            jaksojen_muut_pisteet: section_other_points(parameters.extra_at)?,
+            jaksojen_muut_pisteet: points_by_section,
         });
         changes.push((number, penalties));
     }
@@ -652,6 +665,9 @@ fn validate_event(
             || !section.interpreted
             || section.note.len() > 4000
             || section.other_errors > 10000
+            || section.other_penalty_points.is_some_and(|p| {
+                section.other_errors != 0 || p > 6_000_000 || !p.is_multiple_of(100)
+            })
         {
             return Err("Vastaanotetun jakson tiedot eivät kelpaa.".into());
         }
@@ -1459,7 +1475,8 @@ impl Api {
                         "competitions/{}/interpretations?after={}",
                         config.competition_id, config.cursor
                     ))?)
-                    .header("X-AS-Key", &config.key),
+                    .header("X-AS-Key", &config.key)
+                    .header("X-AS-Other-Penalty-Points", "1"),
             )?;
             if let Some(revision) = data["revision"].as_u64()
                 && data["manifest"].is_object()
