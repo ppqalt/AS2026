@@ -31,8 +31,39 @@ pub struct Config {
     pub automatic_results: bool,
     /// Ennen tulostusjonoon siirtoa tallennettu tuloksen tunniste estää toistot.
     pub automatic_prints: BTreeMap<String, String>,
+    // Tapahtumahistoriassa voi olla JSONin null-arvoja.
+    #[serde(with = "history_json", skip_serializing_if = "Vec::is_empty")]
     pub history: Vec<InterpretationEvent>,
     pub last_received_at: String,
+}
+
+mod history_json {
+    use super::InterpretationEvent;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub(super) fn serialize<S: Serializer>(
+        history: &[InterpretationEvent],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        let json = serde_json::to_string(history).map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(&json)
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Vec<InterpretationEvent>, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum History {
+            Json(String),
+            Legacy(Vec<InterpretationEvent>),
+        }
+
+        match History::deserialize(deserializer)? {
+            History::Json(json) => serde_json::from_str(&json).map_err(serde::de::Error::custom),
+            History::Legacy(events) => Ok(events),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1497,6 +1528,38 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn preferences_history_round_trips_json_null_and_reads_legacy_tables() {
+        let legacy = r#"
+cursor = 42
+[[history]]
+eventId = 42
+pairNumber = 7
+revision = 1
+reviewer = "Koe"
+savedAt = "2026-11-15T08:50:00Z"
+sections = []
+[[history.originalSections]]
+id = "j1"
+otherErrors = 0
+"#;
+        let mut config: super::Config = toml::from_str(legacy).unwrap();
+        assert_eq!(config.cursor, 42);
+        assert_eq!(config.history[0].event_id, 42);
+        assert_eq!(config.history[0].original_sections[0]["id"], "j1");
+        config.history[0].original_sections[0]["otherPenaltyPoints"] = serde_json::Value::Null;
+        let encoded = toml::to_string_pretty(&config).unwrap();
+        let reopened: super::Config = toml::from_str(&encoded).unwrap();
+        assert_eq!(reopened.cursor, 42);
+        assert_eq!(reopened.history, config.history);
+        assert!(
+            reopened.history[0].original_sections[0]
+                .get("otherPenaltyPoints")
+                .unwrap()
+                .is_null()
+        );
+    }
+
     use super::*;
 
     fn receiving_config() -> Config {
