@@ -5,21 +5,35 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+static NEXT_FOLDER: AtomicU64 = AtomicU64::new(0);
 struct Folder(PathBuf);
 impl Folder {
     fn new() -> Self {
-        let p = std::env::temp_dir().join(format!(
-            "as2026-checks-{}-{}",
-            std::process::id(),
+        Self::with_timestamp(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
-        ));
-        fs::create_dir(&p).unwrap();
-        Self(p)
+                .as_nanos(),
+        )
+    }
+
+    fn with_timestamp(timestamp: u128) -> Self {
+        loop {
+            // Windowsin kellon tarkkuus ei takaa eri aikaleimaa rinnakkaisille testeille.
+            let sequence = NEXT_FOLDER.fetch_add(1, Ordering::Relaxed);
+            let p = std::env::temp_dir().join(format!(
+                "as2026-checks-{}-{timestamp}-{sequence}",
+                std::process::id()
+            ));
+            match fs::create_dir(&p) {
+                Ok(()) => return Self(p),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => panic!("Testikansion {} luominen epäonnistui: {error}", p.display()),
+            }
+        }
     }
 }
 impl Drop for Folder {
@@ -36,6 +50,25 @@ fn git(root: &Path, args: &[&str]) {
             .unwrap()
             .success()
     );
+}
+#[test]
+fn parallel_test_folders_are_unique_even_with_the_same_timestamp() {
+    let workers: Vec<_> = (0..8)
+        .map(|_| {
+            std::thread::spawn(|| {
+                (0..16)
+                    .map(|_| Folder::with_timestamp(0))
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    let folders: Vec<_> = workers
+        .into_iter()
+        .flat_map(|worker| worker.join().unwrap())
+        .collect();
+    let paths: std::collections::HashSet<_> = folders.iter().map(|folder| &folder.0).collect();
+    assert_eq!(paths.len(), 128);
+    assert!(folders.iter().all(|folder| folder.0.is_dir()));
 }
 #[test]
 fn guard_cli_passes_clean_index_and_fails_for_files_commands_and_hidden_code() {
