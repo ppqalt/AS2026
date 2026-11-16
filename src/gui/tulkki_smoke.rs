@@ -197,7 +197,14 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
             13=>{
                 save_view(&app,&directory.join("11-tulosnakyma-palautunut.png")).unwrap();
                 let mut s=shared.borrow_mut();
-                for number in [2,3] {s.workspace.as_mut().unwrap().add_track(as2026::workspace::TrackEdit{number:number.to_string(),name:format!("Tuontirata {number}")}).unwrap();}
+                for number in [2,3] {
+                    let ws=s.workspace.as_mut().unwrap();
+                    ws.add_track(as2026::workspace::TrackEdit{number:number.to_string(),name:format!("Tuontirata {number}")}).unwrap();
+                    // Uudella radalla on jo L ja M. Lisää vain puuttuvat aika-asemat.
+                    for kind in ["AT","JAT"] {
+                        ws.add_station(number,as2026::workspace::StationEdit{kind:kind.into(),name:kind.into(),code:"0".into(),target_seconds:"0".into(),..Default::default()}).unwrap();
+                    }
+                }
                 s.right_row_previews=[("Syotto_B",["AT1","JAT3","M"]),("Syotto_C",["AT2","JAT4","M"])].into_iter().map(|(sheet,labels)|as2026::interpretation::preview_rows(sheet,&labels.into_iter().enumerate().map(|(i,v)|(i as u32+1,v.to_owned())).collect::<Vec<_>>())).collect();
                 s.right_row_routes=vec![1,2,3];
                 s.pending=Some(PendingAction::Notice);
@@ -206,7 +213,7 @@ pub(super) fn start(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 app.set_right_row_sheet(0);app.set_right_row_route(1);app.set_right_row_view_only(false);
                 app.set_confirm_title("Tuo oikea rivi".into());app.set_confirm_action_label("Tallenna oikea rivi".into());
                 app.set_right_row_open(true);app.set_confirm_open(true);
-                right_row::refresh(&mut s,&app).unwrap();drop(s);
+                right_row::refresh(&mut s,&app).unwrap();assert!(app.get_right_row_error().is_empty(),"{}",app.get_right_row_error());drop(s);
                 app.invoke_confirm_action(true);
             }
             14=>{

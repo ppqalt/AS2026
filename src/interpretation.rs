@@ -169,6 +169,44 @@ pub struct StoredRoute {
     pub seuraava_tunniste: u64,
 }
 
+/// Tarkista kaikki aika-asemat riippumatta Emit-/käsiaikavalinnasta.
+pub fn validate_route_clocks(
+    project: &crate::native::Project,
+    route: u32,
+    preview: &Preview,
+) -> Result<(), CoreError> {
+    let track = project
+        .radat
+        .iter()
+        .find(|r| r.numero == route)
+        .ok_or_else(|| invalid("Valittua rataa ei löydy kilpailusta"))?;
+    let mut differences = Vec::new();
+    for (kind, name) in [
+        (EntryKind::At, "AT"),
+        (EntryKind::Jat, "JAT"),
+        (EntryKind::Ula, "ULA"),
+        (EntryKind::Finish, "M"),
+    ] {
+        let imported = preview.entries.iter().filter(|e| e.kind == kind).count();
+        let expected = track.asemat.iter().filter(|s| s.tyyppi == name).count();
+        if imported != expected {
+            differences.push(format!(
+                "{name}: oikeassa rivissä {imported}, radan tiedoissa {expected}"
+            ));
+        }
+    }
+    if differences.is_empty() {
+        Ok(())
+    } else {
+        Err(invalid(format!(
+            "Aika-asemien määrät eivät täsmää radalla {} ({}). {}. Korjaa oikea rivi tai Radat ja asemat -tiedot ennen tallennusta.",
+            track.numero,
+            track.nimi,
+            differences.join("; ")
+        )))
+    }
+}
+
 /// Ensimmäinen tuonti luo tunnisteet. Sama tuonti säilyttää ne; erilaista
 /// aineistoa ei vielä korvata ilman tulevaa tulkkausten sovitusmenettelyä.
 pub fn import_route(

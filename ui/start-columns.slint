@@ -12,7 +12,7 @@ export component StartColumnsDialog inherits Rectangle {
     property <int> focus-request;
     property <bool> first-focused;
     background: Theme.modal-backdrop;
-    TouchArea { }
+    TouchArea { scroll-event(event) => { accept } }
     FocusScope {
         width: root.width; height: root.height;
         init => { cancel.focus(); }

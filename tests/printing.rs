@@ -410,3 +410,52 @@ fn selected_printer_is_user_specific_and_survives_reopening() {
             .is_empty()
     );
 }
+
+#[test]
+#[cfg(feature = "desktop")]
+fn automatic_class_print_waits_for_all_pairs_and_fingerprints_both_reports() {
+    let mut f = Fixture::new();
+    let pending = f.ws.results().unwrap();
+    assert!(!printing::class_is_complete(&pending, "A"));
+    assert!(!printing::class_is_complete(&pending, "UNKNOWN"));
+    assert!(
+        printing::completed_class_document(&pending, "A")
+            .unwrap()
+            .is_none()
+    );
+    f.ws.complete_result_entry(7, &f.clocks(), 1, 25).unwrap();
+    let archive = f.ws.results().unwrap();
+    assert!(printing::class_is_complete(&archive, "A"));
+    let (key, doc) = printing::completed_class_document(&archive, "A")
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        doc.pages.len(),
+        printing::classes(&archive, &["A".into()], Kind::Classes, true, false)
+            .unwrap()
+            .pages
+            .len()
+            + printing::classes(&archive, &["A".into()], Kind::Stations, true, false)
+                .unwrap()
+                .pages
+                .len()
+    );
+    assert_eq!(
+        key,
+        printing::completed_class_document(&archive, "A")
+            .unwrap()
+            .unwrap()
+            .0
+    );
+    let mut pending_pair = archive.clone();
+    let mut second = pending_pair.competitors[0].clone();
+    second.number = 999;
+    pending_pair.competitors.push(second);
+    assert!(!printing::class_is_complete(&pending_pair, "A"));
+    f.ws.complete_result_entry(7, &f.clocks(), 2, 125).unwrap();
+    f.ws.approve_result(7).unwrap();
+    let changed = printing::completed_class_document(&f.ws.results().unwrap(), "A")
+        .unwrap()
+        .unwrap();
+    assert_ne!(key, changed.0);
+}

@@ -362,7 +362,13 @@ fn route_and_scoring_configuration_changes_remove_prior_publication_permission()
         let ranking = workspace.ranking().unwrap();
         assert_unranked(&ranking);
         assert_export_omits_draft(&archive, &ranking);
-        assert!(workspace.approve_result(7).is_err());
+        if change == 3 {
+            // Raja lasketaan nyt heti: vanha julkaisu poistuu, valmis uusi laskelma voidaan hyväksyä.
+            workspace.approve_result(7).unwrap();
+            assert!(workspace.results().unwrap().has_approved_result(7));
+        } else {
+            assert!(workspace.approve_result(7).is_err());
+        }
     }
 }
 

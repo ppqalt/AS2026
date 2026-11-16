@@ -65,6 +65,11 @@ export component AppWindow inherits Window {
     callback tulkki-manage(int);
     in-out property <bool> tulkki-automatic;
     callback tulkki-automatic-changed(bool);
+    in-out property <bool> class-print-automatic;
+    in-out property <bool> automation-editable;
+    in-out property <string> automation-error;
+    callback class-print-automatic-changed(bool);
+    out property <length> settings-scroll-offset;
     in-out property <bool> tulkki-closed;
     callback close-tulkki();
     init => { Palette.color-scheme = Theme.color-scheme; }
@@ -1136,6 +1141,7 @@ export component AppWindow inherits Window {
                     }
                 }
                 if root.page == 6: settings-scroll := ScrollView {
+                    changed content-y => { root.settings-scroll-offset = self.content-y; }
                     horizontal-scrollbar-policy: always-off;
                     content-width: self.visible-width; content-height: settings-content.height;
                     settings-content := Rectangle {
@@ -1189,6 +1195,11 @@ export component AppWindow inherits Window {
                                     ComboBox { model: root.printers; current-index <=> root.printer-index; selected => { root.select-printer(self.current-index); } }
                                     Button { text: "Päivitä tulostinluettelo"; clicked => { root.refresh-printers(); } }
                                     Note { text: "Valinta koskee kilpailijaparin tulosta sekä luokka- ja asematuloksia. Tyhjä oletus käyttää käyttöjärjestelmän oletustulostinta."; }
+                                    Text { text: "Automatiikka"; color: Theme.ink; font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
+                                    CheckBox { text: "Tulkin automaattinen hyväksyntä ja tuloslaput"; checked: root.tulkki-automatic; enabled: root.automation-editable && !root.tulkki-busy && !root.tulkki-receiving; toggled => { root.tulkki-automatic-changed(self.checked); } }
+                                    CheckBox { text: "Luokka- ja asematulokset luokan valmistuttua"; checked: root.class-print-automatic; enabled: root.automation-editable; toggled => { root.class-print-automatic-changed(self.checked); } }
+                                    Note { text: "Valinnat koskevat avointa kilpailua tällä pääkoneella. Luokan koonnit tulostetaan, kun kaikkien parien tulos on hyväksytty tai lopullinen tila (esim. HYL tai vahvistettu KESK) kirjattu. Korjattu koonti tulostetaan uudelleen."; }
+                                    if root.automation-error != "": Text { text: root.automation-error; color: Theme.danger; wrap: word-wrap; }
                                 }
                             }
                     }
@@ -1208,7 +1219,7 @@ export component AppWindow inherits Window {
     }
     if root.station-info-open && root.page == 5: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             width: parent.width; height: parent.height;
             init => { station-info-close.focus(); }
@@ -1256,7 +1267,7 @@ export component AppWindow inherits Window {
     }
     if root.route-info-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             width: parent.width; height: parent.height;
             init => { route-info-close.focus(); }
@@ -1287,7 +1298,7 @@ export component AppWindow inherits Window {
     }
     if root.competitor-edit-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             width: parent.width; height: parent.height;
             init => { competitor-close.focus(); }
@@ -1331,7 +1342,7 @@ export component AppWindow inherits Window {
     }
     if root.lan-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             width: parent.width; height: parent.height; focus-on-tab-navigation: false;
             property <bool> joined: root.lan-active;
@@ -1409,7 +1420,7 @@ export component AppWindow inherits Window {
     }
     if root.export-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             init => { export-save.focus(); }
             capture-key-pressed(event) => {
@@ -1468,7 +1479,7 @@ export component AppWindow inherits Window {
     }
     if root.notes-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             focus-on-tab-navigation: false;
             init => { notes-close.focus(); }
@@ -1519,7 +1530,7 @@ export component AppWindow inherits Window {
     }
     if root.dialog-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
         focus-on-click: false;
         focus-on-tab-navigation: false;
@@ -1597,7 +1608,7 @@ export component AppWindow inherits Window {
     }
     if root.about-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             focus-on-click: false;
             focus-on-tab-navigation: false;
@@ -1700,7 +1711,7 @@ export component AppWindow inherits Window {
 
     if root.setup-open || root.install-busy: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
         focus-on-click: false;
         focus-on-tab-navigation: false;
@@ -1742,7 +1753,7 @@ export component AppWindow inherits Window {
     // Sama läpinäkymätön Fluent-pinta myös pisteiden ja arvonnan vahvistuksille.
     if root.confirm-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             focus-on-click: false;
             focus-on-tab-navigation: false;
@@ -1840,7 +1851,7 @@ export component AppWindow inherits Window {
     }
     if root.status-details-open: Rectangle {
         background: Theme.modal-backdrop;
-        TouchArea { }
+        TouchArea { scroll-event(event) => { accept } }
         FocusScope {
             focus-on-click: false;
             focus-on-tab-navigation: false;

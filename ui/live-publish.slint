@@ -9,11 +9,16 @@ component PublishField inherits VerticalLayout {
     callback edited(int, string);
     spacing: 4px;
     Note { text: root.field.label; }
-    LineEdit {
+    input := LineEdit {
         text: root.field.value;
-        enabled: root.writable;
+        enabled: root.writable || root.field.key == 9;
+        read-only: !root.writable;
         input-type: root.field.key == 3 ? InputType.password : InputType.text;
         edited => { root.edited(root.field.key, self.text); }
+    }
+    if root.field.key == 9: Button {
+        text: "Kopioi kansion polku";
+        clicked => { input.select-all(); input.copy(); }
     }
 }
 export component LivePublishDialog inherits Rectangle {
@@ -33,7 +38,7 @@ export component LivePublishDialog inherits Rectangle {
     callback finish();
     callback close();
     background: Theme.modal-backdrop;
-    TouchArea {}
+    TouchArea { scroll-event(event) => { accept } }
     Timer { interval: 1ms; running: true; triggered => { self.running = false; cancel.focus(); } }
     FocusScope {
         width: root.width; height: root.height;
@@ -61,6 +66,7 @@ export component LivePublishDialog inherits Rectangle {
                         toggle(index, selected) => { root.class-toggled(index, selected); }
                         select-all(selected) => { root.classes-all(selected); }
                     }
+                    PublishField { field: root.fields[9]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
                     ComboBox {
                         model: ["SFTP (salattu)", "FTP (salaamaton)"];
                         current-index <=> root.protocol;
@@ -88,7 +94,6 @@ export component LivePublishDialog inherits Rectangle {
                         if root.protocol == 0: PublishField { field: root.fields[4]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
                         PublishField { field: root.fields[7]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
                         PublishField { field: root.fields[8]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
-                        PublishField { field: root.fields[9]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
                         PublishField { field: root.fields[10]; writable: !root.running && !root.busy; edited(key, value) => { root.edited(key, value); } }
                     }
                 }

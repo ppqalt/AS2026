@@ -57,6 +57,8 @@ export component Workspace inherits Rectangle {
 
 // Sisällöstä erillinen pinta: kutsuja järjestää vieritettävän sisällön ja alatunnisteen.
 export component DialogSurface inherits FadeSurface {
+    // Sisältö saa vierittää omia alueitaan. Rajalla hylätty rulla pysähtyy tähän.
+    TouchArea { scroll-event(event) => { accept } }
     in property <length> preferred-dialog-width: Theme.dialog-width;
     in property <length> preferred-dialog-height: 520px;
     // Sisällön oma mitta ei riipu vieritysalueen näkyvästä korkeudesta.

@@ -276,18 +276,26 @@ pub(super) fn refresh(state: &mut State, app: &AppWindow) -> GuiResult<()> {
             })
             .collect(),
     ));
-    app.set_right_row_error(
-        preview
-            .issues
-            .iter()
-            .map(|i| format!("A{}: {}", i.source_row, i.message))
-            .collect::<Vec<_>>()
-            .join("\n")
-            .into(),
-    );
+    let mut issues = preview
+        .issues
+        .iter()
+        .map(|i| format!("A{}: {}", i.source_row, i.message))
+        .collect::<Vec<_>>();
+    if !viewing
+        && let Some(route) = state
+            .right_row_routes
+            .get(app.get_right_row_route() as usize)
+        && let Some(project) = state.workspace.as_ref().and_then(Workspace::project)
+        && let Err(error) = interpretation::validate_route_clocks(project, *route, preview)
+    {
+        issues.push(error.to_string());
+    }
+    let valid = issues.is_empty();
+    app.set_right_row_error(issues.join("\n").into());
     app.set_confirm_acceptable(
         viewing
-            || (preview.can_publish()
+            || (valid
+                && preview.can_publish()
                 && state
                     .right_row_routes
                     .get(app.get_right_row_route() as usize)
@@ -309,6 +317,10 @@ pub(super) fn finish(state: &mut State, app: &AppWindow, accepted: bool) -> GuiR
             .ok_or_else(|| invalid("Valitse kohderata"))?;
         let config = void_config(state);
         let project = current_workspace(state)?.project().unwrap().clone();
+        if let Err(error) = interpretation::validate_route_clocks(&project, route, &preview) {
+            app.set_right_row_error(error.to_string().into());
+            return Ok(());
+        }
         let replacing = project
             .oikeat_rivit
             .iter()

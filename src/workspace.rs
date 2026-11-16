@@ -1207,9 +1207,14 @@ impl Workspace {
     }
 
     pub fn add_class(&mut self, edit: ClassEdit) -> Result<(), CoreError> {
-        self.update(|project| {
-            project.luokat.push(edit.parse()?);
-            Ok(())
+        let class = edit.parse()?;
+        let value = Some(i64::from(class.myohastymisraja_minuutteina));
+        let Source::Native(store) = &mut self.source else {
+            return Err(invalid("Avaa muokattava kilpailu"));
+        };
+        store.update(|project| {
+            project.luokat.push(class);
+            Self::apply_total_lateness(project, value)
         })
     }
 
@@ -1219,6 +1224,15 @@ impl Workspace {
         field: ClassField,
         value: &str,
     ) -> Result<(), CoreError> {
+        if field == ClassField::Lateness {
+            if !self
+                .project()
+                .is_some_and(|p| p.luokat.iter().any(|c| c.tunnus.trim() == id.trim()))
+            {
+                return Err(invalid("Luokkaa ei löydy; päivitä näkymä"));
+            }
+            return self.set_total_lateness(Some(number::<u32>(value, "Myöhästymisraja")?.into()));
+        }
         self.update(|project| {
             let class = project
                 .luokat
@@ -1266,6 +1280,70 @@ impl Workspace {
             }
             Ok(())
         })
+    }
+
+    /// Sama kilpailun sääntö riippumatta siitä, muokataanko sitä luokista vai asetuksista.
+    fn set_total_lateness(&mut self, value: Option<i64>) -> Result<(), CoreError> {
+        let Source::Native(store) = &mut self.source else {
+            return Err(invalid("Avaa muokattava kilpailu"));
+        };
+        store.update(|project| Self::apply_total_lateness(project, value))
+    }
+
+    fn apply_total_lateness(project: &mut Project, value: Option<i64>) -> Result<(), CoreError> {
+        let minutes = u32::try_from(value.unwrap_or(60))
+            .map_err(|_| invalid("Anna myöhästymisraja kokonaisminuutteina, vähintään 0"))?;
+        let before = project.clone();
+        project.virhepisteet.kokonaismyohastymisraja_minuutteina = value;
+        for class in &mut project.luokat {
+            class.myohastymisraja_minuutteina = minutes;
+        }
+        if before
+            .virhepisteet
+            .kokonaismyohastymisraja_minuutteina
+            .unwrap_or(60)
+            == i64::from(minutes)
+        {
+            return Ok(());
+        }
+        crate::corrections::invalidate_input_changes(&before, project);
+        let numbers: Vec<_> = project
+            .kilpailijat
+            .iter()
+            .filter(|d| d.tallennettu_tulos.is_some())
+            .map(|d| d.numero)
+            .collect();
+        for number in numbers {
+            let stored = project
+                .kilpailijat
+                .iter()
+                .find(|d| d.numero == number)
+                .unwrap()
+                .tallennettu_tulos
+                .as_ref()
+                .unwrap();
+            let mut result = application::recalculate_stored_result(project, number, stored)?;
+            result.hyvaksytty = false;
+            crate::manual_timing::sync_points(project, number, &mut result, None)?;
+            project
+                .kilpailijat
+                .iter_mut()
+                .find(|d| d.numero == number)
+                .unwrap()
+                .tallennettu_tulos = Some(result);
+        }
+        if project.beginners_cup.is_some() {
+            let projection = crate::beginners::projection(project)?;
+            for entry in project.bc_osallistujat.iter_mut().filter(|e| e.osallistuu) {
+                if let Some(stored) = &entry.tallennettu_tulos {
+                    let mut result =
+                        application::recalculate_stored_result(&projection, entry.numero, stored)?;
+                    result.hyvaksytty = false;
+                    entry.tallennettu_tulos = Some(result);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Tallentaa yhdistetyn luokan ja jäsenvalinnat yhtenä validoituna muutoksena.
@@ -1437,6 +1515,9 @@ impl Workspace {
         field: CompetitionField,
         value: &str,
     ) -> Result<(), CoreError> {
+        if field == CompetitionField::TotalLateness {
+            return self.set_total_lateness(optional_number(value, "Kokonaismyöhästymisraja")?);
+        }
         self.update(|project| {
             match field {
                 CompetitionField::Name => {

@@ -669,3 +669,120 @@ fn workspace_accepts_timing_two_and_edits_custom_series_atomically() {
         Workspace::open(&directory.0).unwrap().project()
     );
 }
+
+#[test]
+fn class_lateness_changes_global_calculation_for_all_classes_and_recalculates_saved_results() {
+    let directory = Directory::new();
+    let mut p =
+        native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml")).unwrap();
+    let mut second_class = p.luokat[0].clone();
+    second_class.tunnus = "B".into();
+    p.luokat.push(second_class);
+    let mut second = p.kilpailijat[0].clone();
+    second.numero = 8;
+    second.emit = 654321;
+    second.luokka = "B".into();
+    p.kilpailijat.push(second);
+    let mut second_readout = p.leimaluvut[0].clone();
+    second_readout.emit = 654321;
+    p.leimaluvut.push(second_readout);
+    for number in [7, 8] {
+        let mut result = as2026::application::capture_entry_result(&p, number).unwrap();
+        let finish = result
+            .rivit
+            .iter()
+            .find(|r| r.station_type == "M")
+            .unwrap()
+            .output_index;
+        result.set_clock(finish, [12, 11, 1]).unwrap();
+        let mut result =
+            as2026::application::recalculate_stored_result(&p, number, &result).unwrap();
+        result.hyvaksytty = true;
+        p.kilpailijat
+            .iter_mut()
+            .find(|d| d.numero == number)
+            .unwrap()
+            .tallennettu_tulos = Some(result);
+    }
+    ProjectStore::create(&directory.file(), p).unwrap();
+    let mut ws = Workspace::open(&directory.0).unwrap();
+    let clocks: Vec<_> = ws
+        .project()
+        .unwrap()
+        .kilpailijat
+        .iter()
+        .map(|d| {
+            d.tallennettu_tulos
+                .as_ref()
+                .unwrap()
+                .rivit
+                .iter()
+                .map(|r| r.clock)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    ws.edit_class("A", ClassField::Lateness, "1").unwrap();
+    let p = ws.project().unwrap();
+    assert_eq!(p.virhepisteet.kokonaismyohastymisraja_minuutteina, Some(1));
+    assert!(p.luokat.iter().all(|c| c.myohastymisraja_minuutteina == 1));
+    assert!(
+        ws.archive()
+            .unwrap()
+            .basic
+            .classes
+            .iter()
+            .all(|c| c.fields[7] == "1")
+    );
+    for (driver, original_clocks) in p.kilpailijat.iter().zip(&clocks) {
+        let result = driver.tallennettu_tulos.as_ref().unwrap();
+        assert!(
+            result.syy.contains("kokonaismyöhästymisraja"),
+            "{}",
+            result.syy
+        );
+        assert!(!result.hyvaksytty);
+        assert!(!result.kasikellot_muuttuneet);
+        assert_eq!(
+            result.rivit.iter().map(|r| r.clock).collect::<Vec<_>>(),
+            *original_clocks
+        );
+    }
+    ws.edit_class("B", ClassField::Lateness, "2").unwrap();
+    assert!(ws.project().unwrap().kilpailijat.iter().all(|d| {
+        !d.tallennettu_tulos
+            .as_ref()
+            .unwrap()
+            .syy
+            .contains("kokonaismyöhästymisraja")
+    }));
+    let reopened = Workspace::open(&directory.0).unwrap();
+    assert_eq!(
+        reopened
+            .project()
+            .unwrap()
+            .virhepisteet
+            .kokonaismyohastymisraja_minuutteina,
+        Some(2)
+    );
+    let before = std::fs::read(directory.file()).unwrap();
+    assert!(ws.edit_class("B", ClassField::Lateness, "-1").is_err());
+    assert_eq!(std::fs::read(directory.file()).unwrap(), before);
+    ws.edit_competition(CompetitionField::TotalLateness, "3")
+        .unwrap();
+    assert!(
+        ws.project()
+            .unwrap()
+            .luokat
+            .iter()
+            .all(|c| c.myohastymisraja_minuutteina == 3)
+    );
+    ws.edit_competition(CompetitionField::TotalLateness, "")
+        .unwrap();
+    assert!(
+        ws.project()
+            .unwrap()
+            .luokat
+            .iter()
+            .all(|c| c.myohastymisraja_minuutteina == 60)
+    );
+}

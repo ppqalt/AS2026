@@ -53,7 +53,7 @@ export component ResultEntryDialog inherits Rectangle {
     callback close(bool);
     callback save();
     background: Theme.modal-backdrop;
-    TouchArea { }
+    TouchArea { scroll-event(event) => { accept } }
     FocusScope {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {

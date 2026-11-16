@@ -353,6 +353,27 @@ fn detail_text(config: &Config, number: u32) -> String {
 }
 
 pub(super) fn refresh(state: &State, app: &AppWindow) {
+    app.set_tulkki_automatic(config(state).is_some_and(|c| c.automatic_results));
+    app.set_automation_editable(
+        state
+            .workspace
+            .as_ref()
+            .is_some_and(|w| w.project().is_some() && w.lan_client().is_none() && !w.bc_view()),
+    );
+    app.set_class_print_automatic(
+        state
+            .workspace
+            .as_ref()
+            .and_then(|w| {
+                state
+                    .preferences
+                    .as_ref()?
+                    .get()
+                    .luokkatulostus
+                    .get(w.path())
+            })
+            .is_some_and(|c| c.enabled),
+    );
     let last = config(state)
         .map(|c| c.last_received_at.as_str())
         .filter(|s| !s.is_empty())
@@ -550,8 +571,10 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
         })();
         app.set_tulkki_automatic(config(&state).is_some_and(|c| c.automatic_results));
         if let Err(error) = result {
+            app.set_automation_error(error.clone().into());
             feedback(&app, error, true);
         } else {
+            app.set_automation_error("".into());
             feedback(
                 &app,
                 if enabled {

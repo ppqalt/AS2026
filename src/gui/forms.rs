@@ -64,7 +64,7 @@ fn text(key: i32, label: &str, value: impl ToString, hint: &str) -> EditorField 
         seconds: "".into(),
     };
     let unit = match label {
-        "Myöhästymisraja (min)" | "Jakson pituus (min)" | "Jakson raja (min)" => 60,
+        "Jakson pituus (min)" | "Jakson raja (min)" => 60,
         "Vapaa-aika (s)" => 1,
         _ => return field,
     };
@@ -257,12 +257,26 @@ fn class_fields(project: &Project, class: &ClassEdit) -> Vec<EditorField> {
             &class.first_number,
             "Luokan numeroinnin aloitus",
         ),
-        clock_field(4, "Luokan lähtöaika (h : min : s)", &class.start_time),
+        clock_field(
+            4,
+            "Ensimmäisen parin lähtöaika (h : min : s)",
+            &class.start_time,
+        ),
         text(
             5,
             "Lähtöväli (s)",
             &class.interval_seconds,
             "Lähtöjen väli kokonaissekunteina",
+        ),
+        text(
+            6,
+            "Myöhästymisraja (min)",
+            project
+                .virhepisteet
+                .kokonaismyohastymisraja_minuutteina
+                .unwrap_or(60)
+                .to_string(),
+            "Koko kilpailun laskennassa käytettävä raja minuutteina. Muutos koskee kaikkia luokkia ja laskee tallennetut tulokset uudelleen.",
         ),
         choice(
             7,
@@ -603,7 +617,7 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     .to_string(),
                 start_time: "15:00:00".into(),
                 interval_seconds: "120".into(),
-                lateness_minutes: "60".into(),
+                lateness_minutes: project.virhepisteet.kokonaismyohastymisraja_minuutteina.unwrap_or(60).to_string(),
                 np_enabled: "0".into(),
                 series_method: "0".into(),
                 ..Default::default()
@@ -660,8 +674,8 @@ pub fn fields(project: &Project, selection: &Selection) -> Vec<EditorField> {
                     "Nimi näkyy tulosluetteloissa",
                 ),
                 text(4, "Kokonaismyöhästymisraja (min)",
-                    project.virhepisteet.kokonaismyohastymisraja_minuutteina.map_or_else(String::new, |v| v.to_string()),
-                    "Tyhjä kenttä käyttää oletusta 60 min; raja koskee kaikkia luokkia"),
+                    project.virhepisteet.kokonaismyohastymisraja_minuutteina.unwrap_or(60).to_string(),
+                    "Raja koskee kaikkia luokkia. Tyhjentäminen palauttaa oletuksen 60 min."),
                 text(5, "Oletus Emit-korjaus (s)",
                     project.virhepisteet.oletus_emit_korjaus_sekuntia.map_or_else(String::new, |v| v.to_string()),
                     "Tyhjä = 120 s. Uusien kilpailijoiden nollaus on tämän verran ennen lähtöä."),
@@ -786,7 +800,6 @@ fn stored_duration(selection: &Selection, key: i32, value: &str) -> Result<Strin
     let unit = match (selection, key) {
         (Selection::Driver(_) | Selection::NewDriver, 7) => 1,
         (Selection::Class(_) | Selection::NewClass, 5) => 1,
-        (Selection::Class(_) | Selection::NewClass, 6) => 60,
         (Selection::Station { .. } | Selection::NewStation { .. }, 5) => 60,
         (Selection::Settings, 10) => 1,
         (Selection::Settings, 16) => 60,
@@ -1012,7 +1025,7 @@ pub fn add(
                 first_number: value(3),
                 start_time: value(4),
                 interval_seconds: value(5),
-                lateness_minutes: "60".into(),
+                lateness_minutes: value(6),
                 np_enabled: value(7),
                 series_method: value(8),
             })?;
@@ -1081,6 +1094,10 @@ mod target_duration_tests {
         let field = text(7, "Emit-korjaus (s)", "-12", "");
         assert!(!field.duration);
         assert_eq!(field.value.as_str(), "-12");
+        let field = text(6, "Myöhästymisraja (min)", "75", "");
+        assert!(!field.duration);
+        assert_eq!(field.label.as_str(), "Myöhästymisraja (min)");
+        assert_eq!(field.value.as_str(), "75");
     }
 
     #[test]

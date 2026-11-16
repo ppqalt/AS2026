@@ -1006,6 +1006,17 @@ fn commit_field(state: &mut State, app: &AppWindow, key: i32, value: &str) -> bo
             state.selection = selection;
             state.invalid_fields.remove(&key);
             field_feedback(app, false, key, value, "");
+            if ((matches!(state.selection, Selection::Class(_)) && key == 6)
+                || (matches!(state.selection, Selection::Settings) && key == 4))
+                && let Some(project) = state.workspace.as_ref().and_then(Workspace::project)
+            {
+                let minutes = project
+                    .virhepisteet
+                    .kokonaismyohastymisraja_minuutteina
+                    .unwrap_or(60)
+                    .to_string();
+                field_feedback(app, false, key, &minutes, "");
+            }
             state.edit_draft.remove(&key);
             state.invalid_field =
                 !state.invalid_fields.is_empty() || !state.invalid_route_fields.is_empty();
@@ -3909,6 +3920,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let lan_timer = Timer::default();
     lan::bind(&app, &state, &lan_timer);
     printing::bind(&state, &app);
+    let class_print_timer = Timer::default();
+    printing::bind_automation(&state, &app, &class_print_timer);
     let publish_timer = Timer::default();
     publish::bind(&state, &app, &publish_timer);
     let tulkki_timer = Timer::default();
@@ -3998,7 +4011,23 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    if let Some(directory) = captures.filter(|_| !menu_test && _tulkki_smoke.is_none()) {
+    let _issue63_smoke = if std::env::var_os("AS2026_ISSUE63_GUI_TEST").is_some() {
+        if !demo || !smoke_test {
+            return Err("Issue 63 -koe tarvitsee --demo --smoke-test".into());
+        }
+        Some(smoke::start_issue63(
+            &app,
+            &state,
+            captures
+                .clone()
+                .ok_or("Issue 63 -koe tarvitsee --capture-dir")?,
+        )?)
+    } else {
+        None
+    };
+    if let Some(directory) =
+        captures.filter(|_| !menu_test && _tulkki_smoke.is_none() && _issue63_smoke.is_none())
+    {
         if emit_correction_test {
             emit_correction::capture(&app, state.clone(), directory)?;
         } else {

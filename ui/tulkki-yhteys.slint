@@ -23,7 +23,7 @@ export component TulkkiDialog inherits Rectangle {
     callback publish();
     callback close();
     background: Theme.modal-backdrop;
-    TouchArea {}
+    TouchArea { scroll-event(event) => { accept } }
     Timer { interval: 1ms; running: true; triggered => { self.running = false; if root.qr-open { return; } if root.configured { cancel.focus(); } else { site-field.focus(); } } }
     FocusScope {
         width: root.width; height: root.height;

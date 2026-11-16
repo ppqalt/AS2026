@@ -7,7 +7,7 @@ export component TulkintaDialog inherits Rectangle {
     in property <string> text;
     callback close();
     background: Theme.modal-backdrop;
-    TouchArea {}
+    TouchArea { scroll-event(event) => { accept } }
     Timer { interval: 1ms; running: true; triggered => { self.running = false; close-button.focus(); } }
     FocusScope {
         width: root.width; height: root.height;

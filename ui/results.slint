@@ -35,13 +35,14 @@ export component ResultSummary inherits Rectangle {
     border-color: Theme.line;
     border-radius: Theme.radius;
     background: Theme.surface;
+    identity-measure := Text { visible: false; text: root.data.identity + (root.data.navigator == "" ? "" : " ja " + root.data.navigator); font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; }
     content := VerticalLayout {
         padding: Theme.panel-padding;
         spacing: Theme.space-2;
         Text {
             height: self.preferred-height;
             vertical-stretch: 0;
-            text: root.data.selected ? root.data.identity : "Kilpailijan tulos";
+            text: root.data.selected ? root.data.identity + (root.data.navigator == "" ? "" : (identity-measure.preferred-width <= root.width - 2 * Theme.panel-padding ? " ja " : "\n") + root.data.navigator) : "Kilpailijan tulos";
             font-size: Theme.section-font-size; font-weight: Theme.strong-font-weight; color: Theme.ink; wrap: word-wrap;
         }
         Note { height: self.preferred-height; vertical-stretch: 0; text: root.data.selected ? root.data.details : "Valitse kilpailija tulosluettelosta."; }
