@@ -262,3 +262,53 @@ fn emit_only_changes_manual_entry_for_ula_and_finish() {
     }
     assert!(!EntryKind::Stamp.requires_manual_time(false));
 }
+
+#[test]
+fn right_row_import_checks_each_clock_type_even_when_total_matches() {
+    use as2026::interpretation::validate_route_clocks;
+    let mut project =
+        as2026::native::Project::from_toml(include_str!("../fixtures/native-demo/kilpailu.toml"))
+            .unwrap();
+    let station = project.radat[0].asemat[0].clone();
+    project.radat[0].asemat = ["AT", "JAT", "ULA", "M"]
+        .iter()
+        .map(|kind| {
+            let mut s = station.clone();
+            s.tyyppi = (*kind).into();
+            s
+        })
+        .collect();
+    let preview = preview_rows(
+        "Syotto_A",
+        &[
+            (1, "08".into()),
+            (2, "AT1".into()),
+            (3, "JAT3".into()),
+            (4, "ULA".into()),
+            (5, "M".into()),
+        ],
+    );
+    validate_route_clocks(&project, 1, &preview).unwrap();
+    let before = project.clone();
+    let mut wrong = preview.clone();
+    wrong
+        .entries
+        .iter_mut()
+        .find(|e| e.kind == EntryKind::At)
+        .unwrap()
+        .kind = EntryKind::Jat;
+    let error = validate_route_clocks(&project, 1, &wrong)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("AT: oikeassa rivissä 0, radan tiedoissa 1"));
+    assert!(error.contains("JAT: oikeassa rivissä 2, radan tiedoissa 1"));
+    assert_eq!(project, before);
+    wrong.entries.retain(|e| e.kind != EntryKind::Finish);
+    assert!(
+        validate_route_clocks(&project, 1, &wrong)
+            .unwrap_err()
+            .to_string()
+            .contains("M:")
+    );
+    assert!(validate_route_clocks(&project, 999, &preview).is_err());
+}

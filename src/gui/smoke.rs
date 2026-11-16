@@ -1745,6 +1745,104 @@ fn result_entry_and_printing(
     app.invoke_print_classes_close(true);
     assert!(!app.get_print_classes_open(), "{}", app.get_print_error());
     assert!(state.borrow().last_print.as_ref().unwrap().landscape);
+    // Issue #63: automatiikka muodostaa molemmat koonnit kerran ja säilyttää tunnisteen.
+    app.invoke_class_print_automatic_changed(true);
+    assert!(
+        app.get_class_print_automatic(),
+        "{}",
+        app.get_automation_error()
+    );
+    state.borrow_mut().last_print = None;
+    printing::process_class_automation(&mut state.borrow_mut(), app)?;
+    assert!(state.borrow().last_print.as_ref().unwrap().pages.len() >= 2);
+    state.borrow_mut().last_print = None;
+    printing::process_class_automation(&mut state.borrow_mut(), app)?;
+    assert!(
+        state.borrow().last_print.is_none(),
+        "Valmis luokka ei tulostu kahdesti"
+    );
+    {
+        let s = state.borrow();
+        let preferences = s.preferences.as_ref().unwrap();
+        let reopened =
+            PreferencesStore::open_at(preferences.path(), &preferences.competition_root()?)?;
+        assert!(!reopened.get().luokkatulostus[&path].printed.is_empty());
+    }
+    app.invoke_class_print_automatic_changed(false);
+    app.invoke_navigate(4);
+    app.invoke_select_row(0);
+    for (key, value) in [(4, "13:14:15"), (5, "90"), (6, "75")] {
+        assert!(
+            app.invoke_field_commit(key, value.into()),
+            "{}",
+            app.get_status_text()
+        );
+    }
+    let stored = ProjectStore::open(&path)?;
+    let class = &stored.project().luokat[0];
+    assert_eq!(class.lahtoaika, "13:14:15");
+    assert_eq!(class.start_interval_seconds(), 90);
+    assert_eq!(class.myohastymisraja_minuutteina, 75);
+    assert_eq!(
+        app.get_rows()
+            .row_data(0)
+            .unwrap()
+            .cells
+            .row_data(6)
+            .unwrap(),
+        "75"
+    );
+    let lateness = app
+        .get_fields()
+        .iter()
+        .find(|field| field.key == 6)
+        .unwrap();
+    assert!(!lateness.duration);
+    assert_eq!(lateness.value, "75");
+    assert!(
+        !app.invoke_field_commit(6, "1:00:01".into()),
+        "Minuuttiraja ei saa pyöristyä"
+    );
+    assert!(app.invoke_field_commit(6, "75".into()));
+    // Sama näkyvä arvo molempiin suuntiin, myös oletusarvoon palautettaessa.
+    app.invoke_navigate(6);
+    assert_eq!(
+        app.get_fields().iter().find(|f| f.key == 4).unwrap().value,
+        "75"
+    );
+    assert!(app.invoke_field_commit(4, "90".into()));
+    app.invoke_navigate(4);
+    app.invoke_select_row(0);
+    assert_eq!(
+        app.get_fields().iter().find(|f| f.key == 6).unwrap().value,
+        "90"
+    );
+    assert_eq!(
+        app.get_rows()
+            .row_data(0)
+            .unwrap()
+            .cells
+            .row_data(6)
+            .unwrap(),
+        "90"
+    );
+    assert!(app.invoke_field_commit(6, "45".into()));
+    app.invoke_navigate(6);
+    assert_eq!(
+        app.get_fields().iter().find(|f| f.key == 4).unwrap().value,
+        "45"
+    );
+    assert!(app.invoke_field_commit(4, "".into()));
+    assert_eq!(
+        app.get_fields().iter().find(|f| f.key == 4).unwrap().value,
+        "60"
+    );
+    app.invoke_navigate(4);
+    app.invoke_select_row(0);
+    assert_eq!(
+        app.get_fields().iter().find(|f| f.key == 6).unwrap().value,
+        "60"
+    );
     open_workspace(&mut state.borrow_mut(), app, original_path, true)?;
     println!(
         "GUI-tulostuskoe: kortinluvun syöttöikkuna, aikavalidointi, automaattilaskenta, RT/muut pisteet, luokkavalinta ja asematuloste ilman fyysistä tulostusta."
@@ -1885,4 +1983,76 @@ fn published_issues(
         "Issueiden GUI-koe: erillinen NAC/BC-syöttö ja pysyvät pisteet, uuden kortin oikea kilpailija ja luokkarajauksen nollaus."
     );
     Ok(())
+}
+
+// Oikeat rullatapahtumat: sekä modaalin ulkopuoli että sisäinen vieritysraja.
+pub fn start_issue63(app: &AppWindow, state: &SharedState, directory: PathBuf) -> GuiResult<Timer> {
+    std::fs::create_dir_all(&directory).map_err(|e| invalid(&io_message(&e)))?;
+    let weak = app.as_weak();
+    let shared = state.clone();
+    let phase = Rc::new(std::cell::Cell::new(0));
+    let offset = Rc::new(std::cell::Cell::new(0.0));
+    let timer = Timer::default();
+    timer.start(TimerMode::Repeated, Duration::from_millis(400), move || {
+        let Some(app) = weak.upgrade() else { return; };
+        let wheel = |x, y, delta_y| app.window().dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(x, y), delta_x: 0., delta_y,
+        });
+        let scale = app.window().scale_factor();
+        let size = app.window().size();
+        let width = size.width as f32 / scale;
+        match phase.get() {
+            0 => { app.window().set_size(slint::LogicalSize::new(900., 600.)); app.invoke_navigate(6); }
+            1 => { wheel(width - 25., 300., -150.); }
+            2 => {
+                assert!(app.get_settings_scroll_offset() < 0., "Taustan pitää oikeasti vieriä ilman modaalia");
+                offset.set(app.get_settings_scroll_offset());
+                app.set_result_entry_fields(model((0..25).map(|i| ResultEntryInput { key:i, label:format!("Aika {i}").into(),value:"12:34:56".into() }).collect()));
+                app.set_result_entry_identity("Vierityskoe".into()); app.set_result_entry_error("".into());
+                app.set_result_entry_open(true);
+            }
+            3 => { wheel(width - 25., 300., -800.); }
+            4 => {
+                assert_eq!(app.get_settings_scroll_offset(), offset.get(), "Modaalin ulkopuolinen rulla ei liikuta asetuksia");
+                wheel(width / 2., 300., -5000.);
+            }
+            5 => { wheel(width / 2., 300., -5000.); }
+            6 => {
+                assert_eq!(app.get_settings_scroll_offset(), offset.get(), "Modaalin vieritysrajalla rulla ei vuoda taustaan");
+                save_view(&app, &directory.join("issue63-modaalin-vieritys.png")).unwrap();
+                app.set_result_entry_open(false);
+                wheel(width - 25., 300., -5000.);
+            }
+            7 => {
+                assert!(app.get_settings_scroll_offset() < offset.get(), "Tausta vierii taas modaalin sulkeuduttua");
+                save_view(&app, &directory.join("issue63-automatiikka.png")).unwrap();
+                app.invoke_navigate(3); app.invoke_select_row(0); app.set_details_open(true);
+            }
+            8 => {
+                assert!(!app.get_result_overview().navigator.is_empty());
+                save_view(&app, &directory.join("issue63-nimet-kapea.png")).unwrap();
+                app.window().set_size(slint::LogicalSize::new(1600., 900.));
+            }
+            9 => {
+                save_view(&app, &directory.join("issue63-nimet-levea.png")).unwrap();
+                let mut overview = app.get_result_overview();
+                overview.identity = "Nro 7 · Matti Malli".into();
+                overview.navigator = "Maija Malli".into();
+                app.set_result_overview(overview);
+                save_view(&app, &directory.join("issue63-nimet-samalla-rivilla.png")).unwrap();
+                app.invoke_open_publish();
+            }
+            10 => {
+                assert!(app.get_publish_open());
+                save_view(&app, &directory.join("issue63-julkaisu.png")).unwrap();
+                app.set_publish_open(false);
+                shared.borrow_mut().entry_dirty = false;
+                std::fs::write(directory.join("result.txt"), "Hyväksytty: modaalin rulla, sisäinen vieritysraja, taustan palautuminen, asetukset ja nimien esikatselu.\n").unwrap();
+                slint::quit_event_loop().unwrap();
+            }
+            _ => return,
+        }
+        phase.set(phase.get() + 1);
+    });
+    Ok(timer)
 }

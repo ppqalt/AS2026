@@ -18,7 +18,7 @@ export component BeginnersCupDialog inherits Rectangle {
     callback participant-toggled(int, bool);
     callback close(bool);
     background: Theme.modal-backdrop;
-    TouchArea { }
+    TouchArea { scroll-event(event) => { accept } }
     Timer { interval: 1ms; running: true; triggered => { self.running = false; name-input.focus(); } }
     keys := FocusScope {
         x: 0px; y: 0px;

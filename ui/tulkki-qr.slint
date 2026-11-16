@@ -6,7 +6,7 @@ export component TulkkiQrDialog inherits Rectangle {
     in property <string> link;
     in property <string> code;
     callback close;
-    background:Theme.modal-backdrop;TouchArea {}
+    background:Theme.modal-backdrop;TouchArea { scroll-event(event) => { accept } }
     Timer {interval:1ms;running:true;triggered=>{self.running=false;close-button.focus();}}
     FocusScope {
         width:root.width;height:root.height;init=>{close-button.focus();}

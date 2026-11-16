@@ -9,7 +9,7 @@ export component MissingRtDialog inherits Rectangle {
     property <int> selected-key:-1;
     changed rows=>{root.selected-key=-1;}
     background:Theme.modal-backdrop;
-    TouchArea {}
+    TouchArea { scroll-event(event) => { accept } }
     FocusScope {
         width:root.width;height:root.height;
         init=>{close-button.focus();}

@@ -16,7 +16,7 @@ export component CombinedClassDialog inherits Rectangle {
     callback select-all(bool);
     callback close(bool);
     background: Theme.modal-backdrop;
-    TouchArea { }
+    TouchArea { scroll-event(event) => { accept } }
     Timer { interval: 1ms; running: true; triggered => { self.running = false; name-input.focus(); } }
     keys := FocusScope {
         width: root.width;

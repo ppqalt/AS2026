@@ -30,7 +30,7 @@ export component GalleryClassPicker inherits Rectangle {
     in-out property <bool> selected-only <=> choices.selected-only;
     public function focus-search() { choices.focus-search(); }
     background: Theme.modal-backdrop;
-    TouchArea {}
+    TouchArea { scroll-event(event) => { accept } }
     FocusScope {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {

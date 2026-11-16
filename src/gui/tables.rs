@@ -147,7 +147,7 @@ pub fn data_for_group(
             &mut notes,
             result_group,
         )?,
-        4 => classes(&archive, &mut view),
+        4 => classes(ws, &archive, &mut view),
         5 => tracks(&archive, selected_key, &mut view),
         _ => {}
     }
@@ -296,14 +296,14 @@ fn competitors(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
         .collect();
 }
 
-fn classes(archive: &Archive, view: &mut ViewData) {
+fn classes(ws: &Workspace, archive: &Archive, view: &mut ViewData) {
     view.headers = headers(&[
         "Tunnus",
         "Nimi",
         "Rata",
         "1. numero",
-        "Lähtö",
-        "Lähtöväli, min",
+        "1. parin lähtö",
+        "Lähtöväli, s",
         "Myöh. raja, min",
     ]);
     view.weights = vec![0.08, 0.27, 0.09, 0.10, 0.12, 0.17, 0.17];
@@ -329,7 +329,17 @@ fn classes(archive: &Archive, view: &mut ViewData) {
                     },
                     field(&class.fields, 3),
                     field(&class.fields, 4).replace('.', ":"),
-                    field(&class.fields, 5),
+                    ws.project()
+                        .and_then(|p| p.luokat.iter().find(|c| c.tunnus == class.code))
+                        .map_or_else(
+                            || {
+                                field(&class.fields, 5).parse::<u32>().map_or_else(
+                                    |_| "-".into(),
+                                    |m| m.saturating_mul(60).to_string(),
+                                )
+                            },
+                            |c| c.start_interval_seconds().to_string(),
+                        ),
                     field(&class.fields, 7),
                 ],
             )
@@ -712,10 +722,10 @@ fn results(
     view.result_overview = ResultOverview {
         selected: true,
         identity: format!("Nro {} · {}", driver.number, driver.driver).into(),
+        navigator: driver.navigator.clone().into(),
         details: format!(
-            "Luokka {} · Kartanlukija {}{}",
+            "Luokka {}{}",
             driver.class_code,
-            driver.navigator,
             if result_project
                 .as_ref()
                 .is_some_and(|p| p.kilpailu.ajanottotapa == 0)

@@ -411,3 +411,30 @@ fn duplicate_known_setting_alias_does_not_become_an_unknown_setting() {
     assert!(PreferencesStore::open_at(&directory.settings(), &directory.root()).is_err());
     assert_eq!(fs::read_to_string(directory.settings()).unwrap(), source);
 }
+
+#[test]
+fn class_print_automation_is_competition_specific_and_preserves_print_receipts() {
+    use as2026::preferences::ClassPrintAutomation;
+    let directory = Directory::new();
+    let mut store = directory.open();
+    let first = directory.root().join("Kisa A");
+    let second = directory.root().join("Kisa B");
+    let mut config = ClassPrintAutomation {
+        enabled: true,
+        ..Default::default()
+    };
+    config
+        .printed
+        .insert("A".into(), "tulosteen-tunniste".into());
+    store
+        .save_class_print_automation(first.clone(), config.clone())
+        .unwrap();
+    let reopened = directory.open();
+    assert_eq!(reopened.get().luokkatulostus[&first], config);
+    assert!(!reopened.get().luokkatulostus.contains_key(&second));
+    config.enabled = false;
+    store
+        .save_class_print_automation(first.clone(), config.clone())
+        .unwrap();
+    assert_eq!(directory.open().get().luokkatulostus[&first], config);
+}

@@ -20,7 +20,7 @@ export component EmitCorrectionDialog inherits Rectangle {
     callback close(bool);
     callback add(bool);
     background: Theme.modal-backdrop;
-    TouchArea { }
+    TouchArea { scroll-event(event) => { accept } }
     FocusScope {
         width: root.width; height: root.height;
         capture-key-pressed(event) => {

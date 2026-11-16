@@ -74,6 +74,14 @@ impl Appearance {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
+pub struct ClassPrintAutomation {
+    pub enabled: bool,
+    /// Tunniste tallennetaan ennen tulostusyritystä, jotta katkos ei tuplaa tulostetta.
+    pub printed: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Preferences {
     #[serde(
         rename = "kilpailukansio",
@@ -100,6 +108,7 @@ pub struct Preferences {
     pub live_julkaisut: std::collections::BTreeMap<PathBuf, crate::live_publish::Config>,
     /// Kilpailukohtaiset yhteystunnukset. WordPressin sovellussalasanaa ei tallenneta.
     pub tulkki_yhteydet: BTreeMap<PathBuf, crate::tulkki_yhteys::Config>,
+    pub luokkatulostus: BTreeMap<PathBuf, ClassPrintAutomation>,
 }
 
 // Vanhempi sovellusversio ei saa hukata uudemman version omia asetuksia.
@@ -232,6 +241,16 @@ impl PreferencesStore {
         }
         let mut candidate = self.preferences.clone();
         candidate.tulostin = printer.to_owned();
+        self.save(candidate)
+    }
+
+    pub fn save_class_print_automation(
+        &mut self,
+        path: PathBuf,
+        config: ClassPrintAutomation,
+    ) -> Result<(), String> {
+        let mut candidate = self.preferences.clone();
+        candidate.luokkatulostus.insert(path, config);
         self.save(candidate)
     }
 

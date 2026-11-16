@@ -272,8 +272,21 @@ fn calculation_setting_edits_revoke_result_approval_without_revoking_interruptio
         }
         let snapshot = workspace.result_snapshot(7).unwrap().unwrap();
         assert!(!snapshot.hyvaksytty);
-        assert!(snapshot.kasikellot_muuttuneet);
-        assert!(!snapshot.can_approve());
+        if variant == 2 {
+            // Yhteinen myöhästymisraja laskee tallennetut tulokset heti uudelleen.
+            assert!(!snapshot.kasikellot_muuttuneet);
+            assert_eq!(
+                workspace
+                    .project()
+                    .unwrap()
+                    .virhepisteet
+                    .kokonaismyohastymisraja_minuutteina,
+                Some(61)
+            );
+        } else {
+            assert!(snapshot.kasikellot_muuttuneet);
+            assert!(!snapshot.can_approve());
+        }
         assert!(
             workspace.interruption_confirmed(7),
             "päätös ei riipu asetusten vaihtumisesta"

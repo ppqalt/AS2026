@@ -155,6 +155,117 @@ fn queue(state: &mut State, app: &AppWindow, document: Document) -> GuiResult<()
     }
     Ok(())
 }
+
+pub(super) fn process_class_automation(state: &mut State, app: &AppWindow) -> GuiResult<()> {
+    if app.get_print_busy()
+        || app.get_result_entry_open()
+        || state.invalid_field
+        || state.entry_dirty
+    {
+        return Ok(());
+    }
+    let Some(ws) = state
+        .workspace
+        .as_ref()
+        .filter(|w| w.lan_client().is_none() && !w.bc_view())
+    else {
+        return Ok(());
+    };
+    let path = ws.path().to_owned();
+    let Some(mut config) = state
+        .preferences
+        .as_ref()
+        .and_then(|p| p.get().luokkatulostus.get(&path))
+        .filter(|c| c.enabled)
+        .cloned()
+    else {
+        return Ok(());
+    };
+    let Some(project) = ws.project() else {
+        return Ok(());
+    };
+    let archive = application::calculated_project(project)?;
+    for class in &project.luokat {
+        let Some((key, document)) = printing::completed_class_document(&archive, &class.tunnus)?
+        else {
+            continue;
+        };
+        if config.printed.get(&class.tunnus) == Some(&key) {
+            continue;
+        }
+        let before = config.clone();
+        config.printed.insert(class.tunnus.clone(), key);
+        let preferences = state
+            .preferences
+            .as_mut()
+            .ok_or_else(|| invalid("Asetusten tallennus ei ole käytettävissä"))?;
+        preferences
+            .save_class_print_automation(path.clone(), config)
+            .map_err(|e| invalid(&e))?;
+        if let Err(error) = queue(state, app, document) {
+            state
+                .preferences
+                .as_mut()
+                .unwrap()
+                .save_class_print_automation(path, before)
+                .map_err(|e| invalid(&e))?;
+            return Err(error);
+        }
+        // Yksi koontityö kerrallaan; fyysisen tulostimen virheessä käsin uusinta.
+        break;
+    }
+    Ok(())
+}
+
+pub(super) fn bind_automation(state: &SharedState, app: &AppWindow, timer: &Timer) {
+    let shared = state.clone();
+    let weak = app.as_weak();
+    app.on_class_print_automatic_changed(move |enabled| {
+        let Some(app) = weak.upgrade() else {
+            return;
+        };
+        let mut state = shared.borrow_mut();
+        let result = (|| -> GuiResult<()> {
+            let ws = current_workspace(&mut state)?;
+            if ws.lan_client().is_some() || ws.project().is_none() || ws.bc_view() {
+                return Err(invalid("Automatiikka valitaan kilpailun pääkoneella"));
+            }
+            let path = ws.path().to_owned();
+            let preferences = state
+                .preferences
+                .as_mut()
+                .ok_or_else(|| invalid("Asetusten tallennus ei ole käytettävissä"))?;
+            let mut config = preferences
+                .get()
+                .luokkatulostus
+                .get(&path)
+                .cloned()
+                .unwrap_or_default();
+            config.enabled = enabled;
+            preferences
+                .save_class_print_automation(path, config)
+                .map_err(|e| invalid(&e))
+        })();
+        app.set_automation_error(
+            result
+                .err()
+                .map_or_else(SharedString::default, |e| e.to_string().into()),
+        );
+        tulkki::refresh(&state, &app);
+    });
+    let shared = state.clone();
+    let weak = app.as_weak();
+    timer.start(TimerMode::Repeated, Duration::from_secs(2), move || {
+        let Some(app) = weak.upgrade() else {
+            return;
+        };
+        let mut state = shared.borrow_mut();
+        if let Err(error) = process_class_automation(&mut state, &app) {
+            app.set_automation_error(error.to_string().into());
+            status(&app, format!("Luokkatulostus: {error}"), true);
+        }
+    });
+}
 pub(super) fn print_numbers(state: &mut State, app: &AppWindow, numbers: &[u32]) -> GuiResult<()> {
     let project = current_workspace(state)?
         .result_project()?

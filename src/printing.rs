@@ -36,6 +36,38 @@ pub enum Kind {
     Stations,
 }
 
+/// Tyhjä tai keskeneräinen luokka ei ole automaattisesti tulostusvalmis.
+pub fn class_is_complete(archive: &Archive, code: &str) -> bool {
+    let drivers: Vec<_> = archive
+        .competitors
+        .iter()
+        .filter(|d| d.class_code == code)
+        .collect();
+    !drivers.is_empty() && drivers.iter().all(|d| archive.can_publish_competitor(d))
+}
+
+/// Molemmat koonnit samalla tulostustyöllä; tunniste kattaa vain tulosteen sisällön.
+#[cfg(feature = "desktop")]
+pub fn completed_class_document(
+    archive: &Archive,
+    code: &str,
+) -> Result<Option<(String, Document)>, CoreError> {
+    use sha2::{Digest, Sha256};
+    if !class_is_complete(archive, code) {
+        return Ok(None);
+    }
+    let codes = [code.to_owned()];
+    let mut document = classes(archive, &codes, Kind::Classes, true, false)?;
+    document
+        .pages
+        .extend(classes(archive, &codes, Kind::Stations, true, false)?.pages);
+    document.title = format!("Luokan {code} luokka- ja asematulokset");
+    let bytes = serde_json::to_vec(&document)
+        .map_err(|_| invalid("Luokkatulosteen tunnisteen muodostus epäonnistui"))?;
+    let key = format!("{:x}", Sha256::digest(bytes));
+    Ok(Some((key, document)))
+}
+
 fn invalid(text: &str) -> CoreError {
     CoreError::InvalidInput(text.into())
 }
