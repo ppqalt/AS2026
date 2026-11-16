@@ -1,6 +1,6 @@
 # AS2026:n Slint-käyttöliittymäopas
 
-Tämä opas kuvaa AS2026 0.7.9:n käyttöliittymää. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
+Tämä opas kuvaa AS2026 0.7.10:n käyttöliittymää. Kilpailusäännöt, ajanoton yksiköt, hyväksyntöjen säilyttäminen ja Emit-editorin toiminta säilyvät ennallaan. Katso myös [kilpailun työvaiheet](KILPAILUTOIMINNOT.md) ja [yhteiset käyttöliittymäperiaatteet](UI_PERIAATTEET.md).
 
 ## Ulkoasun yhteiset arvot
 
@@ -260,3 +260,7 @@ Sovellus tarkistaa saatavilla olevan vakaan version automaattisesti taustalla ta
 Radat ja asemat -sivulla asemat näkyvät ylhäällä ja radat-lista alhaalla. Valitse rata alalistasta. Aseman rivi avaa aseman muokkauksen keskitettyyn ikkunaan; Valmis tai Esc sulkee sen validoinnin salliessa. Uusi asema avataan + Asema -painikkeesta. Radan tiedot -painike avaa valitun radan nimen omaan ikkunaan.
 
 Nykyinen ulkoasuvalikoima: [10 vaihtoehtoa ja teemojen sävyt](TEEMAT.md).
+
+## Version 0.7.10 lisäykset
+
+Myöhästymisraja annetaan kokonaisminuutteina. Luokat-sivun ja Asetusten raja on sama koko kilpailun laskenta-arvo; muutos laskee tallennetut tulokset uudelleen ja poistaa aiemmat hyväksynnät. Asetusten Tulostin-osion alla on Automatiikka parin tuloslapuille ja valmiin luokan koonneille. Tarkemmat ehdot ja muutokset: [version 0.7.10 muutosohje](ISSUE_63.md).
