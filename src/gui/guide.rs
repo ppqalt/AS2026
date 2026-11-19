@@ -77,7 +77,10 @@ pub(super) fn smoke(app: &AppWindow, state: &SharedState, directory: PathBuf) ->
                 let state = shared.borrow();
                 let document = state.last_print.as_ref().expect("QR-tuloste siirtyy tulostusjonoon");
                 assert_eq!(document.pages.len(),1); assert!(!document.pages[0].rectangles.is_empty());
+                #[cfg(windows)]
                 as2026::printing::preview_png(document,&directory.join("qr-tuloste")).unwrap();
+                #[cfg(not(windows))]
+                std::fs::write(directory.join("qr-tuloste.ps"),as2026::printing::postscript(document)).unwrap();
             }
             7 => {
                 save_view(&app,&directory.join("07-qr-tulostus.png")).unwrap();
