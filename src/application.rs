@@ -593,6 +593,7 @@ pub fn capture_manual_result(
     capture_manual_archive(&archive, c)
 }
 
+#[cfg(feature = "desktop")]
 pub(crate) fn capture_tulkki_interim_result(
     project: &crate::native::Project,
     number: u32,
