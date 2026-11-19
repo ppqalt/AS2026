@@ -1,0 +1,60 @@
+import { UiButton as Button, UiComboBox as ComboBox, UiScrollView as ScrollView } from "presets.slint";
+import { Theme } from "theme.slint";
+import { Heading, Note, DialogSurface } from "components.slint";
+
+export struct GuideStep { title: string, body: string, button: string, page: int }
+
+export component CompetitionGuide inherits Rectangle {
+    in property <[GuideStep]> steps;
+    in-out property <int> topic;
+    in-out property <length> scroll-offset;
+    callback topic-changed(int);
+    callback go(int);
+    callback close();
+    background: Theme.modal-backdrop;
+    TouchArea { scroll-event(event) => { accept } }
+    Timer { interval: 1ms; running: true; triggered => { self.running = false; topics.focus(); } }
+    FocusScope {
+        width: root.width; height: root.height;
+        capture-key-pressed(event) => {
+            if event.text == Key.Escape { root.close(); return accept; }
+            reject
+        }
+        DialogSurface {
+            available-width: root.width; available-height: root.height;
+            preferred-dialog-width: 560px;
+            minimum-dialog-height: 380px; maximum-dialog-height: 1000px;
+            content-dialog-height: guide-content.min-height + 180px;
+            Heading { x: Theme.dialog-padding; y: Theme.dialog-padding; text: "Ohjeet"; }
+            topics := ComboBox {
+                x: Theme.dialog-padding; y: 64px;
+                width: parent.width - 2 * Theme.dialog-padding;
+                model: ["Manuaalinen ajanotto", "Emit-ajanotto", "AS tulkin käyttö"];
+                current-index <=> root.topic;
+                selected(_) => { root.topic-changed(self.current-index); }
+            }
+            ScrollView {
+                x: Theme.dialog-padding; y: 112px;
+                width: parent.width - 2 * Theme.dialog-padding;
+                height: parent.height - 180px;
+                content-width: self.visible-width;
+                content-y <=> root.scroll-offset;
+                guide-content := VerticalLayout {
+                    width: parent.visible-width;
+                    padding-right: 12px; spacing: Theme.space-4;
+                    for step[index] in root.steps: VerticalLayout {
+                        spacing: Theme.space-2;
+                        Text { text: "\{index + 1}. \{step.title}"; font-size: Theme.body-font-size; font-weight: 600; color: Theme.ink; wrap: word-wrap; }
+                        Note { text: step.body; }
+                        HorizontalLayout {
+                            Button { text: step.button; clicked => { root.go(step.page); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                }
+            }
+            Button { x: parent.width - self.width - Theme.dialog-padding; y: parent.height - Theme.dialog-padding - self.height;
+                text: "Sulje"; clicked => { root.close(); } }
+        }
+    }
+}

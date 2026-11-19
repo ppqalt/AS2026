@@ -98,7 +98,7 @@ export component TulkkiDialog inherits Rectangle {
                         connection-button:=Button {text:root.closed ? "Avaa puhelinyhteys" : "Sulje puhelinyhteys";enabled:root.configured && !root.busy && !root.receiving;clicked=>{root.manage(0);}}
                         rotate-button:=Button {text:"Vaihda liittymiskoodi";enabled:root.configured && !root.busy && !root.receiving;clicked=>{root.manage(1);}}
                     }
-                    Text { height: self.preferred-height; text: root.status; color: root.error ? Theme.danger : Theme.ink; wrap: word-wrap; }
+                    Text { height: self.preferred-height; text: root.status; color: root.error ? Theme.danger : Theme.success; wrap: word-wrap; }
                     auto-results := CheckBox {
                         text: "Hyväksy ja tulosta valmiit tulokset automaattisesti";
                         checked: root.automatic; enabled: root.configured && !root.busy && !root.receiving;

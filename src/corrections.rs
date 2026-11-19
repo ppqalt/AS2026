@@ -3,9 +3,16 @@
 use crate::{CoreError, RouteStation, legacy::StationResult, scoring};
 use serde::{Deserialize, Serialize};
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StoredResult {
+    /// Puhelimen ajat ennen Emit-kortin lukua. Ei ole hyväksyttävä lopputulos.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub tulkin_valiaikatulos: bool,
     #[serde(default)]
     pub ilman_emit: bool,
     #[serde(default)]
@@ -193,7 +200,8 @@ impl StoredResult {
             .collect()
     }
     pub fn can_approve(&self) -> bool {
-        if self.rivit.is_empty()
+        if self.tulkin_valiaikatulos
+            || self.rivit.is_empty()
             || !matches!(self.tila.as_str(), "TRK" | "KESK")
             || !self.pending_manual_clocks().is_empty()
             || self.kasikellot_muuttuneet
@@ -217,6 +225,15 @@ impl StoredResult {
             })
             .collect::<Result<Vec<_>, CoreError>>();
         route.is_ok_and(|route| self.validate_route(&route).is_ok())
+    }
+
+    /// Tunnetut puhelinajat saavat pisteet jo ennen koko kilpailun valmistumista.
+    pub fn has_interim_points(&self) -> bool {
+        self.tulkin_valiaikatulos
+            && !self.rivit.is_empty()
+            && !self.kasin_annetut_kellot.is_empty()
+            && !self.kasikellot_muuttuneet
+            && self.virheelliset_ajat.is_empty()
     }
 
     pub fn as_station_results(&self) -> Vec<StationResult> {

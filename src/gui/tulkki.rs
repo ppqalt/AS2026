@@ -666,6 +666,26 @@ pub(super) fn bind(state: &SharedState, app: &AppWindow, timer: &Timer) {
     });
     let shared = state.clone();
     let weak = app.as_weak();
+    app.on_print_tulkki_qr(move || {
+        let Some(app) = weak.upgrade() else {
+            return;
+        };
+        let mut state = shared.borrow_mut();
+        let result = (|| -> GuiResult<()> {
+            let config =
+                config(&state).ok_or_else(|| invalid("Avaa kilpailun AS tulkki -yhteys"))?;
+            let link = config.join_url().map_err(|e| invalid(&e))?;
+            let name = config.name.clone();
+            let code = config.join_code.clone();
+            printing::print_join_qr(&mut state, &app, &name, &link, &code)
+        })();
+        match result {
+            Ok(()) => status(&app, "QR-koodin tulostustyö käynnistetty.", false),
+            Err(error) => status(&app, error.to_string(), true),
+        }
+    });
+    let shared = state.clone();
+    let weak = app.as_weak();
     app.on_open_result_tulkki(move || {
         if let Some(app) = weak.upgrade() {
             let number = selected_number(&shared.borrow()).ok();

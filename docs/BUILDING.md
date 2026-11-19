@@ -100,6 +100,21 @@ ovat historiallista aineistoa, eivät tämän version hyväksyntätesti.
 
 ## Kahden GUI:n lähiverkko- ja palautumiskoe
 
+Yleiskatsauksen Ohjeet-ikkunan synteettinen koe tarkistaa kaikki kolme osiota,
+pikapainikkeet, tietojen säilymisen, vierityksen, Tab/Esc-näppäimet ja kaksi
+ikkunakokoa. Aja käännetyllä GUI:lla molemmat skaalaukset:
+
+```powershell
+$env:AS2026_GUIDE_GUI_TEST='1'
+$env:SLINT_SCALE_FACTOR='1'
+target/debug/as2026-gui.exe --demo --smoke-test --capture-dir target/ohjeet-100
+$env:SLINT_SCALE_FACTOR='1.5'
+target/debug/as2026-gui.exe --demo --smoke-test --capture-dir target/ohjeet-150
+```
+
+Kuvat ja `result.txt` tallentuvat koehakemistoon. Koe käyttää erillistä
+esimerkkikilpailua, eikä muuta järjestäjän kilpailua.
+
 AS tulkin erillinen synteettinen vastaanottokoe käyttää vain `--demo`-kilpailua:
 
 ```powershell

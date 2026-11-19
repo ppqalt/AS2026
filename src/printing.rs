@@ -23,6 +23,15 @@ pub struct Line {
 pub struct Page {
     pub texts: Vec<Text>,
     pub lines: Vec<Line>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rectangles: Vec<FilledRectangle>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FilledRectangle {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Document {
@@ -845,6 +854,12 @@ pub fn postscript(document: &Document) -> String {
             out.push_str(&format!(
                 "newpath {} {} moveto {} {} lineto stroke\n",
                 l.x, l.y, l.x2, l.y2
+            ));
+        }
+        for r in &page.rectangles {
+            out.push_str(&format!(
+                "{} {} {} {} rectfill\n",
+                r.x, r.y, r.width, r.height
             ));
         }
         for t in &page.texts {

@@ -5,12 +5,17 @@ export component TulkkiQrDialog inherits Rectangle {
     in property <image> qr;
     in property <string> link;
     in property <string> code;
+    in property <string> status;
+    in property <bool> error;
+    in property <bool> busy;
+    private property <bool> submitted;
+    callback print();
     callback close;
     background:Theme.modal-backdrop;TouchArea { scroll-event(event) => { accept } }
     Timer {interval:1ms;running:true;triggered=>{self.running=false;close-button.focus();}}
     FocusScope {
         width:root.width;height:root.height;init=>{close-button.focus();}
-        capture-key-pressed(event)=>{if event.text==Key.Escape{root.close();return accept;}if event.text==Key.Tab {if close-button.has-focus{link-field.focus();}else{close-button.focus();}return accept;}reject}
+        capture-key-pressed(event)=>{if event.text==Key.Escape{root.close();return accept;}reject}
         DialogSurface {
             available-width:root.width;available-height:root.height;preferred-dialog-width:560px;preferred-dialog-height:640px;
             VerticalLayout {
@@ -24,8 +29,12 @@ export component TulkkiQrDialog inherits Rectangle {
                 }
                 Note {text:"Liittymiskoodi: "+root.code;}
                 link-field:=LineEdit {text:root.link;read-only:true;accessible-label:"Kilpailuun liittymislinkki";}
+                if root.submitted: Note { text: root.status; color: root.error ? Theme.danger : Theme.success; }
                 }}
-                DialogActions {close-button:=Button {text:"Sulje";clicked=>{root.close();}}}
+                DialogActions {
+                    close-button:=Button {text:"Sulje";clicked=>{root.close();}}
+                    Button {text:"Tulosta QR-koodi";enabled:!root.busy;clicked=>{root.submitted=true;root.print();}}
+                }
             }
         }
     }

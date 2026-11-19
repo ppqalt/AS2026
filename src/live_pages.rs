@@ -734,6 +734,9 @@ fn live_state(
         driver.lisavirheet.ylimaaraiset_rt_pisteet,
     )?;
     let mut other = driver.lisavirheet.muut_virhepisteet;
+    if let Some(result) = stored.filter(|r| r.tulkin_valiaikatulos) {
+        other = add(other, result.puuttuvien_at_pisteet)?;
+    }
     let mut time = 0i64;
     if let Some(result) = stored {
         // Sama aika-asemien tyyppi- ja järjestyskohdistus kuin puhelinaikojen vastaanotossa.

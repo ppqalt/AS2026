@@ -593,6 +593,17 @@ pub fn capture_manual_result(
     capture_manual_archive(&archive, c)
 }
 
+pub(crate) fn capture_tulkki_interim_result(
+    project: &crate::native::Project,
+    number: u32,
+) -> Result<crate::corrections::StoredResult, CoreError> {
+    let mut paper = project.clone();
+    paper.kilpailu.ajanottotapa = 0;
+    let mut result = capture_manual_result(&paper, number)?;
+    result.tulkin_valiaikatulos = true;
+    Ok(result)
+}
+
 fn capture_manual_archive(
     archive: &Archive,
     c: &Competitor,
@@ -780,6 +791,7 @@ fn snapshot_for_calculation(
         .to_core()
         .map_err(|e| invalid(e.to_string()))?;
     Ok(crate::corrections::StoredResult {
+        tulkin_valiaikatulos: false,
         ilman_emit: false,
         puuttuvien_at_pisteet: 0,
         puuttuvat_aikamerkinnat: Vec::new(),
@@ -825,7 +837,7 @@ pub fn validate_project_result(
 ) -> Result<(), CoreError> {
     let mut archive = project.to_archive()?;
     if stored.ilman_emit {
-        if project.kilpailu.ajanottotapa != 0 {
+        if project.kilpailu.ajanottotapa != 0 && !stored.tulkin_valiaikatulos {
             return Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"));
         }
         crate::manual_timing::normalize(&mut archive);
@@ -850,7 +862,7 @@ pub fn recalculate_stored_result(
 ) -> Result<crate::corrections::StoredResult, CoreError> {
     let mut archive = project.to_archive()?;
     if stored.ilman_emit {
-        if project.kilpailu.ajanottotapa != 0 {
+        if project.kilpailu.ajanottotapa != 0 && !stored.tulkin_valiaikatulos {
             return Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"));
         }
         crate::manual_timing::normalize(&mut archive);
@@ -871,6 +883,7 @@ pub fn recalculate_stored_result(
     let mut result = snapshot_for_calculation(&archive, c, calculated)?;
     result.kasin_annetut_kellot = stored.kasin_annetut_kellot.clone();
     result.ilman_emit = stored.ilman_emit;
+    result.tulkin_valiaikatulos = stored.tulkin_valiaikatulos;
     result.puuttuvien_at_pisteet = stored.puuttuvien_at_pisteet;
     if result.ilman_emit {
         result.emit_kortti = None;
@@ -895,6 +908,12 @@ fn apply_result(
     c: &mut Competitor,
     result: &crate::corrections::StoredResult,
 ) -> Result<(), CoreError> {
+    if result.tulkin_valiaikatulos {
+        c.header_fields[25] = header_number(c, 25, "Muut virhepisteet")?
+            .checked_add(result.puuttuvien_at_pisteet)
+            .ok_or(CoreError::ArithmeticOverflow("Väliaikatuloksen AT-pisteet"))?
+            .to_string();
+    }
     let total = crate::scoring::competitor_total([
         result.aikavirheet,
         result.asemien_muut_virheet,
@@ -941,35 +960,41 @@ pub fn calculated_project(project: &crate::native::Project) -> Result<Archive, C
             .iter()
             .find(|d| d.numero == competitor.number)
             .expect("projektin kilpailija");
-        let (result, blocked) = if let Some(stored) = &driver.tallennettu_tulos {
-            let validation = if stored.ilman_emit && project.kilpailu.ajanottotapa != 0 {
-                Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"))
-            } else {
-                route_for(
-                    if stored.ilman_emit {
-                        &paper_archive
-                    } else {
-                        &archive
-                    },
-                    competitor,
-                )
-                .and_then(|r| r.to_core().map_err(|e| invalid(e.to_string())))
-                .and_then(|route| stored.validate_route(&route))
-            };
-            let blocked = validation.is_err();
-            (validation.map(|()| stored.clone()), blocked)
-        } else {
-            (
-                if project.kilpailu.ajanottotapa == 0
-                    && project.active_readout(driver.emit).is_none()
+        let (result, blocked) =
+            if let Some(stored) = driver.tallennettu_tulos.as_ref().filter(|r| {
+                !r.tulkin_valiaikatulos || project.active_readout(driver.emit).is_none()
+            }) {
+                let validation = if stored.ilman_emit
+                    && project.kilpailu.ajanottotapa != 0
+                    && !stored.tulkin_valiaikatulos
                 {
-                    capture_manual_archive(&paper_archive, competitor)
+                    Err(invalid("Manuaalisen tuloksen ajanottotapa on muuttunut"))
                 } else {
-                    capture_archive_operational(&archive, competitor)
-                },
-                false,
-            )
-        };
+                    route_for(
+                        if stored.ilman_emit {
+                            &paper_archive
+                        } else {
+                            &archive
+                        },
+                        competitor,
+                    )
+                    .and_then(|r| r.to_core().map_err(|e| invalid(e.to_string())))
+                    .and_then(|route| stored.validate_route(&route))
+                };
+                let blocked = validation.is_err();
+                (validation.map(|()| stored.clone()), blocked)
+            } else {
+                (
+                    if project.kilpailu.ajanottotapa == 0
+                        && project.active_readout(driver.emit).is_none()
+                    {
+                        capture_manual_archive(&paper_archive, competitor)
+                    } else {
+                        capture_archive_operational(&archive, competitor)
+                    },
+                    false,
+                )
+            };
         resolved.push((competitor.number, result, blocked));
     }
     for (number, result, blocked) in resolved {

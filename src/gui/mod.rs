@@ -1,6 +1,7 @@
 //! Slint-sovitin. Kilpailutieto, laskenta ja tallennus kuuluvat yhteiseen ytimeen.
 mod class_selection;
 mod gallery;
+mod guide;
 mod input_mode;
 slint::include_modules!();
 mod background;
@@ -1156,6 +1157,7 @@ fn can_follow_readout(state: &State, app: &AppWindow) -> bool {
         && !is_new(&state.selection)
         && !app.get_dialog_open()
         && !app.get_about_open()
+        && !app.get_guide_open()
         && !app.get_confirm_open()
         && !app.get_start_columns_open()
         && !app.get_draw_classes_open()
@@ -1888,6 +1890,22 @@ fn bind(app: &AppWindow, state: &SharedState, reader_timer: &Rc<Timer>) {
         Ok(())
     });
     action!(on_navigate, |s, a, page| navigate(s, &a, page));
+    action!(on_open_guide, |_s, a| {
+        guide::select(&a, a.get_guide_topic());
+        a.set_guide_open(true);
+        Ok(())
+    });
+    action!(on_guide_topic_changed, |_s, a, topic| {
+        guide::select(&a, topic);
+        Ok(())
+    });
+    action!(on_guide_go, |s, a, page| {
+        navigate(s, &a, page)?;
+        if s.page == page {
+            a.set_guide_open(false);
+        }
+        Ok(())
+    });
     action!(on_emit_edit_select_driver, |s, a, index| {
         emit_correction::select_driver(s, &a, index)
     });
@@ -4025,9 +4043,21 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    if let Some(directory) =
-        captures.filter(|_| !menu_test && _tulkki_smoke.is_none() && _issue63_smoke.is_none())
-    {
+    let _guide_smoke = if std::env::var_os("AS2026_GUIDE_GUI_TEST").is_some() {
+        if !demo || !smoke_test {
+            return Err("Ohjekoe tarvitsee --demo --smoke-test".into());
+        }
+        Some(guide::smoke(
+            &app,
+            &state,
+            captures.clone().ok_or("Ohjekoe tarvitsee --capture-dir")?,
+        )?)
+    } else {
+        None
+    };
+    if let Some(directory) = captures.filter(|_| {
+        !menu_test && _tulkki_smoke.is_none() && _issue63_smoke.is_none() && _guide_smoke.is_none()
+    }) {
         if emit_correction_test {
             emit_correction::capture(&app, state.clone(), directory)?;
         } else {
