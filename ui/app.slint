@@ -11,6 +11,8 @@ import { DrawClassDialog } from "draw-classes.slint";
 import { CombinedClassDialog } from "combined-class.slint";
 import { BeginnersCupDialog } from "beginners-cup.slint";
 import { LivePublishDialog } from "live-publish.slint";
+import { CompetitionGuide, GuideStep } from "competition-guide.slint";
+export { GuideStep }
 import { TulkkiDialog } from "tulkki-yhteys.slint";
 import { TulkkiQrDialog } from "tulkki-qr.slint";
 import { TulkintaDialog } from "tulkki-tulkinnat.slint";
@@ -56,6 +58,7 @@ export component AppWindow inherits Window {
     in-out property <string> tulkki-code;
     in-out property <bool> tulkki-qr-ready;
     in-out property <bool> tulkki-qr-open;
+    callback print-tulkki-qr();
     in-out property <image> tulkki-qr-image;
     in-out property <string> tulkki-qr-link;
     callback open-tulkki-qr();
@@ -281,6 +284,13 @@ export component AppWindow inherits Window {
     in-out property <string> new-path;
     in-out property <string> path-input;
     callback navigate(int);
+    in-out property <bool> guide-open;
+    in-out property <int> guide-topic;
+    in-out property <length> guide-scroll-offset;
+    in-out property <[GuideStep]> guide-steps;
+    callback open-guide();
+    callback guide-topic-changed(int);
+    callback guide-go(int);
     callback focus-page();
     focus-page => {
         if !root.start-columns-open && !root.lan-open && !root.export-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open && !root.install-busy {
@@ -316,6 +326,7 @@ export component AppWindow inherits Window {
     in-out property <string> rt-summary-text;
     callback right-row-selection();
     in-out property <bool> right-row-open;
+    in-out property <bool> right-row-saved;
     in-out property <bool> right-row-view-only;
     in-out property <[string]> right-row-sheets;
     in-out property <[string]> right-row-routes;
@@ -486,6 +497,7 @@ export component AppWindow inherits Window {
     focus-on-click: false;
     focus-on-tab-navigation: false;
     capture-key-pressed(event) => {
+        if root.guide-open && event.text == Key.Escape { root.guide-open = false; return accept; }
         if root.install-busy { return accept; }
         if root.tulkki-qr-open {if event.text==Key.Escape{root.tulkki-qr-open=false;return accept;}return reject;}
         if root.rt-summary-open {if event.text==Key.Escape {root.rt-summary-open=false;root.focus-page();return accept;}return reject;}
@@ -530,7 +542,7 @@ export component AppWindow inherits Window {
                 return accept;
             }
         }
-        if event.modifiers.control && !root.tulkki-details-open && !root.tulkki-open && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.publish-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
+        if event.modifiers.control && !root.guide-open && !root.tulkki-details-open && !root.tulkki-open && !root.start-columns-open && !root.lan-open && !root.export-open && !root.emit-edit-open && !root.publish-open && !root.result-entry-open && !root.print-classes-open && !root.notes-open && !root.dialog-open && !root.about-open && !root.confirm-open && !root.draw-classes-open && !root.combined-open && !root.bc-open && !root.status-details-open && !root.setup-open {
             if event.text == "o" || event.text == "O" {
                 root.open-file();
                 return accept;
@@ -752,7 +764,11 @@ export component AppWindow inherits Window {
                         background: Theme.surface; border-color: Theme.line; border-width: 1px; border-radius: Theme.radius;
                         VerticalLayout {
                             padding: Theme.panel-padding; spacing: Theme.space-3;
-                            Text { text: "Kilpailun työvaiheet"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; }
+                            HorizontalLayout {
+                                Text { text: "Kilpailun työvaiheet"; font-size: Theme.section-font-size; font-weight: 600; color: Theme.ink; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Button { text: "Ohjeet"; clicked => { root.open-guide(); } }
+                            }
                             VerticalLayout {
                                 spacing: Theme.space-2;
                                 HorizontalLayout {
@@ -1211,8 +1227,8 @@ export component AppWindow inherits Window {
                 background: root.status-error ? Theme.danger-soft : Theme.surface;
                 HorizontalLayout {
                     padding-left: Theme.gutter; padding-right: Theme.gutter; padding-top: Theme.space-1; padding-bottom: Theme.space-1; spacing: Theme.space-3;
-                    Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.accent; font-weight: Theme.strong-font-weight; width: 14px; vertical-alignment: center; }
-                    Text { text: root.status-summary; color: root.status-error ? Theme.danger : Theme.muted; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
+                    Text { text: root.status-error || root.form-blocked ? "!" : root.editor-error != "" ? "i" : root.editable && root.opened ? "✓" : "i"; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.success; font-weight: Theme.strong-font-weight; width: 14px; vertical-alignment: center; }
+                    Text { text: root.status-summary; color: root.status-error ? Theme.danger : root.form-blocked ? Theme.warning : Theme.success; font-size: Theme.label-font-size; vertical-alignment: center; horizontal-stretch: 1; min-width: 0px; }
                 }
             }
         }
@@ -1788,7 +1804,7 @@ export component AppWindow inherits Window {
                         right-content := VerticalLayout {
                             x: 0px; y: 0px; width: right-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
-                            Note { text: root.confirm-text; }
+                            Note { text: root.confirm-text; color: root.right-row-open && root.right-row-saved ? Theme.success : Theme.muted; }
                             Text { text: "Syotto-välilehti"; color: Theme.ink; }
                             ComboBox { model: root.right-row-sheets; current-index <=> root.right-row-sheet; selected(value) => { root.right-row-selection(); } }
                             if !root.right-row-view-only: Text { text: "Kohderata"; color: Theme.ink; }
@@ -1804,7 +1820,7 @@ export component AppWindow inherits Window {
                         import-content := VerticalLayout {
                             x: 0px; y: 0px; width: import-scroll.visible-width; height: self.min-height;
                             spacing: Theme.space-3;
-                            Note { text: root.confirm-text; }
+                            Note { text: root.confirm-text; color: root.right-row-open && root.right-row-saved ? Theme.success : Theme.muted; }
                             if root.import-mode != 1: Note { text: "Radat voi valita myös tuonnin jälkeen Luokat-sivulla."; }
                             Text { text: "Kilpailun nimi"; color: Theme.ink; }
                             LineEdit { text <=> root.import-name; placeholder-text: "Kilpailun nimi"; }
@@ -1945,6 +1961,8 @@ export component AppWindow inherits Window {
     }
     if root.tulkki-qr-open: TulkkiQrDialog {
         width:root.width;height:root.height;qr:root.tulkki-qr-image;link:root.tulkki-qr-link;code:root.tulkki-code;
+        busy: root.print-busy; status: root.status-summary; error: root.status-error;
+        print => { root.print-tulkki-qr(); }
         close=>{root.tulkki-qr-open=false;}
     }
     if root.tulkki-details-open: TulkintaDialog {
@@ -1988,6 +2006,14 @@ export component AppWindow inherits Window {
         toggle(index, selected) => { root.print-class-toggled(index, selected); }
         select-all(selected) => { root.print-classes-all(selected); }
         close(accepted) => { root.print-classes-close(accepted); }
+    }
+    if root.guide-open: CompetitionGuide {
+        width: root.width; height: root.height;
+        steps: root.guide-steps; topic <=> root.guide-topic;
+        scroll-offset <=> root.guide-scroll-offset;
+        topic-changed(topic) => { root.guide-topic-changed(topic); }
+        go(page) => { root.guide-go(page); }
+        close => { root.guide-open = false; }
     }
     // Paikallinen yllätys: sama kuva 16 kertaa, kukin omalla pyörimisnopeudella.
     if root.effects-enabled && root.tung-active: Rectangle {

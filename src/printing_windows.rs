@@ -280,6 +280,21 @@ impl Canvas {
             }
         }
         let family = wide("Arial")?;
+        for rect in &page.rectangles {
+            if unsafe {
+                PatBlt(
+                    self.dc,
+                    self.x(rect.x),
+                    self.y(rect.y),
+                    self.x(rect.x + rect.width) - self.x(rect.x),
+                    self.y(rect.y + rect.height) - self.y(rect.y),
+                    BLACKNESS,
+                )
+            } == 0
+            {
+                return Err(error("Tulosteen QR-koodin ruutua ei voitu piirtää"));
+            }
+        }
         for text in &page.texts {
             if text.value.is_empty() {
                 continue;

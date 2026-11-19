@@ -443,7 +443,10 @@ fn result_row(
                 .find(|d| d.numero == driver.number)
         })
         .and_then(|driver| driver.tallennettu_tulos.as_ref())
-        .is_some_and(|result| !result.can_approve());
+        .is_some_and(|result| !result.can_approve() && !result.has_interim_points());
+    let interim = native
+        .and_then(|d| d.tallennettu_tulos.as_ref())
+        .is_some_and(|result| result.has_interim_points());
     row(
         index,
         vec![
@@ -452,7 +455,9 @@ fn result_row(
             driver.class_code.clone(),
             driver.driver.clone(),
             driver.navigator.clone(),
-            if native.is_some_and(|d| {
+            if interim {
+                "Väliaikatulos".into()
+            } else if native.is_some_and(|d| {
                 d.lahtoaika.is_empty()
                     || (project.is_some_and(|p| p.kilpailu.ajanottotapa != 0)
                         && d.emit_number().is_none())
@@ -477,10 +482,11 @@ fn result_row(
             if archive.has_confirmed_interruption(driver.number)
                 || pending
                 || driver.results.is_empty()
-                || !matches!(
-                    Status::from_legacy(&driver.status),
-                    Status::Classified | Status::Interrupted
-                )
+                || (!interim
+                    && !matches!(
+                        Status::from_legacy(&driver.status),
+                        Status::Classified | Status::Interrupted
+                    ))
             {
                 "-".into()
             } else if !archive.has_approved_result(driver.number) {
@@ -589,7 +595,9 @@ fn results(
         .map_or_else(Vec::new, |result| result.pending_manual_clocks());
     let calculated = !driver.results.is_empty()
         && snapshot_error.is_none()
-        && snapshot.as_ref().is_none_or(|result| result.can_approve());
+        && snapshot
+            .as_ref()
+            .is_none_or(|result| result.can_approve() || result.has_interim_points());
     let points = |index: usize| -> SharedString {
         // Korttiluvusta laskettuja aikapisteitä ei näytetä ilman laskentatulosta,
         // mutta kilpailijalle käsin tallennetut lisävirheet ovat silti tiedossa.
@@ -604,6 +612,15 @@ fn results(
     };
     let clock = |offset: usize| -> SharedString {
         if !calculated || interruption_confirmed {
+            return "-".into();
+        }
+        if snapshot.as_ref().is_some_and(|r| {
+            r.has_interim_points()
+                && r.rivit.last().is_some_and(|last| {
+                    pending_clocks.contains(&last.output_index)
+                        || r.puuttuvat_aikamerkinnat.contains(&last.output_index)
+                })
+        }) {
             return "-".into();
         }
         let fields = (0..3)
@@ -643,6 +660,10 @@ fn results(
         result_project.as_ref().map_or_else(
             || "AS2015A-aineisto · vain katselu".to_string(),
             |project| {
+                if snapshot.as_ref().is_some_and(|r| r.tulkin_valiaikatulos) {
+                    return "Väliaikatulos puhelimen ajoista · Emit-korttia ei ole vielä luettu"
+                        .into();
+                }
                 if snapshot.as_ref().is_some_and(|r| r.ilman_emit)
                     || application::uses_manual_entry(project, driver.number)
                 {
@@ -736,7 +757,9 @@ fn results(
             }
         )
         .into(),
-        status: if interrupted {
+        status: if snapshot.as_ref().is_some_and(|r| r.has_interim_points()) {
+            "Väliaikatulos".into()
+        } else if interrupted {
             "Keskeyttänyt".into()
         } else if archive.result_publication.is_some()
             && !archive.has_approved_result(driver.number)
@@ -1448,6 +1471,41 @@ mod tests {
         assert_eq!(summary.total, "-");
         assert_eq!(summary.finish, "-");
         assert_eq!(summary.start, "12:00:00");
+    }
+
+    #[test]
+    fn provisional_phone_times_and_points_are_visible_without_final_approval() {
+        let fixture = Fixture::new(|project| {
+            project.leimaluvut.clear();
+            let mut paper = project.clone();
+            paper.kilpailu.ajanottotapa = 0;
+            let mut result = application::capture_manual_result(&paper, 7).unwrap();
+            result.tulkin_valiaikatulos = true;
+            result.set_clock(2, [12, 6, 0]).unwrap();
+            result = application::recalculate_stored_result(project, 7, &result).unwrap();
+            assert!(!result.can_approve());
+            assert!(result.aikavirheet > 0);
+            project.kilpailijat[0].tallennettu_tulos = Some(result);
+        });
+        let view = data(&fixture.workspace, 3, 0, "").unwrap();
+        let expected = fixture.workspace.result_snapshot(7).unwrap().unwrap();
+        assert_eq!(view.result_overview.status, "Väliaikatulos");
+        assert_eq!(
+            view.result_overview.time_points,
+            format!("{} p", expected.aikavirheet)
+        );
+        assert_ne!(view.result_overview.total, "-");
+        assert_ne!(text(&view.rows[0], 6), "-");
+        assert_eq!(text(&view.rows[0], 5), "Väliaikatulos");
+        assert_eq!(text(&view.detail_rows[1], 5), "12:06:00");
+        assert_eq!(view.result_overview.finish, "-");
+        assert_eq!(view.result_overview.elapsed, "-");
+        assert!(
+            view.result_overview
+                .read_state
+                .contains("puhelimen ajoista")
+        );
+        assert!(!expected.can_approve());
     }
 
     #[test]

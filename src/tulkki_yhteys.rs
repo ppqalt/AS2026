@@ -499,13 +499,22 @@ pub(crate) fn manual_result(
         .iter()
         .find(|d| d.numero == number)
         .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
-    let mut result = match driver.tallennettu_tulos.as_ref().filter(|r| r.ilman_emit) {
-        Some(r) => {
-            application::validate_project_result(project, number, r)?;
-            r.clone()
-        }
-        None => application::capture_manual_result(project, number)?,
-    };
+    let mut result =
+        match driver.tallennettu_tulos.as_ref().filter(|r| {
+            r.ilman_emit && (project.kilpailu.ajanottotapa == 0 || r.tulkin_valiaikatulos)
+        }) {
+            Some(r) => {
+                application::validate_project_result(project, number, r)?;
+                r.clone()
+            }
+            None => {
+                if project.kilpailu.ajanottotapa == 0 {
+                    application::capture_manual_result(project, number)?
+                } else {
+                    application::capture_tulkki_interim_result(project, number)?
+                }
+            }
+        };
     let rows = result
         .rivit
         .iter()
@@ -770,12 +779,15 @@ fn validate_event(
                     || section.times.contains_key(*id)
                     || !entries.iter().any(|e| {
                         e["id"].as_str() == Some(id.as_str())
-                            && e["kind"] == "ula"
-                            && e["manualTime"].as_bool().unwrap_or(pair["emit"] == false)
+                            && matches!(e["kind"].as_str(), Some("at" | "jat" | "ula" | "maali"))
+                            && e["manualTime"].as_bool().unwrap_or(
+                                matches!(e["kind"].as_str(), Some("at" | "jat"))
+                                    || pair["emit"] == false,
+                            )
                     })
             })
         {
-            return Err("Täydennettävien ULA-aikojen luettelo ei kelpaa.".into());
+            return Err("Täydennettävien aikojen luettelo ei kelpaa.".into());
         }
         if signs != section.missing_signs || clocks != section.missing_times {
             return Err("Tulkinnan puuttuvien asemien määrät eivät vastaa asemaluetteloa.".into());
@@ -927,6 +939,14 @@ impl Config {
 
 /// Esiintymän pysyvä tunniste erottaa saman jakson kaksi samannumeroista kilpeä.
 pub fn manifest(project: &Project) -> Result<Value, String> {
+    for class in &project.luokat {
+        if !project.radat.iter().any(|r| r.numero == class.rata) {
+            return Err(format!(
+                "Luokalta {} puuttuu rata. Täydennä rata Luokat-näkymässä jatkaaksesi.",
+                class.tunnus
+            ));
+        }
+    }
     if project.kilpailijat.is_empty() {
         return Err("Lisää kilpailuparit ennen lähettämistä.".into());
     }
@@ -978,8 +998,8 @@ pub fn manifest(project: &Project) -> Result<Value, String> {
             .any(|r| r.rata == class.rata && !r.merkinnat.is_empty())
         {
             return Err(format!(
-                "Parin {} radalta {} puuttuu oikea rivi. Tuo se Kilvet-välilehdellä.",
-                pair.numero, class.rata
+                "Luokan {} radalta {} puuttuu oikea rivi. Täydennä tiedot Kilvet-näkymässä jatkaaksesi.",
+                class.tunnus, class.rata
             ));
         }
         pairs.push(json!({"number":pair.numero,"driver":pair.kuljettaja,"navigator":pair.kartanlukija,
@@ -1076,6 +1096,11 @@ pub fn compatible_row_change(old: &Value, new: &Value) -> bool {
             if let Some(name) = new["pairs"][i].get("className") {
                 p["className"] = name.clone();
             }
+            // Emitistä paperikorttiin siirtyminen säilyttää parin ja asemat.
+            // Lisääntyvät aikavaatimukset käsitellään täydennettävinä aikoina.
+            if p["emit"] == true && new["pairs"][i]["emit"] == false {
+                p["emit"] = json!(false);
+            }
         }
     } else {
         return false;
@@ -1102,7 +1127,17 @@ pub fn compatible_row_change(old: &Value, new: &Value) -> bool {
                 .filter(clock)
                 .filter(|e| e["kind"] != "ula" || old_clocks.iter().any(|old| old["id"] == e["id"]))
                 .collect::<Vec<_>>();
-            if old_clocks != retained {
+            if old_clocks.len() != retained.len()
+                || old_clocks.iter().zip(&retained).any(|(old, new)| {
+                    let mut expected = (*old).clone();
+                    // Käsin syöttämisen käyttöönotto ei vaihda asemaa. Poistamista
+                    // ei sallita, jotta jo kirjatut ajat eivät menetä merkitystään.
+                    if new["manualTime"] == true {
+                        expected["manualTime"] = json!(true);
+                    }
+                    expected != **new
+                })
+            {
                 return false;
             }
             for (i, e) in new_entries.iter().enumerate() {
@@ -1310,7 +1345,12 @@ fn normalize_received(config: &mut Config) -> Result<(), String> {
             .unwrap_or(false);
         receipt.section.pending_time_ids = entries
             .iter()
-            .filter(|e| e["kind"] == "ula" && e["manualTime"].as_bool().unwrap_or(!emit))
+            .filter(|e| {
+                matches!(e["kind"].as_str(), Some("at" | "jat" | "ula" | "maali"))
+                    && e["manualTime"]
+                        .as_bool()
+                        .unwrap_or(matches!(e["kind"].as_str(), Some("at" | "jat")) || !emit)
+            })
             .filter_map(|e| e["id"].as_str())
             .filter(|id| {
                 !receipt.section.missing_entry_ids.iter().any(|v| v == id)
@@ -1562,6 +1602,86 @@ otherErrors = 0
 
     use super::*;
 
+    #[test]
+    fn enable_manual_clock_after_interpretation_preserves_receipt() {
+        let mut config = receiving_config();
+        let old: Value = serde_json::from_str(&config.published_manifest).unwrap();
+        let mut revised = old.clone();
+        revised["routes"][0]["sections"][0]["entries"][3]["manualTime"] = json!(true);
+        assert!(compatible_row_change(&old, &revised));
+        assert!(!compatible_row_change(&revised, &old));
+        let mut moved = revised.clone();
+        moved["routes"][0]["sections"][0]["entries"][3]["kind"] = json!("ula");
+        assert!(!compatible_row_change(&old, &moved));
+        let mut event = event(1, "r1-j1");
+        event.sections[0].missing_entry_ids.retain(|id| id != "jat");
+        event.sections[0].missing_times = 0;
+        apply_page(&mut config, page(vec![event.clone()], 1, false)).unwrap();
+        adopt_manifest(&mut config, &revised, 2).unwrap();
+        let receipt = &config.received[0].section;
+        assert!(receipt.interpreted);
+        assert_eq!(receipt.pending_time_ids, vec!["jat"]);
+        assert_eq!(receipt.times["at"], "12:34:03");
+        assert_eq!(receipt.missing_entry_ids, vec!["b"]);
+        assert_eq!(receipt.missing_times, 0);
+        let mut completed = event;
+        completed.revision = 2;
+        completed.sections[0]
+            .times
+            .insert("jat".into(), "12:40:00".into());
+        validate_event(&completed, &revised, 2).unwrap();
+    }
+
+    #[test]
+    fn enabling_existing_ula_manual_time_is_compatible() {
+        let mut config = receiving_config();
+        let mut old: Value = serde_json::from_str(&config.published_manifest).unwrap();
+        old["routes"][0]["sections"][0]["entries"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"id":"ula","kind":"ula","label":"ULA","voided":false,"manualTime":false}));
+        config.published_manifest = old.to_string();
+        apply_page(&mut config, page(vec![event(1, "r1-j1")], 1, false)).unwrap();
+        let mut revised = old.clone();
+        revised["routes"][0]["sections"][0]["entries"][4]["manualTime"] = json!(true);
+        adopt_manifest(&mut config, &revised, 2).unwrap();
+        assert_eq!(config.received[0].section.pending_time_ids, vec!["ula"]);
+        assert_eq!(
+            config.received[0].section.missing_entry_ids,
+            vec!["b", "jat"]
+        );
+    }
+
+    #[test]
+    fn switching_to_paper_timing_preserves_receipts_and_requests_missing_clocks() {
+        let mut config = receiving_config();
+        apply_page(
+            &mut config,
+            page(vec![event(1, "r1-j1"), event(2, "r1-j2")], 2, false),
+        )
+        .unwrap();
+        let old: Value = serde_json::from_str(&config.published_manifest).unwrap();
+        let mut revised = old.clone();
+        revised["pairs"][0]["emit"] = json!(false);
+        for section in revised["routes"][0]["sections"].as_array_mut().unwrap() {
+            for entry in section["entries"].as_array_mut().unwrap() {
+                if matches!(entry["kind"].as_str(), Some("at" | "jat" | "ula" | "maali")) {
+                    entry["manualTime"] = json!(true);
+                }
+            }
+        }
+        assert!(compatible_row_change(&old, &revised));
+        assert!(!compatible_row_change(&revised, &old));
+        adopt_manifest(&mut config, &revised, 2).unwrap();
+        assert_eq!(config.received[0].section.times["at"], "12:34:03");
+        assert_eq!(
+            config.received[0].section.missing_entry_ids,
+            vec!["b", "jat"]
+        );
+        assert_eq!(config.received[1].section.pending_time_ids, vec!["m"]);
+        assert!(config.received.iter().all(|r| r.section.interpreted));
+    }
+
     fn receiving_config() -> Config {
         let mut config = Config::prepare("https://example.fi", "user", "Koekilpailu").unwrap();
         config.competition_id = 7;
@@ -1575,6 +1695,18 @@ otherErrors = 0
             {"id":"r1-j2","name":"Maali","entries":[{"id":"m","label":"M","kind":"maali","voided":false,"manualTime":false}]}]}],
             "pairs":[{"number":101,"driver":"Aino","navigator":"Eero","routeId":"r1","emit":true}]}).to_string();
         config
+    }
+    #[test]
+    fn publication_distinguishes_missing_class_route_from_missing_right_row() {
+        let (mut project, _) = paper_fixture();
+        project.luokat[0].rata = 0;
+        let error = manifest(&project).unwrap_err();
+        assert!(error.contains("Luokalta") && error.contains("rata"));
+        assert!(!error.contains("Parin"));
+        project.luokat[0].rata = project.radat[0].numero;
+        project.oikeat_rivit.clear();
+        let error = manifest(&project).unwrap_err();
+        assert!(error.contains("oikea rivi"));
     }
     #[test]
     fn qr_join_link_contains_only_public_join_details_and_keeps_subdirectory() {

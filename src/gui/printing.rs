@@ -156,6 +156,17 @@ fn queue(state: &mut State, app: &AppWindow, document: Document) -> GuiResult<()
     Ok(())
 }
 
+pub(super) fn print_join_qr(
+    state: &mut State,
+    app: &AppWindow,
+    name: &str,
+    link: &str,
+    code: &str,
+) -> GuiResult<()> {
+    let document = as2026::join_qr::document(name, link, code).map_err(|e| invalid(&e))?;
+    queue(state, app, document)
+}
+
 pub(super) fn process_class_automation(state: &mut State, app: &AppWindow) -> GuiResult<()> {
     if app.get_print_busy()
         || app.get_result_entry_open()

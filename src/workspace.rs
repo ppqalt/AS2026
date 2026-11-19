@@ -361,7 +361,11 @@ impl Workspace {
             .iter()
             .find(|d| d.numero == number)
             .ok_or_else(|| invalid("Kilpailijaa ei löydy"))?;
-        if let Some(stored) = &driver.tallennettu_tulos {
+        if let Some(stored) = driver
+            .tallennettu_tulos
+            .as_ref()
+            .filter(|r| !r.tulkin_valiaikatulos || project.active_readout(driver.emit).is_none())
+        {
             return Ok(Some(stored.clone()));
         }
         if project.active_readout(driver.emit).is_none() {
@@ -452,11 +456,14 @@ impl Workspace {
     }
     fn ensure_readout_result_current(&mut self, number: u32) -> Result<(), CoreError> {
         self.update(|project| {
-            if project
-                .kilpailijat
-                .iter()
-                .any(|d| d.numero == number && d.tallennettu_tulos.is_none())
-            {
+            if project.kilpailijat.iter().any(|d| {
+                d.numero == number
+                    && (d.tallennettu_tulos.is_none()
+                        || d.tallennettu_tulos
+                            .as_ref()
+                            .is_some_and(|r| r.tulkin_valiaikatulos)
+                            && project.active_readout(d.emit).is_some())
+            }) {
                 let result = application::capture_entry_result(project, number)?;
                 project
                     .kilpailijat
@@ -554,7 +561,46 @@ impl Workspace {
             .iter()
             .flat_map(|r| &r.merkinnat)
             .any(|e| !e.mitatoity && voids.contains(&e.tunniste));
-        if crate::tulkki_yhteys::penalty_changes(project, config)?.is_empty() && !flags_changed {
+        let mut interim_updates = std::collections::BTreeMap::new();
+        if project.kilpailu.ajanottotapa != 0 {
+            for driver in &project.kilpailijat {
+                let result = if project.active_readout(driver.emit).is_some() {
+                    if driver
+                        .tallennettu_tulos
+                        .as_ref()
+                        .is_some_and(|r| r.tulkin_valiaikatulos)
+                    {
+                        Some(crate::application::capture_project_result(
+                            project,
+                            driver.numero,
+                        )?)
+                    } else {
+                        None
+                    }
+                } else if config
+                    .received
+                    .iter()
+                    .any(|r| r.pair_number == driver.numero && !r.section.times.is_empty())
+                {
+                    Some(crate::tulkki_yhteys::manual_result(
+                        project,
+                        config,
+                        driver.numero,
+                    )?)
+                } else {
+                    None
+                };
+                if let Some(result) = result
+                    && driver.tallennettu_tulos.as_ref() != Some(&result)
+                {
+                    interim_updates.insert(driver.numero, result);
+                }
+            }
+        }
+        if crate::tulkki_yhteys::penalty_changes(project, config)?.is_empty()
+            && !flags_changed
+            && interim_updates.is_empty()
+        {
             return Ok(false);
         }
         self.update(|project| {
@@ -595,6 +641,15 @@ impl Workspace {
                     financial |= driver.tallennettu_tulos.as_ref() != Some(&result);
                     driver.tallennettu_tulos = Some(result);
                 }
+            }
+            for (number, result) in interim_updates {
+                let driver = project
+                    .kilpailijat
+                    .iter_mut()
+                    .find(|d| d.numero == number)
+                    .unwrap();
+                driver.tallennettu_tulos = Some(result);
+                financial = true;
             }
             Ok(financial)
         })

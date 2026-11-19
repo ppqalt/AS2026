@@ -248,6 +248,7 @@ pub(super) fn open(state: &mut State, app: &AppWindow, saved: bool) -> GuiResult
 }
 
 pub(super) fn refresh(state: &mut State, app: &AppWindow) -> GuiResult<()> {
+    app.set_right_row_saved(false);
     state.right_row_replacement_basis = None;
     if !app.get_right_row_view_only() {
         app.set_confirm_action_label("Tallenna oikea rivi".into());
@@ -305,6 +306,7 @@ pub(super) fn refresh(state: &mut State, app: &AppWindow) -> GuiResult<()> {
 }
 
 pub(super) fn finish(state: &mut State, app: &AppWindow, accepted: bool) -> GuiResult<()> {
+    app.set_right_row_saved(false);
     if accepted && !app.get_right_row_view_only() {
         let preview = state
             .right_row_previews
@@ -415,6 +417,7 @@ pub(super) fn finish(state: &mut State, app: &AppWindow, accepted: bool) -> GuiR
         update_page(state, app);
         app.set_right_row_error("".into());
         app.set_confirm_text(format!("Oikea rivi tallennettu radalle {route}. Valitse seuraava välilehti ja kohderata tai lopeta Poistu-painikkeesta.").into());
+        app.set_right_row_saved(true);
         return Ok(());
     }
     app.set_right_row_open(false);
